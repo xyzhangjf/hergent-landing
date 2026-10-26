@@ -92,74 +92,55 @@
       <div v-else class="state-empty">待审队列为空</div>
     </div>
 
-    <!-- 新建/编辑品牌弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="formOpen" class="ba-overlay" @click="formOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="formOpen" class="ba-modal">
-          <div class="ba-modal-hd"><b>{{ formMode === 'create' ? '新建品牌' : ('编辑品牌 · ' + editTarget?.name) }}</b><button class="ba-x" @click="formOpen = false"><Icon name="close"/></button></div>
-          <div class="ba-modal-body">
-            <label class="ba-field"><span>品牌名称 *</span><input v-model="editForm.name" class="input" placeholder="必填，如 蒙牛 / 伊利"></label>
-            <label class="ba-field"><span>厂商</span><input v-model="editForm.manufacturer" class="input"></label>
-            <label class="ba-field"><span>等级</span><input v-model="editForm.tier" class="input" placeholder="如 KA / BC / 便利店"></label>
-            <label class="ba-field"><span>统一社会信用代码</span><input v-model="editForm.credit_code" class="input"></label>
-            <label class="ba-field"><span>官网</span><input v-model="editForm.website" class="input"></label>
-            <label class="ba-field"><span>联系方式</span><input v-model="editForm.contact_info" class="input"></label>
-            <label class="ba-field ba-field-wide"><span>备注</span><input v-model="editForm.description" class="input"></label>
-          </div>
-          <div class="ba-modal-ft">
-            <button class="btn btn-ghost" @click="formOpen = false">取消</button>
-            <button class="btn btn-primary" :disabled="!editForm.name.trim()" @click="saveForm">保存</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- 新建/编辑品牌弹窗（v691：骨架走公共 Modal；布局放 slot 内的 wrapper，
+         因为子组件内部元素只带子组件 scope id，页面 scoped 的 .ba-modal-body 命中不到） -->
+    <Modal guard-close :show="formOpen" :width="460"
+           :title="formMode === 'create' ? '新建品牌' : ('编辑品牌 · ' + (editTarget?.name || ''))"
+           @close="formOpen = false">
+      <div class="ba-fields">
+        <label class="ba-field"><span>品牌名称 *</span><input v-model="editForm.name" class="input" placeholder="必填，如 蒙牛 / 伊利"></label>
+        <label class="ba-field"><span>厂商</span><input v-model="editForm.manufacturer" class="input"></label>
+        <label class="ba-field"><span>等级</span><input v-model="editForm.tier" class="input" placeholder="如 KA / BC / 便利店"></label>
+        <label class="ba-field"><span>统一社会信用代码</span><input v-model="editForm.credit_code" class="input"></label>
+        <label class="ba-field"><span>官网</span><input v-model="editForm.website" class="input"></label>
+        <label class="ba-field"><span>联系方式</span><input v-model="editForm.contact_info" class="input"></label>
+        <label class="ba-field ba-field-wide"><span>备注</span><input v-model="editForm.description" class="input"></label>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost" @click="formOpen = false">取消</button>
+        <button class="btn btn-primary" :disabled="!editForm.name.trim()" @click="saveForm">保存</button>
+      </template>
+    </Modal>
 
     <!-- 停用确认弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="disableOpen" class="ba-overlay" @click="disableOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="disableOpen" class="ba-modal">
-          <div class="ba-modal-hd"><b>停用品牌</b><button class="ba-x" @click="disableOpen = false"><Icon name="close"/></button></div>
-          <div class="ba-modal-body ba-body-stack">
-            <p class="ba-tip warn-text">确认停用「{{ disableTarget?.name }}」？<br>停用后该品牌仍保留在历史商品记录里，只是不再作为可选规范品牌。</p>
-          </div>
-          <div class="ba-modal-ft">
-            <button class="btn btn-ghost" @click="disableOpen = false">取消</button>
-            <button class="btn btn-danger" @click="confirmDisable">确认停用</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <Modal guard-close :show="disableOpen" :width="460" title="停用品牌" @close="disableOpen = false">
+      <p class="ba-tip warn-text">确认停用「{{ disableTarget?.name }}」？<br>停用后该品牌仍保留在历史商品记录里，只是不再作为可选规范品牌。</p>
+      <template #footer>
+        <button class="btn btn-ghost" @click="disableOpen = false">取消</button>
+        <button class="btn btn-danger" @click="confirmDisable">确认停用</button>
+      </template>
+    </Modal>
     <!-- 「不是品牌」确认弹窗（防误点：说清「不改商品数据」这一关键语义） -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="dismissOpen" class="ba-overlay" @click="dismissOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="dismissOpen" class="ba-modal ba-modal-lg">
-          <div class="ba-modal-hd"><b>标记为「不是品牌」</b><button class="ba-x" @click="dismissOpen = false"><Icon name="close"/></button></div>
-          <div class="ba-modal-body ba-body-stack">
-            <p class="ba-tip">确认把「<b>{{ dismissTarget?.raw_name }}</b>」（命中 {{ dismissTarget?.ref_count }} 个商品）标记为<b>不是品牌</b>？</p>
-            <ul class="ba-bullets">
-              <li class="ok-line">这条会从待审队列移除，以后<b>不再</b>反复提示（这个决定会记下来）。</li>
-              <li class="warn-line">想反悔：到上方「<b>+ 添加品牌</b>」把它建成品牌即可 —— 建成后它反而会出现在各处的品牌下拉里。</li>
-              <li class="warn-line">它<b>不会</b>改动任何商品的品牌字段 —— 关联商品的品牌名仍是「{{ dismissTarget?.raw_name }}」。</li>
-              <li class="warn-line">若要让这些商品彻底从「本期预报」的品牌筛选里消失，请到<b>商品档案</b>把它们<b>停用</b>（停用可逆，不影响历史订单与统计）。</li>
-            </ul>
-            <p class="ba-tip dim">还拿不准的话，先点「取消」，留着以后再决定。</p>
-          </div>
-          <div class="ba-modal-ft">
-            <button class="btn btn-ghost" @click="dismissOpen = false">取消</button>
-            <button class="btn btn-primary" @click="confirmDismiss">确认不是品牌</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <Modal guard-close :show="dismissOpen" :width="580" title="标记为「不是品牌」" @close="dismissOpen = false">
+      <p class="ba-tip">确认把「<b>{{ dismissTarget?.raw_name }}</b>」（命中 {{ dismissTarget?.ref_count }} 个商品）标记为<b>不是品牌</b>？</p>
+      <ul class="ba-bullets">
+        <li class="ok-line">这条会从待审队列移除，以后<b>不再</b>反复提示（这个决定会记下来）。</li>
+        <li class="warn-line">想反悔：到上方「<b>+ 添加品牌</b>」把它建成品牌即可 —— 建成后它反而会出现在各处的品牌下拉里。</li>
+        <li class="warn-line">它<b>不会</b>改动任何商品的品牌字段 —— 关联商品的品牌名仍是「{{ dismissTarget?.raw_name }}」。</li>
+        <li class="warn-line">若要让这些商品彻底从「本期预报」的品牌筛选里消失，请到<b>商品档案</b>把它们<b>停用</b>（停用可逆，不影响历史订单与统计）。</li>
+      </ul>
+      <p class="ba-tip dim">还拿不准的话，先点「取消」，留着以后再决定。</p>
+      <template #footer>
+        <button class="btn btn-ghost" @click="dismissOpen = false">取消</button>
+        <button class="btn btn-primary" @click="confirmDismiss">确认不是品牌</button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
-import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/client'
 import { toast, canDo } from '../store'
@@ -347,19 +328,12 @@ onMounted(() => {
 .ba-canonical{height:30px}
 .ba-merge{height:30px}
 
-/* 弹窗 */
-.ba-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:980}
-.ba-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(460px,92vw);background:var(--bg);border-radius:16px;z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.18)}
-.ba-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.ba-modal-hd b{font-size:15px;color:var(--t1)}
-.ba-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
-.ba-modal-body{padding:18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
-/* 说明型弹窗正文：单列、通栏（表单弹窗才用两列） */
-.ba-modal-body.ba-body-stack{grid-template-columns:1fr;gap:0}
-.ba-modal.ba-modal-lg{width:min(580px,92vw)}
+/* 弹窗（v691：骨架与定位/层级/圆角/遮罩统一由 components/Modal.vue 提供，
+   本页只保留「弹窗里长什么样」的字段布局；这些 class 挂在 slot 内元素上，
+   因而带得到本组件的 scope id） */
+.ba-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
 .ba-field{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--t2)}
 .ba-field-wide{grid-column:1 / -1}
-.ba-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
 
 .btn.danger{color:var(--dan)}
 .btn-danger{background:var(--dan);color:#fff;border:none}

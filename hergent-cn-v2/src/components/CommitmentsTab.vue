@@ -85,15 +85,8 @@
     </div>
 
     <!-- 新增 / 编辑弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="formOpen" class="vc-overlay" @click="formOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="formOpen" class="vc-modal">
-          <div class="vc-modal-hd">
-            <b>{{ form.id ? '编辑承诺' : '新增厂家承诺' }}</b>
-            <button class="vc-x" @click="formOpen = false"><Icon name="close"/></button>
-          </div>
-          <div class="vc-modal-body">
+    <Modal guard-close :show="formOpen" :width="720" :title="form.id ? '编辑承诺' : '新增厂家承诺'"
+           @close="formOpen = false">
             <div class="vc-grid">
               <label class="vc-fld">
                 <span>谁承诺的</span>
@@ -139,16 +132,13 @@
             <p class="vc-form-tip">
               兑现截止日不填也能存 —— 只是到期提醒需要它才知道什么时候该提醒你。
             </p>
-          </div>
-          <div class="vc-modal-ft">
+          <template #footer>
             <button class="btn btn-ghost" :disabled="saving" @click="formOpen = false">取消</button>
             <button class="btn btn-primary" :disabled="saving" @click="save">
               {{ saving ? '保存中…' : '保存' }}
             </button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          </template>
+    </Modal>
   </div>
 </template>
 
@@ -157,6 +147,7 @@ import { onMounted, ref } from 'vue'
 import { toast, confirm } from '../store'
 import { commitmentsApi } from '../api/modules'
 import Icon from './Icon.vue'
+import Modal from './Modal.vue'
 
 /* 厂家承诺台账（v303）—— **作为「目标与返利」页的第 5 个页签**，不新增侧栏。
  *
@@ -288,20 +279,12 @@ onMounted(load)
 .vc-acts{white-space:nowrap;text-align:right}
 .tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 
-.vc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:900}
-.vc-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:901;
-  width:min(720px,92vw);max-height:88vh;overflow:auto;background:var(--bg);border-radius:16px;
-  box-shadow:0 20px 60px rgba(0,0,0,.28);display:flex;flex-direction:column}
-.vc-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.vc-x{border:none;background:none;cursor:pointer;color:var(--t2);display:flex}
-.vc-modal-body{padding:18px 20px}
 .vc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .vc-fld{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--t2)}
 .vc-fld .input{height:34px;font-size:13px}
 .vc-fld .req{color:var(--war);font-style:normal}
 .vc-wide{grid-column:1/-1}
 .vc-form-tip{font-size:12px;color:var(--t3);margin:12px 0 0}
-.vc-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
 .fade-enter-active,.fade-leave-active{transition:opacity .16s ease}
 .fade-enter-from,.fade-leave-to{opacity:0}
 .pop-enter-active,.pop-leave-active{transition:opacity .16s ease,transform .16s ease}

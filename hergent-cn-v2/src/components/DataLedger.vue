@@ -46,20 +46,7 @@
   </div>
 
   <!-- ===== 上传弹窗（选文件 → 列映射确认 → 导入 → 回执/撤销）===== -->
-  <Teleport to="body">
-    <Transition name="fade">
-      <div v-if="up.open" class="dl-overlay" @click="closeUpload"></div>
-    </Transition>
-    <Transition name="pop">
-      <div v-if="up.open" class="dl-modal">
-        <div class="dl-modal-hd">
-          <b>上传{{ up.label }}</b>
-          <button class="dl-x" @click="closeUpload">
-            <Icon name="close"/>
-          </button>
-        </div>
-
-        <div class="dl-modal-body">
+  <Modal guard-close :show="up.open" :width="620" :title="'上传' + up.label" @close="closeUpload">
           <p v-if="metaOf(up.cat).risky" class="dl-risk">
             <Icon name="alert-triangle"/>
             <span>
@@ -104,10 +91,7 @@
           </div>
 
           <ImportReceipt :result="up.result" @undone="load()" />
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  </Modal>
 </template>
 
 <script setup>
@@ -117,6 +101,7 @@ import { toast } from '../store'
 import { canSee } from '../constants/pages'
 import { importApi } from '../api/modules'
 import Icon from './Icon.vue'
+import Modal from './Modal.vue'
 import ImportMapping from './ImportMapping.vue'
 import ImportReceipt from './ImportReceipt.vue'
 
@@ -400,16 +385,6 @@ onMounted(load)
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);
   font-size:12.5px;color:#b45309;line-height:1.6}
 
-.dl-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:960}
-.dl-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(620px,94vw);
-  max-height:88vh;overflow:auto;background:var(--bg);border-radius:18px;z-index:961;box-shadow:var(--shadow-lg)}
-.dl-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
-  border-bottom:1px solid var(--border-subtle);position:sticky;top:0;background:var(--bg);z-index:1}
-.dl-modal-hd b{font-size:15px;font-weight:600}
-.dl-x{width:28px;height:28px;border:none;background:none;border-radius:8px;display:flex;
-  align-items:center;justify-content:center;color:var(--t2);cursor:pointer}
-.dl-x:hover{background:var(--bg2)}
-.dl-modal-body{padding:18px 20px}
 .dl-risk{display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;padding:11px 13px;border-radius:10px;
   background:rgba(245,158,11,.12);color:#b45309;font-size:12.5px;line-height:1.7}
 .dl-risk svg{flex:0 0 15px;margin-top:3px}

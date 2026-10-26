@@ -77,14 +77,9 @@
       </div>
     </template>
 
-    <!-- 新建 / 编辑弹窗 -->
-    <div v-if="showForm" class="pm-mask" @click.self="closeForm()">
-      <div class="pm-modal">
-        <div class="pm-modal-hd">
-          <span>{{ editing ? '编辑活动' : '新建活动' }}</span>
-          <button class="btn-row-ic" @click="closeForm()"><Icon name="close" :size="16" /></button>
-        </div>
-        <div class="pm-modal-bd">
+    <!-- 新建 / 编辑弹窗（v691：骨架走公共 Modal —— 此前本页弹窗既不 Teleport 也不锁背景滚动） -->
+    <Modal guard-close :show="showForm" :width="560" :title="editing ? '编辑活动' : '新建活动'" @close="closeForm()">
+        <div class="pm-body">
           <div v-if="formErr" class="state-error pm-form-err"><p>{{ formErr }}</p></div>
 
           <label class="pm-fld">
@@ -157,14 +152,13 @@
             </div>
           </label>
         </div>
-        <div class="pm-modal-ft">
+        <template #footer>
           <button class="btn btn-ghost btn-sm" :disabled="saving" @click="closeForm()">取消</button>
           <button class="btn btn-primary btn-sm" :disabled="saving" @click="save()">
             <Icon name="save" :size="14" />{{ saving ? '保存中…' : '保存' }}
           </button>
-        </div>
-      </div>
-    </div>
+        </template>
+    </Modal>
   </div>
 </template>
 
@@ -178,6 +172,7 @@
 import Skeleton from '../../components/Skeleton.vue'
 import { ref, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import Modal from '../../components/Modal.vue'
 import { api } from '../../api/client.js'
 import { promotionsApi } from '../../api/modules.js'
 
@@ -336,6 +331,9 @@ onMounted(() => { load(); loadProducts() })
 </script>
 
 <style scoped>
+/* v691：弹窗骨架（遮罩/定位/层级/圆角/三段结构/动画）统一由 components/Modal.vue 提供，
+   本页只保留弹窗内排版 —— 这些 class 挂在 slot 内元素上才带得到本页 scope id。 */
+.pm-body{display:flex;flex-direction:column;gap:12px}
 /* 页面私有类一律 `pm-` 前缀；全局件（.page/.page-hd/.card/.table-wrap/.tbl/.num/.seq-th/
    .seq-cell/.state-empty/.state-error/.btn/.btn-sm/.btn-primary/.btn-ghost/.btn-row-ic/.input）
    一律复用，不重定义。 */
@@ -352,11 +350,6 @@ onMounted(() => { load(); loadProducts() })
 .pm-empty-guide { font-size: 12px; color: var(--t1); margin: 8px 0 0; line-height: 1.8 }
 
 /* 弹窗 */
-.pm-mask { position: fixed; inset: 0; background: rgba(0,0,0,.38); display: flex; align-items: center; justify-content: center; z-index: 80 }
-.pm-modal { width: 560px; max-width: 94vw; max-height: 90vh; overflow: auto; background: var(--bg); border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.25) }
-.pm-modal-hd { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--bd) }
-.pm-modal-bd { padding: 16px; display: flex; flex-direction: column; gap: 12px }
-.pm-modal-ft { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--bd) }
 .pm-form-err { padding: 8px 10px }
 .pm-fld { display: flex; flex-direction: column; gap: 5px }
 .pm-lab { font-size: 12px; color: var(--t2) }

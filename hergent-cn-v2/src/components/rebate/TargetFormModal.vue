@@ -1,15 +1,7 @@
 <template>
-  <Teleport to="body">
-    <Transition name="fade">
-      <div v-if="open" class="modal-overlay" @click.self="close"></div>
-    </Transition>
-    <Transition name="modal">
-      <div v-if="open" class="modal-card" @keydown.enter="onFormEnter">
-        <div class="modal-hd">
-          <b>{{ title }}</b>
-          <button class="btn-close" @click="close"><Icon name="close"/></button>
-        </div>
-        <div class="modal-body">
+    <!-- v691：骨架走公共 Modal；回车提交仍绑在正文容器上（Enter 在输入框里冒泡到它） -->
+    <Modal guard-close :show="open" :width="580" :title="title" @close="close">
+        <div class="cf-body" @keydown.enter="onFormEnter">
           <!-- 共用：规则名称 / 目标度量 / 作用对象 -->
           <!-- v127：移除「计算维度」下拉 —— 维度由入口按钮（新建）或原记录（编辑）决定，
                不再暴露给用户：① 两个入口已拆分，下拉纯冗余；② 编辑时跨维度切换会被后端
@@ -112,7 +104,7 @@
             </div>
           </div>
         </div>
-        <div class="modal-ft">
+        <template #footer>
           <!-- 已经保存成功了就不再给「取消」（那会让人以为还能撤掉这次保存） -->
           <button v-if="!(skipEffect && skipEffect.length)" class="btn btn-ghost" @click="close">取消</button>
           <!-- v365：保存后如果「停单/取消停单」顺带改变了期次，面板会**留在原地**把回执给用户看
@@ -122,16 +114,13 @@
             关闭
           </button>
           <button v-else class="btn btn-primary" @click="save">{{ editing ? '保存' : '创建' }}</button>
-        </div>
-      </div>
-    </Transition>
+        </template>
+    </Modal>
 
     <!-- v121 合并：旧到货排程(arrival_*) → 报单节奏(order_*) 反推迁移 -->
-    <div v-if="showMigrate" class="modal-overlay" @click.self="showMigrate=false"></div>
-    <Transition name="modal">
-      <div v-if="showMigrate" class="modal-card">
-        <div class="modal-hd"><b>把旧的到货排程，换算成报单节奏</b><button class="btn-close" @click="showMigrate=false"><Icon name="close"/></button></div>
-        <div class="modal-body">
+    <Modal guard-close :show="showMigrate" :width="580" title="把旧的到货排程，换算成报单节奏"
+           @close="showMigrate = false">
+        <div class="cf-body">
           <p class="cf-tip">
             这条规则以前只配了「<b>货哪天到</b>」。现在统一成「<b>单哪天报</b>」—— 到货日由报单日自动推算，
             两处不会再算成两个结果。按你现有的设置反推如下：
@@ -148,13 +137,11 @@
           <p class="cf-sol">注意：换算后 <b>到货次数可能变化</b>（「首次报单日 → 首次到货日」中间隔着 {{ migrateInfo && migrateInfo.lead }} 天提前期），
             均单会跟着变。请核对下方「未来期次预览」，确认节奏对得上再保存。</p>
         </div>
-        <div class="modal-ft">
+        <template #footer>
           <button class="btn" @click="showMigrate=false">以后再说</button>
           <button class="btn btn-primary" @click="applyMigrate">确认换算</button>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+        </template>
+    </Modal>
 </template>
 
 <script setup>
@@ -166,6 +153,7 @@
  * 不复用父页作用域变量，便于独立灰度与回退。
  */
 import Icon from '../Icon.vue'
+import Modal from '../Modal.vue'
 import BrandTargetForm from './BrandTargetForm.vue'
 import ProductTargetForm from './ProductTargetForm.vue'
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
@@ -931,13 +919,8 @@ async function save() {
 </script>
 
 <style scoped>
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000}
-.modal-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:580px;max-width:92vw;max-height:88vh;overflow-y:auto;background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:1001}
-.modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.modal-hd b{font-size:16px}
-.btn-close{border:none;background:none;font-size:18px;color:var(--t3);cursor:pointer}
-.modal-body{padding:20px;display:flex;flex-direction:column;gap:14px}
-.modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle);position:sticky;bottom:0;background:var(--bg);z-index:2}
+/* v691：弹窗骨架统一由 components/Modal.vue 提供；本页只保留弹窗内排版 */
+.cf-body{display:flex;flex-direction:column;gap:14px}
 .form-row{display:flex;flex-direction:column;gap:6px}
 .form-row label{font-size:12px;font-weight:500;color:var(--t2)}
 .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -960,5 +943,5 @@ async function save() {
 .fade-enter-from,.fade-leave-to{opacity:0}
 .modal-enter-active,.modal-leave-active{transition:all .25s ease}
 .modal-enter-from,.modal-leave-to{opacity:0;transform:translate(-50%,-46%)}
-@media(max-width:768px){ .form-grid2{grid-template-columns:1fr} .modal-card{width:94vw} }
+@media(max-width:768px){ .form-grid2{grid-template-columns:1fr} }
 </style>

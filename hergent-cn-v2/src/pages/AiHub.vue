@@ -291,26 +291,21 @@
     </div>
     </div><!-- /bento -->
 
-    <!-- 报告查看弹窗 -->
-    <div v-if="viewing" class="rep-mask" @click.self="viewing = null">
-      <div class="rep-modal">
-        <div class="rep-modal-hd">
-          <b>{{ viewing.title }}</b>
-          <button class="cp-icon-btn" @click="viewing = null">✕</button>
-        </div>
-        <pre class="rep-content">{{ viewing.content }}</pre>
-        <div class="rep-modal-ft">
-          <button class="btn btn-sm btn-ghost" @click="exportReport(viewing)">导出 Markdown</button>
-          <button class="btn btn-sm btn-ghost" @click="exportPrintable(viewing)">导出成品</button>
-          <button class="btn btn-sm btn-primary" @click="viewing = null">关闭</button>
-        </div>
-      </div>
-    </div>
+    <!-- 报告查看弹窗（v691：骨架走公共 Modal —— 此前不 Teleport、不锁背景滚动、无 Esc） -->
+    <Modal guard-close :show="!!viewing" :width="620" :title="viewing?.title || ''" @close="viewing = null">
+      <pre class="rep-content">{{ viewing?.content }}</pre>
+      <template #footer>
+        <button class="btn btn-sm btn-ghost" @click="exportReport(viewing)">导出 Markdown</button>
+        <button class="btn btn-sm btn-ghost" @click="exportPrintable(viewing)">导出成品</button>
+        <button class="btn btn-sm btn-primary" @click="viewing = null">关闭</button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import Modal from '../components/Modal.vue'
 import { api } from '../api/client'
 import { aiExperienceApi } from '../api/modules'
 import { store } from '../store'
@@ -749,11 +744,7 @@ async function refreshProfile() {
 .prof-item{font-size:13px;color:var(--t2);padding:4px 0;border-bottom:1px dashed var(--border-subtle)}
 
 /* 弹窗 */
-.rep-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px)}
-.rep-modal{width:620px;max-width:92vw;max-height:84vh;background:var(--bg);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);display:flex;flex-direction:column;overflow:hidden}
-.rep-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle);font-size:15px;color:var(--t1)}
-.rep-content{flex:1;overflow:auto;padding:16px 18px;margin:0;font-size:13px;line-height:1.7;color:var(--t1);white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.rep-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--border-subtle)}
+.rep-content{flex:1;overflow:auto;padding:0;margin:0;font-size:13px;line-height:1.7;color:var(--t1);white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 
 /* 窄屏：栅格降为 6 列 → 两栏各占 3 列；单列屏全宽堆叠 */
 @media(max-width:1200px){

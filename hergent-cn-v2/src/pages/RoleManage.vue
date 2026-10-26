@@ -57,11 +57,9 @@
     </div>
 
     <!-- 新建 / 编辑表单弹窗 -->
-    <div v-if="showForm" class="rm-modal" @click.self="closeForm">
-      <div class="rm-form">
-        <div class="rm-form-hd">{{ editing ? '编辑团队' : '新建团队' }}
-          <button class="rm-x" @click="closeForm"><Icon name="close"/></button>
-        </div>
+    <!-- v691：骨架走公共 Modal（此前 rm-modal 的 z-index 只有 60，比工具栏弹层 1120 还低；
+         且无 Esc / 焦点陷阱 / 背景滚动锁）。内容与按钮仍在本页，只是一行都不改。 -->
+    <Modal guard-close :show="showForm" :width="540" :title="editing ? '编辑团队' : '新建团队'" @close="closeForm">
 
         <label class="rm-fld">名称 <span class="rm-req">*</span>
           <input v-model="form.name" class="input" placeholder="如：采购专员" maxlength="20">
@@ -96,17 +94,13 @@
             {{ saving ? '保存中…' : '保存' }}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
 
     <!-- v319（L2）：角色能力配置 —— 技能包 / 数据范围 / 权限档。
          🔴 这三项才是"角色切换"真正该有的差异（此前只有头像与人设措辞）。
             可选项全部来自后端 `/api/ai/role-catalog`，前端不写死。 -->
-    <div v-if="capsOpen" class="rm-modal" @click.self="closeCaps">
-      <div class="rm-form rm-caps-form">
-        <div class="rm-form-hd">{{ (capsRole && capsRole.name) || '' }} · 能做什么
-          <button class="rm-x" @click="closeCaps"><Icon name="close"/></button>
-        </div>
+    <Modal guard-close :show="capsOpen" :width="560" :title="((capsRole && capsRole.name) || '') + ' · 能做什么'"
+           @close="closeCaps">
         <p class="rm-caps-tip">这三项决定这个角色在对话里<b>能碰什么</b>。全部留空＝沿用当前设置（不做额外限制）。</p>
 
         <div class="rm-fld">能做哪些事（技能包）
@@ -149,15 +143,11 @@
             {{ capsSaving ? '保存中…' : '保存' }}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
 
     <!-- 按角色连接渠道弹窗 -->
-    <div v-if="bindOpen" class="rm-modal" @click.self="closeBind">
-      <div class="rm-form">
-        <div class="rm-form-hd">{{ (bindRole && bindRole.name) || '' }} · 连接渠道
-          <button class="rm-x" @click="closeBind"><Icon name="close"/></button>
-        </div>
+    <Modal guard-close :show="bindOpen" :width="540" :title="((bindRole && bindRole.name) || '') + ' · 连接渠道'"
+           @close="closeBind">
         <p class="rm-bind-tip">勾选该角色要推送到的渠道。保存后，这个 AI 角色的回复会推到对应手机。</p>
         <label class="rm-bind-row">
           <span class="rm-ch-ic ch-wecom">企</span>
@@ -195,8 +185,7 @@
           <button class="btn btn-ghost" @click="closeBind">取消</button>
           <button class="btn btn-primary" @click="saveBind">保存</button>
         </div>
-      </div>
-    </div>
+    </Modal>
 
     <input ref="fileInput" type="file" accept="image/*" class="rm-file" @change="onFile">
   </div>
@@ -204,6 +193,7 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import RoleAvatar from '../components/RoleAvatar.vue'   // v322：角色头像唯一渲染口
 import { ref, computed, reactive, onMounted } from 'vue'
 import { store, toast } from '../store'
@@ -555,11 +545,6 @@ onMounted(() => { load(); loadCatalog() })
 .rm-av-rm2{font-size:12px;color:var(--dan);background:none;border:none;cursor:pointer;text-decoration:underline}
 
 /* 弹窗 */
-.rm-modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}
-.rm-form{width:min(540px,94vw);max-height:90vh;overflow-y:auto;background:var(--bg);border:1px solid var(--bd);border-radius:18px;padding:22px;box-shadow:var(--shadow-lg)}
-.rm-form-hd{display:flex;align-items:center;justify-content:space-between;font-size:16px;font-weight:600;color:var(--t1);margin-bottom:16px}
-.rm-x{border:none;background:none;color:var(--t3);font-size:16px;cursor:pointer;line-height:1}
-.rm-x:hover{color:var(--t1)}
 .rm-fld{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--t2);margin-bottom:14px}
 
 /* v319（L2）角色能力：列表上的能力摘要 + 能力配置弹窗 */
@@ -567,7 +552,6 @@ onMounted(() => { load(); loadCatalog() })
 .rm-cap{padding:1px 7px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
 .rm-cap.g-advise{color:var(--war)}
 .rm-cap.g-execute{color:var(--suc)}
-.rm-caps-form{max-width:560px}
 .rm-caps-tip{margin:0 0 12px;font-size:12.5px;color:var(--t3);line-height:1.6}
 .rm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .rm-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);font-size:12.5px;color:var(--t2);cursor:pointer;user-select:none}

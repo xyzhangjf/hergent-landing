@@ -188,18 +188,9 @@
       </div>
     </div>
 
-    <!-- ══ 新建 / 编辑弹窗 ══ -->
-    <Teleport to="body">
-      <div v-if="modal" class="pt-mask" @click.self="closeModal">
-        <div class="pt-modal">
-          <div class="pt-modal-hd">
-            <b>{{ editing ? '改目标量' : '新建商品目标' }}</b>
-            <button class="btn-icon" title="关闭" @click="closeModal">
-              <Icon name="close" :size="16" />
-            </button>
-          </div>
-
-          <div class="pt-modal-bd">
+    <!-- ══ 新建 / 编辑弹窗 ══ （v691：外壳走公共 Modal，宽度仍按内容密度保留 960px） -->
+          <Modal guard-close :show="!!modal" :width="960" :title="editing ? '改目标量' : '新建商品目标'" @close="closeModal">
+          <div class="pt-body">
             <div class="pt-form">
               <label class="pt-lb">商品</label>
               <div class="pt-pick">
@@ -429,23 +420,18 @@
             <div v-if="saveErr" class="pt-save-err">{{ saveErr }}</div>
           </div>
 
-          <div class="pt-modal-ft">
+          <template #footer>
             <span class="pt-quiet">目标量{{ editing ? '' : '与分解' }}保存后立即生效</span>
             <button class="btn btn-ghost btn-sm" @click="closeModal">取消</button>
             <button class="btn btn-primary btn-sm" :disabled="!canSave || saving" @click="save">
               {{ saving ? '保存中…' : '保存' }}
             </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+          </template>
+          </Modal>
 
     <!-- ══ 删除确认 ══ -->
-    <Teleport to="body">
-      <div v-if="delRow" class="pt-mask" @click.self="delRow = null">
-        <div class="pt-modal pt-modal-sm">
-          <div class="pt-modal-hd"><b>删除这条目标？</b></div>
-          <div class="pt-modal-bd">
+          <Modal guard-close :show="!!delRow" :width="460" title="删除这条目标？" @close="delRow = null">
+          <div class="pt-body">
             <p class="pt-del-q">
               <b>{{ delRow.product_name }}</b> · {{ delRow.period_month }} ·
               目标 {{ fmt(delRow.target_qty) }} 箱
@@ -455,15 +441,13 @@
               已报的单不受影响。
             </p>
           </div>
-          <div class="pt-modal-ft">
+          <template #footer>
             <button class="btn btn-ghost btn-sm" @click="delRow = null">取消</button>
             <button class="btn btn-danger btn-sm" :disabled="saving" @click="doDelete">
               {{ saving ? '删除中…' : '确认删除' }}
             </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+          </template>
+          </Modal>
   </div>
 </template>
 
@@ -481,6 +465,7 @@ import { toast, canDo } from '../store'
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 
 /* ══════════════════════════════════════════════════════════════
    商品目标管理（v264）
@@ -1286,6 +1271,8 @@ onMounted(() => { load(month.value); loadAudit() })
 </script>
 
 <style scoped>
+/* v691：弹窗骨架统一由 components/Modal.vue 提供，本页只保留弹窗内排版 */
+.pt-body{}
 /* ── 口径说明条 ── */
 .pt-caliber{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:9px 12px;
   border-radius:var(--radius-sm);background:var(--p-bg);color:var(--t2);font-size:12.5px;line-height:1.7}
@@ -1339,7 +1326,7 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-prod-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
 .pt-spec{font-size:11.5px;color:var(--t2)}
 .pt-brand{color:var(--t2);white-space:nowrap}
-.pt-quiet{color:var(--t2)}
+.pt-quiet{margin-right:auto;color:var(--t2)}
 /* v358：列表里「Σ 分解 ≠ 目标」只在**真的差出来**时才红字 —— 正常态零文案。 */
 .pt-alloc-bad{color:var(--danger-txt)}
 .pt-gap-pos{color:var(--ok-green)}
@@ -1360,15 +1347,6 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-err{color:var(--warn-amber)}
 
 /* ── 弹窗 ── */
-.pt-mask{position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.35);display:flex;
-  align-items:center;justify-content:center;padding:20px}
-.pt-modal{width:min(960px,100%);max-height:92vh;display:flex;flex-direction:column;
-  background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius);box-shadow:var(--shadow)}
-.pt-modal-sm{width:min(460px,100%)}
-.pt-modal-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:12px 14px;border-bottom:1px solid var(--bd);font-size:14px}
-.pt-modal-bd{padding:14px;overflow:auto}
-.pt-modal-ft{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--bd)}
 .pt-modal-ft .pt-quiet{flex:1 1 auto;font-size:12px}
 
 /* v561：表单改 4 列 —— 「商品」独占整行（下方要挂搜索结果列表，必须满宽），

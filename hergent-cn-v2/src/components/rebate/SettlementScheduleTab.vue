@@ -105,15 +105,8 @@
     </div>
 
     <!-- 新增 / 编辑弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="formOpen" class="rs-overlay" @click="formOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="formOpen" class="rs-modal">
-          <div class="rs-modal-hd">
-            <b>{{ form.id ? '编辑结算节奏' : '新增结算节奏' }}</b>
-            <button class="rs-x" @click="formOpen = false"><Icon name="close"/></button>
-          </div>
-          <div class="rs-modal-body">
+    <Modal guard-close :show="formOpen" :width="680" :title="form.id ? '编辑结算节奏' : '新增结算节奏'"
+           @close="formOpen = false">
             <div class="rs-grid">
               <label class="rs-fld rs-wide">
                 <span>作用对象</span>
@@ -182,20 +175,18 @@
               没填过的地方用系统建议值起步（上月／5 号／当月／20 号），都可以改。
               若某月没有你填的日期（比如 2 月没有 31 号），按该月最后一天算。
             </p>
-          </div>
-          <div class="rs-modal-ft">
+          <template #footer>
             <button class="btn btn-ghost" @click="formOpen = false">取消</button>
             <button class="btn btn-primary" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          </template>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../Icon.vue'
+import Modal from '../../components/Modal.vue'
 import { toast, canDo, confirm } from '../../store'
 import { rebateSettlementApi } from '../../api/modules'
 import { api } from '../../api/client.js'
@@ -421,13 +412,6 @@ onMounted(() => { loadBrands(); load() })
 .rs-notes{margin:10px 2px 0;display:flex;flex-direction:column;gap:3px}
 .rs-note{font-size:11.5px;color:var(--t3);line-height:1.6}
 
-.rs-overlay{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:900}
-.rs-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:901;
-  width:min(680px,92vw);max-height:88vh;overflow:auto;background:var(--bg);border-radius:16px;
-  box-shadow:0 20px 60px rgba(0,0,0,.28);display:flex;flex-direction:column}
-.rs-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.rs-x{border:none;background:none;cursor:pointer;color:var(--t2);display:flex}
-.rs-modal-body{padding:18px 20px}
 .rs-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .rs-fld{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--t2)}
 .rs-fld .input{height:34px;font-size:13px}
@@ -436,7 +420,6 @@ onMounted(() => { loadBrands(); load() })
 .rs-pv-lbl{font-size:11.5px;color:var(--t3)}
 .rs-pv-txt{font-size:13px;color:var(--p-dark);line-height:1.7}
 .rs-form-tip{font-size:11.5px;color:var(--t3);margin:10px 0 0;line-height:1.7}
-.rs-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
 .fade-enter-active,.fade-leave-active{transition:opacity .16s ease}
 .fade-enter-from,.fade-leave-to{opacity:0}
 .pop-enter-active,.pop-leave-active{transition:opacity .16s ease,transform .16s ease}

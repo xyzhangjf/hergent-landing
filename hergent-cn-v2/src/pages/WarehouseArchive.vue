@@ -69,62 +69,49 @@
       </p>
     </div>
 
-    <!-- 新建 / 编辑 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="editOpen" class="df-overlay" @click="editOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="editOpen" class="df-modal">
-          <div class="df-modal-hd">
-            <b>{{ isCreate ? '新建仓库' : ('编辑仓库 · ' + (editTarget?.name || '')) }}</b>
-            <button class="df-x" @click="editOpen = false" aria-label="关闭"><Icon name="close"/></button>
-          </div>
-          <div class="df-modal-body">
-            <label class="df-field"><span>仓库名称 <i class="req">*</i></span><input v-model="form.name" class="input" placeholder="如 刘小顶仓"></label>
-            <label class="df-field"><span>地址</span><input v-model="form.address" class="input"></label>
-            <label class="df-field"><span>联系人</span><input v-model="form.contact_name" class="input"></label>
-            <label class="df-field"><span>联系电话</span><input v-model="form.contact_phone" class="input"></label>
-            <label v-if="isCreate" class="df-check">
-              <input type="checkbox" v-model="form.is_default"> 设为默认仓
-            </label>
-            <p class="df-tip">
-              仓名会直接出现在报单模板里，<b>建议用真实叫法</b>（如「刘小顶仓」），
-              不要写成「仓库1」—— 下游对账时要靠它认人。
-            </p>
-          </div>
-          <div class="df-modal-ft">
-            <button class="btn btn-ghost" @click="editOpen = false">取消</button>
-            <button class="btn btn-primary" :disabled="busy" @click="save">{{ busy ? '保存中…' : '保存' }}</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- 新建 / 编辑（v691：骨架走公共 Modal，Esc/焦点陷阱/滚动锁/层级统一） -->
+    <Modal guard-close :show="editOpen" :width="460"
+           :title="isCreate ? '新建仓库' : ('编辑仓库 · ' + (editTarget?.name || ''))"
+           @close="editOpen = false">
+      <div class="df-body">
+        <label class="df-field"><span>仓库名称 <i class="req">*</i></span><input v-model="form.name" class="input" placeholder="如 刘小顶仓"></label>
+        <label class="df-field"><span>地址</span><input v-model="form.address" class="input"></label>
+        <label class="df-field"><span>联系人</span><input v-model="form.contact_name" class="input"></label>
+        <label class="df-field"><span>联系电话</span><input v-model="form.contact_phone" class="input"></label>
+        <label v-if="isCreate" class="df-check">
+          <input type="checkbox" v-model="form.is_default"> 设为默认仓
+        </label>
+        <p class="df-tip">
+          仓名会直接出现在报单模板里，<b>建议用真实叫法</b>（如「刘小顶仓」），
+          不要写成「仓库1」—— 下游对账时要靠它认人。
+        </p>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost" @click="editOpen = false">取消</button>
+        <button class="btn btn-primary" :disabled="busy" @click="save">{{ busy ? '保存中…' : '保存' }}</button>
+      </template>
+    </Modal>
 
     <!-- 删除确认 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="delOpen" class="df-overlay" @click="delOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="delOpen" class="df-modal">
-          <div class="df-modal-hd"><b>删除仓库</b><button class="df-x" @click="delOpen = false" aria-label="关闭"><Icon name="close"/></button></div>
-          <div class="df-modal-body">
-            <p class="df-tip">确认删除「<b>{{ delTarget?.name }}</b>」？此操作不可撤销。</p>
-            <p class="df-tip df-warn">
-              若该仓已被引用（员工个人仓 / 报单配置的源仓目标仓 / 库存），
-              请先把引用改到别的仓 —— 否则这些配置会指向一个不存在的仓。
-            </p>
-          </div>
-          <div class="df-modal-ft">
-            <button class="btn btn-ghost" @click="delOpen = false">取消</button>
-            <button class="btn btn-ghost danger" :disabled="busy" @click="doDelete">{{ busy ? '删除中…' : '确认删除' }}</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <Modal guard-close :show="delOpen" :width="460" title="删除仓库" @close="delOpen = false">
+      <div class="df-body">
+        <p class="df-tip">确认删除「<b>{{ delTarget?.name }}</b>」？此操作不可撤销。</p>
+        <p class="df-tip df-warn">
+          若该仓已被引用（员工个人仓 / 报单配置的源仓目标仓 / 库存），
+          请先把引用改到别的仓 —— 否则这些配置会指向一个不存在的仓。
+        </p>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost" @click="delOpen = false">取消</button>
+        <button class="btn btn-ghost danger" :disabled="busy" @click="doDelete">{{ busy ? '删除中…' : '确认删除' }}</button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
-import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { toast, canDo } from '../store'
 import { warehouseApi } from '../api/modules'
@@ -242,11 +229,7 @@ onMounted(load)
 .df-field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--t2)}
 .df-field .req{color:var(--err);font-style:normal}
 
-.df-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:980}
-.df-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(460px,92vw);background:var(--bg);border-radius:16px;z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.18)}
-.df-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.df-modal-hd b{font-size:15px;color:var(--t1)}
-.df-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
-.df-modal-body{padding:18px 20px;display:flex;flex-direction:column;gap:12px}
-.df-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
+/* 弹窗（v691：定位/层级/圆角/遮罩/三段结构统一由 components/Modal.vue 提供，
+   本页只保留弹窗内排版 —— 挂在 slot 内元素上） */
+.df-body{display:flex;flex-direction:column;gap:12px}
 </style>

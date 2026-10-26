@@ -132,11 +132,9 @@
     </div>
     </div><!-- /bento -->
 
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="showCreate" class="cron-overlay" @click.self="showCreate=false">
-          <div class="cron-modal">
-            <div class="panel-hd"><b>新建定时任务</b><button class="tb-btn" @click="showCreate=false"><Icon name="close"/></button></div>
+    <!-- v691：骨架走公共 Modal（此前 cron-overlay 只有 z-index 950，比工具栏弹层 1120 还低；
+         且无 Esc / 焦点陷阱 / 背景滚动锁） -->
+    <Modal guard-close :show="showCreate" :width="440" title="新建定时任务" @close="showCreate=false">
             <div class="field">
               <label>任务名称</label>
               <input v-model="form.name" class="input" placeholder="例如：每日经营晨报">
@@ -159,15 +157,13 @@
               <textarea v-model="form.prompt" class="input" rows="4" placeholder="例如：生成今日经营要务，综合库存预警、应收逾期、流失风险，用中文汇报"></textarea>
             </div>
             <button class="btn btn-primary btn-block" :disabled="creating" @click="create">{{ creating ? '创建中…' : '创建' }}</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/client'
 import { toast } from '../store'
@@ -340,8 +336,6 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .sub{font-size:12px;color:var(--t3);margin:2px 0 0}
 .tb-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2);cursor:pointer}
 .tb-btn:hover{background:var(--bg2);color:var(--dan)}
-.cron-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:950;display:flex;align-items:center;justify-content:center;padding:20px}
-.cron-modal{width:440px;max-width:100%;background:var(--bg);border-radius:16px;padding:20px 22px;box-shadow:var(--shadow-lg)}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px}
 .field label.chk-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--t1)}

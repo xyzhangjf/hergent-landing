@@ -358,20 +358,9 @@
         </div>
       </div>
 
-      <!-- 管理工作流弹窗 -->
-      <Teleport to="body">
-        <Transition name="fade">
-          <div v-if="manageOpen" class="cc-overlay" @click="manageOpen = false"></div>
-        </Transition>
-        <Transition name="pop">
-          <div v-if="manageOpen" class="cc-modal">
-            <div class="cc-modal-hd">
-              <b>管理工作流</b>
-              <button class="cc-x" @click="manageOpen = false">
-                <Icon name="close" :size="16" />
-              </button>
-            </div>
-            <div class="cc-modal-body">
+      <!-- 管理工作流弹窗（v691：骨架走公共 Modal） -->
+      <Modal guard-close :show="manageOpen" :width="440" title="管理工作流" @close="manageOpen = false">
+            <div class="cc-body">
               <div v-for="w in workflows" :key="w.key" class="mg-row">
                 <div class="mg-info">
                   <span class="wf-icon" style="width:26px;height:26px;font-size:13px">{{ w.icon }}</span>
@@ -386,9 +375,7 @@
                 </label>
               </div>
             </div>
-          </div>
-        </Transition>
-      </Teleport>
+      </Modal>
     </template>
 
     <!-- ===== 产出与用量 Tab（v311：原侧栏「AI 中心」并入本容器） =====
@@ -403,19 +390,9 @@
     </template>
 
     <!-- 渠道配置弹窗（飞书 / 企业微信 / 钉钉 / QQ 共用；引导词复刻桌面版） -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="active.open" class="cc-overlay" @click="closeChannel"></div>
-      </Transition>
-      <Transition name="pop">
-        <div v-if="active.open" class="cc-modal cc-modal-wide">
-          <div class="cc-modal-hd">
-            <b>连接{{ ccChannel(active.ch).label }}</b>
-            <button class="cc-x" @click="closeChannel">
-              <Icon name="close" :size="16" />
-            </button>
-          </div>
-          <div class="cc-modal-body">
+    <Modal guard-close :show="active.open" :width="560" :title="'连接' + ccChannel(active.ch).label"
+           @close="closeChannel">
+          <div class="cc-body">
             <!-- 引导词（复刻桌面 desktop-app/js/config.js 的四段取证引导） -->
             <div class="cc-guide-box">
               <button class="cc-guide-toggle" @click="active.guideOpen = !active.guideOpen">
@@ -454,32 +431,19 @@
             <p class="cc-modal-tip" v-if="ccState(active.ch) === 'connected'">✅ 该渠道已连通，直接改字段后保存即可覆盖。</p>
             <p class="cc-modal-tip warn" v-else-if="ccChannel(active.ch).last_error">⚠ {{ ccChannel(active.ch).last_error }}</p>
           </div>
-          <div class="cc-modal-ft">
+          <template #footer>
             <button v-if="ccChannel(active.ch).configured" class="btn btn-ghost" @click="disconnectChannel">断开</button>
             <button class="btn btn-ghost" @click="closeChannel">取消</button>
             <button class="btn btn-primary" :disabled="active.busy || !formReady(active.ch)" @click="saveChannel">
               {{ active.busy ? '正在连接…' : '保存' }}
             </button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          </template>
+    </Modal>
 
 
     <!-- 畅捷通 / T+ 授权弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="chanjet.open" class="cc-overlay" @click="closeChanjet"></div>
-      </Transition>
-      <Transition name="pop">
-        <div v-if="chanjet.open" class="cc-modal">
-          <div class="cc-modal-hd">
-            <b>连接畅捷通 / T+</b>
-            <button class="cc-x" @click="closeChanjet">
-              <Icon name="close" :size="16" />
-            </button>
-          </div>
-          <div class="cc-modal-body">
+    <Modal guard-close :show="chanjet.open" :width="440" title="连接畅捷通 / T+" @close="closeChanjet">
+          <div class="cc-body">
             <p class="cc-modal-tip">在<a href="https://open.chanjet.com" target="_blank" rel="noopener">畅捷通开放平台</a>创建应用，把回调地址设为 <code>https://erp.hergent.cn/api/datasources/v2/chanjet/callback</code>，并将 AppKey / AppSecret 配置到服务端环境变量，然后点击下方按钮开始授权。</p>
             <div v-if="!chanjet.linked">
               <div class="cc-modal-btns">
@@ -495,24 +459,11 @@
               </div>
             </div>
           </div>
-        </div>
-      </Transition>
-    </Teleport>
+    </Modal>
 
     <!-- 金蝶 / 云星空 授权弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="kingdee.open" class="cc-overlay" @click="closeKingdee"></div>
-      </Transition>
-      <Transition name="pop">
-        <div v-if="kingdee.open" class="cc-modal">
-          <div class="cc-modal-hd">
-            <b>连接金蝶 / 云星空</b>
-            <button class="cc-x" @click="closeKingdee">
-              <Icon name="close" :size="16" />
-            </button>
-          </div>
-          <div class="cc-modal-body">
+    <Modal guard-close :show="kingdee.open" :width="440" title="连接金蝶 / 云星空" @close="closeKingdee">
+          <div class="cc-body">
             <p class="cc-modal-tip">在<a href="https://open.kingdee.com/K3Cloud/Open/Home.aspx" target="_blank" rel="noopener">金蝶开发平台</a>创建应用，回调地址设为 <code>https://erp.hergent.cn/api/datasources/v2/kingdee/callback</code>，将 AppID / AppSecret 配置到服务端环境变量，然后点击下方按钮开始授权。</p>
             <div v-if="!kingdee.linked">
               <div class="cc-modal-btns">
@@ -528,14 +479,13 @@
               </div>
             </div>
           </div>
-        </div>
-      </Transition>
-    </Teleport>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 // v485：头像渲染统一走 RoleAvatar（唯一渲染口），本页不再自写 v-if="custom_avatar"
 import RoleAvatar from '../components/RoleAvatar.vue'
 import { reactive, ref, computed, onMounted, onUnmounted, watch } from 'vue'
@@ -1392,18 +1342,11 @@ onUnmounted(stopStatusPoll)
 .wf-action.go{color:var(--p-dark)}
 
 /* 弹窗 */
-.cc-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:960}
-.cc-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(440px,92vw);background:var(--bg);border-radius:18px;z-index:961;box-shadow:var(--shadow-lg);overflow:hidden}
-.cc-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.cc-modal-hd b{font-size:15px;font-weight:600}
-.cc-x{width:28px;height:28px;border:none;background:none;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer}
-.cc-x:hover{background:var(--bg2)}
-.cc-modal-body{padding:18px 20px}
+/* v691：弹窗骨架统一由 components/Modal.vue 提供 */
 .cc-modal-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 16px;background:var(--p-bg);padding:10px 12px;border-radius:10px}
 .cc-modal-tip a{color:var(--p-dark)}
 .cc-field{display:block;margin-bottom:14px}
 .cc-field span{display:block;font-size:12px;color:var(--t2);margin-bottom:6px}
-.cc-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
 
 .fade-enter-active,.fade-leave-active{transition:opacity .2s}
 .fade-enter-from,.fade-leave-to{opacity:0}
@@ -1468,7 +1411,6 @@ onUnmounted(stopStatusPoll)
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:12px;
   font-size:12.5px;color:#b45309;line-height:1.6}
 
-.cc-modal-wide{width:min(560px,94vw)}
 .cc-field-hint{font-style:normal;color:var(--t3);font-size:11px;margin-left:2px}
 .cc-modal-tip.warn{background:rgba(245,158,11,.12);color:#b45309}
 

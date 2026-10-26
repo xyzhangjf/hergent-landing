@@ -215,13 +215,11 @@
       <p v-if="connState === 'unlinked'" class="df-tip df-warn">未连接 ERP：连接畅捷通/金蝶后，可点上方「同步」拉取外部档案。</p>
     </div>
 
-    <!-- 编辑员工弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="editOpen" class="df-overlay" @click="tryCloseEdit"></div></Transition>
-      <Transition name="pop">
-        <div v-if="editOpen" class="df-modal edit-modal">
-          <div class="df-modal-hd"><b>{{ isCreate ? '新建员工' : ('编辑员工 · ' + (editTarget?.name || '')) }}</b><button class="df-x" @click="tryCloseEdit" aria-label="关闭"><Icon name="close"/></button></div>
-          <div class="df-modal-body df-edit-body">
+    <!-- 编辑员工弹窗（v691：骨架走公共 Modal；Esc/焦点陷阱/滚动锁/层级由组件统一） -->
+    <Modal guard-close :show="editOpen" :width="680"
+           :title="isCreate ? '新建员工' : ('编辑员工 · ' + (editTarget?.name || ''))"
+           @close="tryCloseEdit">
+          <div class="df-body df-edit-body">
 
             <!-- 基本信息 -->
             <section class="df-sec">
@@ -427,28 +425,21 @@
 
           </div>
 
-          <div class="df-modal-ft">
+          <template #footer>
             <button class="btn btn-ghost" @click="tryCloseEdit">取消</button>
             <!-- v382：**全弹窗唯一保存入口** —— 人事档案 + 登录账号（角色 / 兼任 / 可登录端）
                  一次提交完。原来这三处是三个按钮、三套端点，点漏一个就有一处改动静默消失。
                  v385（2026-10-06）：新建态这一个按钮**顺带把账号也开了** ——
                  文案随账号草稿变（`footerBtnLabel`），填了就承诺"创建并开通账号"。 -->
             <button class="btn btn-primary" :disabled="accBusy || !editForm.name.trim()" @click="saveAll">{{ footerBtnLabel }}</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          </template>
+    </Modal>
 
     <!-- v317 新建 / 编辑外部客户账号（分销商）—— 与「新建员工」同一套版式与控件 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="extOpen" class="df-overlay" @click="closeExt"></div></Transition>
-      <Transition name="pop">
-        <div v-if="extOpen" class="df-modal ext-modal">
-          <div class="df-modal-hd">
-            <b>{{ extEditId ? '编辑外部客户 · ' + (extForm.name || '') : '新建外部客户' }}</b>
-            <button class="df-x" @click="closeExt" aria-label="关闭"><Icon name="close"/></button>
-          </div>
-          <div class="df-modal-body">
+    <Modal guard-close :show="extOpen" :width="560"
+           :title="extEditId ? '编辑外部客户 · ' + (extForm.name || '') : '新建外部客户'"
+           @close="closeExt">
+          <div class="df-body">
 
             <section class="df-sec">
               <div class="df-sec-title">客户与登录账号</div>
@@ -497,85 +488,67 @@
             </section>
 
           </div>
-          <div class="df-modal-ft">
+          <template #footer>
             <button class="btn btn-ghost" @click="closeExt">取消</button>
             <button class="btn btn-primary" :disabled="extBusy || !extForm.name.trim() || (!extEditId && (!extForm.username.trim() || !pwdOk(extForm.password)))" @click="saveExt">
               {{ extBusy ? '保存中…' : (extEditId ? '保存' : '开通账号') }}
             </button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          </template>
+    </Modal>
 
     <!-- 停用确认弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="disableOpen" class="df-overlay" @click="disableOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="disableOpen" class="df-modal">
-          <div class="df-modal-hd"><b>停用员工</b><button class="df-x" @click="disableOpen = false"><Icon name="close"/></button></div>
-          <div class="df-modal-body">
-            <p class="df-tip warn-text">确认停用「{{ disableTarget?.name }}」？<br>停用后该员工不再计入工资核算，其登录账号也会被禁用（可随时「启用」恢复）。</p>
-          </div>
-          <div class="df-modal-ft">
-            <button class="btn btn-ghost" @click="disableOpen = false">取消</button>
-            <button class="btn btn-danger" @click="confirmDisable">确认停用</button>
-          </div>
-        </div>
-      </Transition>
+    <Modal guard-close :show="disableOpen" :width="420" title="停用员工" @close="disableOpen = false">
+      <div class="df-body">
+        <p class="df-tip warn-text">确认停用「{{ disableTarget?.name }}」？<br>停用后该员工不再计入工资核算，其登录账号也会被禁用（可随时「启用」恢复）。</p>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost" @click="disableOpen = false">取消</button>
+        <button class="btn btn-danger" @click="confirmDisable">确认停用</button>
+      </template>
+    </Modal>
 
-      <!-- 离职交接：报单配置转交 -->
-      <Transition name="fade"><div v-if="transferOpen" class="df-overlay" @click="transferOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="transferOpen" class="df-modal">
-          <div class="df-modal-hd"><b>交接报单配置</b><button class="df-x" @click="transferOpen = false"><Icon name="close"/></button></div>
-          <div class="df-modal-body">
-            <p class="df-tip warn-text">
-              「{{ transferEmp?.name }}」名下还有 <b>{{ transferCount }}</b> 个报单配置（门店）。<br>
-              这些配置<b>不能随离职作废</b> —— 否则对应门店将无人报单，业务会中断。请转交给接任者。
-            </p>
-            <label class="df-field">
-              <span>转交给 <b class="req">*</b></span>
-              <select v-model="transferToId" class="input">
-                <option :value="null">— 请选择在职员工 —</option>
-                <option v-for="ae in activeEmployees" :key="ae.id" :value="ae.id">
-                  {{ ae.name }}<template v-if="ae.employee_no">（{{ ae.employee_no }}）</template>
-                </option>
-              </select>
-            </label>
-          </div>
-          <div class="df-modal-ft">
-            <button class="btn btn-ghost" @click="transferOpen = false">稍后处理</button>
-            <button v-if="canDo('hr', 'create')" class="btn btn-primary" :disabled="transferring || !transferToId" @click="confirmTransfer">
-              {{ transferring ? '转交中…' : '确认转交' }}
-            </button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- 离职交接：报单配置转交 -->
+    <Modal guard-close :show="transferOpen" :width="560" title="交接报单配置" @close="transferOpen = false">
+      <div class="df-body">
+        <p class="df-tip warn-text">
+          「{{ transferEmp?.name }}」名下还有 <b>{{ transferCount }}</b> 个报单配置（门店）。<br>
+          这些配置<b>不能随离职作废</b> —— 否则对应门店将无人报单，业务会中断。请转交给接任者。
+        </p>
+        <label class="df-field">
+          <span>转交给 <b class="req">*</b></span>
+          <select v-model="transferToId" class="input">
+            <option :value="null">— 请选择在职员工 —</option>
+            <option v-for="ae in activeEmployees" :key="ae.id" :value="ae.id">
+              {{ ae.name }}<template v-if="ae.employee_no">（{{ ae.employee_no }}）</template>
+            </option>
+          </select>
+        </label>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost" @click="transferOpen = false">稍后处理</button>
+        <button v-if="canDo('hr', 'create')" class="btn btn-primary" :disabled="transferring || !transferToId" @click="confirmTransfer">
+          {{ transferring ? '转交中…' : '确认转交' }}
+        </button>
+      </template>
+    </Modal>
 
     <!-- 未连接提醒弹窗 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="remindOpen" class="df-overlay" @click="remindOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="remindOpen" class="df-modal">
-          <div class="df-modal-hd"><b>尚未连接 ERP</b><button class="df-x" @click="remindOpen = false"><Icon name="close"/></button></div>
-          <div class="df-modal-body">
-            <p class="df-tip">「同步」需要先把你的 ERP（畅捷通 / 金蝶）接入 Hergent。</p>
-            <p class="df-tip">请前往 <b>AI 引擎 › 连接器</b> 完成授权连接后，再来点「同步」。</p>
-          </div>
-          <div class="df-modal-ft">
-            <button class="btn btn-ghost" @click="remindOpen = false">知道了</button>
-            <button class="btn btn-primary" @click="goConnect">去 AI 引擎</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <Modal guard-close :show="remindOpen" :width="420" title="尚未连接 ERP" @close="remindOpen = false">
+      <div class="df-body">
+        <p class="df-tip">「同步」需要先把你的 ERP（畅捷通 / 金蝶）接入 Hergent。</p>
+        <p class="df-tip">请前往 <b>AI 引擎 › 连接器</b> 完成授权连接后，再来点「同步」。</p>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost" @click="remindOpen = false">知道了</button>
+        <button class="btn btn-primary" @click="goConnect">去 AI 引擎</button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
-import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
@@ -1941,7 +1914,6 @@ onMounted(() => {
 /* v308 外部客户账号分区：表单单行自适应换行（窄屏自动折行，不横向溢出）。 */
 /* v317：外部客户弹窗宽度 —— 比「停用确认」略宽（要放 2 列字段 + 两行说明），
    比「编辑员工」（680px）窄，因为它没有薪酬那一大块。 */
-.ext-modal{width:min(560px,94vw)}
 .df-role.stopped{background:var(--st-draft-bg) !important;color:var(--st-draft-txt) !important}
 /* v266 兼任角色徽标：用**虚框**而非实底，与主角色实底徽标在视觉上分层
    —— 一眼看出「哪个是这个人的本职、哪个是兼的」。 */
@@ -1949,17 +1921,15 @@ onMounted(() => {
 /* v290：遮罩 .3 → .45。原值太浅，弹窗右侧还能看清整个员工列表，视觉焦点不集中。
    ⚠️ 这只是**对比度**问题，不是层叠问题 —— overlay 980 / modal 990 的层级本来就是对的，
       截图里露出的那块表格是没遮严的页面内容，不是 bug，别往 z-index 上修。 */
-.df-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:980}
-.df-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(420px,92vw);max-height:88vh;display:flex;flex-direction:column;background:var(--bg);border-radius:16px;z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.18)}
-.df-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
-.df-modal-hd b{font-size:15px;color:var(--t1)}
-.df-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
-.df-modal-body{padding:18px 20px;display:flex;flex-direction:column;gap:12px;flex:1 1 auto;min-height:0;overflow-y:auto}
+/* v691：弹窗骨架（遮罩 / 定位 / 层级 / 圆角 / 三段结构 / 动画）统一由 components/Modal.vue
+   提供，本页只保留弹窗内部排版 —— 这些 class 挂在 slot 内元素上，才拿得到本页 scope id。
+   ⚠️ 遮罩深浅的历史：v290 把 .3 调到 .45，理由是「太浅时右侧还能看清整个员工列表」。
+      统一后取全站值 .4 —— 仍明显深于当初被打回的 .3，v290 的诉求（要能遮住背景）不倒退。 */
+.df-body{display:flex;flex-direction:column;gap:12px}
 .df-field{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--t2)}
 .req{color:var(--dan)}
 /* .df-store-list / .df-store-item 于 2026-09-19 随「分配门店」弹窗一并移除
    （门店配置收敛到「预报订单管理 → 报单配置」）。 */
-.df-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle);flex-shrink:0}
 
 /* 停用视觉 */
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
@@ -1970,7 +1940,6 @@ onMounted(() => {
 
 /* 编辑弹窗布局 */
 /* v290：600 → 680 —— 两列栅格下每列约 270px 太挤（"薪酬与账户"7 个字段会挤出半行留白）。 */
-.edit-modal{width:min(680px,94vw)}
 .df-edit-body{display:flex;flex-direction:column;gap:20px}
 .df-sec{display:flex;flex-direction:column;gap:13px}
 .df-sec-title{font-size:13px;font-weight:600;color:var(--t1);padding-left:11px;border-left:3px solid var(--p);line-height:1.2}

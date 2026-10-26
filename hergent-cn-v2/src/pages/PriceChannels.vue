@@ -257,14 +257,10 @@
       <div v-else class="pc-res-hint">选一个报单对象和一个商品，点「试算」。</div>
     </div>
 
-    <!-- 新建 / 编辑渠道 -->
-    <div v-if="fmOpen" class="pc-mask" @click.self="fmOpen = false">
-      <div class="pc-modal pc-modal-sm">
-        <div class="pc-modal-hd">
-          <b>{{ fmEdit ? '编辑渠道' : '新建渠道' }}</b>
-          <button class="pc-x" @click="fmOpen = false"><Icon name="close"/></button>
-        </div>
-        <div class="pc-modal-bd">
+    <!-- 新建 / 编辑渠道（v691：骨架走公共 Modal —— 此前不 Teleport、不锁背景滚动、无 Esc，
+         且 pc-mask 的 z-index 只有 60，比工具栏弹层(1120)还低，弹窗会被工具栏按钮盖住） -->
+    <Modal guard-close :show="fmOpen" :width="440" :title="fmEdit ? '编辑渠道' : '新建渠道'" @close="fmOpen = false">
+        <div class="pc-body">
           <label class="pc-f">
             <span>渠道名称（你自己叫它什么）</span>
             <input v-model="fm.name" maxlength="20" placeholder="例如：永辉系统 / 大润发 / 车销仓"/>
@@ -293,23 +289,18 @@
           </label>
           <div v-if="fmErr" class="pc-err">{{ fmErr }}</div>
         </div>
-        <div class="pc-modal-ft">
+        <template #footer>
           <button class="btn btn-ghost btn-sm" @click="fmOpen = false">取消</button>
           <button class="btn btn-primary btn-sm" :disabled="fmBusy || !fm.name.trim()" @click="saveChannel">
             {{ fmBusy ? '保存中…' : '保存' }}
           </button>
-        </div>
-      </div>
-    </div>
+        </template>
+    </Modal>
 
     <!-- 商品 × 渠道 价格维护 -->
-    <div v-if="mxOpen" class="pc-mask" @click.self="mxOpen = false">
-      <div class="pc-modal">
-        <div class="pc-modal-hd">
-          <b>「{{ mxChannel.name }}」的商品价格 / 编码</b>
-          <button class="pc-x" @click="mxOpen = false"><Icon name="close"/></button>
-        </div>
-        <div class="pc-modal-bd">
+    <Modal guard-close :show="mxOpen" :width="900" :title="'「' + mxChannel.name + '」的商品价格 / 编码'"
+           @close="mxOpen = false">
+        <div class="pc-body">
           <div class="pc-mx-bar">
             <input v-model="mxKw" placeholder="搜索商品名称 / 条码 / 厂家编码" @keyup.enter="loadMatrix(0)"/>
             <button class="btn btn-ghost btn-sm" @click="loadMatrix(0)">搜索</button>
@@ -347,21 +338,21 @@
             <button class="btn btn-ghost btn-sm" :disabled="mxPageTo >= mxTotal" @click="loadMatrix(mxOffset + mxLimit)">下一页</button>
           </div>
         </div>
-        <div class="pc-modal-ft">
+        <template #footer>
           <span class="pc-dirty">{{ dirtyCount }} 行待保存</span>
           <button class="btn btn-ghost btn-sm" @click="mxOpen = false">关闭</button>
           <!-- v335 按钮级门禁：POST /api/price-channels/{cid}/matrix ⇒ data/**create** -->
           <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" :disabled="!dirtyCount || mxBusy" @click="saveMatrix">
             {{ mxBusy ? '保存中…' : '保存' }}
           </button>
-        </div>
-      </div>
-    </div>
+        </template>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import { ref, computed, onMounted } from 'vue'
 import { priceChannelApi, reportMappingApi, productsApi, custPriceApi } from '../api/modules'
 import { toast, canDo, confirm } from '../store'
@@ -892,6 +883,8 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* v691：弹窗骨架统一由 components/Modal.vue 提供，本页只保留弹窗内排版 */
+.pc-body{display:flex;flex-direction:column;gap:12px}
 .pc-act{display:flex;gap:8px;flex-wrap:wrap}
 .pc-why{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;margin:0 0 14px;padding:10px 14px;
   border-radius:8px;background:var(--bg2);border:1px solid var(--bd);font-size:12.5px;line-height:1.65;color:var(--t2)}
@@ -940,20 +933,6 @@ onMounted(async () => {
 .pc-res-warn{margin-top:6px;font-size:12.5px;color:var(--war);line-height:1.6}
 .pc-res-hint{margin-top:12px;font-size:12.5px;color:var(--t3)}
 
-.pc-mask{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;
-  justify-content:center;z-index:60;padding:24px}
-.pc-modal{display:flex;flex-direction:column;width:100%;max-width:900px;max-height:86vh;background:var(--bg);
-  border-radius:var(--radius-lg);border:1px solid var(--bd);overflow:hidden}
-.pc-modal-sm{max-width:440px}
-.pc-modal-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;
-  border-bottom:1px solid var(--bd)}
-.pc-modal-hd b{font-size:14.5px;color:var(--t1)}
-.pc-x{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:none;
-  background:none;border-radius:6px;color:var(--t2);cursor:pointer}
-.pc-x:hover{background:var(--bg2);color:var(--t1)}
-.pc-modal-bd{padding:14px 16px;overflow:auto;display:flex;flex-direction:column;gap:12px}
-.pc-modal-ft{display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--bd)}
-.pc-modal-ft .btn{padding:0 14px}
 .pc-dirty{margin-right:auto;font-size:12.5px;color:var(--t2)}
 .pc-err{font-size:12.5px;color:var(--dan);line-height:1.6}
 

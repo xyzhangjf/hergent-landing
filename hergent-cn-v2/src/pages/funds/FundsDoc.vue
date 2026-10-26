@@ -90,10 +90,9 @@
     </template>
 
     <!-- 新建弹窗 -->
-    <div v-if="showCreate" class="fd-mask" @click.self="showCreate = false">
-      <div class="fd-modal">
-        <div class="fd-modal-hd"><h3>新建{{ meta.label }}</h3><button class="fd-x" @click="showCreate = false">✕</button></div>
-        <div class="fd-modal-bd">
+    <!-- v691：骨架走公共 Modal（此前本页弹窗不 Teleport、不锁背景滚动、无 Esc） -->
+    <Modal guard-close :show="showCreate" :width="560" :title="'新建' + meta.label" @close="showCreate = false">
+        <div class="fd-body">
           <div class="fd-frow">
             <label>日期<input type="date" v-model="form.bill_date" class="input"></label>
             <label v-if="meta.partyType !== 'none'">{{ meta.partyLabel }}名称
@@ -147,18 +146,15 @@
           <label class="fd-full">备注<textarea v-model="form.remark" class="input" rows="2" placeholder="选填"></textarea></label>
           <p v-if="formErr" class="fd-err">{{ formErr }}</p>
         </div>
-        <div class="fd-modal-ft">
+        <template #footer>
           <button class="btn btn-ghost btn-sm" @click="showCreate = false">取消</button>
           <button class="btn btn-primary btn-sm" :disabled="saving" @click="submitCreate">{{ saving ? '保存中…' : '保存' }}</button>
-        </div>
-      </div>
-    </div>
+        </template>
+    </Modal>
 
     <!-- 详情弹窗 -->
-    <div v-if="showDetail" class="fd-mask" @click.self="showDetail = false">
-      <div class="fd-modal">
-        <div class="fd-modal-hd"><h3>{{ detail.doc_no }}</h3><button class="fd-x" @click="showDetail = false">✕</button></div>
-        <div class="fd-modal-bd">
+    <Modal guard-close :show="showDetail" :width="560" :title="detail.doc_no || ''" @close="showDetail = false">
+        <div class="fd-body">
           <div class="fd-dl">
             <div><span>类型</span>{{ fundDocLabel(detail.doc_type) }}</div>
             <div><span>日期</span>{{ detail.bill_date }}</div>
@@ -183,12 +179,11 @@
             </div>
           </div>
         </div>
-        <div class="fd-modal-ft" v-if="detail.status === 'draft'">
+        <template #footer v-if="detail.status === 'draft'">
           <button class="btn btn-ghost btn-sm" @click="showDetail = false">关闭</button>
           <button class="btn btn-primary btn-sm" @click="doPost(detail); showDetail = false">过账</button>
-        </div>
-      </div>
-    </div>
+        </template>
+    </Modal>
   </div>
 </template>
 
@@ -202,6 +197,7 @@ import Skeleton from '../../components/Skeleton.vue'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
+import Modal from '../../components/Modal.vue'
 import { fundsApi } from '../../api/funds'
 import { fmtMoney } from '../../constants/psiLabels'
 import { FUND_DOC_META, fundDocLabel, fundStatusText, fundStatusTag, FUND_ITEM_COLS } from '../../constants/fundLabels'
@@ -353,6 +349,8 @@ onMounted(load)
 </script>
 
 <style scoped>
+/* v691：弹窗骨架统一由 components/Modal.vue 提供，本页只保留弹窗内排版 */
+.fd-body { display: flex; flex-direction: column; gap: 12px }
 /* 私有类一律 fd- 前缀；全局件（.page/.page-hd/.card/.kpi-strip/.tbl/.tag/.state-*）不重定义。 */
 .fd-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
 .fd-filter { margin: 14px 0 }
@@ -370,13 +368,6 @@ onMounted(load)
 .fd-err { color: var(--danger-txt); font-size: 12px; margin-top: 8px }
 
 /* 弹窗（页面私有 UI，fd- 前缀，不造全局第二份） */
-.fd-mask { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 1120; padding: 16px }
-.fd-modal { background: var(--bg1, #fff); border-radius: 16px; width: min(560px, 100%); max-height: 88vh; display: flex; flex-direction: column; box-shadow: var(--shadow-lg) }
-.fd-modal-hd { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--bd) }
-.fd-modal-hd h3 { font-size: 15px; font-weight: 600; color: var(--t1) }
-.fd-x { border: none; background: none; font-size: 16px; color: var(--t3); cursor: pointer }
-.fd-modal-bd { padding: 14px 18px; overflow-y: auto }
-.fd-modal-ft { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--bd) }
 .fd-dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px }
 .fd-dl > div { display: flex; gap: 8px; font-size: 13px; color: var(--t1); align-items: center }
 .fd-dl span { color: var(--t2); min-width: 48px }

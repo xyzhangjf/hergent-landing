@@ -370,146 +370,141 @@
     </p>
     </template>
 
-    <!-- ══ 弹窗 ══ -->
-    <Teleport to="body">
-      <div v-if="modal" class="la-mask" @click.self="closeModal">
-        <div class="la-modal">
-          <!-- 上传数据（占位说明，文案来自后端） -->
-          <template v-if="modal === 'import'">
-            <div class="la-modal-hd">上传数据<button class="la-x" @click="closeModal">×</button></div>
-            <div class="la-modal-bd">
-              <p class="la-notice">{{ importMsg }}</p>
-              <p class="la-modal-lead">下一阶段会支持这 4 类舟谱导出文件，自动解析并回填到本页：</p>
-              <ul class="la-list">
-                <li>门店销售单（自提订单）—— 门店销售额 + 临期仓销售额</li>
-                <li>门店退货单（自提退单）—— 门店退到临期仓的金额</li>
-                <li>调拨单明细 —— 良品仓 / 业务员仓 / 临期仓之间的 3 种组合</li>
-                <li>报损单（舟谱无此数据，仍由手工录入）</li>
-              </ul>
-              <p class="la-modal-tip">
-                解析后会先给你一个<b>预览</b>：每列被识别成什么、有哪些仓名/门店没认出来（带行数和金额），
-                确认无误才会保存。现在请先用「手工录入」按同样的口径填数，将来用导入也能接在同一本账上。
-              </p>
-            </div>
-            <div class="la-modal-ft"><button class="btn btn-primary btn-sm" @click="closeModal">知道了</button></div>
-          </template>
-
-          <!-- 叫法映射 -->
-          <template v-else-if="modal === 'roles'">
-            <div class="la-modal-hd">叫法映射<button class="la-x" @click="closeModal">×</button></div>
-            <div class="la-modal-bd">
-              <p class="la-modal-lead">
-                不同经销商对同一个东西叫法不同（比如「良品仓」你们叫<b>总仓</b>）。这里改的是<b>显示名</b>——
-                页面上所有地方会跟着变；将来导入时用于识别文件的<b>别名</b>是另一份清单。
-              </p>
-              <table class="la-mini">
-                <thead><tr><th>概念</th><th>当前显示名</th><th>说明</th></tr></thead>
-                <tbody>
-                  <tr v-for="r in rolesList" :key="r.role">
-                    <td class="la-mono">{{ r.role }}</td>
-                    <td>
-                      <input v-model="roleLabelDraft[r.role]" class="la-input-sm" maxlength="20">
-                    </td>
-                    <td class="la-quiet">{{ r.basis }}</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p class="la-modal-tip">
-                识别用别名（共 {{ aliasList.length }} 条，如
-                <span class="la-mono">{{ aliasPreview }}</span>）将在导入阶段开放维护。
-              </p>
-            </div>
-            <div class="la-modal-ft">
-              <button class="btn btn-ghost btn-sm" @click="closeModal">取消</button>
-              <!-- v335 按钮级门禁：PUT /api/loss/accounting/roles/{role} ⇒ stock/update -->
-              <button v-if="canDo('loss', 'update')" class="btn btn-primary btn-sm" :disabled="saving" @click="saveRoles">保存显示名</button>
-            </div>
-          </template>
-
-          <!-- 数据体检 -->
-          <template v-else-if="modal === 'health'">
-            <div class="la-modal-hd">数据体检<button class="la-x" @click="closeModal">×</button></div>
-            <div class="la-modal-bd">
-              <div v-if="!healthItems.length" class="state-empty">本期没有发现待处理的问题。</div>
-              <ul v-else class="la-health">
-                <li v-for="(it, i) in healthItems" :key="i" :class="'lv-' + it.level">
-                  <span class="la-health-lv">{{ it.level === 'warn' ? '需处理' : '提示' }}</span>
-                  <span>{{ it.text }}</span>
-                </li>
-              </ul>
-            </div>
-            <div class="la-modal-ft"><button class="btn btn-primary btn-sm" @click="closeModal">关闭</button></div>
-          </template>
-
-          <!-- 添加主体 -->
-          <template v-else-if="modal === 'subject'">
-            <div class="la-modal-hd">
-              添加{{ subjectForm.subject_kind === 'store' ? '门店' : '业务员' }}
-              <button class="la-x" @click="closeModal">×</button>
-            </div>
-            <div class="la-modal-bd">
-              <label class="la-field">
-                <span>名称</span>
-                <input v-model="subjectForm.subject_key" class="la-input-sm" :placeholder="subjectForm.subject_kind === 'store' ? '例如：永辉民发店' : '例如：王琴'">
-              </label>
-              <label class="la-field">
-                <span>备注<em>选填</em></span>
-                <input v-model="subjectForm.note" class="la-input-sm" placeholder="例如：仅直营 / 负责城东片区">
-              </label>
-              <p class="la-modal-tip">
-                名称要与舟谱导出里的一致 —— 将来导入时靠它把数据归到这一行，改名不影响已录入的历史数据。
-              </p>
-            </div>
-            <div class="la-modal-ft">
-              <button class="btn btn-ghost btn-sm" @click="closeModal">取消</button>
-              <!-- v335 按钮级门禁：PUT /api/loss/accounting/subjects ⇒ stock/update（PUT 即 update） -->
-              <button v-if="canDo('loss', 'update')" class="btn btn-primary btn-sm" :disabled="saving || !subjectForm.subject_key.trim()" @click="saveSubject">添加</button>
-            </div>
-          </template>
-
-          <!-- 行溯源 -->
-          <template v-else-if="modal === 'detail'">
-            <div class="la-modal-hd">
-              溯源 · {{ detailData?.subject_label || '' }}
-              <button class="la-x" @click="closeModal">×</button>
-            </div>
-            <div class="la-modal-bd">
-              <h4 class="la-h4">本行当前录入值</h4>
-              <div v-if="!detailData?.inputs?.length" class="state-empty">本行尚无录入值。</div>
-              <table v-else class="la-mini">
-                <thead><tr><th>项目</th><th class="num">值（万元）</th><th>最后修改</th><th>修改人</th></tr></thead>
-                <tbody>
-                  <tr v-for="it in detailData.inputs" :key="it.col_key">
-                    <td>{{ it.col_label }}</td>
-                    <td class="num">{{ wanText(it.value) }}</td>
-                    <td class="la-quiet">{{ it.updated_at || '—' }}</td>
-                    <td class="la-quiet">{{ it.updated_by || '—' }}</td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <h4 class="la-h4">修改记录（谁在什么时候改的）</h4>
-              <div v-if="!detailData?.change_logs?.length" class="state-empty">暂无修改记录。</div>
-              <table v-else class="la-mini">
-                <thead><tr><th>字段</th><th>改前</th><th>改后</th><th>修改人</th></tr></thead>
-                <tbody>
-                  <tr v-for="l in detailData.change_logs" :key="l.id">
-                    <td>{{ l.field_name }}</td>
-                    <td class="la-quiet">{{ wanMaybe(l.old_value) }}</td>
-                    <td>{{ wanMaybe(l.new_value) }}</td>
-                    <td class="la-quiet">{{ l.user_name }}</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p class="la-modal-tip">
-                单据级明细（哪张单、哪个商品、多少数量）要等导入接入后才能钻 —— 手工填报阶段能追溯的就是这张录入与修改记录。
-              </p>
-            </div>
-            <div class="la-modal-ft"><button class="btn btn-primary btn-sm" @click="closeModal">关闭</button></div>
-          </template>
+    <!-- ══ 弹窗 ══ （v691：外壳走公共 Modal —— 遮罩/层级/圆角/Esc/焦点陷阱/滚动锁统一；
+         本页 5 种用途共用同一个弹窗，标题随用途变、正文与按钮各自分支） -->
+    <Modal guard-close :show="!!modal" :width="760" :title="modalTitle" @close="closeModal">
+      <!-- 上传数据（占位说明，文案来自后端） -->
+      <template v-if="modal === 'import'">
+        <div class="la-body">
+          <p class="la-notice">{{ importMsg }}</p>
+          <p class="la-modal-lead">下一阶段会支持这 4 类舟谱导出文件，自动解析并回填到本页：</p>
+          <ul class="la-list">
+            <li>门店销售单（自提订单）—— 门店销售额 + 临期仓销售额</li>
+            <li>门店退货单（自提退单）—— 门店退到临期仓的金额</li>
+            <li>调拨单明细 —— 良品仓 / 业务员仓 / 临期仓之间的 3 种组合</li>
+            <li>报损单（舟谱无此数据，仍由手工录入）</li>
+          </ul>
+          <p class="la-modal-tip">
+            解析后会先给你一个<b>预览</b>：每列被识别成什么、有哪些仓名/门店没认出来（带行数和金额），
+            确认无误才会保存。现在请先用「手工录入」按同样的口径填数，将来用导入也能接在同一本账上。
+          </p>
         </div>
-      </div>
-    </Teleport>
+      </template>
+
+      <!-- 叫法映射 -->
+      <template v-else-if="modal === 'roles'">
+        <div class="la-body">
+          <p class="la-modal-lead">
+            不同经销商对同一个东西叫法不同（比如「良品仓」你们叫<b>总仓</b>）。这里改的是<b>显示名</b>——
+            页面上所有地方会跟着变；将来导入时用于识别文件的<b>别名</b>是另一份清单。
+          </p>
+          <table class="la-mini">
+            <thead><tr><th>概念</th><th>当前显示名</th><th>说明</th></tr></thead>
+            <tbody>
+              <tr v-for="r in rolesList" :key="r.role">
+                <td class="la-mono">{{ r.role }}</td>
+                <td>
+                  <input v-model="roleLabelDraft[r.role]" class="la-input-sm" maxlength="20">
+                </td>
+                <td class="la-quiet">{{ r.basis }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="la-modal-tip">
+            识别用别名（共 {{ aliasList.length }} 条，如
+            <span class="la-mono">{{ aliasPreview }}</span>）将在导入阶段开放维护。
+          </p>
+        </div>
+      </template>
+
+      <!-- 数据体检 -->
+      <template v-else-if="modal === 'health'">
+        <div class="la-body">
+          <div v-if="!healthItems.length" class="state-empty">本期没有发现待处理的问题。</div>
+          <ul v-else class="la-health">
+            <li v-for="(it, i) in healthItems" :key="i" :class="'lv-' + it.level">
+              <span class="la-health-lv">{{ it.level === 'warn' ? '需处理' : '提示' }}</span>
+              <span>{{ it.text }}</span>
+            </li>
+          </ul>
+        </div>
+      </template>
+
+      <!-- 添加主体 -->
+      <template v-else-if="modal === 'subject'">
+        <div class="la-body">
+          <label class="la-field">
+            <span>名称</span>
+            <input v-model="subjectForm.subject_key" class="la-input-sm" :placeholder="subjectForm.subject_kind === 'store' ? '例如：永辉民发店' : '例如：王琴'">
+          </label>
+          <label class="la-field">
+            <span>备注<em>选填</em></span>
+            <input v-model="subjectForm.note" class="la-input-sm" placeholder="例如：仅直营 / 负责城东片区">
+          </label>
+          <p class="la-modal-tip">
+            名称要与舟谱导出里的一致 —— 将来导入时靠它把数据归到这一行，改名不影响已录入的历史数据。
+          </p>
+        </div>
+      </template>
+
+      <!-- 行溯源 -->
+      <template v-else-if="modal === 'detail'">
+        <div class="la-body">
+          <h4 class="la-h4">本行当前录入值</h4>
+          <div v-if="!detailData?.inputs?.length" class="state-empty">本行尚无录入值。</div>
+          <table v-else class="la-mini">
+            <thead><tr><th>项目</th><th class="num">值（万元）</th><th>最后修改</th><th>修改人</th></tr></thead>
+            <tbody>
+              <tr v-for="it in detailData.inputs" :key="it.col_key">
+                <td>{{ it.col_label }}</td>
+                <td class="num">{{ wanText(it.value) }}</td>
+                <td class="la-quiet">{{ it.updated_at || '—' }}</td>
+                <td class="la-quiet">{{ it.updated_by || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h4 class="la-h4">修改记录（谁在什么时候改的）</h4>
+          <div v-if="!detailData?.change_logs?.length" class="state-empty">暂无修改记录。</div>
+          <table v-else class="la-mini">
+            <thead><tr><th>字段</th><th>改前</th><th>改后</th><th>修改人</th></tr></thead>
+            <tbody>
+              <tr v-for="l in detailData.change_logs" :key="l.id">
+                <td>{{ l.field_name }}</td>
+                <td class="la-quiet">{{ wanMaybe(l.old_value) }}</td>
+                <td>{{ wanMaybe(l.new_value) }}</td>
+                <td class="la-quiet">{{ l.user_name }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="la-modal-tip">
+            单据级明细（哪张单、哪个商品、多少数量）要等导入接入后才能钻 —— 手工填报阶段能追溯的就是这张录入与修改记录。
+          </p>
+        </div>
+      </template>
+
+      <template #footer>
+        <template v-if="modal === 'import'">
+          <button class="btn btn-primary btn-sm" @click="closeModal">知道了</button>
+        </template>
+        <template v-else-if="modal === 'roles'">
+          <button class="btn btn-ghost btn-sm" @click="closeModal">取消</button>
+          <!-- v335 按钮级门禁：PUT /api/loss/accounting/roles/{role} ⇒ stock/update -->
+          <button v-if="canDo('loss', 'update')" class="btn btn-primary btn-sm" :disabled="saving" @click="saveRoles">保存显示名</button>
+        </template>
+        <template v-else-if="modal === 'health'">
+          <button class="btn btn-primary btn-sm" @click="closeModal">关闭</button>
+        </template>
+        <template v-else-if="modal === 'subject'">
+          <button class="btn btn-ghost btn-sm" @click="closeModal">取消</button>
+          <!-- v335 按钮级门禁：PUT /api/loss/accounting/subjects ⇒ stock/update（PUT 即 update） -->
+          <button v-if="canDo('loss', 'update')" class="btn btn-primary btn-sm" :disabled="saving || !subjectForm.subject_key.trim()" @click="saveSubject">添加</button>
+        </template>
+        <template v-else-if="modal === 'detail'">
+          <button class="btn btn-primary btn-sm" @click="closeModal">关闭</button>
+        </template>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -517,6 +512,7 @@
 import Skeleton from '../components/Skeleton.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { useColSettings } from '../composables/useColSettings.js'
 /* v396（2026-10-08）：主 Tab 改由 URL 的 `?tab=` 驱动（页签条已退役）⇒ 需要路由。 */
@@ -618,6 +614,17 @@ const healthItems = ref([])
 const detailData = ref(null)
 const showBreakdown = ref(false)
 const subjectForm = reactive({ subject_kind: 'store', subject_key: '', note: '' })
+/* v691：弹窗标题随用途变 —— 原来 5 个分支各自写一份 `.la-modal-hd`，
+   现在统一由公共 Modal 的标题位渲染，所以标题必须集中在这里算。
+   文案与原来逐字一致，不改口径。 */
+const modalTitle = computed(() => {
+  if (modal.value === 'import') return '上传数据'
+  if (modal.value === 'roles') return '叫法映射'
+  if (modal.value === 'health') return '数据体检'
+  if (modal.value === 'subject') return '添加' + (subjectForm.subject_kind === 'store' ? '门店' : '业务员')
+  if (modal.value === 'detail') return '溯源 · ' + (detailData.value?.subject_label || '')
+  return ''
+})
 
 /* ── 趋势（仪表盘）状态 ──
    数据只来自 `GET /api/loss/accounting/trend`（跨期只读序列）。筛选分两类：
@@ -1167,6 +1174,8 @@ onMounted(async () => { await load(''); await loadTrend() })
 </script>
 
 <style scoped>
+/* v691：弹窗骨架统一由 components/Modal.vue 提供，本页只保留弹窗内排版 */
+.la-body{padding:0}
 /* ── 工具条 ── */
 .la-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .la-bar-l{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1305,12 +1314,6 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-chip-mini{font-size:11px;padding:2px 7px}
 
 /* ── 弹窗 ── */
-.la-mask{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px}
-.la-modal{width:min(760px,96vw);max-height:86vh;display:flex;flex-direction:column;background:var(--bg);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.22);overflow:hidden}
-.la-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle);font-size:14px;font-weight:600}
-.la-x{background:none;border:none;font-size:19px;line-height:1;color:var(--t3);cursor:pointer}
-.la-modal-bd{padding:16px 18px;overflow:auto}
-.la-modal-ft{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--border-subtle)}
 .la-modal-lead{font-size:12.5px;color:var(--t1);line-height:1.7;margin:0 0 10px}
 .la-modal-tip{font-size:11.5px;color:var(--t3);line-height:1.7;margin:10px 0 0}
 .la-notice{font-size:13px;color:var(--p-dark);background:var(--p-bg);border:1px solid color-mix(in srgb,var(--p) 28%,transparent);border-radius:10px;padding:10px 12px;margin:0 0 12px}

@@ -77,99 +77,78 @@
       </div>
     </div>
 
-    <Teleport to="body">
-      <!-- 新增 / 编辑供应商。UI-SPEC §4.1 五条（全站尚无统一 Modal 组件，各页自建）：
-           ① role/aria-modal/aria-labelledby ② tabindex=-1 + 打开后焦点移入
-           ③ Esc 关闭 ④ 有未保存改动时不得直接关闭（走内联二次确认）
-           ⑤ 结构 hd / body / ft -->
-      <Transition name="fade"><div v-if="formOpen" class="sup-overlay" @click="tryClose"></div></Transition>
-      <Transition name="pop">
-        <div v-if="formOpen" ref="modalRef" class="sup-modal" role="dialog" aria-modal="true"
-             aria-labelledby="sup-modal-title" tabindex="-1" @keydown.esc.stop="tryClose">
-          <div class="sup-modal-hd">
-            <b id="sup-modal-title">{{ editTarget ? '编辑供应商' : '新增供应商' }}</b>
-            <button class="sup-x" aria-label="关闭" @click="tryClose"><Icon name="close"/></button>
-          </div>
-          <div class="sup-modal-body">
-            <p class="sup-tip">
-              只摆真实在用的字段；点「更多字段」可填编码 / 营业执照号 / 付款账期等。
-              <template v-if="editTarget">没改动的项目会<b>保持原样</b>，不会被动到。</template>
-            </p>
-            <!-- 主区 = 3 行两列 + 2 行通栏，**恰好填满、零留白**。
-                 （客户档案弹窗第 7 格右留白那个遗留，就是没按"格数 = 双数列"排造成的。） -->
-            <div class="sup-form">
-              <label class="sup-f"><span>供应商名称 <i aria-hidden="true">*</i></span>
-                <input v-model="form.name" class="input" :class="{ err: nameErr }"
-                       placeholder="必填，如「蒙牛低温奶事业部」" aria-required="true"
-                       :aria-invalid="nameErr ? 'true' : 'false'"
-                       aria-describedby="sup-name-err" @input="nameErr = false"></label>
-              <label class="sup-f"><span>供应商类别 <em>选已有或手填</em></span>
-                <input v-model="form.supplier_category" class="input" list="sup-cat-list" placeholder="如 常温奶 / 包装物"></label>
-              <label class="sup-f"><span>对接人</span>
-                <input v-model="form.contact_person" class="input" placeholder="如 王经理"></label>
-              <label class="sup-f"><span>联系电话</span>
-                <input v-model="form.phone" class="input" placeholder="对接人手机 / 座机"></label>
-              <label class="sup-f"><span>开户行</span>
-                <input v-model="form.bank_name" class="input" placeholder="如 中国银行襄阳分行"></label>
-              <label class="sup-f"><span>银行账号 <em>加密存储</em></span>
-                <input v-model="form.bank_account" class="input" placeholder="对公账号"></label>
-              <label class="sup-f sup-f-full"><span>地址</span>
-                <input v-model="form.address" class="input" placeholder="供应商地址"></label>
-              <label class="sup-f sup-f-full"><span>备注</span>
-                <textarea v-model="form.note" class="input sup-ta" placeholder="选填"></textarea></label>
-            </div>
-            <p v-if="nameErr" id="sup-name-err" class="field-err" role="alert">请填写供应商名称</p>
+    <!-- 新增 / 编辑供应商（v691：骨架走公共 Modal —— role/aria、Esc、焦点陷阱、
+         背景滚动锁、层级统一由组件提供；「未保存改动二次确认」仍在本页，
+         通过拦 close 事件实现，行为不变） -->
+    <Modal :show="formOpen" :width="580" :title="editTarget ? '编辑供应商' : '新增供应商'"
+           @close="tryClose">
+      <p class="sup-tip">
+        只摆真实在用的字段；点「更多字段」可填编码 / 营业执照号 / 付款账期等。
+        <template v-if="editTarget">没改动的项目会<b>保持原样</b>，不会被动到。</template>
+      </p>
+      <!-- 主区 = 3 行两列 + 2 行通栏，**恰好填满、零留白**。
+           （客户档案弹窗第 7 格右留白那个遗留，就是没按"格数 = 双数列"排造成的。） -->
+      <div class="sup-form">
+        <label class="sup-f"><span>供应商名称 <i aria-hidden="true">*</i></span>
+          <input v-model="form.name" class="input" :class="{ err: nameErr }"
+                 placeholder="必填，如「蒙牛低温奶事业部」" aria-required="true"
+                 :aria-invalid="nameErr ? 'true' : 'false'"
+                 aria-describedby="sup-name-err" @input="nameErr = false"></label>
+        <label class="sup-f"><span>供应商类别 <em>选已有或手填</em></span>
+          <input v-model="form.supplier_category" class="input" list="sup-cat-list" placeholder="如 常温奶 / 包装物"></label>
+        <label class="sup-f"><span>对接人</span>
+          <input v-model="form.contact_person" class="input" placeholder="如 王经理"></label>
+        <label class="sup-f"><span>联系电话</span>
+          <input v-model="form.phone" class="input" placeholder="对接人手机 / 座机"></label>
+        <label class="sup-f"><span>开户行</span>
+          <input v-model="form.bank_name" class="input" placeholder="如 中国银行襄阳分行"></label>
+        <label class="sup-f"><span>银行账号 <em>加密存储</em></span>
+          <input v-model="form.bank_account" class="input" placeholder="对公账号"></label>
+        <label class="sup-f sup-f-full"><span>地址</span>
+          <input v-model="form.address" class="input" placeholder="供应商地址"></label>
+        <label class="sup-f sup-f-full"><span>备注</span>
+          <textarea v-model="form.note" class="input sup-ta" placeholder="选填"></textarea></label>
+      </div>
+      <p v-if="nameErr" id="sup-name-err" class="field-err" role="alert">请填写供应商名称</p>
 
-            <button class="sup-more" @click="showMore = !showMore">
-              {{ showMore ? '收起更多字段' : '更多字段（选填）' }}
-              <span class="sup-caret">{{ showMore ? '▲' : '▼' }}</span>
-            </button>
-            <div v-if="showMore" class="sup-form sup-form-more">
-              <label class="sup-f"><span>编码 <em>留空即可</em></span>
-                <input v-model="form.code" class="input" placeholder="一般不填"></label>
-              <label class="sup-f"><span>助记码 <em>用于快速搜索</em></span>
-                <input v-model="form.mnemonic" class="input" placeholder="如 MNRY"></label>
-              <!-- 结算方式用「输入 + 已有值补全」而不是固定下拉：与后端 v316 定的口径一致
-                   （`contacts.channel` 当年被固定 6 项逼出 12 种同义不同字的业态，代价已付过）。
-                   给供应商固定「现结 / 赊账」两项也会造出"现实塞回格子"的同一个毛病。 -->
-              <label class="sup-f"><span>结算方式 <em>选已有或手填</em></span>
-                <input v-model="form.settlement_method" class="input" list="sup-settle-list" placeholder="如 现结 / 月结"></label>
-              <label class="sup-f"><span>付款账期（天）<em>我们多久付一次</em></span>
-                <input v-model="form.credit_days" class="input" type="text" inputmode="numeric" placeholder="0 = 货到即付"></label>
-              <label class="sup-f"><span>营业执照号</span>
-                <input v-model="form.business_license" class="input" placeholder="统一社会信用代码"></label>
-              <label class="sup-f"><span>税号</span>
-                <input v-model="form.tax_id" class="input" placeholder="开票用，一般同执照号"></label>
-            </div>
-          </div>
-          <div class="sup-modal-ft">
-            <span v-if="closeHint" class="sup-hint" role="alert">有未保存的改动 —— 再点一次就关闭，不会保存</span>
-            <button class="btn btn-ghost" @click="onCancel">{{ cancelLabel }}</button>
-            <button class="btn btn-primary" :disabled="formSaving" @click="saveForm">{{ formSaving ? '保存中…' : '保存' }}</button>
-          </div>
-        </div>
-      </Transition>
+      <button class="sup-more" @click="showMore = !showMore">
+        {{ showMore ? '收起更多字段' : '更多字段（选填）' }}
+        <span class="sup-caret">{{ showMore ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="showMore" class="sup-form sup-form-more">
+        <label class="sup-f"><span>编码 <em>留空即可</em></span>
+          <input v-model="form.code" class="input" placeholder="一般不填"></label>
+        <label class="sup-f"><span>助记码 <em>用于快速搜索</em></span>
+          <input v-model="form.mnemonic" class="input" placeholder="如 MNRY"></label>
+        <!-- 结算方式用「输入 + 已有值补全」而不是固定下拉：与后端 v316 定的口径一致
+             （`contacts.channel` 当年被固定 6 项逼出 12 种同义不同字的业态，代价已付过）。
+             给供应商固定「现结 / 赊账」两项也会造出"现实塞回格子"的同一个毛病。 -->
+        <label class="sup-f"><span>结算方式 <em>选已有或手填</em></span>
+          <input v-model="form.settlement_method" class="input" list="sup-settle-list" placeholder="如 现结 / 月结"></label>
+        <label class="sup-f"><span>付款账期（天）<em>我们多久付一次</em></span>
+          <input v-model="form.credit_days" class="input" type="text" inputmode="numeric" placeholder="0 = 货到即付"></label>
+        <label class="sup-f"><span>营业执照号</span>
+          <input v-model="form.business_license" class="input" placeholder="统一社会信用代码"></label>
+        <label class="sup-f"><span>税号</span>
+          <input v-model="form.tax_id" class="input" placeholder="开票用，一般同执照号"></label>
+      </div>
+      <template #footer>
+        <span v-if="closeHint" class="sup-hint" role="alert">有未保存的改动 —— 再点一次就关闭，不会保存</span>
+        <button class="btn btn-ghost" @click="onCancel">{{ cancelLabel }}</button>
+        <button class="btn btn-primary" :disabled="formSaving" @click="saveForm">{{ formSaving ? '保存中…' : '保存' }}</button>
+      </template>
+    </Modal>
 
-      <!-- 未连接提醒 -->
-      <Transition name="fade"><div v-if="remindOpen" class="sup-overlay" @click="remindOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="remindOpen" class="sup-modal" role="dialog" aria-modal="true" aria-labelledby="sup-remind-title">
-          <div class="sup-modal-hd">
-            <b id="sup-remind-title">尚未连接 ERP</b>
-            <button class="sup-x" aria-label="关闭" @click="remindOpen = false"><Icon name="close"/></button>
-          </div>
-          <div class="sup-modal-body">
-            <p class="sup-tip">「同步」需要先把你的 ERP（畅捷通 / 金蝶）接入 Hergent。</p>
-            <p class="sup-tip">请前往 <b>AI 引擎 › 连接器</b> 完成授权连接后，再来点「同步」。</p>
-            <p class="sup-tip">还没接 ERP 也没关系 —— 用上面的「+ 新增供应商」先把供应商录进来。</p>
-          </div>
-          <div class="sup-modal-ft">
-            <button class="btn btn-ghost" @click="remindOpen = false">知道了</button>
-            <button class="btn btn-primary" @click="goConnect">去 AI 引擎</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- 未连接提醒 -->
+    <Modal :show="remindOpen" :width="580" title="尚未连接 ERP" @close="remindOpen = false">
+      <p class="sup-tip">「同步」需要先把你的 ERP（畅捷通 / 金蝶）接入 Hergent。</p>
+      <p class="sup-tip">请前往 <b>AI 引擎 › 连接器</b> 完成授权连接后，再来点「同步」。</p>
+      <p class="sup-tip">还没接 ERP 也没关系 —— 用上面的「+ 新增供应商」先把供应商录进来。</p>
+      <template #footer>
+        <button class="btn btn-ghost" @click="remindOpen = false">知道了</button>
+        <button class="btn btn-primary" @click="goConnect">去 AI 引擎</button>
+      </template>
+    </Modal>
 
     <!-- 表单字段的「已有值」候选（datalist）：选项来自后端现取，不是前端硬编码 -->
     <datalist id="sup-cat-list"><option v-for="v in catOptions" :key="'sc' + v" :value="v"></option></datalist>
@@ -179,8 +158,8 @@
 
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
-import Icon from '../components/Icon.vue'
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import Modal from '../components/Modal.vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { toast, canDo } from '../store'
@@ -239,7 +218,6 @@ const showMore = ref(false)
 const editTarget = ref(null)
 const form = ref({})
 const baseline = ref({})
-const modalRef = ref(null)
 const nameErr = ref(false)
 const closeHint = ref(false)
 
@@ -325,7 +303,13 @@ function openEdit(c) {
   const f = {}
   for (const k of FORM_FIELDS) f[k] = c[k] == null ? '' : String(c[k])
   form.value = f
-  baseline.value = { ...f }        // 编辑走 diff：基线就是"打开时看到的值"
+  /* 🔴 v691 修（v690 审计发现的真 bug）：基线必须与 isDirty 的判据**同口径归一化**。
+     原来直接存 `{ ...f }` —— 那是后端来的原始字符串（credit_days = "30"），
+     而 isDirty 走 `normVal`，NUM_FIELDS 归一后返回的是**数字** 30
+     ⇒ `30 !== "30"` 恒真 ⇒ 编辑一个填了付款账期的供应商，什么都没改也显示「放弃改动」，
+     点取消还要走二次确认。症状是「老是问我是不是要放弃」，但界面上看不到任何改动。
+     归一化后两边都是 number/string 同型，比较才有意义。 */
+  baseline.value = Object.fromEntries(FORM_FIELDS.map((k) => [k, normVal(k, f[k])]))
   showMore.value = false
   formSaving.value = false
   nameErr.value = false
@@ -336,7 +320,11 @@ function openEdit(c) {
 /* ---- 关闭（UI-SPEC §4.1-④：有未保存改动不得直接关闭） ---- */
 function tryClose() {
   if (formSaving.value) return                 // 保存中不许关，避免"关掉了但其实写进去了"
-  if (isDirty.value) { closeHint.value = true; return }   // 内联二次确认：再点一次才关
+  /* 🔴 v691 修（全量回归探针抓到）：原来只有 `if (isDirty.value) { closeHint = true; return }`，
+     漏了 `&& !closeHint.value` ⇒ 只要改过字段，**永远关不掉**（closeHint 已为 true 仍然
+     走 return），ESC / X / 点遮罩全部失效，用户只能去点底部「放弃改动」按钮。
+     与下面 onCancel 的二次确认写成一致口径：第一次提示，第二次真关。 */
+  if (isDirty.value && !closeHint.value) { closeHint.value = true; return }
   formOpen.value = false
 }
 function onCancel() {
@@ -345,12 +333,8 @@ function onCancel() {
   formOpen.value = false
 }
 
-/* 打开后把焦点移入弹窗（§4.1-③）—— 否则 Esc 监听不到、键盘用户拿不到焦点。 */
-watch(formOpen, async (v) => {
-  if (!v) return
-  await nextTick()
-  try { modalRef.value && modalRef.value.focus() } catch (e) { /* 忽略 */ }
-})
+/* 打开后把焦点移入弹窗 —— v691 起由 components/Modal.vue 统一负责
+   （焦点陷阱 + 关闭归还焦点），本页不再自己抢焦点：两处都抢会互相覆盖。 */
 
 async function saveForm() {
   const f = form.value
@@ -452,17 +436,8 @@ onBeforeUnmount(() => { clearTimeout(_t) })
 .sup-pageinfo{font-size:12.5px;color:var(--t2)}
 .sup-size{height:30px;width:auto}
 
-/* 弹窗：令牌与结构对齐 UI-SPEC §4.1 / §1.5 / §1.6 / §1.7 */
-.sup-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-overlay)}
-.sup-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(580px,94vw);max-height:88vh;
-  display:flex;flex-direction:column;background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-modal);box-shadow:var(--shadow-lg)}
-.sup-modal:focus{outline:none}   /* 弹窗本体不画焦点环；键盘可达性由「焦点移入 + Esc」保证 */
-.sup-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.sup-modal-hd b{font-size:15px;color:var(--t1)}
-.sup-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
-.sup-x:hover{color:var(--t1)}
-.sup-modal-body{padding:18px 20px;overflow-y:auto}
-.sup-modal-ft{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
+/* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画全部由 components/Modal.vue 提供，
+   本页只保留「弹窗里长什么样」—— 这些 class 都挂在 slot 内的元素上） */
 .sup-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 12px;background:var(--bg2);padding:8px 12px;border-radius:8px}
 .sup-hint{font-size:12px;color:var(--war);margin-right:auto}
 
@@ -480,17 +455,9 @@ onBeforeUnmount(() => { clearTimeout(_t) })
 .sup-more:hover{color:var(--p);border-color:var(--p)}
 .sup-caret{font-size:10px}
 
-/* 全局过渡类在其它页各自 scoped 定义（ConnectCenter / DataLedger 等）——
-   本页若不自带，`<Transition name="fade|pop">` 就是**空转**（无动画、零报错）。 */
-.fade-enter-active,.fade-leave-active{transition:opacity .2s}
-.fade-enter-from,.fade-leave-to{opacity:0}
-.pop-enter-active,.pop-leave-active{transition:transform .2s ease,opacity .2s ease}
-.pop-enter-from,.pop-leave-to{transform:translate(-50%,-48%);opacity:0}
-
 /* UI-SPEC §3.3：表单型页面**必须**有 640px 断点（四个档案页曾全部为 0 个 @media）。 */
 @media (max-width:640px){
   .sup-form{grid-template-columns:1fr}
-  .sup-modal{width:96vw;max-height:92vh}
   .sup-search{flex:1 1 100%}
 }
 </style>

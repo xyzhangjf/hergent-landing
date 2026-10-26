@@ -131,19 +131,15 @@
 
     <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
 
-    <!-- 新建/编辑抽屉 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="editOpen" class="df-overlay" @click="editOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="editOpen" class="df-modal edit-modal">
-          <div class="df-modal-hd">
+    <!-- 新建/编辑抽屉（v691：骨架走公共 Modal，头部因带「必填图例」用 #header 自定义） -->
+    <Modal guard-close :show="editOpen" :width="520" :title="editId ? '编辑配置' : '新建配置'" @close="editOpen = false">
+          <template #header>
             <div class="df-modal-hd-l">
               <b>{{ editId ? '编辑配置' : '新建配置' }}</b>
               <span class="req-legend"><i class="req">*</i> 必填项</span>
             </div>
-            <button class="df-x" @click="editOpen = false"><Icon name="close"/></button>
-          </div>
-          <div class="df-modal-body">
+          </template>
+          <div class="df-body">
             <!-- ① 归属 -->
             <div class="form-grp">
               <div class="sub-sec">归属</div>
@@ -336,60 +332,42 @@
               </template>
             </div>
           </div>
-          <div class="df-modal-ft">
+          <template #footer>
             <button class="btn btn-ghost" @click="editOpen = false">取消</button>
             <button class="btn btn-primary" :disabled="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          </template>
+    </Modal>
 
     <!-- 停用确认 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="disableOpen" class="df-overlay" @click="disableOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="disableOpen" class="df-modal">
-          <div class="df-modal-hd"><b>停用配置</b><button class="df-x" @click="disableOpen = false"><Icon name="close"/></button></div>
-          <div class="df-modal-body">
+    <Modal guard-close :show="disableOpen" :width="460" title="停用配置" @close="disableOpen = false">
+          <div class="df-body">
             <p class="warn-text">停用后该对象不再出现在员工报单下拉中，且不计入报单汇总。已保存的历史报单不受影响。</p>
           </div>
-          <div class="df-modal-ft">
+          <template #footer>
             <button class="btn btn-ghost" @click="disableOpen = false">取消</button>
             <button class="btn btn-danger" @click="confirmDisable">确认停用</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          </template>
+    </Modal>
 
     <!-- 收回历史门店授权（v216）：与「停用配置」不同 —— 这里删的是 employee_stores
          那一行（旧入口留下的授权），不是 report_mapping 的映射行。 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="revokeOpen" class="df-overlay" @click="revokeOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="revokeOpen" class="df-modal">
-          <div class="df-modal-hd"><b>收回门店</b><button class="df-x" @click="revokeOpen = false"><Icon name="close"/></button></div>
-          <div class="df-modal-body">
+    <Modal guard-close :show="revokeOpen" :width="460" title="收回门店" @close="revokeOpen = false">
+          <div class="df-body">
             <p class="warn-text">
               确认收回「{{ revokeTarget.employee_name || ('员工 #' + revokeTarget.employee_id) }}」
               对「{{ revokeTarget.store_name }}」的报单资格？
             </p>
             <p class="hint">收回后，该员工在小程序里不再能选这家门店报单。<b>不影响</b>已保存的历史报单与应收。</p>
           </div>
-          <div class="df-modal-ft">
+          <template #footer>
             <button class="btn btn-ghost" @click="revokeOpen = false">取消</button>
             <button class="btn btn-danger" :disabled="revoking" @click="confirmLegacyRevoke">{{ revoking ? '收回中…' : '确认收回' }}</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          </template>
+    </Modal>
 
     <!-- Excel 导入 -->
-    <Teleport to="body">
-      <Transition name="fade"><div v-if="importOpen" class="df-overlay" @click="importOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="importOpen" class="df-modal">
-          <div class="df-modal-hd"><b>Excel 批量导入配置</b><button class="df-x" @click="importOpen = false"><Icon name="close"/></button></div>
-          <div class="df-modal-body">
+    <Modal guard-close :show="importOpen" :width="460" title="Excel 批量导入配置" @close="importOpen = false">
+          <div class="df-body">
             <p class="hint">
               模板表头（7 列）：员工 / 对象类型 / 对象全称 / 简称(列头) / 单型 / 源仓 / 目标仓。
               对象类型填 store（门店）或 self_warehouse（本人仓）。
@@ -404,17 +382,16 @@
               <ul v-if="importResult.failures.length"><li v-for="(f, i) in importResult.failures" :key="i">第 {{ f.row }} 行：{{ f.reason }}</li></ul>
             </div>
           </div>
-          <div class="df-modal-ft">
+          <template #footer>
             <button class="btn btn-ghost" @click="importOpen = false">关闭</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+          </template>
+    </Modal>
   </div>
 </template>
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
@@ -1110,14 +1087,9 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .btn.danger{color:var(--dan)}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 
-.df-overlay{position:fixed;inset:0;background:rgba(0,0,0,.32);z-index:980}
-.df-modal{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);width:min(460px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:990;box-shadow:var(--shadow-lg)}
-.edit-modal{width:min(520px,94vw)}
-.df-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--border-subtle)}
-.df-modal-hd b{font-size:15px;color:var(--t1)}
-.df-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
-.df-modal-body{padding:16px 18px;display:flex;flex-direction:column;gap:14px;max-height:64vh;overflow:auto}
-.df-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:13px 18px;border-top:1px solid var(--border-subtle)}
+/* v691：弹窗骨架统一由 components/Modal.vue 提供（定位/层级/圆角/遮罩/三段结构/滚动），
+   本页只保留弹窗内排版 —— 这些 class 挂在 slot 内元素上，才带得到本页 scope id。 */
+.df-body{display:flex;flex-direction:column;gap:14px}
 
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:2px}
 .field label{font-size:12.5px;color:var(--t2)}

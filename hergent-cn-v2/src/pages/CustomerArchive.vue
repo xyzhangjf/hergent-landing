@@ -90,134 +90,112 @@
       <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
     </div>
 
-    <Teleport to="body">
-      <!-- 新增 / 编辑客户 -->
-      <Transition name="fade"><div v-if="formOpen" class="cas-overlay" @click="formOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="formOpen" class="cas-modal" role="dialog" aria-modal="true">
-          <div class="cas-modal-hd">
-            <b>{{ editTarget ? '编辑客户' : '新增客户' }}</b>
-            <button class="cas-x" @click="formOpen = false"><Icon name="close"/></button>
-          </div>
-          <div class="cas-modal-body">
-            <p class="cas-tip">
-              只摆真实在用的字段；点「更多字段」可填编码 / 结算方式等。
-              <template v-if="editTarget">没改动的项目会<b>保持原样</b>，不会被动到。</template>
-            </p>
-            <div class="cas-form">
-              <label class="cas-f"><span>客户名称 <i>*</i></span>
-                <input v-model="form.name" class="input" placeholder="必填，如「XX 超市」"></label>
-              <!-- 业态：`contacts.channel` 这一列装的其实是**业态**（20店/零食系统/便利店…）。
-                   label 必须叫「业态」—— 叫「渠道」会和「渠道与价格」模块那个渠道（永辉/分销价）撞名。 -->
-              <label class="cas-f"><span>业态 <em>可手填，也可选已有</em></span>
-                <input v-model="form.channel" class="input" list="cas-biz-list" placeholder="如 便利店 / 零食系统"></label>
-              <label class="cas-f"><span>片区</span>
-                <input v-model="form.region" class="input" list="cas-region-list" placeholder="如 樊城 / 襄城"></label>
-              <label class="cas-f"><span>负责业务员</span>
-                <input v-model="form.assigned_salesperson" class="input" list="cas-emp-list" placeholder="选已有或手填"></label>
-              <label class="cas-f"><span>老板姓名</span>
-                <input v-model="form.boss_name" class="input" placeholder="如 张老板"></label>
-              <label class="cas-f"><span>老板电话</span>
-                <input v-model="form.boss_phone" class="input" placeholder="门店老板的手机号"></label>
-              <!-- v386：配送线路。与「片区」同族（都是"怎么找到/送到这家店"），
-                   但**追加为核心 6 格之后的第 7 格**（`.cas-form` 是 `1fr 1fr` 两列网格）
-                   —— 前 6 个字段的栅格位置一格不动（行 1-3 原样），对已经熟悉这页的人零视觉扰动。
-                   代价：第 7 格独占行 4 左格，右格留白（后面「地址 / 备注」都是 `cas-f-full` 通栏，
-                   填不了这一格）。若哪天要消掉这块留白，正解是**再补一个字段**或把本格改通栏，
-                   不是往前挪 —— 往前挪会把 负责业务员/老板姓名/老板电话 三格整体位移。
-                   `list="cas-route-list"` 的候选**从库里现取**（后端 contact_options 的
-                   safe 白名单已补 delivery_route）—— 不这么做的话，用户会把
-                   「城东线」「城东线路」填成两种值，而档案匹配是按名字匹配的（v316 已付过代价）。 -->
-              <label class="cas-f"><span>配送线路 <em>选已有或手填</em></span>
-                <input v-model="form.delivery_route" class="input" list="cas-route-list" placeholder="如 城东线"></label>
-              <label class="cas-f cas-f-full"><span>地址</span>
-                <input v-model="form.address" class="input" placeholder="门店地址"></label>
-              <label class="cas-f cas-f-full"><span>备注</span>
-                <textarea v-model="form.note" class="input cas-ta" placeholder="选填"></textarea></label>
-            </div>
+    <!-- 新增 / 编辑客户（v691：骨架走公共 Modal；Esc/焦点陷阱/滚动锁/层级统一由组件负责） -->
+    <Modal guard-close :show="formOpen" :width="560" :title="editTarget ? '编辑客户' : '新增客户'"
+           @close="formOpen = false">
+      <p class="cas-tip">
+        只摆真实在用的字段；点「更多字段」可填编码 / 结算方式等。
+        <template v-if="editTarget">没改动的项目会<b>保持原样</b>，不会被动到。</template>
+      </p>
+      <div class="cas-form">
+        <label class="cas-f"><span>客户名称 <i>*</i></span>
+          <input v-model="form.name" class="input" placeholder="必填，如「XX 超市」"></label>
+        <!-- 业态：`contacts.channel` 这一列装的其实是**业态**（20店/零食系统/便利店…）。
+             label 必须叫「业态」—— 叫「渠道」会和「渠道与价格」模块那个渠道（永辉/分销价）撞名。 -->
+        <label class="cas-f"><span>业态 <em>可手填，也可选已有</em></span>
+          <input v-model="form.channel" class="input" list="cas-biz-list" placeholder="如 便利店 / 零食系统"></label>
+        <label class="cas-f"><span>片区</span>
+          <input v-model="form.region" class="input" list="cas-region-list" placeholder="如 樊城 / 襄城"></label>
+        <label class="cas-f"><span>负责业务员</span>
+          <input v-model="form.assigned_salesperson" class="input" list="cas-emp-list" placeholder="选已有或手填"></label>
+        <label class="cas-f"><span>老板姓名</span>
+          <input v-model="form.boss_name" class="input" placeholder="如 张老板"></label>
+        <label class="cas-f"><span>老板电话</span>
+          <input v-model="form.boss_phone" class="input" placeholder="门店老板的手机号"></label>
+        <!-- v386：配送线路。与「片区」同族（都是"怎么找到/送到这家店"），
+             但**追加为核心 6 格之后的第 7 格**（`.cas-form` 是 `1fr 1fr` 两列网格）
+             —— 前 6 个字段的栅格位置一格不动（行 1-3 原样），对已经熟悉这页的人零视觉扰动。
+             代价：第 7 格独占行 4 左格，右格留白（后面「地址 / 备注」都是 `cas-f-full` 通栏，
+             填不了这一格）。若哪天要消掉这块留白，正解是**再补一个字段**或把本格改通栏，
+             不是往前挪 —— 往前挪会把 负责业务员/老板姓名/老板电话 三格整体位移。
+             `list="cas-route-list"` 的候选**从库里现取**（后端 contact_options 的
+             safe 白名单已补 delivery_route）—— 不这么做的话，用户会把
+             「城东线」「城东线路」填成两种值，而档案匹配是按名字匹配的（v316 已付过代价）。 -->
+        <label class="cas-f"><span>配送线路 <em>选已有或手填</em></span>
+          <input v-model="form.delivery_route" class="input" list="cas-route-list" placeholder="如 城东线"></label>
+        <label class="cas-f cas-f-full"><span>地址</span>
+          <input v-model="form.address" class="input" placeholder="门店地址"></label>
+        <label class="cas-f cas-f-full"><span>备注</span>
+          <textarea v-model="form.note" class="input cas-ta" placeholder="选填"></textarea></label>
+      </div>
 
-            <button class="cas-more" @click="showMore = !showMore">
-              {{ showMore ? '收起更多字段' : '更多字段（选填）' }}
-              <span class="cas-caret">{{ showMore ? '▲' : '▼' }}</span>
-            </button>
-            <div v-if="showMore" class="cas-form cas-form-more">
-              <label class="cas-f"><span>编码 <em>留空即可</em></span>
-                <input v-model="form.code" class="input" placeholder="一般不填"></label>
-              <label class="cas-f"><span>助记码 <em>用于快速搜索</em></span>
-                <input v-model="form.mnemonic" class="input" placeholder="如 XXCS"></label>
-              <label class="cas-f"><span>电话 <em>备用号</em></span>
-                <input v-model="form.phone" class="input" placeholder="一般不填"></label>
-              <label class="cas-f"><span>结算方式</span>
-                <select v-model="form.settlement_method" class="input">
-                  <option value="">未设置</option>
-                  <option value="现结">现结</option>
-                  <option value="赊账">赊账</option>
-                </select></label>
-              <label class="cas-f"><span>账期（天）<em>赊账才填</em></span>
-                <input v-model="form.credit_days" class="input" type="text" inputmode="numeric" placeholder="0 = 现结"></label>
-              <label class="cas-f"><span>信用额度（元）</span>
-                <input v-model="form.credit_limit" class="input" type="text" inputmode="numeric" placeholder="0 = 不限制"></label>
-            </div>
-          </div>
-          <div class="cas-modal-ft">
-            <button class="btn btn-ghost" @click="formOpen = false">取消</button>
-            <button class="btn btn-primary" :disabled="formSaving" @click="saveForm">{{ formSaving ? '保存中…' : '保存' }}</button>
-          </div>
-        </div>
-      </Transition>
+      <button class="cas-more" @click="showMore = !showMore">
+        {{ showMore ? '收起更多字段' : '更多字段（选填）' }}
+        <span class="cas-caret">{{ showMore ? '▲' : '▼' }}</span>
+      </button>
+      <div v-if="showMore" class="cas-form cas-form-more">
+        <label class="cas-f"><span>编码 <em>留空即可</em></span>
+          <input v-model="form.code" class="input" placeholder="一般不填"></label>
+        <label class="cas-f"><span>助记码 <em>用于快速搜索</em></span>
+          <input v-model="form.mnemonic" class="input" placeholder="如 XXCS"></label>
+        <label class="cas-f"><span>电话 <em>备用号</em></span>
+          <input v-model="form.phone" class="input" placeholder="一般不填"></label>
+        <label class="cas-f"><span>结算方式</span>
+          <select v-model="form.settlement_method" class="input">
+            <option value="">未设置</option>
+            <option value="现结">现结</option>
+            <option value="赊账">赊账</option>
+          </select></label>
+        <label class="cas-f"><span>账期（天）<em>赊账才填</em></span>
+          <input v-model="form.credit_days" class="input" type="text" inputmode="numeric" placeholder="0 = 现结"></label>
+        <label class="cas-f"><span>信用额度（元）</span>
+          <input v-model="form.credit_limit" class="input" type="text" inputmode="numeric" placeholder="0 = 不限制"></label>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost" @click="formOpen = false">取消</button>
+        <button class="btn btn-primary" :disabled="formSaving" @click="saveForm">{{ formSaving ? '保存中…' : '保存' }}</button>
+      </template>
+    </Modal>
 
-      <!-- 导入客户（Excel） -->
-      <Transition name="fade"><div v-if="impOpen" class="cas-overlay" @click="impOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="impOpen" class="cas-modal">
-          <div class="cas-modal-hd"><b>导入客户（Excel）</b><button class="cas-x" @click="impOpen = false"><Icon name="close"/></button></div>
-          <div class="cas-modal-body">
-            <p v-if="impStep === 'pick'" class="cas-tip">
-              下载模板 → 按列填写 → 选文件自动识别列。同名同类型的客户<b>不会重复建</b>（会被跳过并逐条点名）。
-            </p>
-            <div class="cas-imp-row">
-              <button class="btn btn-ghost" @click="downloadTpl">下载模板</button>
-              <label class="btn btn-ghost cas-file-btn">
-                选择文件
-                <input type="file" accept=".xlsx,.xls,.csv" style="display:none" @change="onImpFile">
-              </label>
-              <span v-if="impFileName" class="cas-fname">{{ impFileName }}</span>
-              <button v-if="impStep === 'pick'" class="btn btn-primary" :disabled="!impFile || impSaving" @click="previewImport">{{ impSaving ? '识别中…' : '下一步' }}</button>
-            </div>
-            <template v-if="impStep === 'map'">
-              <p class="cas-tip">核对「识别为」这一列 —— 认错了就在下拉里改；标「不导入」的列不会进来。</p>
-              <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions"
-                             :memory="impMemory" v-model:incremental="impInc" />
-            </template>
-            <ImportReceipt :result="impResult" @undone="loadList()" />
-          </div>
-          <div class="cas-modal-ft">
-            <template v-if="impStep === 'map'">
-              <button class="btn btn-ghost" :disabled="impSaving" @click="impStep = 'pick'">返回</button>
-              <button class="btn btn-primary" :disabled="impSaving" @click="doImport">{{ impSaving ? '导入中…' : '确认导入' }}</button>
-            </template>
-            <button v-else class="btn btn-primary" @click="impOpen = false">关闭</button>
-          </div>
-        </div>
-      </Transition>
+    <!-- 导入客户（Excel） -->
+    <Modal guard-close :show="impOpen" :width="560" title="导入客户（Excel）" @close="impOpen = false">
+      <p v-if="impStep === 'pick'" class="cas-tip">
+        下载模板 → 按列填写 → 选文件自动识别列。同名同类型的客户<b>不会重复建</b>（会被跳过并逐条点名）。
+      </p>
+      <div class="cas-imp-row">
+        <button class="btn btn-ghost" @click="downloadTpl">下载模板</button>
+        <label class="btn btn-ghost cas-file-btn">
+          选择文件
+          <input type="file" accept=".xlsx,.xls,.csv" style="display:none" @change="onImpFile">
+        </label>
+        <span v-if="impFileName" class="cas-fname">{{ impFileName }}</span>
+        <button v-if="impStep === 'pick'" class="btn btn-primary" :disabled="!impFile || impSaving" @click="previewImport">{{ impSaving ? '识别中…' : '下一步' }}</button>
+      </div>
+      <template v-if="impStep === 'map'">
+        <p class="cas-tip">核对「识别为」这一列 —— 认错了就在下拉里改；标「不导入」的列不会进来。</p>
+        <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions"
+                       :memory="impMemory" v-model:incremental="impInc" />
+      </template>
+      <ImportReceipt :result="impResult" @undone="loadList()" />
+      <template #footer>
+        <template v-if="impStep === 'map'">
+          <button class="btn btn-ghost" :disabled="impSaving" @click="impStep = 'pick'">返回</button>
+          <button class="btn btn-primary" :disabled="impSaving" @click="doImport">{{ impSaving ? '导入中…' : '确认导入' }}</button>
+        </template>
+        <button v-else class="btn btn-primary" @click="impOpen = false">关闭</button>
+      </template>
+    </Modal>
 
-      <!-- 未连接提醒 -->
-      <Transition name="fade"><div v-if="remindOpen" class="cas-overlay" @click="remindOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="remindOpen" class="cas-modal">
-          <div class="cas-modal-hd"><b>尚未连接 ERP</b><button class="cas-x" @click="remindOpen = false"><Icon name="close"/></button></div>
-          <div class="cas-modal-body">
-            <p class="cas-tip">「同步」需要先把你的 ERP（畅捷通 / 金蝶）接入 Hergent。</p>
-            <p class="cas-tip">请前往 <b>AI 引擎 › 连接器</b> 完成授权连接后，再来点「同步」。</p>
-            <p class="cas-tip">还没接 ERP 也没关系 —— 用上面的「+ 新增客户」或「导入」先把客户录进来。</p>
-          </div>
-          <div class="cas-modal-ft">
-            <button class="btn btn-ghost" @click="remindOpen = false">知道了</button>
-            <button class="btn btn-primary" @click="goConnect">去 AI 引擎</button>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- 未连接提醒 -->
+    <Modal guard-close :show="remindOpen" :width="560" title="尚未连接 ERP" @close="remindOpen = false">
+      <p class="cas-tip">「同步」需要先把你的 ERP（畅捷通 / 金蝶）接入 Hergent。</p>
+      <p class="cas-tip">请前往 <b>AI 引擎 › 连接器</b> 完成授权连接后，再来点「同步」。</p>
+      <p class="cas-tip">还没接 ERP 也没关系 —— 用上面的「+ 新增客户」或「导入」先把客户录进来。</p>
+      <template #footer>
+        <button class="btn btn-ghost" @click="remindOpen = false">知道了</button>
+        <button class="btn btn-primary" @click="goConnect">去 AI 引擎</button>
+      </template>
+    </Modal>
 
     <!-- 表单字段的「已有值」候选（datalist）：选项来自后端现取，不是前端硬编码 -->
     <datalist id="cas-biz-list"><option v-for="b in bizOptions" :key="'b' + b" :value="b"></option></datalist>
@@ -230,6 +208,7 @@
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
 import Icon from '../components/Icon.vue'
+import Modal from '../components/Modal.vue'
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import ImportMapping from '../components/ImportMapping.vue'
@@ -550,15 +529,8 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 .cas-pageinfo{font-size:12.5px;color:var(--t2)}
 .cas-size{height:30px;width:auto}
 
-/* 弹窗 */
-.cas-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-overlay)}
-.cas-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(560px,94vw);max-height:88vh;
-  display:flex;flex-direction:column;background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-modal);box-shadow:var(--shadow-lg)}
-.cas-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.cas-modal-hd b{font-size:15px;color:var(--t1)}
-.cas-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
-.cas-modal-body{padding:18px 20px;overflow-y:auto}
-.cas-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
+/* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画统一由 components/Modal.vue 提供，
+   本页只保留弹窗内部排版 —— 这些 class 都挂在 slot 内的元素上） */
 .cas-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 12px;background:var(--bg2);padding:8px 12px;border-radius:8px}
 
 .cas-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
@@ -581,7 +553,6 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 
 @media (max-width:640px){
   .cas-form{grid-template-columns:1fr}
-  .cas-modal{width:96vw;max-height:92vh}
   .cas-search{flex:1 1 100%}
   .cas-filters select{flex:1 1 46%;width:auto}
 }
