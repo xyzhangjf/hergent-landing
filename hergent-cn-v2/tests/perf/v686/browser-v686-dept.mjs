@@ -38,7 +38,7 @@ await page.waitForSelector('.topbar', { timeout: 30000 })
 await sleep(1800)
 
 const build = await page.evaluate(() => window.__HG_BUILD__ || '')
-say('构建号 = v687', build === 'v687' ? 'PASS' : 'FAIL', build)
+say('构建号 = v688', build === 'v688' ? 'PASS' : 'FAIL', build)
 
 /* 读头部某一格（按 label 找 .isn-f/.ipn-f 里的 select） */
 const readSelect = (word) => page.evaluate((w) => {

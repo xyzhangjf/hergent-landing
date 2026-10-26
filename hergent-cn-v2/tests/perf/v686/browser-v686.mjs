@@ -59,7 +59,7 @@ await page.waitForSelector('.topbar', { timeout: 30000 })
 await sleep(1500)
 
 const build = await page.evaluate(() => window.__HG_BUILD__ || '')
-say('构建号 = v687', build === 'v687' ? 'PASS' : 'FAIL', build)
+say('构建号 = v688', build === 'v688' ? 'PASS' : 'FAIL', build)
 
 /* ── 参考数据：业务员名单 + 部门表 ────────────────────────────────────── */
 const refs = await page.evaluate(async () => {

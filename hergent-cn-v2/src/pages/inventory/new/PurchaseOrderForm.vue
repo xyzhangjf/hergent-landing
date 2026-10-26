@@ -1878,7 +1878,12 @@ watch([copyId], () => { reinit() })
    min-width 1758 → ~1600，1920 屏（侧栏+页边距后可视 ~1670px）放得下 15 列；
    同时单元格横向 padding 12→8px（纵向不动，v417e 的 33px 行高不受影响）。 */
 /* v417i：批次三列合一 ⇒ 少 2 列（原 1604px ⇒ 1372px），配合列宽收窄，横向滚动消失。 */
-.ipn-tbl { min-width: 1372px }
+/* 🔴 v688：1372 → 1200。1372 是**只按 1920 视口**算的（上面那行注释写得很清楚：可视 ~1670px）。
+   高 dpi 笔记本开 125% 缩放后视口变 1536 ⇒ 表格容器只有 1248px ⇒ 右列被推出屏幕，要横拖才能看到。
+   实测（tests/perf/v688/col-worst-case.mjs，13 列按最不利密度填满）：内容自然宽 1304px，
+   所以只降 min-width 不够 —— 同时把「商品」min-width 240→200、「行备注」150→100 才压到 ~1219px。
+   ⚠️ 别再调回 1372：判断依据是「1536 视口下的 1248px 容器」，不是 1920。 */
+.ipn-tbl { min-width: 1200px }
 /* v417g：单元格横向 padding 12→8px（纵向不动 —— v417e 的 33px 行高不受影响）。
    🔴 选择器**必须**带 `table.ipn-tbl`：写成 `.ipn-tbl td` 的 specificity 低于全局
       `table.tbl td{padding:10px 14px}`（variables.css:530），会**静默失效**
@@ -1889,6 +1894,7 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
 .ipn-c-stk { width: 78px; font-variant-numeric: tabular-nums; white-space: nowrap }
 /* 「实际有货、一件都不可售（全过期）」——必须扎眼，否则用户以为有货能卖 */
 .ipn-c-stk .danger { color: var(--danger-txt) }
+/* v688：宽屏保持 240。窄屏（≤1680）另有一套覆盖，见文件末尾 @media 块。 */
 .ipn-c-prod { min-width: 240px }
 .ipn-c-code { width: 100px; color: var(--t2); font-variant-numeric: tabular-nums }
 /* v409（P2-1）：单位列 64→92px 是给「下拉 + 换算浮层」的；v417g 浮层已不占宽，收到 84px。 */
@@ -1929,6 +1935,7 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
    只能整体降透明度；选中商品即恢复，输入不受影响）。 */
 .ipn-in.ipn-dim { opacity: .38 }
 /* v408（P1-2）行备注：选填短文本，给足宽度但不抢主列 */
+/* v688：宽屏保持 150，窄屏压到 100（见文件末尾 @media 块）。 */
 .ipn-c-note { width: 150px }
 /* v680：操作列**固定 76px**（此前不限宽，靠内容自适应）。
    🔴 为什么要定死：行内两个 26×26 图标按钮 + 4px 间距 = **56px** 净宽，
@@ -2191,4 +2198,36 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
    （与本页原那份逐字节相同，故收敛后视觉零变化）。
    🔴 不要在本页（或任何页面）再写回这几个类 —— 见《进销存建单页开发规范》§4 与
       UI-SPEC §2.6.1「三、」。 */
+
+/* ══ v688：窄视口（笔记本开 125% 缩放）下列宽压缩 ══════════════════════════════
+   起因：老板笔记本 100% 嫌字小、调到 125% 才舒服。1920 屏 × 125% ⇒ 视口 1536、
+   表格容器只剩 1248px，而本表 13 列按最不利密度需要 1304px ⇒ 右列被推出屏幕要横拖。
+
+   🔴 为什么必须用 `max-width` + 省略号，而不是只改 `min-width`/`width`：
+      本表是 `table-layout: auto`（全局 `table.tbl` 设了 `width:100%` 但没设 fixed），
+      列的真实宽度由**单元格内容**决定。实测把 min-width 从 1372 降到 1200 后，
+      空行时确实变成 1248，但只要填上 16 字商品名，表格立刻又回到 1304 ——
+      `.ipn-v` 里的长文本直接把列顶宽。⇒ 想压窄，必须同时给 td 封 `max-width`
+      并让内部文本能省略，否则写着也没用。
+
+   🔴 为什么整块包在 `@media` 里：`max-width` 是无条件的。若写在全局，
+      1920 台式机上商品列会从 402px 被硬压成 200px、备注从 150 变 100 —— 那台机器本来就没问题。
+      阈值取 1680：视口 1920 时容器 1632（不触发）／1536 时容器 1248（触发）。
+
+   ⚠️ 只压这两列，是因为**只有它们是文本**（能靠 … 收尾）：
+      商品名 402→200（窄屏）、行备注 150→100。
+      条码 / 采购价 / 订单数量 / 订单金额 / 库存 / 批次 —— 全是数字，一个都不能压，
+      压了就是「¥1,234,56…」这种截断，读错的代价是钱。
+      实测覆盖 13 列最不利值（13 位条码 / ¥1,234,567.80 / 9999.99）零截断。
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1680px) {
+  .ipn-tbl { min-width: 1200px }
+  .ipn-c-prod { min-width: 200px; max-width: 200px }
+  .ipn-c-prod .ipn-v {
+    display: block; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ipn-c-note { max-width: 100px }
+  .ipn-c-note .ipn-in, .ipn-c-note input { width: 100% }
+}
 </style>
