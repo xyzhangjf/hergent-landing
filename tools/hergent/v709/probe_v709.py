@@ -143,7 +143,12 @@ def phase_b():
 
 def phase_c():
     print("\n【C】幂等复跑：数据补丁再跑一次必须什么都不删")
-    out = subprocess.run([sys.executable, "/tmp/v709/patch_v709_opening_dedup.py", "--dry-run"],
+    script = "/tmp/v709/patch_v709_opening_dedup.py"
+    if not os.path.exists(script):
+        print("  ⏭  SKIP —— %s 不存在（/tmp 被清理过）。" % script)
+        print("     重跑前先 scp tools/hergent/patch_v709_opening_dedup.py 到该路径")
+        return
+    out = subprocess.run([sys.executable, script, "--dry-run"],
                          capture_output=True, text=True, timeout=120).stdout
     chk("再跑 dry-run 报「已是单轮」", "已是单轮且无父科目行" in out,
         out.strip().splitlines()[-3] if out.strip() else "无输出")
