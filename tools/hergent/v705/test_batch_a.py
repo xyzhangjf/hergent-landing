@@ -190,7 +190,8 @@ def main():
     # ---------------------------------------------------------- ⑦ 精度
     print("\n=== ⑦ 精度：round_money 与旧实现逐位等价 ===")
     sys.path.insert(0, str(HERE))
-    from precision import (MONEY_EPS, money_balanced, money_eq, qty_eq, round_money, to_cents)
+    from precision import (MONEY_EPS, MONEY_EPS_CENTS, money_balanced, money_eq,
+                           qty_eq, round_money, to_cents)
 
     def old_money(x):
         try:
@@ -202,18 +203,25 @@ def main():
               "1.115", 1e-9, -1e-9, 1e15, 123456.789, True, False, "12.345"]
     diffs = [(x, old_money(x), round_money(x)) for x in corpus if old_money(x) != round_money(x)]
     ok(diffs == [], "19 个样本（含 .xx5 边界、None、字符串、布尔）逐位一致", diffs)
-    # 🔴 下面这两条记的是**既有缺陷**（不是本版引入），留着当证据：
-    #    100.00 - 99.99 在浮点里是 0.010000000000005116 > 0.01 ⇒ 判为不平衡。
-    #    batch A 不改它（改了就是业务口径变更），修法见 precision.money_balanced 的 docstring。
-    ok(money_balanced(100.00, 99.99) is False,
-       "既有行为：恰好差 1 分被浮点判为不平衡（P0-4 改成按分比较）")
+    # v706 修掉了那个浮点缺陷（batch A 时刻意保留为证据）：
+    #   老判据 abs(100.00-99.99) = 0.010000000000005116 > 0.01 ⇒ 判不平（拒单）；
+    #   而 abs(1234.56-1234.55) = 0.010000000000000009 <= 0.01 ⇒ 判平。
+    #   同样差 1 分结论相反，取决于二进制表示 —— 现在统一按整数分判。
+    ok(money_balanced(100.00, 99.99) is True, "修好后：恰好差 1 分判为平衡（原先因浮点判不平）")
+    ok(money_balanced(1234.56, 1234.55) is True, "同样是 1 分差，与上一行结论一致（不再看二进制）")
+    ok(abs(float(100.00) - float(99.99)) > MONEY_EPS,
+       "并留证据：老式浮点判据在这组数上仍会判不平衡（说明修复的是真问题）")
     ok(money_balanced(100.00, 99.98) is False, "差额 2 分 ⇒ 判为不平衡")
+    ok(money_balanced(1000000.00, 999999.99) is True, "七位金额差 1 分同样判平（大数也稳）")
     ok(money_balanced(0.1 + 0.2, 0.3) is True, "0.1+0.2 与 0.3 判为相等（容差吸收浮点尾差）")
     ok(money_eq(100.00, 99.99) is False, "money_eq 按分严格比：差 1 分就是不相等")
     ok(money_eq(0.1 + 0.2, 0.3) is True, "money_eq 不受浮点尾差影响")
     ok(to_cents(2.675) == 267 and to_cents(100.00) == 10000, "to_cents 先 round 再取整（2.675→267，不丢分）")
     ok(qty_eq(12, 12 + 1e-9) is True and qty_eq(12, 13) is False, "qty_eq 容差判据正确")
     ok(MONEY_EPS == 0.01, "MONEY_EPS = 0.01（1 分）")
+    ok(MONEY_EPS_CENTS == 1, "MONEY_EPS_CENTS = 1（整数分口径，money_balanced 实际用它）")
+    ok(money_balanced(2.675, 2.66) is True,
+       "三分位输入（2.675）按分规整后只差 1 分 ⇒ 判平（金额最小单位就是分）")
 
     print("\n" + "=" * 60)
     print("通过 %d / %d" % (len(PASS), len(PASS) + len(FAIL)))
