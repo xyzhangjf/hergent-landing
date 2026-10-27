@@ -51,6 +51,9 @@
 
 ## 进度锚
 
+🔴 **v7xx 补丁是直接 ssh 打在生产的，本地源码不会自动跟上**。本地副本 = `/Users/zhangjunfeng/Documents/hergent-erp`（**`server/` 前缀**，生产是扁平）；2026-10-28 实测它落后生产 v683/v686/v692 + v705–v711 共 5 版（连 `db/precision.py` 都没有），已用生产当前版本覆盖对齐（`93bc709`）。**每次打完生产补丁都要回写一次**，否则下次从本地部署会整体回退且看不出来。判据：逐文件 diff 后确认「本地独有」行是不是**旧形态代码**（是 ⇒ 可覆盖；是未部署的新功能 ⇒ 只能挑 hunk 移植，不能整体覆盖）。
+**DDL 对账（只读）**：生产 `cd /opt/hergent-erp && sh tools/ddl_parity/run_parity.sh`（三步合一：抽代码 DDL → dump 库 → 比对）。与 `python3 -m migrations.doctor` 互补：doctor 查「租户库 vs 主库」，这个查「代码声明了但库里没有」。2026-10-28 实测真故障 0（18 张按需懒建 / 7 张独立库 / 68 张租户专属 / 9 处仅主库缺列，均非故障）。跑之前确认 `migrations/other_db_modules.txt` 在——缺它会把 `bid_radar.db` 的表误判成故障。
+
 卖前三关未过；调拨单生产仍 0 张。BI 唯一源 `_BI_MEASURES`（`soi.amount`）；库存周转 `get_inventory_turnover`。
 脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；PII 不落 `outputs/`。编号已到 **v711**（均已部署并重启；前端仍是 v704）。**新 schema 变更一律写 `migrations/patches/NNNN_名字.sql|py`，不要再往 `erp_db.py` 加 `_safe_migrate`（已冻结，`--check` 会拦）。**
 
