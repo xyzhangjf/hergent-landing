@@ -22,6 +22,7 @@
 11. 🔴 **mock 探针全绿 ≠ 生效**（v697 翻车：24 项界面断言全过，老板线上却看不到入口，因为生产状态值是 `confirmed` 而我写死 `approved`）。**凡判定依赖枚举值/存量数据形态的功能，验证必须落在生产真实数据上**，mock 只验渲染、不验判定。动手前先 `SELECT status, COUNT(*) ... GROUP BY status` 看真实取值分布。
 12. 部署：`rsync` 只能写 `-av`（**默认就不删，别加 `--no-delete`**，该参数不存在会报错且一个文件都不传）；rsync 与 scp 串 `&&` 时前者失败**不阻止后者** ⇒ 传完立刻 ls 新 chunk 存在，否则线上 index.html 指向空文件直接白屏。
 13. 线上真登录探针要注**两个** cookie：`erp_token`（真凭证 httpOnly）+ `hergent_auth='1'`（标记，路由守卫读它）；只注前者会跳登录页，看起来像"没部署"。`addCookies` 用 `url` 时不能再给 `path`。
+14. 🔴 **「业务接口全正常、只有图片/附件裂」⇒ 先查「带不了自定义头的请求」**。`<img>` / `<link>` / 下载 / `window.open` 都是浏览器自发请求，**只能吃 cookie**，发不出 `X-Tenant-Id`。而 `tenant_middleware` 对 `/api/*` fail-closed 要求租户上下文 ⇒ cookie 残留别的租户或 token 过期就 403 ⇒ 前端静默回落（v700 头像就是这样退回 🚀，端点本身没错，是它根本没被执行）。角色头像落盘在 **`/opt/hergent-data/role-avatars/<tenant>/`**（不在 static 下，故意放部署目录外防 rsync --delete）。
 
 ## 近三版口径
 
@@ -32,7 +33,7 @@
 ## 进度锚
 
 卖前三关未过；调拨单生产仍 0 张。BI 唯一源 `_BI_MEASURES`（`soi.amount`）；库存周转 `get_inventory_turnover`。
-脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；PII 不落 `outputs/`。编号已到 **v698**（**已部署**，线上 `data-build=v698`）。
+脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；PII 不落 `outputs/`。编号已到 **v700**（后端补丁，**已部署生效**；前端线上仍是 v699，本版未动前端故无需重构建）。
 - **v698（2026-10-27）采购三入口修复**：生产真实的「已审待执行」是 **`confirmed`**（v417 定的），**不是 `approved`**（生产 0 张）；`received_amount` 是 v403 才加的列、79 张舟谱导入单全 0。三处同修：入库守卫补 `confirmed`（原本只收 `approved` ⇒ 已审单纯不进库，后端自身断裂）、`pay_mode` 认 `confirmed`、新增 `_po_received_amount()`（`received` 且该列为 0 ⇒ 真值=订单金额，**`partial` 不猜**）。验证 28（真实数据只读）+ 6（线上真实页面，不 mock）。
 字号：主力 **11–12.5px**（业界 13–14px），老板 2026-10-26 定**暂不提档**（笔记本用浏览器 125%）。⇒ 别再重复提议改字号；卖客户前必重上桌面。**v688 已修**采购建单表在 1536 视口横滚，但判据要记住：`table-layout:auto` 下**列宽是被内容撑开的，改 width/min-width 无效** ⇒ 压列必须 `max-width`+省略号，且包 `@media(max-width:1680px)`（否则台式机被误压）；**采购退货页是独立组件**、自带一份 1372 要单独改。数字列一个不能压（截断=读错金额）。别照抄 1372（详情 `topics/frontend-ui.md`）。
 **AI 成本与计费口径（2026-10-26 实测，别再凭印象）**：上游已是 `deepseek-v4-flash`（最便宜档），全期 2759 次调用/897 万输入 tokens 仅 **$2.38** ⇒ **换模型省不了钱**。真成本 = **每轮 `prompt_tokens`≈20,867 × 单会话 34~77 轮**（`system_prompt` 18,477 字符是主因）⇒ 杠杆顺序：提示词瘦身 > 轮数上限场景化 > 缓存纪律 > 分档路由 > 换模型(0)。**v692 已修计量**：旧 `ai_usage` 记的是用户打字字数（差约 3000 倍，配额形同虚设）⇒ 代理层 `_UsageTap` 旁路读 SSE 末尾的 `usage`（**只读不改、不碰字节级透传红线**）落 `ai_usage_v2`。三条口径别改猜：① 一次请求**只发一个** usage 块且是**整个 agent 循环的累计值** ⇒ 一次请求落一行、**绝不按 chunk 累加**；② `prompt_tokens` = 未缓存+缓存命中，可作用量但**不能乘全价算成本**（高估约 40 倍）；③ usage 里**没有** cached_tokens。**第 1 期只加读数不切拦截**（`exceeded` 仍按字符判）—— token 阈值是定价问题，贸然切会让 tenant 1 月中 429。模型选择曾于 2026-09-25 撤下，根因=网关无 `model_routes`（切了静默回落），恢复**必须先改网关**，判据三条：新模型名进 `session_model_usage` / 两次 `estimated_cost_usd` 不同 / `prompt_tokens` 不变（**只验回显不算**）。Hermes 库 `api_server` 会话 `user_id` 全 NULL ⇒ 归因只能在代理层。方案见根目录《大模型对话三点改进方案-2026-10-26.md》。
