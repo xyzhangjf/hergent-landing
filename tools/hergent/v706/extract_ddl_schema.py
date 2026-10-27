@@ -141,7 +141,11 @@ def scan(root: str):
 
     for dirpath, dirnames, files in os.walk(root):
         dirnames[:] = [d for d in dirnames
-                       if d not in ("__pycache__", "node_modules", "backups", "migrations")
+                       if d not in ("__pycache__", "node_modules", "backups", "migrations",
+                                    # 🔴 tools/ tests/ probes/ 下是探针与一次性脚本，不是产品代码：
+                                    # 它们里头的建表语句（甚至占位表名 `t`）会被当成"代码声明过的表"，
+                                    # 报出永不存在的假故障。体检天天报假故障 ⇒ 久了没人看 ⇒ 等于没有体检。
+                                    "tools", "tests", "test", "probes", "_backup", "alembic")
                        and not d.startswith(".")]
         for fn in sorted(files):
             if not fn.endswith(".py"):

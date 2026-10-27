@@ -35,7 +35,30 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-MIG = os.path.join(os.path.dirname(HERE), "v705", "migrations")
+
+# 🔴 原来写死 `../v705/migrations`（worktree 里的探针目录）。部署到生产后那个路径不存在，
+#    `_load_list` 会**静默返回空集** ⇒ 平台表（users/sessions/tenants…）不再被跳过，
+#    判定口径悄悄变了却不报错 —— 正是本项目最忌讳的失效方式。
+#    改：按顺序找第一个真有 platform_tables.txt 的目录；找不到就 fail-closed 退出。
+_CANDIDATES = [
+    os.environ.get("MIG_DIR", ""),
+    os.path.join(HERE, "migrations"),
+    os.path.join(os.path.dirname(HERE), "migrations"),
+    os.path.join(os.path.dirname(os.path.dirname(HERE)), "migrations"),
+    os.path.join(os.path.dirname(HERE), "v705", "migrations"),
+]
+MIG = ""
+for _c in _CANDIDATES:
+    if _c and os.path.exists(os.path.join(_c, "platform_tables.txt")):
+        MIG = _c
+        break
+if not MIG:
+    sys.stderr.write(
+        "🔴 找不到 platform_tables.txt（已试：%s）。\n"
+        "   它会决定哪些表是「平台表、只在主库」；读不到时口径会悄悄退化。\n"
+        "   用 MIG_DIR=<目录> 显式指定，或把脚本放在 migrations/ 的同级/父级目录。\n"
+        % ", ".join([c for c in _CANDIDATES if c]))
+    sys.exit(3)
 
 
 def _load_list(name):
