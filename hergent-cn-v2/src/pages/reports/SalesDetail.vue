@@ -9,6 +9,8 @@
     :err="err"
     :empty-hint="emptyHint"
     filterable
+    :breadcrumb="breadcrumb"
+    persist-key="sales-detail"
     @reload="load"
     @filter="onFilter"
   />
@@ -33,8 +35,18 @@ const STATUS = {
 const DELIVERY = { pending: '待发货', shipped: '已发货', received: '已签收', '' : '' }
 const INVOICE = { none: '未开票', done: '已开票', partial: '部分开票', '' : '' }
 
+/* v701：下探路径。第一级「数据报表」是侧栏分组，没有独立首页 ⇒ 只做文字不做链接
+   （给它一个点了会 404 的地址，等于假入口）。末级就是本页，组件会渲染成不可点。 */
+const breadcrumb = [
+  { label: '数据报表' },
+  { label: '销售订单明细' },
+]
+
 const columns = [
-  { key: 'order_no', label: '订单号' },
+  /* v701：订单号可点 → 该单详情页（/inventory/sale/:id）。
+     🔴 前提是后端 `/api/reports/sales-detail` 已返回 `s.id`（v701 补）。
+        没有 id 时 ReportTable 会自动退回纯文本，不会拼出错误地址。 */
+  { key: 'order_no', label: '订单号', drill: 'sale' },
   { key: 'customer', label: '客户' },
   { key: 'order_date', label: '下单日期', fmt: 'date' },
   { key: 'total_amount', label: '金额(元)', fmt: 'rmb', cls: 'num' },

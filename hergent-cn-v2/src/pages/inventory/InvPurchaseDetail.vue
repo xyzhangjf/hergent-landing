@@ -17,7 +17,11 @@
              「上一条下一条 / 复制 / 转单为 / 查看日志 / 附件」收进本块末尾的「更多 ▾」。
              🔴 上一条 / 下一条**没有删**：它搬了家（更多菜单的「相邻单据」区），
                 口径仍逐字是「全部采购单按 id 倒序」，见那个菜单项里的副标题。 -->
-        <button class="btn btn-ghost btn-sm" @click="back">返回列表</button>
+        <!-- v701：从报表下探进来时回**那张报表**（筛选保留），否则照旧回采购单列表。 -->
+        <button class="btn btn-ghost btn-sm" @click="back"
+                :title="fromReport ? '回到刚才那张报表（筛选条件保留）' : '回到采购单列表'">
+          {{ fromReport ? '返回报表' : '返回列表' }}
+        </button>
         <!-- P1-4 独立编辑入口：仅对「尚未入库」的单（草稿 / 待审批 / 已取消）开放。
              ⚠️ 已确认 / 已入库 / 部分入库 / 已退货的单库存与应付已落账，走「编辑」会改已发生的事实
              ⇒ 这里不放按钮（这类单请用「转单为 → 采购退货」）。与后端 `purchase_order_update` 的闸门一致。 -->
@@ -2109,7 +2113,9 @@ async function doPay () {
   }
 }
 
-function back () { router.push('/inventory/purchase') }
+/* v701：来源判定（与 InvSaleDetail 同一套）。报表跳转时写了 history.state.fromReport。 */
+const fromReport = (typeof history !== 'undefined' && history.state && history.state.fromReport) || ''
+function back () { router.push(fromReport || '/inventory/purchase') }
 
 /* 点空白处关掉「打印设置」菜单（与列表页的批量菜单同一套写法）。
    模板上 `.ipd-pm` 有 `@click.stop`，所以菜单内部的点击不会走到这里死循环关自己。 */

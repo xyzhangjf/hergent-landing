@@ -6,7 +6,12 @@
         <span class="page-sub">{{ o.order_no || ('#' + oid) }}</span>
       </div>
       <div class="isd-acts">
-        <button class="btn btn-ghost btn-sm" @click="back">返回列表</button>
+        <!-- v701：从报表下探进来时，这个按钮回到**那张报表**（筛选也还在），
+             而不是把老板扔进全部销售单列表 —— 他是看完这张单要接着看下一张。 -->
+        <button class="btn btn-ghost btn-sm" @click="back"
+                :title="fromReport ? '回到刚才那张报表（筛选条件保留）' : '回到销售单列表'">
+          {{ fromReport ? '返回报表' : '返回列表' }}
+        </button>
         <!-- v525（P1-2 多级可配审批）：销售单三段式，逻辑与采购详情同源。
              销售单没有「审核并打印」场景，故只 通过/驳回。审完落 `approved` → 才能「发货」。 -->
         <button v-if="canWrite && o.status === 'draft'" class="btn btn-primary btn-sm" :disabled="busy" @click="doSubmit">
@@ -317,7 +322,12 @@ async function doReject () {
   } catch (e) { toast(e.message || '驳回失败', 'error') } finally { busy.value = false }
 }
 
-function back () { router.push('/inventory/sale') }
+/* v701：来源判定。报表页跳转时用 `router.push({ state: { fromReport } })` 写进
+   history.state，这里读出来 —— 有来源就返回报表，没有就照旧回列表。
+   🔴 用 history.state 而不是 localStorage：它是**一次导航**的上下文，
+      不会在老板下次直接从侧栏进来时把他莫名弹回报表。 */
+const fromReport = (typeof history !== 'undefined' && history.state && history.state.fromReport) || ''
+function back () { router.push(fromReport || '/inventory/sale') }
 function fmtQty (n) { return Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
 onMounted(load)
 </script>
