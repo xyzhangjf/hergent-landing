@@ -554,7 +554,10 @@ onBeforeUnmount(() => {
 /* 面板由 Teleport 挂在 <body> 上、position:fixed，坐标由 placePop() 写入。
    ⚠️ 不能回到「留在顶栏内 + position:absolute」的写法：顶栏 .topbar 同时带 z-index:10 与
    backdrop-filter，双重创建 stacking context，面板 z-index 设多高都会被困在顶栏内（等效全局 10），
-   会被预报页工具栏的 .tb-pop（z-index:1120）压住。1121 即为此定：高于页面内所有下拉浮层。 */
+   会被预报页工具栏的 .tb-pop 压住。1121 即为此定：高于页面内所有下拉浮层。
+   v704 校准：`.tb-pop` 触发按钮已降到 1101、弹层本体 `.tb-pop-panel` 提到 1116
+   （面板必须压住自己那一排触发按钮，否则会形成遮挡带并劫走点击）——
+   两者都仍在 1121 之下，本面板"页面内最高浮层"的定位不变。 */
 .wx-pop{position:fixed;z-index:1121;
   display:flex;flex-direction:column;gap:10px;padding:10px 12px;border-radius:12px;width:max-content;max-width:calc(100vw - 20px);
   background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);

@@ -41,7 +41,10 @@ await sleep(4200)
 // ============ ① 构建号 + 表格就位 ============
 console.log('\n=== ① 线上构建与表格 ===')
 const build = (await p.content()).match(/data-build="([^"]+)"/)?.[1]
-ok(build === 'v703', `线上构建号 = ${build}（期望 v703）`)
+// 判据用「≥ v703」而不是写死版本号：这个功能从 v703 起存在，之后每版都会升号，
+// 写死会让每次发版都冒一条与功能无关的假 FAIL（v704 就踩了），探针的噪音会训练人忽略红字。
+const buildNum = Number(String(build || '').replace(/^v/, '')) || 0
+ok(buildNum >= 703, `线上构建号 = ${build}（≥ v703）`)
 
 const rowCount0 = await p.locator('tr.data-row').count()
 ok(rowCount0 > 0, `表体已渲染数据行 ${rowCount0} 行（虚拟滚动窗口内）`)

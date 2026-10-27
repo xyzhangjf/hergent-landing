@@ -10242,7 +10242,10 @@ const openGroup = ref(null)
 const advToolsOpen = ref(false)   // 高级工具抽屉（编辑模式下收起/展开 4 个分组 + 审批/推送/打印）
 const exportMenuOpen = ref(false)  // ★导出统一菜单：全部/选中行/差异 收进一个下拉，主栏只留一个「导出」
 // 主工具栏弹层（高级）改为 Teleport+fixed，脱离 .toolbar{overflow:auto} 裁切；用触发按钮坐标定位
-const popStyle = reactive({ top: '0px', left: '0px' })
+/* v704：多一个 maxHeight —— 视野装不下面板时，positionTbPop 把它钳到可用空间（超出内部滚动），
+   否则矮视口下面板会盖住自己的触发按钮（面板层级已在按钮之上）。空串 ⇒ Vue 移除该属性 ⇒
+   .brand-pop 的 62vh / .batch-pop 的 70vh 等 CSS 限制照旧生效，不会互相打架。 */
+const popStyle = reactive({ top: '0px', left: '0px', maxHeight: '' })
 const advBtn = ref(null)
 const exportBtn = ref(null)
 // 品牌筛选下拉
@@ -10338,13 +10341,35 @@ function doCopyQty() { copyMenuOpen.value = false; copyQty() }
 function positionTbPop(btnEl) {
   if (!btnEl) return
   const r = btnEl.getBoundingClientRect()
-  const w = 240
+  /* v704：宽高一律**实测**，不再估。
+     旧实现写死 w=240 / estH=320，而导出面板实测 242×356：
+       ① 宽差 2px ⇒ 面板右缘比按钮多出 2px；
+       ② 高差 36px 更要命 —— 下方空间不足时翻到按钮上方，`r.top - estH - 6` 会让面板底部
+          侵入按钮约 30px。**面板层级刚被提到触发按钮之上**（见 .tb-pop 注释），于是翻转后面板
+          盖住自己的触发器：看不到"正开着"的反馈，也点不到它来关闭（只剩点遮罩一条路）。
+     调用点在 nextTick 里，面板此时已挂载，直接量即可；量不到（理论上不会）才退回保守估值。 */
+  const panel = document.querySelector('.tb-pop-panel')
+  const pw = panel ? Math.ceil(panel.getBoundingClientRect().width) : 0
+  const ph = panel ? Math.ceil(panel.getBoundingClientRect().height) : 0
+  const w = pw > 0 ? pw : 240
+  const estH = ph > 0 ? ph : 360
   let left = r.right - w
   if (left < 8) left = 8
-  // 防止底部超出视口：若下方空间不足则翻到按钮上方
-  const estH = 320
-  let top = r.bottom + 6
-  if (top + estH > window.innerHeight - 8) top = Math.max(8, r.top - estH - 6)
+  /* v704：方向改成「**选空间更大的一侧**」，并把面板高度钳制在那一侧的空间内。
+     旧逻辑是「下方放不下就翻上去」，在矮视口（实测高 420）会翻车：
+       上方空间只有 r.top-8 ≈ 110，而面板 356 ⇒ 强制 top=8 后，面板底部 364 **盖住按钮**
+       （按钮 top 118）。面板层级刚被提到按钮之上 ⇒ 面板把自己的触发器吃掉了：
+       看不见"正开着"，也点不到它关闭，只剩点遮罩一条路。
+     现在：哪边空间大就放哪边；面板 max-height 钳到该侧空间（超出则内部滚动，见 .tb-pop-panel）。
+     ⇒ 恒等式：面板的矩形永远不与触发按钮重叠（这是判据，探针在 640 / 420 两档视口各验一次）。 */
+  const GAP = 6, PAD = 8
+  const spaceBelow = window.innerHeight - r.bottom - GAP - PAD
+  const spaceAbove = r.top - GAP - PAD
+  const putBelow = spaceBelow >= estH || spaceBelow >= spaceAbove   // 放得下就放下方；放不下则挑空间大的那侧
+  const space = putBelow ? spaceBelow : spaceAbove
+  let top = putBelow ? r.bottom + GAP : Math.max(PAD, r.top - Math.min(estH, space) - GAP)
+  // 只在**装不下**时才写 max-height（空串 ⇒ Vue 移除该声明，CSS 里的 62vh 等仍然生效）
+  popStyle.maxHeight = estH > space ? Math.max(80, space) + 'px' : ''
   popStyle.top = top + 'px'
   popStyle.left = left + 'px'
 }
@@ -13094,7 +13119,8 @@ provide('sprintSummary', sprintSummary)
    没有图标可收，再 slim 就是空框。现在三个徽标全屏也显示完整文案（与 v570 的取向一致），
    行宽不足由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切，故这里不再需要任何徽标专属规则。 */
 /* v129 修复：全屏时把主工具栏弹层容器降回普通层级。
-   .tb-pop 常态 z-index:var(--z-page-bar)（要高于 .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”），
+   .tb-pop 常态 z-index:var(--z-page-trigger) 1101（v704 前是 --z-page-bar 1120；要高于
+   .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”，1101 已满足，见下方 .tb-pop 规则），
    但全屏层 .grid-area.is-fs 只有 1000 → 仍在工具栏的「导出」「工具箱」触发器会盖在全屏层上，
    脱离工具栏悬浮在表体中间、遮挡表头与数据行。全屏时置为 auto（< 1000）即可随工具栏一起被覆盖。
    不动 .tb-pop 常态值，退出全屏后普通模式的互斥点击行为完全不变。
@@ -13107,11 +13133,11 @@ provide('sprintSummary', sprintSummary)
 .grid-area.is-fs .grid-ctl-row>.tb-edit-group{gap:6px}
 .grid-area.is-fs .grid-ctl-row>.tb-edit-group>.btn{padding-left:9px;padding-right:9px}
 /* v135 修复（**v673 已迁走**）：AI 副驾抽屉（.copilot z-index:950）打开时，主工具栏 .tb-pop 的常态
-   z-index:var(--z-page-bar) 会浮在抽屉之上——触发按钮（工具栏内「导出 / 期次 / 高级工具」，表体工具行内
-   「品牌 / 复制报单」）脱离页面悬浮在副驾抽屉上。
+   z-index（v704 起是 --z-page-trigger 1101，此前 --z-page-bar 1120）仍高于抽屉，会浮在抽屉之上——
+   触发按钮（工具栏内「导出 / 期次 / 高级工具」，表体工具行内「品牌 / 复制报单」）脱离页面悬浮在副驾抽屉上。
    🔴 v673：这段逻辑整体**迁到 `styles/app-layers.css`（`body.copilot-on …`）**，原因有二：
      ① `.tb-pop-panel` 是 `Teleport to="body"` ⇒ `.page.copilot-on .tb-pop-panel` **永不匹配**，
-        三块弹层（品牌/到货周期/复制报单）恒 1101 盖在抽屉上（v135 当年只治住了按钮容器）；
+        三块弹层（品牌/到货周期/复制报单）恒在页面层盖在抽屉上（v135 当年只治住了按钮容器）；
      ② 列菜单 `.col-menu`(1101) / 遮罩(1100) 从来不在名单里，同样盖住抽屉。
    ⇒ 不要在页面里再写一份（第二个真相源），全站唯一位置是 app-layers.css。 */
 /* 主工具栏整合：搜索框 / 表格设置&高级工具 弹层 / 活动筛选行 */
@@ -13126,8 +13152,14 @@ provide('sprintSummary', sprintSummary)
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
 .tb-search .fld:focus{box-shadow:none}
 .tb-search .fld::placeholder{color:var(--t3)}
-.tb-pop{position:relative;display:inline-flex;z-index:var(--z-page-bar)}/* z 高于 .pop-overlay(1100)：弹层开着时仍可直接点触发按钮做互斥切换 */
-.tb-pop-panel{position:fixed;z-index:var(--z-page-menu);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:220px}
+/* 🔴 v704：触发按钮 1120 → 1101（`--z-page-trigger`），面板 1101 → 1116（`--z-page-pop`）。
+   原因（真机取证）：面板从「导出」向下展开时罩住表体工具行的「品牌/到货周期/复制报单」，
+   而那三个按钮当时是 1120 > 面板 1101 ⇒ 浮在面板上并劫走点击（点面板中部会打开到货周期筛选）。
+   1120 那档原意只是「高于 .pop-overlay(1100) ⇒ 弹层开着仍可直接点别的触发按钮做互斥切换」，
+   1101 就满足，多出来的 19 档纯属误伤。面板则必须**压过**触发按钮，否则遮挡永不可修。
+   层级全序：遮罩 1100 < 触发按钮 1101 < 面板 1116 < 天气浮层 1121 < 外壳浮层 1122 < 模态 1125。 */
+.tb-pop{position:relative;display:inline-flex;z-index:var(--z-page-trigger)}/* > .pop-overlay(1100)：弹层开着时仍可直接点触发按钮做互斥切换；< 面板本体 */
+.tb-pop-panel{position:fixed;z-index:var(--z-page-pop);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:220px;max-height:calc(100vh - 16px);overflow-y:auto}/* max-height/overflow：兜底，矮视口下宁可内部滚动，也不许溢出视口到点不到 */
 .zp-sep{height:1px;background:var(--bd);margin:2px 0}
 .zp-hd{font-size:12px;font-weight:600;color:var(--t3);margin-top:2px}
 .zp-hd-sub{font-weight:400;color:var(--t3);margin-left:5px}
@@ -13488,7 +13520,7 @@ provide('sprintSummary', sprintSummary)
 /* v136 修复：模态层必须高于「页面内所有浮层」，原先的 980/990 排在工具栏下拉之下。
    成因：本弹窗与遮罩都 Teleport 到 body，而 .page/.card/.toolbar/.grid-ctl-row 祖先链
    无 position+transform/filter/backdrop-filter，均不创建 stacking context ——
-   于是工具栏 .tb-pop 的常态 1120 直接在根层与这里的 990 比较，1120 > 990，
+   于是工具栏 .tb-pop 的常态（v704 起 1101，此前 1120）直接在根层与这里的 990 比较，仍 > 990，
    只要两者矩形重叠（实测视口高 >= 1040px 时品牌按钮即落入弹窗矩形），
    品牌/导出/复制报单三个按钮就浮在弹窗之上；遮罩 980 同样失效（品牌按钮仍可点穿）。
    取值：页面内浮层天花板 = 天气面板 .wx-pop 1121（注释「高于页面内所有下拉浮层」），

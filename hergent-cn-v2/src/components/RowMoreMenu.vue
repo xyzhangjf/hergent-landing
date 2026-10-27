@@ -134,7 +134,9 @@ onBeforeUnmount(() => {
 <style>
 /* 菜单本体（Teleport 到 body，scoped 属性挂不上 ⇒ 必须非 scoped）。
    层级：`--z-page-menu`(1101) —— 与页面级列菜单同一档；⛔ 不要用 1000 以下，
-   会被工具条 `--z-page-bar`(1120) 与外壳浮层盖住（v674 的教训）。
+   会被外壳浮层(1122) 盖住（v674 的教训）。
+   v704 校准：工具条触发按钮 `.tb-pop` 已从 1120 降到 1101（面板本体升到 1116），
+   故本件与触发按钮**同档**、按 DOM 顺序（teleport 后插入者在上）；仍低于面板 1116 与外壳浮层 1122。
    ⚠️ 副驾抽屉打开时本件要"让位"（z-index:auto），见 `styles/app-layers.css`。 */
 .row-more-pop {
   position: fixed; z-index: var(--z-page-menu, 1101);
