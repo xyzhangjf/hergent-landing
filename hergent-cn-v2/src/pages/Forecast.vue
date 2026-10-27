@@ -128,6 +128,16 @@
             <button class="grp-btn" @click="ctxExportSel(); exportMenuOpen=false"><Icon name="download"/> 导出选中行</button>
             <button class="grp-btn" :disabled="!snapCompare" title="需先在快照对比中选两个期次" @click="exportDiffXlsx(); exportMenuOpen=false"><Icon name="download"/> 导出差异（快照对比）</button>
             <div class="zp-sep"></div>
+            <!-- v703：一键复制整张报单数据（与「导出全部」同一份数据、同一行序，只是走剪贴板）——
+                 放在「导出」下拉里而不是新开工具栏按钮：① 语义同族（同一张表的两种出口）；
+                 ② 工具栏这一行宽度已紧（1536 视口曾为塞下品牌/复制报单/缩放折过行），下拉不占宽度。
+                 🔴 与行首那个「复制报单」下拉**不是一回事**：那个是给厂家系统下单的（编码/下单数量两段纯文本），
+                    这个是给主管的 Excel 的（整片报单矩阵）。文案必须能区分，否则用户会复制错东西。 -->
+            <button class="grp-btn" @click="copyReportMatrix(); exportMenuOpen=false"
+                    title="把屏幕上的报单数据复制成可直接粘贴 Excel 的表格文本：只含报单对象列（第一个 → 最后一个），无报单的格子留空，行序与屏幕一致">
+              <Icon name="copy"/> 复制整表数据（粘贴 Excel）
+            </button>
+            <div class="zp-sep"></div>
             <div class="zp-hd">舟谱导入模板<span class="zp-hd-sub">· 按当前期次已导入的下单</span></div>
             <button class="grp-btn" :disabled="!currentPeriod || !!zhoupuBusy" title="生成可直接导入舟谱的自提订单 xlsx（直营/分销客户）" @click="zhoupuGen('zhoupu-pickup')"><Icon name="download"/> 自提订单模板</button>
             <button class="grp-btn" :disabled="!currentPeriod || !!zhoupuBusy" title="生成可直接导入舟谱的调拨订单 xlsx（车销业务员，总仓→业务员仓）" @click="zhoupuGen('zhoupu-transfer')"><Icon name="download"/> 调拨订单模板</button>
@@ -3659,6 +3669,53 @@ function cellText(r, col) {
   if (col.key === 'amount') { const av = amountValue(r); return av != null ? fmt(av) : (factoryPrice(r) <= 0 ? '缺价' : '缺规格') }
   return ''
 }
+/* ── v703（2026-10-27）：**屏幕口径的唯一取数实现**（复制 / 导出 Excel / 打印三处共用）────
+   病因（本轮实测）：此前「导出全部」走 `gridHeaders` / `gridRowCells`，与屏幕**三处不同源** ——
+     ① 缺 4 个汇总列（合计(小单位) / 合计(箱) / 加单(箱) / 最终下单(箱) / 单价(进价/箱) 只给了金额和建议）；
+     ② 客户空格写 **0**，而屏幕是**空白**（`qtyByUnit` 只为有报单的店建键，取不到就是 undefined）；
+     ③ 行序走 `cross.rows` 原始序，**不看排序、分组、品牌/到货周期筛选** ⇒ 屏幕与文件不是同一个集合。
+   现在只这一份：列序 = `colOrderList`（屏幕从左到右），行序 = `flatItems`（屏幕从上到下），
+   取值 = 各列在模板里**真正渲染的那个函数**。改列/改算法只需改这里。
+
+   🔴 取值有两种用途，**绝不能混**：
+     · `cellText()` = 给人读的（千分位、'—'、'/箱' 装饰、'缺规格' 文案）—— 只服务 tooltip / aria；
+     · `cellRaw()`  = 进表格文件的（纯数值 / 空串）—— 复制与导出都用它。
+       把 `¥1,234.00 /箱` 原样写进 TSV，粘进 Excel 就是文本，主管没法求和 —— 这是本轮的关键取舍。 */
+function cellRaw(it, col) {
+  const r = it && it.r ? it.r : it
+  if (!r) return ''
+  if (col.type === 'seq') return it && it.seq != null ? it.seq : ''
+  /* 🔴 无报单 = **空串**，不是 0：屏幕那一格本来就是空白（客户列是跨期名册，谁没报就是空）。
+     写 0 会把「没报」和「报了 0」混为一谈，主管的均值/计数全被污染。 */
+  if (col.type === 'qty') {
+    const v = r.qtyByUnit ? r.qtyByUnit[col.key] : undefined
+    return v == null ? '' : v
+  }
+  if (col.type === 'master') {
+    const v = masterVal(r, col)          // 与页面同一个函数（含 '—' 占位）
+    return v === '—' ? '' : v            // '—' 是视觉占位，不是数据
+  }
+  if (col.key === 'qty') return r.total == null ? '' : r.total
+  if (col.key === 'boxes') return boxMissing(r) ? '' : rowBoxes(r)   // '缺规格' 不进文件
+  if (col.key === 'ai') return r.suggestAudited && r.suggest != null ? r.suggest : ''
+  if (col.key === 'extra') return rowExtraQty(r)
+  if (col.key === 'final') return rowFinalQty(r)
+  if (col.key === 'price') { const pc = pricePerCase(r); return pc == null ? '' : pc }
+  if (col.key === 'amount') { const av = amountValue(r); return av == null ? '' : av }
+  return ''
+}
+/* 行序 = 屏幕上从上到下。`flatItems` 已含 sortedRows（表头排序）+ rowFilterPass
+   （搜索 / 品牌 / 到货周期 / 列筛选 / 仅显示有报单）+ 分组。
+   🔴 两个必须排除的：
+     · 折叠分组里的行 —— 屏幕上看不见，粘出来却多出几十行，用户第一反应是「复制错了」；
+     · detail 行（展开明细）—— 视图装饰，不是数据行。 */
+function screenRowItems() {
+  return flatItems.value.filter(it => it.kind === 'row' && openGroups.value[it.gkey] !== false)
+}
+/* 列序 = 屏幕从左到右（含序号列）。复制走的是它的**子集**（只报单对象段），见 copyReportMatrix。 */
+function screenColumns() { return colOrderList.value }
+function screenHeaders() { return screenColumns().map(c => (c.type === 'seq' ? '序号' : c.label)) }
+function screenRowCells(it) { return screenColumns().map(c => cellRaw(it, c)) }
 function cellAria(r, col) { if (col.type === 'seq') return '序号：' + (r.seq || '') ; return col.label + '：' + cellText(r, col) }
 function rowAria(r) { const fq = rowFinalQty(r); const av = amountValue(r); return r.name + '，合计 ' + fmt(r.total) + '，加单 ' + fmt(rowExtraQty(r)) + '，最终下单 ' + fmt(fq) + '，下单金额(进价) ¥' + fmt(av != null ? av : 0) }
 function rowKey(it) { return it.kind === 'group' ? 'grp-' + it.key : it.kind === 'row' ? 'row-' + it.r.product_id : 'det-' + it.r.product_id }
@@ -6833,19 +6890,21 @@ function ctxCopyRow() {
 function ctxExportSel() {
   closeCtx()
   const sr = selRange.value
-  let rows
-  if (sr) rows = cross.value.rows.slice(sr.r0, sr.r1 + 1)
+  let rows, seq0 = 1
+  if (sr) { rows = cross.value.rows.slice(sr.r0, sr.r1 + 1); seq0 = sr.r0 + 1 }
   else { const rw = cross.value.rows[ctx.value.r]; rows = rw ? [rw] : [] }
   if (!rows.length) { toast('没有可导出的行', 'warn'); return }
-  buildXlsx(rows, `${(cross.value.period && cross.value.period.name) || '预报单'}_选中${rows.length}行`)
+  // v703：buildXlsx 收 [{r, seq}] —— 序号取选区在原表里的真实行号，不是 1 起重新数
+  buildXlsx(rows.map((r, i) => ({ r, seq: seq0 + i })), `${(cross.value.period && cross.value.period.name) || '预报单'}_选中${rows.length}行`)
   toast('已导出选中行', 'ok')
 }
-// 工具栏「导出」：导出当前预报订单汇总表全部行（受筛选影响，沿用 buildXlsx 口径）
+// 工具栏「导出」：导出当前预报订单汇总表（v703：行序与列序**与屏幕完全同源**，见 screenRowItems）
 function exportAllXlsx() {
-  const rows = cross.value.rows || []
-  if (!rows.length) { toast('没有可导出的数据', 'warn'); return }
-  buildXlsx(rows, `${(cross.value.period && cross.value.period.name) || '预报单'}_汇总`)
-  toast('已导出预报订单汇总表', 'ok')
+  const items = screenRowItems()
+  if (!items.length) { toast('没有可导出的数据', 'warn'); return }
+  buildXlsx(items, `${(cross.value.period && cross.value.period.name) || '预报单'}_汇总`)
+  // 报出行数：导出与屏幕不同集合时，这是用户唯一能自查的数
+  toast(`已导出 ${items.length} 行（与屏幕同序）`, 'ok')
 }
 // 舟谱导入模板生成下载（导出下拉三项）：窗口=当前选中期次 order_start~order_end，后端确定性生成（不依赖 LLM）
 const zhoupuBusy = ref('')
@@ -7301,29 +7360,15 @@ function healthClass(pid) {
   if (s == null) return ''
   return s < 60 ? 'pf-warn' : (s < 80 ? 'pf-mid' : 'pf-ok')
 }
-/* v379：**表头与行的口径只许有一份**（打印与「导出 Excel」共用）——
-   原来只有导出写了这一套。若给打印另抄一份，迟早「我屏幕上看到的」≠「我打出来的」。 */
-function gridHeaders() {
-  const headers = ['商品名称']
-  visibleCols.value.forEach(c => { if (c.key !== 'name') headers.push(c.label) })
-  cross.value.units.forEach(u => headers.push(u.name))
-  headers.push('下单金额(进价)')
-  headers.push('建议(件)')
-  return headers
-}
-function gridRowCells(r) {
-  const line = [r.name || '']
-  visibleCols.value.forEach(c => { if (c.key !== 'name') line.push(c.fmt ? (r[c.key] != null ? r[c.key] : '') : (r[c.key] || '')) })
-  cross.value.units.forEach(u => line.push(r.qtyByUnit[u.name] || 0))
-  line.push(amountValue(r) || 0)
-  line.push(r.suggest || 0)
-  return line
-}
-// 通用 xlsx 构建（导出全部 / 导出选中行复用）
-function buildXlsx(rows, fname) {
-  if (!rows.length) { toast('没有可导出的数据', 'warn'); return }
-  const data = [gridHeaders()]
-  rows.forEach(r => { data.push(gridRowCells(r)) })
+/* v379 立的规矩「表头与行的口径只许有一份」，在 v703 才真正落地：
+   那一份 = `screenHeaders()` / `screenRowCells()`（定义在 cellText 之后，与屏幕逐列同源）。
+   ⚠️ 此前的 `gridHeaders` / `gridRowCells` 是**第三份**口径（与屏幕差 4 个汇总列、客户空格写 0、
+   行序不看筛选），v703 已**删除**，刻意不留同义封装 —— 留一个空壳，下次就一定有人往里加分支。 */
+// 通用 xlsx 构建（导出全部 / 导出选中行 / 导出差异共用）—— items = [{ r, seq }]
+function buildXlsx(items, fname) {
+  if (!items.length) { toast('没有可导出的数据', 'warn'); return }
+  const data = [screenHeaders()]
+  items.forEach(it => { data.push(screenRowCells(it)) })
   const ws = XLSX.utils.aoa_to_sheet(data)
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, '预报单')
@@ -7997,6 +8042,36 @@ function copyQty() {
     return
   }
   _copyText(rows.map(r => String(rowFinalQty(r))).join('\n'), 'qty', `已复制 ${rows.length} 条下单数量${copyScopeText()}`)
+}
+/* ── v703（2026-10-27）：一键复制**整张报单数据**（给主管的 Excel 用；与上面「复制报单」不是一回事）──
+   用户口径（2026-10-27 当面确认，原话）：
+     「只复制数字，列从『周运潘』开始、『备货』结束，行从商品第一行到最后一行；
+       如果按品牌筛选，行就从筛选后的第一行到最后一行。」
+   ⇒ 复制的是**报单对象列那一段**（`cross.units` 全段），不是整张表：
+     · 不含表头、不含商品名等主档列、不含合计/金额等汇总列；
+     · 列序 = 报单对象名册顺序（生产实测 2026-10-27：周运潘 → 备货，共 19 列）；
+     · 行序 = 屏幕从上到下（含排序、品牌/到货周期/搜索/列筛选、分组折叠的影响）；
+     · 无报单格**留空**（TSV 里是两个连续制表符），**绝不写 0** —— 屏幕就是空白，
+       写 0 会把「没报」与「报了 0」混为一谈，主管算均值/计数全被污染。
+   格式 = TSV（`\t` 分列、`\r\n` 分记录）：Excel 粘贴零调整的唯一稳妥格式 ——
+     逗号会被 Excel 按 CSV 猜列，中文列名一多就错位；`\r\n` 比 `\n` 在 Windows Excel 里更稳。
+   🔴 因为**不含商品名**，粘贴位置必须与页面行序对齐（主管的表里已有商品行）。
+      一旦对不齐，整体错位且肉眼看不出来 ⇒ 回执必须报出「首行商品 → 末行商品」，
+      这是用户粘完唯一能自查的锚点（不静默失效原则）。 */
+function copyReportMatrix() {
+  const items = screenRowItems()
+  const units = cross.value.units || []
+  if (!items.length) { toast('当前没有可复制的商品行（还没选期次，或筛选后为空）', 'warn'); return }
+  if (!units.length) { toast('本期没有报单对象列可复制', 'warn'); return }
+  const clean = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ')
+  const lines = items.map(it => units.map(u => {
+    const q = it.r.qtyByUnit ? it.r.qtyByUnit[u.name] : undefined
+    return q == null ? '' : clean(q)
+  }).join('\t'))
+  const first = items[0].r.name || '—'
+  const last = items[items.length - 1].r.name || '—'
+  _copyText(lines.join('\r\n'), '报单数据',
+    `已复制 ${items.length} 行 × ${units.length} 列（${units[0].name} → ${units[units.length - 1].name}；商品 ${first} → ${last}）${copyScopeText()}`)
 }
 
 /* ---- 增强：撤销/重做 · 校验 · 区域复制 · 金额 · 草稿 · 筛选 · 口径 · 导出 ---- */
@@ -9136,23 +9211,14 @@ watch(() => cross.value, () => {
 
 // 导出 Excel（.xlsx）
 function exportXlsx() {
-  const rows = filteredRowsForExport()
+  const items = screenRowItems()
   const pname = (cross.value.period && cross.value.period.name) || '预报单'
-  buildXlsx(rows, pname)
+  buildXlsx(items, pname)
 }
-// 导出用行（受筛选影响，但不受排序重排影响——导出始终全量）
-function filteredRowsForExport() {
-  const f = (filterText.value || findText.value || '').trim().toLowerCase()
-  let rows = cross.value.rows
-  if (f) rows = rows.filter(r => rowMatchText(r, f))
-  if (colFilter.value && colFilter.value.val) {
-    const cf = colFilter.value
-    const fv = cf.val.trim().toLowerCase()
-    rows = rows.filter(r => String(cellValOf(r, cf.key, cf.type)).toLowerCase().includes(fv))
-  }
-  if (hideZeroReport.value) rows = rows.filter(r => rowSum(r) > 0)
-  return rows
-}
+/* 🔴 v703：此前的 `filteredRowsForExport()` 已删除 —— 它自己重写了一遍筛选
+   （**只**认搜索/列筛选/仅显示有报单，漏了品牌与到货周期），且明写「不受排序重排影响」。
+   实测后果：勾了品牌再导出，文件里仍有别的品牌的行；屏幕上排好的顺序到文件里又变回原始序。
+   现在唯一的取行口径是 `screenRowItems()`（直接读 flatItems，不可能与屏幕分叉）。 */
 
 /* ===== P3-P4 增强 ===== */
 // P3-1 配方化建议引擎（策略可配置；契合「业务规则通过配方可配置」战略；后端 /api/forecast/recipe 就绪钩子）
@@ -9648,8 +9714,9 @@ function applyBatch() {
      · 横向 A4（竖版一页塞不下 30 列）
      · 跨页自动重复表头（`thead{display:table-header-group}`）
      · 行内不断页（`break-inside:avoid`）
-   ⚠️ 行口径与「导出 Excel」**同源**（`filteredRowsForExport` + `gridHeaders`/`gridRowCells`）——
-      屏幕 / 导出 / 打印必须是同一份数据，否则用户会拿着两份不同的单子去对账。 */
+   ⚠️ 行/列口径与「导出 Excel」「复制整表」**同源**（v703：统一到 `screenRowItems` +
+      `screenHeaders`/`screenRowCells`）——屏幕 / 导出 / 打印 / 剪贴板必须是同一份数据，
+      否则用户会拿着两份不同的单子去对账。此前打印用的是另一套（缺 4 个汇总列、空格写 0），已一并收口。 */
 const PRINT_CSS = `
   /* printable.js 的版式是「单栏文档」（max-width:820px）⇒ 宽表要自己撑开 */
   .doc{max-width:none;padding:20px 24px;}
@@ -9665,26 +9732,31 @@ const PRINT_CSS = `
   }
 `
 function printGrid() {
-  const rows = filteredRowsForExport()
-  if (!rows.length) { toast('没有可打印的数据', 'warn'); return }
+  const items = screenRowItems()
+  if (!items.length) { toast('没有可打印的数据', 'warn'); return }
   const esc = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const body = '<style>' + PRINT_CSS + '</style>'
     + '<table class="pg"><thead><tr>'
-    + gridHeaders().map(h => '<th>' + esc(h) + '</th>').join('')
+    + screenHeaders().map(h => '<th>' + esc(h) + '</th>').join('')
     + '</tr></thead><tbody>'
-    + rows.map(r => '<tr>' + gridRowCells(r).map(v => '<td>' + esc(v) + '</td>').join('') + '</tr>').join('')
+    + items.map(it => '<tr>' + screenRowCells(it).map(v => '<td>' + esc(v) + '</td>').join('') + '</tr>').join('')
     + '</tbody></table>'
   const pname = (cross.value.period && cross.value.period.name) || '预报单'
   /* 🔴 打了筛选却不说 = 给用户一张「看着像全部、其实是子集」的单子（拿去对账就出事）。
-     只列**生效的筛选名**，不复述条件、不枚举明细（hergent-ui-copy-guard）。 */
+     只列**生效的筛选名**，不复述条件、不枚举明细（hergent-ui-copy-guard）。
+     v703：补上「品牌 / 到货周期 / 唯一值筛选」—— 这三项现在**真的**会让打印内容变少
+     （此前打印不跟它们走，所以不写也不误导；同源之后不写就是谎报）。 */
   const filt = []
   if ((filterText.value || findText.value || '').trim()) filt.push('搜索')
+  if (brandSel.value.length) filt.push('品牌 ' + brandSel.value.join('、'))
+  if (cycleSel.value.length) filt.push('到货周期 ' + cycleSelText.value)
   if (colFilter.value && colFilter.value.val) filt.push('列筛选')
+  if (colFilterSet.value) filt.push('唯一值筛选')
   if (hideZeroReport.value) filt.push('仅显示有报单')
   openPrintable({
     title: pname + ' · 预报订单汇总表',
-    subtitle: `共 ${rows.length} 个商品` + (filt.length ? `（已筛选：${filt.join('、')}）` : ''),
+    subtitle: `共 ${items.length} 个商品` + (filt.length ? `（已筛选：${filt.join('、')}）` : ''),
     filename: pname + '-预报订单汇总表',
     bodyHtml: body,
   })
