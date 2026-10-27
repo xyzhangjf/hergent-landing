@@ -1,0 +1,11 @@
+# 自己用另一个 SQLite 文件（不是 erp.db / tenant_*.db）的模块。
+#
+# 为什么需要这份清单：`check_ddl_parity.py` 拿"代码声明的表"去和 erp.db / tenant_*.db
+# 对账。如果某模块的 DDL 本来就建在**别的库文件**里，对账时会一律报"哪个库都没有这张表"
+# —— 那是误报，而且是最容易被当成真故障去"修"的那种误报。
+#
+# 一行一个文件名（相对后端根目录），行尾用 # 写理由。清单**必须人工核对**：
+# 新增一条就等于声明"这个模块的表不归 erp.db 管"。
+memory.py             # DB_PATH = <app>/dami_memory.db，Hermes 记忆库，独立文件
+bid_radar_collect.py  # DB_PATH = $BID_RADAR_DB 或 <app>/bid_radar.db，独立采集库
+kingdee_connector.py  # 直接 sqlite3.connect($ERP_DB_PATH)，只连主库、不随租户上下文走

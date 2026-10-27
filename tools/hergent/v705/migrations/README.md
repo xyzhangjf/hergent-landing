@@ -41,6 +41,7 @@ migrations/
 ├── platform_tables.txt  主库独有的平台级表清单（体检时排除，需人工 review）
 ├── legacy_platform_copies.txt  遗留平台表副本清单（现在是**回归探测器**：出现即报警）
 ├── legacy_baseline.txt  `_safe_migrate` 存量基线（389 条迁移的内容指纹，v706 冻结）
+├── other_db_modules.txt 自己用另一个 SQLite 文件的模块（对账时排除，避免误报）
 └── patches/
     ├── 0001_baseline.py 基线标记（无 DDL）
     └── 0002_xxx.sql     你的下一个变更
@@ -115,7 +116,47 @@ python3 tools/hergent/v706/inventory_safe_migrate.py /opt/hergent-erp --check
 - SQL 是**拼接/常量引用**的 7 处，指纹落在**表达式**上：能抓到改片段，抓不到"改被引用的常量"。
 - **2 处名字是 f-string/变量**（`v658_store_name_*`、`v20_promotions_*` 的循环），不入基线，需人工确认。
 - **账外裸 DDL 还有 341 处**（`CREATE TABLE IF NOT EXISTS` 直接写在函数体里、
-  `db/queries/*.py` 那 42 处是同一批迁移的第二份拷贝）—— 本工具**不覆盖**它们，属于未清欠账。
+  `db/queries/*.py` 那 42 处是同一批迁移的第二份拷贝）—— 本工具**不覆盖**它们。
+  它们是"**没人建过**"还是"**按需建**"，已由「代码 DDL ⇄ 真实库 对账」一节回答（实测真故障 0）。
+
+## 代码 DDL ⇄ 真实库 对账（账外 DDL 的唯一可查途径）
+
+`_safe_migrate` 之外，仓库里还有一族 DDL 直接写在函数体里（`_init_qms_tables()` 那种）。
+版本系统管不到它们，`doctor` 也看不见 —— 因为 **doctor 的比对方向是「租户库 vs 主库」**，
+它能发现「主库有、租户库没有」，发现不了「代码里有、哪个库都没有」。
+
+```bash
+# ① 拉生产源码到只读目录（别在 /opt 目录里跑分析）
+ssh root@<host> 'cd /opt/hergent-erp && tar czf - --exclude=__pycache__ --exclude=backups \
+   --exclude=node_modules $(ls -d *.py db migrations)' | tar xzf - -C .tmp-audit
+
+# ② 抽"代码声明了什么"
+python3 tools/hergent/v706/extract_ddl_schema.py .tmp-audit -o /tmp/ddl.json
+
+# ③ 拉三个库的 table/column 快照（只读）
+ssh root@<host> 'cd /opt/hergent-erp && python3 - <<PY ... PY'   # 见脚本 docstring
+scp root@<host>:/tmp/schema_dump.json /tmp/schema_dump.json
+
+# ④ 对账（--fail-on-fault 时真有故障退出 2，可直接进 CI）
+python3 tools/hergent/v706/check_ddl_parity.py \
+        --ddl /tmp/ddl.json --schema /tmp/schema_dump.json --fail-on-fault
+```
+
+2026-10-27（v706）对生产实测的结论 —— **真故障 0 处**：
+
+| 现象 | 数量 | 定性 |
+|---|---|---|
+| 代码声明、租户库缺表 / 缺列 | 0 / 0 | 无 |
+| 按需懒建（DDL 在 `_init_*` 里） | 18 | 正常，**但读路径必须先 ensure**（v706 补了 9 处） |
+| 建在独立库（`dami_memory.db` 等） | 7 | 不归 erp.db 管 |
+| 函数内自建自用（`refunds`） | 1 | 建在 INSERT 之前，正常 |
+| 只在租户库、主库没有 | 44 | 正常，`_copy_tenant_only_tables()` 兜底 |
+| 只有主库缺列（ALTER 在租户补丁循环里） | 9 | 主库**不是** schema 超集；新租户靠 `_ensure_tenant_module_tables()` 补 |
+| 库里有、代码里搜不到字面声明 | 89 | f-string 拼表名（`_copy_tenant_only_tables` 注释里承认过"14 张"） |
+
+> 所以**不要**去把那 300+ 处账外 DDL 逐个改写成 patch：它们对应的 DDL 早已跑过，
+> 改写只会让"哪台库跑过哪一版"重新变得不可判定。真正会咬人的是「读路径忘了 ensure」，
+> 那个已经单独修了（见 `tools/hergent/patch_v706_lazy_init.py`）。
 
 ## 新租户怎么办
 
