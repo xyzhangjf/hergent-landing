@@ -5,8 +5,14 @@
 > ❌ 不要再往 `erp_db.py` 里加 `_safe_migrate(...)` / `_safe_migrate_script(...)`
 > ✅ 新变更写成 `patches/0002_你的改动.sql`（或 `.py`）
 
-（`erp_db.py` 里现存的 359 处历史调用是欠账，分批收编；在收编完成前它们继续工作，
-但**不许再增加**。）
+（`erp_db.py` 里现存的 **389 处**历史调用已于 2026-10-27（v706）**冻结成基线**，
+明细在 `legacy_baseline.txt`。它们继续照旧运行，但**不许再增加、也不许改动内容**：
+`tools/hergent/v706/inventory_safe_migrate.py --check` 会拦下这两类动作。）
+
+> 冻结 ≠ 收编成版本。把那 389 条逐个改写成 patch 是**负收益**：它们对应的 DDL 早在生产
+> 跑过，改写只会让"哪台库跑过哪一版"重新变得不可判定。真正要治的是两条静默病：
+> ① 改了历史迁移不会重跑也不报错；② 新 DDL 绕过版本管理。两者都能在源码层面机械判定，
+> 见下文「存量冻结」。
 
 ---
 
@@ -33,6 +39,8 @@ migrations/
 ├── doctor.py            结构体检（只读，主库 vs 各租户库）
 ├── dbutil.py            路径解析 / 连接 / 结构快照与指纹
 ├── platform_tables.txt  主库独有的平台级表清单（体检时排除，需人工 review）
+├── legacy_platform_copies.txt  遗留平台表副本清单（现在是**回归探测器**：出现即报警）
+├── legacy_baseline.txt  `_safe_migrate` 存量基线（389 条迁移的内容指纹，v706 冻结）
 └── patches/
     ├── 0001_baseline.py 基线标记（无 DDL）
     └── 0002_xxx.sql     你的下一个变更
@@ -85,6 +93,30 @@ python3 -m migrations.doctor --json                      # 机器可读（给 cr
 
 退出码：`0` 干净、`2` 有问题需要人看、`1` 工具自身出错。
 
+## 存量冻结（`_safe_migrate` 的 389 处）
+
+```bash
+# 盘点：多少处、都在哪、哪些同名冲突、哪些账外裸 DDL
+python3 tools/hergent/v706/inventory_safe_migrate.py /opt/hergent-erp
+
+# 验收（每次部署前跑；退出码 0=一致 / 2=有漂移）
+python3 tools/hergent/v706/inventory_safe_migrate.py /opt/hergent-erp --check
+```
+
+它只做两件事，但都是**唯一能拦住**那两条静默病的地方：
+
+| 漂移类型 | 判据 | 为什么必须拦 |
+|---|---|---|
+| 改了历史迁移的 SQL（名字不变） | 内容指纹变了 | 已经跑过它的库**永远不会**拿到新逻辑，且不报错 |
+| 新增 `_safe_migrate(...)` 调用 | 名字不在基线里 | 新 DDL 绕过版本管理，重演同一类不可判定 |
+
+已知边界（别指望它做）：
+
+- SQL 是**拼接/常量引用**的 7 处，指纹落在**表达式**上：能抓到改片段，抓不到"改被引用的常量"。
+- **2 处名字是 f-string/变量**（`v658_store_name_*`、`v20_promotions_*` 的循环），不入基线，需人工确认。
+- **账外裸 DDL 还有 341 处**（`CREATE TABLE IF NOT EXISTS` 直接写在函数体里、
+  `db/queries/*.py` 那 42 处是同一批迁移的第二份拷贝）—— 本工具**不覆盖**它们，属于未清欠账。
+
 ## 新租户怎么办
 
 `tenant_db_init()` 用 `iterdump()` 只复制**主库当时**的 CREATE 语句，历史 patch 的
@@ -104,5 +136,6 @@ python3 -m migrations.doctor --json                      # 机器可读（给 cr
 ## 已知边界（别指望它做）
 
 - 它管**结构**，不管**数据修复**（数据修复是另一类作业，必须单独评审）。
-- `erp_db.py` 里 359 处 `_safe_migrate` 仍会照旧运行。本目录不会替它们排序或去重。
+- `erp_db.py` 里 389 处 `_safe_migrate` 仍会照旧运行（已冻结基线，不许增改）。
+  本目录不会替它们排序或去重 —— 排序只对"以后新写的 patch"有意义。
 - `doctor` 只做结构对账，不判断业务口径是否正确（那要业务规则）。
