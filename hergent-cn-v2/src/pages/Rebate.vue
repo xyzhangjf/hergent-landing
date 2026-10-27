@@ -243,11 +243,14 @@
     </div>
 
     <!-- 维度入口卡片（P0-1：对标舟谱目标分类入口） -->
+    <!-- v702：作用对象统一为**供应商**（原来按品牌名 / 商品名手填）。两个入口的差别只剩
+         「目标形态」（品牌页 = 12 月分解 + 阶梯返利 + 报单节奏；商品页 = 按数量冲量），
+         作用对象一律从供应商档案里选，可多选。 -->
     <div class="entry-row">
       <div class="card entry-card">
         <div class="ec-body">
           <h3>品牌目标</h3>
-          <p>按品牌设置月度/季度返利与指标达成（如蒙牛纯牛奶系列），下单时副驾提示冲刺进度与缺口建议。</p>
+          <p>按<b>供应商</b>设置月度目标与返利（可多选，各自独立成一条），下单时副驾提示冲刺进度与缺口建议。</p>
         </div>
         <!-- v335 按钮级门禁：POST /api/rebate-rules ⇒ 模块 sales / 动作 create -->
         <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" @click="openCreate('brand')">+ 创建品牌目标</button>
@@ -255,7 +258,7 @@
       <div class="card entry-card">
         <div class="ec-body">
           <h3>商品目标</h3>
-          <p>按核心单品（SKU）设置返利冲量目标，支持按销售数量（大单位）维度。</p>
+          <p>按<b>供应商</b>设置数量冲量目标（可多选），目标度量可选销售数量（大单位）或下单金额。</p>
         </div>
         <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" @click="openCreate('product')">+ 创建商品目标</button>
       </div>
@@ -286,7 +289,7 @@
               <td>{{ r.rule_name }}</td>
               <td><span class="tag info">{{ dimText(r.dimension) }}</span></td>
               <td v-if="isVisRules('period')">{{ periodText(r.period_type) }}<span v-if="r.is_monthly" class="tag ok" style="margin-left:6px" title="按 12 个月分解目标与返利">月分解</span></td>
-              <td>{{ r.scope_name || '全部' }}</td>
+              <td>{{ r.scope_name || '全部供应商' }}</td>
               <td v-if="isVisRules('target')" class="num">{{ fmtTarget(r) }}</td>
               <td v-if="isVisRules('trigger')"><span class="tag" :class="r.trigger_mode === 'tiered' ? 'info' : 'ok'">{{ triggerText(r.trigger_mode) }}</span></td>
               <td v-if="isVisRules('rebate')">{{ rebateText(r) }}</td>
@@ -758,6 +761,7 @@
     <TargetFormModal
       :open="showForm" :mode="formMode" :rule="formRule" :preset-dim="formPresetDim"
       :brand-options="brandOptions" :product-names="productNames" :product-refs="productRefs"
+      :supplier-options="supplierOptions"
       :scale-options="scaleOptions"
       :existing-rules="rules"
       @close="showForm=false" @saved="onRuleSaved" @conflict="conflictInfo=$event"
@@ -895,7 +899,7 @@
             <div class="dt-grid">
               <div class="dt-item"><span class="dt-l">计算维度</span><span class="dt-v">{{ dimText(detailRule.dimension) }}</span></div>
               <div class="dt-item"><span class="dt-l">目标度量</span><span class="dt-v">{{ detailRule.target_type === 'amount' ? '下单金额' : '销售数量' }}</span></div>
-              <div class="dt-item"><span class="dt-l">作用对象</span><span class="dt-v">{{ detailRule.scope_name || '全部' }}</span></div>
+              <div class="dt-item"><span class="dt-l">作用对象</span><span class="dt-v">{{ detailRule.scope_name || '全部供应商' }}</span></div>
               <div class="dt-item"><span class="dt-l">周期口径</span><span class="dt-v">{{ periodText(detailRule.period_type) }}</span></div>
               <div class="dt-item"><span class="dt-l">目标值</span><span class="dt-v">{{ fmtTarget(detailRule) }}</span></div>
               <div class="dt-item"><span class="dt-l">优先级</span><span class="dt-v">{{ detailRule.priority }}</span></div>
@@ -1396,7 +1400,7 @@ const simRuleTarget = computed(() => {
   const r = rules.value.find(x => String(x.id) === String(simRuleId.value))
   if (!r) return ''
   const t = r.target_type === 'amount' ? '¥' + fmt(r.target_value) : r.target_value + ' 件'
-  return `目标 ${t} · ${dimText(r.dimension)} · ${periodText(r.period_type)} · ${r.scope_name || '全部'}`
+  return `目标 ${t} · ${dimText(r.dimension)} · ${periodText(r.period_type)} · ${r.scope_name || '全部供应商'}`
 })
 // #355：What-if 滑块上限（按选中规则目标值的 1.5 倍，至少 1）
 const simSliderMax = computed(() => {
@@ -1944,7 +1948,23 @@ const achvFilledCount = computed(() => achvRows.value.filter(r => r.achId).lengt
 // 仪表盘算不到该规则。这里用商品主档补齐映射，让两边键对齐。
 const productRefs = ref({ byName: new Map(), byBarcode: new Map() })
 // v122：商品名候选（规则弹窗「作用对象」datalist 用）—— 之前商品维度候选为空，用户只能手填商品 ID
+// 🔴 v702：作用对象已统一为供应商 ⇒ 本候选**不再传给规则弹窗**（props 仍保留以便回退）。
+//    `productRefs` / `resolveProductKey` 必须留着 —— 达成行的「名称/条码 → 商品 ID」键对齐仍在用（见上）。
 const productNames = ref([])
+
+/* v702：作用对象候选 = 供应商（contacts type='supplier'）。
+   🔴 用服务端 `type=supplier` 过滤，不在前端从 contacts 全量里筛 —— 客户有 700+ 条，
+      前端筛会把 700 条全拉下来，拖慢首屏且容易漏（分页只回一页）。
+   🔴 一次取 500（生产 38 个，留足余量）；取不到时**不清空旧值**、也不假装有候选 ——
+      弹窗里会显示"没有匹配的供应商"，用户能立刻看出是档案问题而不是系统卡了。 */
+const supplierOptions = ref([])
+async function loadSuppliers() {
+  try {
+    const d = await api('/api/contacts?type=supplier&limit=500')
+    const items = Array.isArray(d) ? d : ((d && d.items) || [])
+    supplierOptions.value = items.filter(x => x && x.id != null && String(x.name || '').trim())
+  } catch (e) { /* 加载失败不阻断页面：弹窗内会显示"没有匹配的供应商" */ }
+}
 async function loadProductRefs() {
   try {
     const d = await api('/api/products/grid')
@@ -3359,7 +3379,7 @@ function tierPctText(t) {
   return '—'
 }
 
-onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadAchievements(dashMonth.value); loadContracts(); loadContactOptions(); loadRebateMeta(); loadConflicts(); loadYearAchv() })
+onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppliers(); loadAchievements(dashMonth.value); loadContracts(); loadContactOptions(); loadRebateMeta(); loadConflicts(); loadYearAchv() })
 </script>
 
 <style scoped>

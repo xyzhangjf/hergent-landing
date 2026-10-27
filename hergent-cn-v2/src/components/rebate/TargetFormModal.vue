@@ -13,12 +13,18 @@
               <option value="quantity">销售数量（大单位）</option>
             </select>
           </div>
-          <div class="form-row"><label>作用对象</label>
-            <input v-model="form.scope_name" class="input" :list="scopeListId" :placeholder="scopePlaceholder">
-            <datalist :id="scopeListId">
-              <option v-for="o in scopeDatalist" :key="o" :value="o"></option>
-            </datalist>
-            <span v-if="isBrandForm && form.scope_name && !brandOptions.includes(form.scope_name)" style="color:var(--dan);font-size:12px;margin-top:4px">该品牌不在档案中，请先在「档案管理 → 品牌档案」创建</span>
+          <!-- v702：作用对象统一为**供应商**（原为品牌名 / 商品名纯文本输入）。
+               🔴 为什么换：返利目标在实务上按「厂家户头」谈与结算 —— 生产 38 个供应商
+                  里「福宝低温 / 滋低温 / 蒙牛鲜奶（7579）」各自是独立户头，而品牌档案只有 4 条、
+                  且「蒙牛低温」这种词对不上任何一个供应商 ⇒ 用品牌当作用对象，目标挂不到真实户头上。
+               🔴 新建可多选（各自独立成一条目标，见 scopeNote 与 save() 的扇出）；
+                  编辑只允许单选 —— 一条已有记录改成多选等于"一条变多条"，删除语义无人表达。 -->
+          <div class="form-row"><label>作用对象（供应商）</label>
+            <SupplierPicker v-model="selectedSups" :suppliers="supplierOptions"
+                            :multiple="!editing"
+                            :placeholder="editing ? '选择这条目标的供应商' : '点击选择供应商（可多选）'">
+            </SupplierPicker>
+            <div class="sp-note" :class="{ 'sp-note-link': legacyScope }">{{ scopeNote }}</div>
           </div>
 
           <!-- v128：同一年份已有目标 —— 只提示 + 一键跳转编辑，不自动覆盖用户输入 -->
@@ -28,6 +34,7 @@
               <b>{{ form.target_year }} 年这个对象已经有目标了</b>
               <p v-for="r in yearHits" :key="r.id">
                 「{{ r.rule_name || ('规则#' + r.id) }}」
+                <span class="yh-scope">对象：{{ r.scope_name || '全部供应商' }}</span>
                 <template v-if="r.__summary.filledMonths">已填 {{ r.__summary.filledMonths }} 个月，合计</template>
                 <template v-else>合计</template>
                 <b>{{ fmtWan(r.__summary.totalWan) }} 万元</b>
@@ -156,6 +163,7 @@ import Icon from '../Icon.vue'
 import Modal from '../Modal.vue'
 import BrandTargetForm from './BrandTargetForm.vue'
 import ProductTargetForm from './ProductTargetForm.vue'
+import SupplierPicker from './SupplierPicker.vue'
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { toast } from '../../store'
 import { rebateApi } from '../../api/modules'
@@ -178,6 +186,8 @@ const props = defineProps({
   productNames: { type: Array, default: () => [] },
   /** { byName: Map, byBarcode: Map } —— 商品名 → 商品 ID */
   productRefs: { type: Object, default: () => ({ byName: new Map(), byBarcode: new Map() }) },
+  /** v702：作用对象候选 = 供应商（contacts type='supplier'）。由父页一次性传入。 */
+  supplierOptions: { type: Array, default: () => [] },
   scaleOptions: { type: Array, default: () => [] },
   defaultCadence: { type: Number, default: 2 },
   /** v128：当前租户全部规则（父页 rules）—— 用于「该年份已有目标」提示，避免重复创建 */
@@ -270,6 +280,10 @@ const _dupSeq = ref(0)
 async function runPrecheck() {
   const f = form.value
   if (!props.open) { dupWarn.value = []; return }
+  /* v702：新建多选供应商时**不做实时预检** —— 预检只吃一个 scope，拿第一个去问会把
+     "其余几个也行/不行"混成一个结论。多选的冲突改在提交后按条回报（save() 里逐个 create，
+     409 会落进 _failed 并点名供应商）。 */
+  if (!editing.value && selectedSups.value.length > 1) { dupWarn.value = []; return }
   const seq = ++_dupSeq.value
   const monthly = buildMonthlyPayloads(monthlyRows.value)
   const payload = {
@@ -304,23 +318,10 @@ async function runPrecheck() {
   }
 }
 let _dupTimer = null
-watch(
-  () => [
-    props.open,
-    form.value.dimension,
-    form.value.target_type,
-    form.value.scope_name,
-    form.value.target_year,
-    form.value.effective_start,
-    form.value.effective_end,
-    monthlyRows.value.map(r => `${r.amtWan || 0}`).join(','),
-  ],
-  () => {
-    if (!props.open) { dupWarn.value = []; return }
-    clearTimeout(_dupTimer)
-    _dupTimer = setTimeout(runPrecheck, 400)
-  },
-)
+/* 🔴 v702：预检 watch 已**下移**到 `selectedSups` 定义之后（见「作用对象（供应商）」段末）。
+   原因：Vue 3 的 watch 对 **getter 函数**会 `effect.run()` 立即求值取 oldValue ⇒
+   在 `const selectedSups` 之前引用它就是 TDZ，表现为**整页白屏且控制台没有显眼报错**
+   （本仓 v701 为同一个病付过一次代价，不要再犯）。 */
 onBeforeUnmount(() => clearTimeout(_dupTimer))
 
 /* ---------------- v128：同一年份已有目标 —— 提示 + 一键编辑（不自动覆盖） ----------------
@@ -332,24 +333,27 @@ const yearHits = computed(() => {
   const f = form.value
   const y = Number(f.target_year)
   if (!y) return []
-  const mine = [f.scope_key, f.scope_name]
-    .map(s => String(s == null ? '' : s).trim()).filter(Boolean)
-  if (!mine.length) return []           // 还没填作用对象 → 无从判断，不打扰
+  /* v702：匹配口径跟着作用对象走 —— 已选供应商时用「供应商 id / 名称」两者任一命中。
+     id 命中的场景：以前选过同一供应商但后来改了它的名字。 */
+  const mine = []
+  selectedSups.value.forEach(s => { mine.push(String(s.id)); mine.push(String(s.name || '')) })
+  if (legacyScope.value) {
+    mine.push(String(legacyScope.value.key || ''))
+    mine.push(String(legacyScope.value.name || ''))
+  }
+  const mineStr = mine.map(s => String(s == null ? '' : s).trim()).filter(Boolean)
+  if (!mineStr.length) return []           // 还没填作用对象 → 无从判断，不打扰
   return (props.existingRules || []).filter(r => {
     if (Number(r.is_active) !== 1) return false
     if (r.dimension !== f.dimension) return false
     if (Number(r.target_year || 0) !== y) return false
     const theirs = [r.scope_key, r.scope_name]
       .map(s => String(s == null ? '' : s).trim()).filter(Boolean)
-    return theirs.some(s => mine.indexOf(s) >= 0)
+    return theirs.some(s => mineStr.indexOf(s) >= 0)
   }).map(r => ({ ...r, __summary: ruleMonthlySummary(r) }))
 })
 const yearHitsVisible = computed(() => !yearHitDismissed.value && yearHits.value.length > 0)
-// 换了维度 / 作用对象 / 年份 → 提示条重新生效（否则 dismiss 后换品牌就再也不提示了）
-watch(
-  () => [form.value.dimension, form.value.scope_name, form.value.target_year],
-  () => { yearHitDismissed.value = false },
-)
+// 「换了对象就重新提示」的 watch 同样下移到 selectedSups 之后（TDZ，同上）。
 function goEditExisting(r) { emit('load-existing', r) }
 function dismissYearHits() { yearHitDismissed.value = true }
 
@@ -669,29 +673,127 @@ function applyMigrate() {
   toast('已按旧排程反推报单节奏，请核对下方预览再保存', 'success')
 }
 
-/* ---------------- 作用对象 ---------------- */
-const scopeDatalist = computed(() => {
-  const d = form.value.dimension
-  if (d === 'brand') return props.brandOptions
-  if (d === 'product') return props.productNames
-  return []
-})
-const scopeListId = computed(() => 'rebate-scope-' + (form.value.dimension || 'brand'))
-const scopePlaceholder = computed(() => {
-  const d = form.value.dimension
-  if (d === 'brand') return '品牌名（空=全部品牌）'
-  if (d === 'product') return '商品 ID 或名称（空=全部单品）'
-  return '作用对象（空=全部）'
-})
-/** 商品名 → 商品 ID（填了名字但解析不出 ID，保存时会变成「作用于全部单品」） */
-function resolveProductKey(key) {
-  const s = String(key == null ? '' : key).trim()
-  if (!s) return ''
-  const { byName, byBarcode } = props.productRefs
-  if (byName && byName instanceof Map && byName.has(s)) return String(byName.get(s))
-  if (byBarcode && byBarcode instanceof Map && byBarcode.has(s)) return String(byBarcode.get(s))
-  return s
+/* ---------------- 作用对象（供应商） ----------------
+   v702：作用对象从「品牌名 / 商品名纯文本」改为**供应商多选**。
+   🔴 数据层仍沿用 scope_key / scope_name 两个字段（后端返利计算、月度锁、判重
+      都按 (月份, 维度, 作用对象) 三元组匹配）⇒ 供应商落地方式 = scope_key 存**供应商主键**、
+      scope_name 存供应商名称。这样后端**一行都不用改**，计算链路零风险。
+   🔴 多选不合并成一条：选 N 个就生成 N 条独立规则（老板拍板口径）。
+      合并口径要求把匹配键从单值改成多值，会牵动达成导入 / 月度锁 / 判重 / 冲刺看板 5 处。 */
+const selectedSups = ref([])
+/** 老规则的作用对象（品牌名）在供应商档案里找不到同名户头 ⇒ 原样保留、只提示不改写 */
+const legacyScope = ref(null)
+
+function _supOfHit(h) {
+  return {
+    id: h.id, name: String(h.name || '').trim(),
+    code: String(h.code || '').trim(),
+    category: String(h.supplier_category || '').trim(),
+  }
 }
+/** 按 id → 名称精确 的顺序把已有规则的 scope 映射回供应商；都对不上就落 legacyScope */
+function fillScopeFromRule(r) {
+  selectedSups.value = []
+  legacyScope.value = null
+  const key = String((r && r.scope_key) == null ? '' : r.scope_key).trim()
+  const name = String((r && r.scope_name) == null ? '' : r.scope_name).trim()
+  if (!key && !name) return                 // 空 = 全部供应商，与现状一致
+  const pool = props.supplierOptions || []
+  let hit = key ? pool.find(s => String(s.id) === key) : null
+  if (!hit && name) hit = pool.find(s => String(s.name || '').trim() === name)
+  if (!hit && key && !/^\d+$/.test(key)) hit = pool.find(s => String(s.name || '').trim() === key)
+  if (hit) selectedSups.value = [_supOfHit(hit)]
+  else legacyScope.value = { key, name: name || key }
+}
+
+/** 提交用：作用对象 → [{ key, name }]。返回单元素空值 = 不指定（全部供应商） */
+function scopeTargets() {
+  if (selectedSups.value.length) {
+    /* 🔴 key 用**供应商名称**而不是主键 id —— 这不是偷懒，是被上下游锁定的：
+       ① 后端 `validate_rule` 对 `dimension == 'brand'` 会强制 `scope_key = scope_name`
+          （`routers/rebate_rules.py:1125`），传 id 进去也会被覆盖；
+       ② 返利计算按 `(月份, 维度, scope_key)` 把**规则**与**达成**配对，而达成记录
+          （rebate_achievements）的 scope_key 是 Excel 导入的名称原文 ⇒ 规则侧若用 id，
+          两边**永远配不上**，返利一笔都算不出来。
+       所以这里与后端保持同一口径，参数名仍叫 key（字段名没变，语义=作用对象标识）。 */
+    return selectedSups.value.map(s => ({ key: String(s.name), name: String(s.name) }))
+  }
+  if (legacyScope.value) {
+    return [{ key: legacyScope.value.key || '', name: legacyScope.value.name || '' }]
+  }
+  return [{ key: '', name: '' }]
+}
+
+/** 页面提示：当前所选供应商 + 范围 + 生效规则 */
+const scopeNote = computed(() => {
+  if (legacyScope.value) {
+    const nm = legacyScope.value.name || legacyScope.value.key
+    return `原作用对象是「${nm}」，供应商档案里没有同名户头，当前未绑定供应商。`
+      + '不改也能按原样保存；要挂到真实户头上，请点上方选成供应商。'
+  }
+  const arr = selectedSups.value
+  if (!arr.length) {
+    return editing.value
+      ? '未选供应商 = 这条目标作用于全部供应商（与保存前一致）。'
+      : '未选供应商 = 这条目标作用于全部供应商。要限定对象，请点上方选择。'
+  }
+  const names = arr.map(s => s.name).join('、')
+  if (editing.value) {
+    return `作用对象：${names}。编辑时只能保留一个供应商；要给多个供应商同时设目标，请用「创建」分别建。`
+  }
+  if (arr.length === 1) {
+    return `作用对象：${names}。保存后生成 1 条目标，只有这个供应商的达成会算进来。`
+  }
+  return `已选 ${arr.length} 个供应商：${names}。`
+    + `保存后各自生成 1 条独立目标（共 ${arr.length} 条），目标值各为同一个数、互不影响，之后可分别调整 ——`
+    + ' 不是这几家合计。'
+})
+
+/* 🔴 这两个 watch 必须留在 `selectedSups` / `legacyScope` 定义**之后** ——
+   Vue 3 的 watch 对 getter 会立即 `effect.run()` 取 oldValue，写在定义前就是 TDZ，
+   症状是整页白屏、控制台无显眼报错（见文件上半「预检 watch 已下移」那段注释）。 */
+
+/* 🔴 候选（供应商列表）由父页**异步**加载，而 init() 在弹窗打开瞬间就跑完。
+   深链打开（?edit_rule=N）/ 父页首屏还没拉完供应商时，init() 会拿着空候选去匹配 ⇒
+   「简爱」这种本来能精确对上的对象被**永久**判成「未绑定」（init 只跑一次、不会重试）。
+   ⇒ 候选到位后补一次匹配。只在「还没选过任何供应商且正处于未绑定」时重试，
+     绝不覆盖用户已经改过的选择。 */
+watch(() => (props.supplierOptions || []).length, (n, o) => {
+  if (!props.open || !n || n === o) return
+  if (selectedSups.value.length) return
+  if (!legacyScope.value) return
+  const { key, name } = legacyScope.value
+  fillScopeFromRule({ scope_key: key, scope_name: name })
+})
+
+/* 换作用对象 / 年份 → 「该年已有目标」提示条重新生效 */
+watch(
+  () => [form.value.dimension, form.value.scope_name, form.value.target_year,
+    selectedSups.value.map(s => s.id).join(','), legacyScope.value && legacyScope.value.key],
+  () => { yearHitDismissed.value = false },
+)
+
+/* 保存前重复目标预检（debounce 400ms，只提示不拦截） */
+watch(
+  () => [
+    props.open,
+    form.value.dimension,
+    form.value.target_type,
+    form.value.scope_name,
+    form.value.target_year,
+    form.value.effective_start,
+    form.value.effective_end,
+    selectedSups.value.map(s => s.id).join(','),
+    monthlyRows.value.map(r => `${r.amtWan || 0}`).join(','),
+  ],
+  () => {
+    if (!props.open) { dupWarn.value = []; return }
+    clearTimeout(_dupTimer)
+    _dupTimer = setTimeout(runPrecheck, 400)
+  },
+)
+
+
 
 /* ---------------- 打开 / 关闭 / 保存 ---------------- */
 // v365：每次打开都清掉上一版「停单影响期次」回执 —— 面板是常驻组件（父层只切 open），
@@ -708,6 +810,8 @@ function init() {
   if (props.mode === 'edit' && r) {
     editing.value = true
     form.value = { ...r }
+    // v702：作用对象回显 —— 按 id / 名称精确匹配供应商；对不上则落 legacyScope 只提示
+    fillScopeFromRule(r)
     if (form.value.target_year == null) form.value.target_year = currentYear
     if (form.value.target_unit == null) form.value.target_unit = ''
     /* v364：`arrival_count_override` 是规则上的**永久**列，已被"按月"的口径取代
@@ -726,6 +830,8 @@ function init() {
   } else if (props.mode === 'dup' && r) {
     editing.value = false
     form.value = duplicateForm(r, { defaultCadence: props.defaultCadence, currentYear })
+    // 复制出来的对象跟着原件的供应商走（不是"全部"）—— 否则复制出来会静默变成全供应商目标
+    fillScopeFromRule(form.value)
     targetWan.value = (Number(r.target_value) || 0) / 10000
     arrivalPreview.value = null
     // 复制的是"规则"，**不复制本月停单** —— 停单是本月的事实，不是规则的一部分。
@@ -738,6 +844,9 @@ function init() {
   } else {
     editing.value = false
     form.value = defaultForm({ presetDim: props.presetDim, defaultCadence: props.defaultCadence, currentYear })
+    // v702：新建从"未选供应商"起步（= 全部），并清掉上一条规则残留的已选/老口径
+    selectedSups.value = []
+    legacyScope.value = null
     targetWan.value = 0
     arrivalPreview.value = null
     skips.value = { skip_dates: '', count_override: null }
@@ -843,9 +952,9 @@ async function save() {
       toast('返利比例须 0~1（如 0.02 = 2%；填 0 = 本月无返利）', 'error'); return
     }
   }
-  if (f.dimension === 'brand' && f.scope_name && !props.brandOptions.includes(f.scope_name)) { toast('品牌「' + f.scope_name + '」不在品牌档案中，请先创建', 'error'); return }
-  if (f.dimension === 'brand' && f.scope_name) f.scope_key = f.scope_name.trim()
-  if (f.dimension === 'product' && f.scope_name) f.scope_key = resolveProductKey(f.scope_name)
+  /* v702：作用对象的取值统一在下方提交段按「已选供应商 / 老口径 / 全部」三态写回
+     scope_key+scope_name —— 这里不再做品牌档案校验，也不再按商品名反解商品 ID
+     （作用对象已不是品牌/商品，再校验旧候选表就是拿错表拦人）。 */
   if (f.trigger_mode === 'tiered') {
     const tiers = ruleTiers.value
       .filter(t => (Number(t.from_pct) || 0) > 0 || (Number(t.to_pct) || 0) > 0 || (Number(t.rebate_rate) || 0) > 0 || (Number(t.rebate_amount) || 0) > 0)
@@ -874,28 +983,71 @@ async function save() {
   } else {
     f.tiers_json = ''
   }
+  /* v702：作用对象落库。
+     编辑 / 单选 → 1 条，直接写 scope_key+scope_name；
+     新建多选 → **扇出**成 N 条独立规则（名称加「· 供应商名」后缀），
+       目标值/月度分解/阶梯/报单节奏原样复制，各自独立、互不影响。 */
+  const _targets = scopeTargets()
+  const _fanout = !editing.value && _targets.length > 1
+  const _baseName = String(f.rule_name || '').trim()
   try {
     let _rid = 0
+    /** 扇出时逐个落库，部分失败也要如实报（不能"看着成功其实只建了一条"） */
+    const _created = []
+    const _failed = []
     if (editing.value) {
+      f.scope_key = _targets[0].key
+      f.scope_name = _targets[0].name
       await rebateApi.update(f.id, f)
       _rid = Number(f.id) || 0
-    } else {
+    } else if (!_fanout) {
+      f.scope_key = _targets[0].key
+      f.scope_name = _targets[0].name
       const res = await rebateApi.create(f)
       // create 返回 {"success":true,"id":N,"rule":{...}}（api() 不解 data 层 ⇒ 直接取 id）
       _rid = Number((res && (res.id || (res.rule && res.rule.id))) || 0)
+    } else {
+      for (const t of _targets) {
+        const body = { ...f, scope_key: t.key, scope_name: t.name, rule_name: `${_baseName} · ${t.name}` }
+        try {
+          const res = await rebateApi.create(body)
+          const id = Number((res && (res.id || (res.rule && res.rule.id))) || 0)
+          _created.push({ name: t.name, id })
+          if (!_rid) _rid = id
+        } catch (e2) {
+          _failed.push({ name: t.name, reason: (e2 && e2.message) || '未知错误' })
+        }
+      }
+      if (!_created.length) {
+        throw new Error('一个都没建成 —— ' + _failed.map(x => x.name + '：' + x.reason).join('；'))
+      }
     }
     /* v364：本月到货调整**单独**落库（只写这一个月）。
        为什么放在规则保存**之后**：新建时此刻才拿到 rule_id。
        为什么失败**不回滚**规则：用户填的是一整张目标表，不能因为"停单这一栏没存下"
        整表白填 —— 但必须**明确告诉他哪部分没存下**，不能静默。
-       （后端在数据表未就绪时返回 503 而不是假装成功，就是为了让这句话有意义。） */
-    const _skipRes = await saveMonthSkips(_rid)
-    if (_skipRes.err) {
-      toast('规则已保存；本月到货调整没保存成功：' + _skipRes.err, 'error')
+       （后端在数据表未就绪时返回 503 而不是假装成功，就是为了让这句话有意义。）
+       v702：扇出时**每条规则都要写** —— 停单是 rule × 月 的记录，只写第一条会让
+       其余几条静默沿用系统推算（用户以为都停了）。 */
+    const _skipIds = _fanout ? _created.map(c => c.id) : [_rid]
+    let _skipErr = ''
+    for (const _sid of _skipIds) {
+      // eslint-disable-next-line no-await-in-loop
+      const _r = await saveMonthSkips(_sid)
+      if (_r.err && !_skipErr) _skipErr = _r.err
+      if (!_r.err) skipEffect.value = _skipEffectLines(_r.affected)
+    }
+    if (_skipErr) {
+      toast('规则已保存；本月到货调整没保存成功：' + _skipErr, 'error')
+    } else if (_fanout) {
+      if (_failed.length) {
+        toast(`已建 ${_created.length} 条，${_failed.length} 条没建成：`
+          + _failed.map(x => x.name + '（' + x.reason + '）').join('；'), 'error')
+      } else {
+        // 扇出的回执要说清「是 N 条不是 1 条」，否则用户回列表会以为重复了
+        toast(`已为 ${_created.length} 个供应商各建 1 条目标（共 ${_created.length} 条）`, 'success')
+      }
     } else {
-      /* v365：停单还会改变「系统会不会自动建那一期」，用户看不到这一层 ——
-         把后端回执留在面板上（不是一闪而过的 toast）。 */
-      skipEffect.value = _skipEffectLines(_skipRes.affected)
       toast(editing.value ? '已保存' : '已创建', 'success')
     }
     emit('saved')
@@ -925,6 +1077,11 @@ async function save() {
 .form-row label{font-size:12px;font-weight:500;color:var(--t2)}
 .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .cf-tip{font-size:13px;color:var(--t2);line-height:1.6;margin:0 0 12px}
+/* v702：作用对象说明 —— 选中范围与生效规则（"多选=几条独立目标，不是合计"）就靠这块说清 */
+.sp-note{font-size:12px;line-height:1.65;color:var(--t2);padding:6px 8px;border-radius:7px;
+  background:var(--bg2);border:1px solid var(--bd)}
+.sp-note-link{color:#b45309;background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4)}
+.yh-scope{color:var(--t3);font-size:12px;margin-left:2px}
 /* v125：重复目标预检提示（黄底，与红色硬错误区分：只是提醒，保存仍由后端裁决） */
 .dup-warn{display:flex;gap:8px;align-items:flex-start;margin:2px 0 8px;padding:8px 10px;border-radius:8px;
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);font-size:12.5px;color:var(--t2);line-height:1.6}
