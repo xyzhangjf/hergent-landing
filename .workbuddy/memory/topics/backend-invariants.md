@@ -894,3 +894,22 @@ PY
 - `sqlite3.Row` 缺列抛 `IndexError` ⇒ 用 `_row_get()` 安全取名，别让「少一个字段」变成「开不了单」。
 - 🔴 `erp_db.py` 的 CREATE TABLE 模板曾与真实库 schema 漂移 ⇒ 改表/查询前以 `tenant_1.db` 真实 schema 为准。
 - 🔴 `"…%（…" % x` 运行时崩 500（v682）：`%` 后紧跟全角字符被当格式符 ⇒ 用 `100%%（` 或改 f-string。**凡 %-format 里出现 `%（），。、；：` 一律复查**。
+- 🔴 **平台表只存在于主库**（v706）。`users/sessions/tenants/user_tenants/invite_codes/invite_uses` 已在
+  `migrations/platform_tables.txt` 白名单里；租户库里**没有它们是正确形态**，再出现即报警
+  （`legacy_platform_copies.txt` 现在是回归探测器）。`tenant_db_init()` 用 `iterdump()` 复制主库
+  CREATE 语句时**必须跳过这 6 张表**，否则每个新租户天生带一张空 `users` —— 危险在于它静默：
+  误用 `get_db()` 去读时得到"空表/旧快照"而不是"表不存在"，界面只是悄悄变空。
+- 🔴 **`_connect()` 也跟随租户上下文，不是主库连接**。`db.connection._connect()` → `_sqlite_connect()`
+  用 `_tenant_db.get() or DB_PATH`。判断「某函数读的是哪台库」不能看它调了哪个 helper，要看
+  **连接类型 × 路由前缀** 两段证据：`/api/users`、`/api/tenants`、`/api/force-logout` 在
+  `_TENANT_MASTER_PREFIXES` 里 ⇒ 上下文为 `None` ⇒ 同一函数回落主库。工具：
+  `tools/hergent/v706/scan_legacy_reads.py`（75 个引用函数分类，含 7 处 comment-only 假阳性教训）。
+- 🔴 **判定"这台库是不是主库"必须用 `realpath`**。macOS `/var` 是 `/private/var` 的符号链接，
+  `PRAGMA database_list` 给 `/private/var/...` 而 `ERP_DB_PATH` 常写 `/var/...` ⇒ `abspath` 比较不相等
+  ⇒ patch 会把**主库**当租户库删表。取不到路径时必须 fail-closed 拒绝执行，不许猜。
+- **新 DDL 只能写成 `migrations/patches/00NN_*.py`**。`_safe_migrate` 存量 389 处已冻结成
+  `migrations/legacy_baseline.txt`（387 条名字+指纹），`inventory_safe_migrate.py --check` 拦
+  "改历史迁移内容"与"新增裸 DDL"两类静默病（退出码 2）。**账外裸 DDL 仍有 341 处**未收编。
+- **借贷平衡按整数分判**（v706）：`money_balanced` = `abs(to_cents(dr)-to_cents(cr)) <= MONEY_EPS_CENTS(1)`。
+  老写法 `abs(dr-cr)<=0.01` 下「差 1 分」的结论取决于二进制表示（100.00/99.99 拒、1234.56/1234.55 过）。
+  改这类口径**必须先双算**（`tools/hergent/v706/dualcheck_money_balanced.py`，按凭证分组比新老判定）。
