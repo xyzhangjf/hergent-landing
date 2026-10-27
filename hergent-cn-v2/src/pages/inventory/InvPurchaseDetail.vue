@@ -111,11 +111,18 @@
         <div v-else-if="apprPending" class="ipd-pm" @click.stop>
           <span class="ipd-appr-wait">待【{{ currentNodeName }}】审批（{{ approvalProgressText }}）</span>
         </div>
-        <button v-if="canWrite && canReceive" class="btn btn-ghost btn-sm" :disabled="busy"
+        <!-- 🔴 v698b：`tab !== 'inbound'` —— 入库单页签内已有**同功能**操作条
+             （老板要求「已审核后可在入库单页直接发起入库」），不互斥就会同屏出现
+             两套「分批到货 / 确认入库」，老板第一反应是「哪个才是真的」。
+             互斥规则：**同一时刻只露一处**，落在当前正在看的那一页。
+             🔴 两处的「分批到货」行为不同且都是对的：这里 `showRecv` 是在**当前页**
+                展开逐行填数量的面板；入库单页那条是 `gotoPartialReceive()` 跳回详情页
+                再展开（那一页才有明细表可填）。不是重复实现，是同一动作的两个落点。 -->
+        <button v-if="canWrite && canReceive && tab !== 'inbound'" class="btn btn-ghost btn-sm" :disabled="busy"
                 @click="showRecv = !showRecv">
           <Icon name="inbox" :size="14" />分批到货
         </button>
-        <button v-if="canWrite && canConfirm" class="btn btn-primary btn-sm" :disabled="busy" @click="doConfirm">
+        <button v-if="canWrite && canConfirm && tab !== 'inbound'" class="btn btn-primary btn-sm" :disabled="busy" @click="doConfirm">
           <Icon name="check" :size="14" />{{ busy ? '处理中…' : '确认入库' }}
         </button>
         <!-- v452（O1）「更多 ▾」：把低频/辅助动作收进一个菜单，动作区回到一行。
