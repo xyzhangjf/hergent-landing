@@ -15,6 +15,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import urllib.request
 
 PROD = "/opt/hergent-erp"
@@ -157,7 +158,18 @@ def phase_c():
 
 def phase_d():
     print("\n【D】反向可证伪：拿掉 unclosed_profit，报表必须重新不平")
-    iso = "/tmp/v709/probe_iso.db"
+    # 🔴 别写死 /tmp/v709：/tmp 会被清理，写死路径会让本段以 FileNotFoundError 崩掉，
+    #    看起来像"回归失败"（2026-10-27 实际踩过）。用 mktemp 自动回收。
+    _tmp = tempfile.mkdtemp(prefix="v709-probe-")
+    iso = os.path.join(_tmp, "probe_iso.db")
+    try:
+        _phase_d_body(iso)
+    finally:
+        shutil.rmtree(_tmp, ignore_errors=True)
+        chk("临时目录已清理（残留 0）", not os.path.exists(_tmp), _tmp)
+
+
+def _phase_d_body(iso):
     shutil.copy2(os.path.join(PROD, "tenant_1.db"), iso)
     code = r'''
 import os, sys
