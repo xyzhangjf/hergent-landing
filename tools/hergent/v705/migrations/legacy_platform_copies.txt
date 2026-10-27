@@ -1,0 +1,20 @@
+# 「本不该出现在租户库里」的平台表 —— 出现了就是历史遗留副本。
+#
+# 背景：`db/connection.py::_ensure_tenant_db` 的注释记录了一次已修的事故 ——
+# 旧实现用 SQLite 的 `backup()` 建租户库，而 `backup()` 是**页级整库复制**，
+# 会把主库的数据一起搬过去。生产 `tenant_1.db` 里因此残留着主库的
+# `users`（含**密码哈希**）、`sessions`、`user_tenants`、`tenants`、`invite_codes`
+# 的旧快照。创建路径已修，但**已经存在的副本还在**。
+#
+# 这些表在租户库里没有任何业务用途（鉴权一律走主库），所以：
+#   · 不比对它们的列/索引（否则每次体检都刷一堆"缺列"，把真问题淹掉）
+#   · 但**要报出来**：里面可能有密码哈希，属于要单独清理的安全项
+#
+# ⚠️ 清理动作（DROP）不在 batch A 范围内：需要先确证没有代码在租户上下文里读它们。
+
+users
+sessions
+tenants
+user_tenants
+invite_codes
+invite_uses

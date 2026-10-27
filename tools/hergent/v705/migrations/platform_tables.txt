@@ -1,0 +1,29 @@
+# 主库独有的「平台级表」—— 租户库里没有它们是**设计如此**，不是漂移。
+#
+# 判据（三条同时成立才算）：
+#   ① 数据天然属于平台而不是某个经销商（账号、邀请、AI 计量、数据源绑定）
+#   ② 业务代码读它时走的是**主库上下文**（无租户上下文 / 平台管理员接口）
+#   ③ 租户库里出现它反而是隐患（等于把 A 经销商的配置抄给了 B）
+#
+# ⚠️ 加一行 = 声明「这张表不存在于租户库是正常的」。改这里之前先问自己：
+#    这张表里的数据，是经销商的经营数据吗？如果是，它必须出现在租户库里。
+# 清单来源：2026-10-27 对生产实际结构的核对（master 有、tenant_1 无，共 13 张）。
+
+# —— 账号 / 平台治理 ——
+platform_admins
+invite_codes
+invite_uses
+
+# —— AI 副驾的平台侧配置与计量（租户只消费，不持有）——
+ai_roles
+ai_role_channels
+ai_channel_configs
+ai_channel_pairings
+ai_quota
+ai_usage
+ai_usage_v2
+llm_call_log
+
+# —— 数据源绑定（哪台库接哪个外部系统，在平台层决定）——
+datasource_bindings
+business_source_config
