@@ -913,3 +913,25 @@ PY
 - **借贷平衡按整数分判**（v706）：`money_balanced` = `abs(to_cents(dr)-to_cents(cr)) <= MONEY_EPS_CENTS(1)`。
   老写法 `abs(dr-cr)<=0.01` 下「差 1 分」的结论取决于二进制表示（100.00/99.99 拒、1234.56/1234.55 过）。
   改这类口径**必须先双算**（`tools/hergent/v706/dualcheck_money_balanced.py`，按凭证分组比新老判定）。
+- 🔴 **doctor 只覆盖一个方向**（v706）：它的对账是「租户库 vs 主库」，能发现"主库有、租户库没有"，
+  **发现不了"代码里有、哪个库都没有"**（`no such table` 的真正来源）。反方向要用
+  `tools/hergent/v706/extract_ddl_schema.py` + `check_ddl_parity.py`（AST 抽声明 → 与三库快照对账）。
+  抽取时建表语句必须**交给 sqlite 解析列**（丢进 `:memory:` 跑一遍读 `PRAGMA table_info`），
+  自己拆逗号会被 `DEFAULT (...)` / `CHECK(...)` 里的小括号和逗号静默带偏。
+- 🔴 **主库不是 schema 超集**（v706 实测 9 列）：`rebate_target_rules.target_year/target_unit/monthly_tiers`、
+  `rebate_accruals.tier_version_id/tiers_snapshot`、`rebate_contracts.brand_id`、`ai_advice_log.override_json/param_key`、
+  `entity_change_logs.ref` **只有租户库有** —— 因为 ALTER 写在只遍历 `tenant_*.db` 的 `_patch_tenant_*` 循环里。
+  新租户靠 `_ensure_tenant_module_tables()` 补。⇒ 判"应该有哪一列"要看代码，不能只看主库。
+- 🔴 **懒建表（DDL 在 `_init_*_tables()` 里）的读路径必须先 ensure**。写路径历来都调了，
+  读/改路径漏 9 处会 500（v706 已修，`tools/hergent/patch_v706_lazy_init.py`）：
+  `ncr_disposition`/`ncr_close`/`inspection_with_aql`→`_init_qms_tables`、
+  `job_close`/`application_advance`→`_init_recruitment_tables`、
+  `pick_wave_list`/`pick_wave_detail`/`wave_complete`→`_init_wms_tables`、
+  `period_close_checklist`→`init_deferred_tables`。修法照抄 `inspection_plan_create()`（首行 ensure），
+  **DDL 不许复制第二份**。新增同类函数时照这个模式。
+- **哪些表不归 erp.db 管**：`migrations/other_db_modules.txt`（`memory.py`→`dami_memory.db`、
+  `bid_radar_collect.py`→`$BID_RADAR_DB`、`kingdee_connector.py` 用 `sqlite3.connect($ERP_DB_PATH)` 直连主库、
+  不随租户上下文）。对账时排除，否则会报成"哪个库都没有这张表"的假故障。
+- **改代码的补丁脚本：幂等判据必须限制在本函数体**。写成 `lines[i:insert_at+8]` 会跨过函数边界、
+  看到**下一个函数**的同名调用 ⇒ 把没改的函数判成"已有"而静默跳过（v706 dry-run 报「7 处/目标 9 个」暴露）。
+  正确做法：扫到下一个 `^def`/`^class`/`^@` 为止；再用 `--strict` 断言目标数全部命中。
