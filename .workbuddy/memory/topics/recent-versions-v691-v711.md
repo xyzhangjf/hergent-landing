@@ -157,3 +157,44 @@
 ③ 复杂弹窗入口多为 **URL 子页 + 卡片**，不是顶部按钮（`ConnectCenter` im/erp/datasource/**skill**、`Rebate` settle/promises/rules、`ReportMapping` forecast?tab=config、`LossAccounting` **?tab=fill** 才有 `.la-bar`）。
 
 **覆盖边界**：全站**仍有 55 处手写遮罩**（`Forecast.vue` 14、`Rebate.vue` 10 为主）未收编 —— 别说成「全站唯一弹窗骨架」。
+
+
+---
+
+## v711 凭证模板功能补齐（2026-10-28，已部署）
+
+文档：`docs/v711-凭证模板功能补齐-2026-10-28.md`｜补丁：`tools/hergent/patch_v711_voucher_templates.py`
+探针：`tools/hergent/v711/probe_v711.py`（A/B）、`probe_v711_http.py`（C，`--cleanup`）
+
+### 改前（实测）
+- `routers/voucher_templates.py` 从 v89 Phase 4 起就调 `db.voucher_template_list/create/update/delete/apply`，
+  而 `erp_db.py` 里 **0 命中** ⇒ 5 个接口全 500；create/update 还 100% NameError（读了 `body` 却用未定义的 `d`）。
+- `apply_template` 全后端只有 `/api/voucher-templates/test` 一个调用点 ⇒ **模板不参与记账**，`is_voucher_templates_enabled()` 零调用者。
+- `feature_flags` 存量表是早期 schema（主库权威 DDL 6 列，**无 `updated_at`**），而 list/SET 都引用它 ⇒ **flag 机制从来没工作过**（主库 `ai_timeline=1` 从没被读到；前端 `grep ai_timeline` 0 命中 ⇒ 修后无界面变化）。
+
+### 改后
+- `erp_db` 追加 DB 层（惰性建表，照 v706 ensure 模式）+ `_voucher_entries_for`。
+- 4 个 `auto_journal_for_*`（sale/payment/purchase/cogs）：模板优先、硬编码兜底；三道闸
+  （flag 关 / 无匹配 / **借贷不平衡**）任一不满足 → None → 回落。
+- `voucher_engine.apply_template`：`db_conn` 透传（改前签名有却没用 ⇒ 事务里另开连接会锁）；
+  审计移到平衡校验**之后**（被拒的模板不再留"命中"脏记录，A21 实测复现过）。
+- router：`d.get` → `body.get` + 接上从未调用的 `Val1`（类型错 422，空名称 400）。
+- flag `voucher_templates` **显式登记 = 0**（不是"读不到正好是关"）。
+
+### 验证
+- A 隔离空库 26/26（CRUD + 三道闸 + 反向可证伪）
+- B 生产租户库**副本 + 真实未过账单据**（销售 18,122 / 采购 83 / 收付款 16 / 成本 22,506）16/16
+  - B2 flag 关 ⇒ `1122/6001` 与改前一致；B7 模板改科目 ⇒ 分录**必须**跟着变；B8 模板改单边 ⇒ **必须**回落
+- C 生产真实 HTTP 21/21（改前全 500；写接口需 `csrf_token` cookie + `X-CSRF-Token` 头）
+- 回滚：副本 `--revert` 与 `.bak-v711` 0 差异；重放后与生产 **0 差异**
+
+### 遗留
+1. 前端无入口（dist 0 命中）⇒ 只能 API 用；要不要补 UI 待拍板。
+2. 开 flag 要**主库 + 租户库各写一行**：`/api/feature-flags` 实测读**主库**，自动记账跑在租户上下文。
+3. 8 个默认模板里 `expense_paid`/`assembly_confirm`/`disassembly_confirm` **没有 `auto_journal_for_*` 调用点** ⇒ 即使 flag 开也不会被触发。
+4. `_init_default_templates()` 只在**一条都没有**时才播种（B10 假失败来源）。
+
+### 坑（三条新人必看）
+- `sqlite3.Row` **没有 `.get()`**（purchase ctx 踩 ⇒ 采购过账 100% AttributeError）。
+- 已应用过的库上**别改 `NEW` 串文字**（改一个标点 ⇒ n_new=0 且 n_old=0 ⇒ 整批回滚，v711 踩两次）。
+- 「只针对旧形态」的升级项要标 **optional**（干净副本上 0 次正常 ⇒ 否则连带跳过后面几项，一次差 39 行）。

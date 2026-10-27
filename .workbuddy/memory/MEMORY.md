@@ -21,7 +21,7 @@
 10. 探针放 `tests/perf/vXXX/`（`/tmp` import 不到 playwright）；临时登录态只插主库 `erp.db` 的 `sessions`，测完删净并自证残留 0。
 11. 🔴 **mock 探针全绿 ≠ 生效**（v697 翻车：24 项界面断言全过，老板线上却看不到入口，因为生产状态值是 `confirmed` 而我写死 `approved`）。**凡判定依赖枚举值/存量数据形态的功能，验证必须落在生产真实数据上**。动手前先 `SELECT status, COUNT(*) ... GROUP BY status` 看真实取值分布。
 12. 部署：`rsync` 只能写 `-av`（**默认就不删，别加 `--no-delete`**）；rsync 与 scp 串 `&&` 时前者失败**不阻止后者** ⇒ 传完立刻 ls 新 chunk 存在，否则线上 index.html 指向空文件直接白屏。
-13. 线上真登录探针要注**两个** cookie：`erp_token`（真凭证 httpOnly）+ `hergent_auth='1'`（标记，路由守卫读它）；只注前者会跳登录页，看起来像"没部署"。`addCookies` 用 `url` 时不能再给 `path`。
+13. 线上真登录探针要注**两个** cookie：`erp_token`（真凭证 httpOnly）+ `hergent_auth='1'`（标记，路由守卫读它）；只注前者会跳登录页，看起来像"没部署"。`addCookies` 用 `url` 时不能再给 `path`。**写接口还要过 CSRF**：cookie `csrf_token` + 头 `X-CSRF-Token` 必须同值（`server.py:319`，缺任一 403 `CSRF_REQUIRED`；v711 C 组第一跑 14 项全 403）。
 14. 🔴 **「业务接口全正常、只有图片/附件裂」⇒ 先查「带不了自定义头的请求」**。`<img>` / `<link>` / 下载 / `window.open` 都只能吃 cookie，发不出 `X-Tenant-Id`；`tenant_middleware` 对 `/api/*` fail-closed ⇒ 403 ⇒ 前端静默回落（v700 头像退回 🚀）。角色头像落盘在 **`/opt/hergent-data/role-avatars/<tenant>/`**（部署目录外，防 rsync --delete）。
 15. 🔴 **改过的迁移不会重跑，也不会报错**（v705）。`_migrations` 只记 `(name,status)` ⇒ 名字没变就判"已执行"⇒ 老库旧 SQL、新库新 SQL，**两台都声称 ok**。⇒ 新变更一律写 `migrations/patches/NNNN_名字.sql|py`；`schema_patches` 带 checksum，改已执行版本=**直接失败**。两条连带纪律：**别 import `erp_db` 做任何体检/脚本**（导入期就跑 389 条迁移=会写生产）；`.sql` 别用 `executescript()`（隐式提交 ⇒ 留半截库）。体检 `python3 -m migrations.doctor`（只读）。
 16. 🔴 **账不平先查重复写入，别先想"记哪一方"**（v709 血案）。判据两条：同一 `ref_type` 的 `created_at` 有几个时间点（多批次=重复导入）、每个父科目金额是否**逐分等于**其子科目合计（相等=父科目是派生行、不该当分录写）。v709 就是靠这两条把 169 万"缺口"证伪成 4 轮导入 + 12 个父科目双写，删完差 **0.00**、**不编任何调整分录**。
@@ -31,8 +31,12 @@
 20. 🔴 **改完脚本先传，再执行**（v710 事故）。脚本带 `--revert`/`--apply`/删除语义时，本地与服务端版本不一致 ⇒ 它做的事和你以为的完全不同，**而输出看起来完全正常**（"已从备份恢复"，只是恢复错了目录）。同族：`rsync` 与 `scp` 串 `&&` 前者失败不阻止后者。
 21. 🔴 **判据要看语义分家**：`abs(a-b) < 0.01` 用在「两笔钱是否同一笔」上，浮点下同一事实给相反结论（`50.00-50.01=0.009999999999998010` 判相等 / `100.01-100.00=0.010000000000005116` 判不等；v710 双算 69,186 次比较里 16,456 次相反）；用在「这个数是不是零」上则无所谓（`> 0.005` 保持原样，别硬统一）。
 
-## 近十一版一句话（细节 → `topics/recent-versions-v691-v709.md`）
+22. 🔴 **`sqlite3.Row` 没有 `.get()`**（v711：purchase 的 ctx 写了 `o.get("order_no","")` ⇒ 采购过账 100% AttributeError）。取值用 `o["x"] if "x" in o.keys() else 默认`。
+23. 🔴 **补丁脚本另两条幂等纪律**（v711 各踩一次）：① **已经应用过的库上重跑时不能改 `NEW` 串的文字** —— 改一个标点就变成 `n_new=0 且 n_old=0` ⇒ 判「锚点不唯一」⇒ `patch_file` **整批回滚**；要改注释就单列一条替换。② 「只针对旧形态」的升级项必须标 **optional** —— 干净副本上旧形态 0 次是**正常的**，按错误处理会连带跳过后面几项（v711 一次重放差 39 行）。
 
+## 近十一版一句话（细节 → `topics/recent-versions-v691-v711.md`）
+
+- **v711** 凭证模板整功能补齐（此前是空壳）：`erp_db` 补 5 个 `voucher_template_*`（此前不存在 ⇒ 5 个接口全 500，create/update 还 100% NameError：读了 `body` 却用未定义的 `d`）；4 个 `auto_journal_for_*` 改**模板优先、硬编码兜底**，三道闸（flag 关/无匹配/**借贷不平衡**）任一不满足即回落；`apply_template` 审计移到平衡校验**之后**。**flag `voucher_templates`=0 ⇒ 与改前逐分一致**。附带修：`feature_flags` 缺 `updated_at` 列 ⇒ **flag 机制从来没工作过**（主库 `ai_timeline=1` 从没被读到，前端 0 引用）。验证 26+16+21，回滚重放 **0 差异**。遗留：前端无入口；开 flag 要**主库+租户库各写一行**；3 个事件类型无调用点。
 - **v710** 对账判据按整数分（`money_eq` / `ROUND(,2)`）+ 月度快照改 GL 口径 + 顺修 `bank_auto_match` 的 `str - str` 崩溃（该函数**从来没跑通过**，金额一匹配就 100% 500）。生产存量影响 0（`bank_transactions`/`monthly_snapshots` 全库 0 行）。
 
 - **v709** 期初凭证去重：169 万不是账不平，是 4 轮重复导入 + 12 个父科目双写；删 168 行后差 0.00。报表权益并入未结转损益（`unclosed_profit`）。资产 1018万→**225.8万**，`balanced` 双双→true。
@@ -43,17 +47,16 @@
 - **v705** 版本化迁移 + 精度常量：`schema_patches` 带 checksum；本包**绝不 import `erp_db`**；SQL 逐语句 + 显式事务。
 - **v704** 工具条弹层面板必须压住它那排触发按钮：正解是**降按钮**（1101）不是抬面板（天花板 1121 被天气占用）。判据=面板矩形内 9 点 `elementFromPoint` 全归面板。
 - **v703** 一键复制报单：`cellText` 给人读 / `cellRaw` 进文件，三套旧口径**删净不留空壳**；剪贴板/导出 xlsx/数据库三方逐格等价。
-- **v702** 目标作用对象=供应商：`scope_key` 必须存**名称**不能存 id；候选异步晚到会让回显永久落空。
-- **v691** 弹窗统一：布局留 slot wrapper；收编会凭空多出 ESC/遮罩关闭 ⇒ 必须开 `guardClose`。仍有 55 处手写遮罩未收编。
+- **v691** 弹窗统一：布局留 slot wrapper；仍有 55 处手写遮罩未收编。
 
 ## 进度锚
 
 卖前三关未过；调拨单生产仍 0 张。BI 唯一源 `_BI_MEASURES`（`soi.amount`）；库存周转 `get_inventory_turnover`。
-脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；PII 不落 `outputs/`。编号已到 **v710**（均已部署并重启；前端仍是 v704）。**新 schema 变更一律写 `migrations/patches/NNNN_名字.sql|py`，不要再往 `erp_db.py` 加 `_safe_migrate`（已冻结，`--check` 会拦）。**
+脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；PII 不落 `outputs/`。编号已到 **v711**（均已部署并重启；前端仍是 v704）。**新 schema 变更一律写 `migrations/patches/NNNN_名字.sql|py`，不要再往 `erp_db.py` 加 `_safe_migrate`（已冻结，`--check` 会拦）。**
 
 ## 待拍板（别自己开工）
 
-1. 🔴 **凭证模板不能只补 CRUD**：`erp_db` 缺 5 个函数 + 路由 2 处未定义 `d`，但**最要紧的是模板根本不参与记账** —— `apply_template` 全后端只有 `/api/voucher-templates/test` 一个调用点，`auto_journal_for_*` 从不引用模板、`is_voucher_templates_enabled()` 零调用者 ⇒ 补齐后"配了不生效"，是假绿灯。建议 B：补齐 + 接进 4 个 `auto_journal_for_*`（flag `voucher_templates` 默认关），**需老板先拍「模板能不能改账」**。前端入口是静态 JS、无构建链，藏入口只能改 minified 产物（不该做）。
+1. **凭证模板要不要配前端 UI**（v711 已把后端补齐、flag 默认关）：生产 `dist` 里 `grep voucher-templates` **0 命中** ⇒ 现在只能走 API，老板看不见也改不了。做 UI 前要先定：谁能改（这东西**能改账**）、改完要不要预览/试算。
 2. **对账匹配/内部往来仍有一处浮点判等**：`erp_db.py:18721` 内部往来 `matched` 判定；同类缺陷但 `ic_transactions` 全库 0 行、`entities` 表不存在 ⇒ 功能未启用，无数据可验。
 3. **`get_pnl()` / `get_cashflow()` 仍是简化口径**（现金制 + `sale_orders`），`/api/reports/pnl` 只有传 `month` 且 GL 有数才走 GL 版 ⇒ 不带月份时利润表与资产负债表不同口径。改它要动仪表盘 KPI，需单独一版。
 
