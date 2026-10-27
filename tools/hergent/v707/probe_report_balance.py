@@ -108,8 +108,12 @@ def phase_http():
     chk("2026-06 仍判不平（真差 379 万，非判据问题）", d.get("balanced") is False,
         "balanced=%s" % d.get("balanced"))
     diff = float(d.get("total_debit", 0)) - float(d.get("total_credit", 0))
-    chk("2026-06 借贷差 = 3,793,895.16（与双算一致）", abs(diff - 3793895.16) < 0.01,
-        "实测差=%.2f" % diff)
+    # ⚠️ v708 起期望值是 1,588,660.92，不是 3,793,895.16：
+    #    v708 把试算表合计改成只加「记账层」科目（父科目余额是派生，加了会重复），
+    #    全科目累加时的 379 万里有 220 万是 `1002/1231/1015` 等父子重复。
+    #    这个数字变更是 v708 的**预期效果**，不是回归。
+    chk("2026-06 借贷差 = 1,588,660.92（v708 去重后；v707 时是 3,793,895.16）",
+        abs(diff - 1588660.92) < 1.0, "实测差=%.2f" % diff)
 
     # 2) 试算表 · 平的月份
     st, d2 = _get("/api/trial-balance?month=2026-10", tok)
@@ -121,13 +125,15 @@ def phase_http():
     chk("GET /api/reports/balance-sheet?as_of=2026-06-30 → 200", st == 200, "status=%s" % st)
     chk("资产负债表返回 balanced 且为布尔", isinstance(b.get("balanced"), bool),
         "type=%s" % type(b.get("balanced")).__name__)
-    chk("资产负债表仍判不平（真差 389 万）", b.get("balanced") is False,
+    chk("资产负债表仍判不平（v708 去重后真差 169 万）", b.get("balanced") is False,
         "balanced=%s" % b.get("balanced"))
     a = float((b.get("assets") or {}).get("total", 0))
     li = float((b.get("liabilities") or {}).get("total", 0))
     eq = float((b.get("equity") or {}).get("total", 0))
-    chk("资产负债 资产=12,383,452.20 / 负债=205,844.00 / 权益=8,285,388.04",
-        abs(a - 12383452.20) < 0.01 and abs(li - 205844.00) < 0.01 and abs(eq - 8285388.04) < 0.01,
+    # ⚠️ v708 起资产期望值是 10,178,217.96（叶子有效口径），v707 时是 12,383,452.20
+    #    （全科目累加，把 `1002 银行存款` 等父子重复算了两遍）。负债/权益不变。
+    chk("资产负债 资产=10,178,217.96 / 负债=205,844.00 / 权益=8,285,388.04",
+        abs(a - 10178217.96) < 0.02 and abs(li - 205844.00) < 0.01 and abs(eq - 8285388.04) < 0.01,
         "实测 %.2f / %.2f / %.2f" % (a, li, eq))
 
     # 4) 凭证模板预览
