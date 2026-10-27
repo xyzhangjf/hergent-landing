@@ -33,18 +33,18 @@ import urllib.request
 PROD = "/opt/hergent-erp"
 PASS, FAIL = [], []
 
-# 2026-10-26（诊断 as_of = MAX(date)）与 2026-06-30 两个时点的实测值。
-# 两者资产差 **2,920.00**、负债差 **2,920.00** ⇒ 正是 2026-10 那 4 条凭证
-# （借 2,920.004 / 贷 2,920.004，借贷相等）⇒ **差额在两个时点必须相同**。
+# v709 后实测值（期初两层重复已清理：4 轮导入 + 12 个父科目汇总行）。
+# 两时点资产差 **2,920.00**、负债差 **2,920.00** ⇒ 正是 2026-10 那 4 条凭证
+# （借贷相等）⇒ 差额在两时点必须相同；权益相同（10 月那 4 笔是采购，不动损益）。
 WANT = {
-    "2026-10-26": {"assets": 10181137.96, "liabilities": 208764.00,
-                   "equity": 8285388.04, "diff": 1686985.92},
-    "2026-06-30": {"assets": 10178217.96, "liabilities": 205844.00,
-                   "equity": 8285388.04, "diff": 1686985.92},
+    "2026-10-26": {"assets": 2258504.26, "liabilities": 88832.25,
+                   "equity": 2169672.01, "diff": 0.00},
+    "2026-06-30": {"assets": 2255584.26, "liabilities": 85912.25,
+                   "equity": 2169672.01, "diff": 0.00},
 }
-# 试算表（含损益类）2026-06 的差。与资产负债表差 1,686,985.92 相差 98,325.00
-# = 损益类贷方净额（`6001 主营业务收入` 98,325）。这条恒等式是本轮的强一致性证明。
-WANT_TB_DIFF = 1588660.92
+# 试算表（含损益类）2026-06 的差。v709 期初去重后借贷自动相等 = 0.00。
+WANT_TB_DIFF = 0.00
+# 未结转损益（v709 起并入权益）。10 月那 4 笔是采购，不动损益 ⇒ 两时点相同。
 PL_NET_CREDIT = 98325.00
 OLD_ASSETS = 12386372.20        # 改前（全科目累加，虚增）
 CASH_BASIS_ASSETS = 1416968.40  # 改前不带 as_of 的简化版
@@ -104,8 +104,8 @@ def phase_prod():
             abs(eq - w["equity"]) < 0.02, "实测 %.2f" % eq)
         chk("as_of=%s 差额 = %s" % (as_of, format(w["diff"], ",.2f")),
             abs((a - li - eq) - w["diff"]) < 0.05, "实测 %.2f" % (a - li - eq))
-        chk("as_of=%s balanced = false（169 万真账不平，必须报不平）" % as_of,
-            b.get("balanced") is False, "balanced=%s" % b.get("balanced"))
+        chk("as_of=%s balanced = true（v709 期初去重后已平）" % as_of,
+            b.get("balanced") is True, "balanced=%s" % b.get("balanced"))
         out[as_of] = b
 
     # 两个时点的差额必须相同（10 月那 4 条凭证借贷相等，不影响差额）
@@ -147,16 +147,18 @@ def phase_trial_balance(tok):
     diff = td - tc
     chk("借方合计不再是 12,745,566.36（去重后应更小）",
         abs(td - 12745566.36) > 1, "实测 %.2f" % td)
-    chk("2026-06 差额 = %s（去重后，非全科目的 379 万）" % format(WANT_TB_DIFF, ",.2f"),
+    chk("2026-06 差额 = %s（v709 期初去重后借贷自动相等）" % format(WANT_TB_DIFF, ",.2f"),
         abs(diff - WANT_TB_DIFF) < 1.0, "实测 %.2f" % diff)
-    # 恒等式：试算表含损益类，资产负债表不含 ⇒ 差 = 资产负债表差 − 损益贷方净额
-    bs_diff = WANT["2026-06-30"]["diff"]
-    chk("恒等式自洽：试算表差 = 资产负债表差 − 损益净额（%s）"
-        % format(PL_NET_CREDIT, ",.2f"),
-        abs(diff - (bs_diff - PL_NET_CREDIT)) < 1.0,
-        "试算表 %.2f vs %.2f − %.2f = %.2f"
-        % (diff, bs_diff, PL_NET_CREDIT, bs_diff - PL_NET_CREDIT))
-    chk("balanced = false", d.get("balanced") is False, "balanced=%s" % d.get("balanced"))
+    # v709 起：试算表与资产负债表都平。损益类贷方净额不再表现为「差额」，
+    # 而是通过 unclosed_profit 并入权益 —— 单项验证这条链路确实通了。
+    st, b6 = _get("/api/reports/balance-sheet?as_of=2026-06-30", tok)
+    chk("未结转损益 %s 已并入权益（unclosed_profit 字段）" % format(PL_NET_CREDIT, ",.2f"),
+        abs(float(b6.get("unclosed_profit", 0)) - PL_NET_CREDIT) < 0.02,
+        "实测 %s" % b6.get("unclosed_profit"))
+    chk("试算表与资产负债表两边都为 0",
+        abs(diff) < 0.01 and abs(WANT["2026-06-30"]["diff"]) < 0.01,
+        "试算表差 %.2f" % diff)
+    chk("balanced = true", d.get("balanced") is True, "balanced=%s" % d.get("balanced"))
 
 
 def phase_isolated():
