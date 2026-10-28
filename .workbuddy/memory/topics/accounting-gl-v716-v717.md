@@ -164,3 +164,97 @@ DELETE FROM journal_entries WHERE ref_type='purchase' AND ref_id IN (SELECT id F
 DELETE FROM purchase_order_items WHERE order_id IN (SELECT id FROM purchase_orders WHERE source='v718');
 DELETE FROM purchase_orders WHERE source='v718';
 ```
+
+---
+
+## 八、v719 负库存生效 + 库存台账补记（2026-10-28）
+
+### 8.1 出发点与侦察转折
+
+老板选 B（「补销售出库扣库存」）。侦察后发现真问题**不是「少了个扣库存的函数」**：
+`fefo_deduct` 一直在、守卫比一般系统还严。真问题是三件：
+
+| # | 发现 | 铁证 |
+|---|---|---|
+| 1 | **`allow_neg_inv` 配了但没人读** | 列自建库就在 DDL（`DEFAULT '允许'`）、生产 11 个仓**全是 `'允许'`**；`grep -rn allow_neg_inv server/` 匹配 **0 行** |
+| 2 | **业务员仓的单一张也发不出** | 仓 7（刘小顶仓）337 张、仓 9（刘善涛仓）2,213 张销售单，这两仓 `inventory` **0 行** ⇒ 缺货检查恒失败 |
+| 3 | **22,505 张签收单绕过发货** | `pick_waves` **0 行** + `delivery_status` **全空串** + `created_at` 集中在 2026-09-25 11:27/16:11 两批 = 导入直写 `signed` |
+
+⇒ 「库存 310,409」不是余额，是**累计入库量**。
+
+### 8.2 代码改动（`patch_v719_negative_stock.py`，8 处锚点）
+
+1. 新增 `_allow_neg_inv(dbc, warehouse_id)` —— **fail-closed**：仓不存在/列读不到/值不认识 ⇒ 当「不允许」。
+   兼容 `允许/是/1/true/allow/yes` 六种写法（该列值是**中文字符串**不是布尔）。
+2. `fefo_deduct`：预检查 `if total < qty_needed and not allow_neg` 才拒；
+   批次扣尽后 `if remaining > 0` 把差额扣进「未分批次」行（`batch_no=''`），没有就建一行负的。
+   - 🔴 `cost_price` 必须取 `products.purchase_price`（写 0 会让 `profit_reporter.py:98` 按
+     `change_type='sale'` 聚合时成本低估）
+   - 🔴 必须**真扣数**，不能只记流水（否则台账与流水对不上，等于把一个静默失效换成另一个）
+3. `inventory_adjust`：两条支路（有行 / 无行）去掉 `quantity>=0` 守卫。
+4. `sale_order_deliver`：缺货从「拦截」降为**提醒**，但**只对配了「允许」的仓**；
+   返回值新增 `shortage_warnings`。未配的仓语义零变化。
+
+**幂等坑**（v719 自己踩了一次）：`p_inv_fn` 的 `old`（锚点两行）是 `new`（锚点+函数）的**前缀**
+⇒ 通用判据判成「待改」，重跑 `--apply` 会**再插一遍函数**（Python 允许重复定义、后者覆盖前者、
+行为看起来一样 = 静默劣化）。⇒ 该处改按「已应用形态」（函数签名已在位）判定。
+
+### 8.3 数据补记（`patch_v719b_stock_ledger.py`，两阶段各自幂等）
+
+**阶段 1 `ledger`**：补 v718 的欠账。v718 把 10 月 49 张采购单 782 行明细聚合进 `inventory`，
+**一行流水都没写** ⇒ 台账 310,409 / 流水 27,985 / 差 **282,424** ⇒ `get_inventory_aging` 按
+`change_type='batch_in'` 取时间算库龄，无流水即算错。补 **121 行**（`ref_type='v718_backfill'`）。
+
+**阶段 2 `outflow`**：净销售出库回补 **568 行**（`ref_type='sale_history'`），数量 **-3,923,462**。
+口径：
+- `COALESCE(NULLIF(base_qty,0), quantity)` —— 实测 142,859 行里只有 1 行有 `base_qty`，两口径差 **0.0**
+- **排除 `order_type='transfer'`**：251 张 / 276,541 数量（金额 0 但成本 55.16 万）
+- 只认 `status IN ('signed','delivered')`；退货（9,681 行负数量 / -87,629）不单独处理，SUM 自然抵消
+
+### 8.4 数字
+
+| 指标 | 改前 | 改后 |
+|---|---|---|
+| `inventory` 合计 | **+310,409** | **-3,613,053** |
+| `inventory_logs` 合计 | 27,985 | -3,613,043 |
+| 台账−流水 | 282,424（不平） | **-10**（商品 2435 孤儿 `opening`） |
+| 逐商品-仓 余额==流水 | 未对过 | **0 组不符** |
+| 负库存行 | 0 | **497** |
+| `journal_entries` | 88,874 | **88,874（一行未动）** |
+
+**为什么「-361 万」是对的**：它 = 「1-9 月进货从未进系统」的量化（出库 392 万 vs 入库 31 万）；
+与 1405（-631 万）**方向一致**。改前的 +310,409 与 -631 万**方向相反**才是最危险的：
+老板看库存表觉得有货、看资产负债表觉得缺货。补齐进货后自然收敛。
+
+### 8.5 验证
+
+- **隔离库 11/11**（复制 `tenant_1.db` 到 `/tmp`，`ERP_DB_PATH` 指过去）：
+  允许负 ⇒ 库存 -50、流水 `after_qty=-50`、`cost_price=1.1163`（真实进价）；
+  同仓改「不允许」⇒ 同一操作**被拒**（反向对照有区分力）；
+  缺货：允许 ⇒ `delivered` + 1 条 warning；不允许 ⇒ 仍「库存不足」硬拦截。
+- **生产探针 24/24**（`tests/perf/v719/probe_v719.py`）：台账-流水差 -10、逐组 0 不符、
+  GL 88874 未动、不平凭证 0、4 个仓读成「允许」、仓 999 fail-closed、
+  `balanced=true`、逐月净利合计 **1,001,055.58 == unclosed_profit**、会话残留 0。
+
+**两次判据自伤**：① 探针断言 `journal_entries==88,776`（那是 v717 的值，v718 加了 98）⇒ 改 88,874；
+② 上面那个 `old` 是 `new` 前缀的幂等坑。
+
+### 8.6 回滚
+
+```bash
+# 数据（推荐：保留负库存能力，只回退数据）
+python3 /tmp/v719b.py --revert /opt/hergent-data/backup/tenant_1.pre-v719b-20261028-180324.db
+# 代码
+cd /opt/hergent-erp && python3 /tmp/v719.py --revert
+systemctl restart hergent-erp
+```
+
+### 8.7 遗留
+
+1. 库存仍负，根因是 1-9 月进货没进系统（A2），补齐即收敛
+2. 批次/效期仍无数据源（采购表 28 列无批次号/生产日期/到期日）
+3. 1 行孤儿流水（商品 2435 在仓1 有 10 的 `opening`，商品已不存在）—— **不删流水**，删=篡改审计
+4. `allow_neg_inv` 值是中文，前端若有开关要注意写的是中文还是 1/0
+5. 库存页会显示 497 个负库存商品，**界面无任何「这是因为进货没导」的说明** ⇒ UI 单点待做
+6. `inventory_query` 用 `LEFT JOIN inventory ON product_id AND warehouse_id`，同商品同仓多行会重复显示
+   （当前 1 组，本次未加剧）
