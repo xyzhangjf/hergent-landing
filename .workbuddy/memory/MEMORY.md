@@ -5,7 +5,7 @@
 
 ## 按域查（动手前先查，别凭印象）
 
-前端/浮层/表格/布局/页面真身→`frontend-ui.md`｜后端写库·建表·**路由三张表**·隔离租户 e2e→`backend-invariants.md`｜**库结构变更/迁移/结构漂移/金额精度**→`/opt/hergent-erp/migrations/README.md` + `db/precision.py` + `docs/批次A-版本化迁移与精度常量-2026-10-27.md`｜**报表/凭证/科目树/对账口径**→`docs/` 下 v707~v713 六份交付文档（**没有 topics 汇总页**，别照着老索引去 `topics/accounting-reports.md`，那文件不存在）｜部署·构建·测试基线→`deploy-ops.md`｜单位三档·自由退货·商品候选·**商品档案新增/编辑**·**收文案≠收反馈**→`inventory-psi.md`｜探针纪律·本机坑→`local-machine-pitfalls.md`｜凭证→`backend-auth.md`｜预报→`forecast-order-domain.md`｜返利→`rebate-domain.md`｜货损效期→`expiry-loss-domain.md`｜对账→`reconciliation-redo.md`｜副驾→`ai-copilot.md`｜并行→`parallel-dev-protocol.md`｜静默失效家族（改前端必读）→`v629-silent-failure-family.md`｜**v691–v713 各版完整口径**→`recent-versions-v691-v713.md`。
+前端/浮层/表格/布局/页面真身→`frontend-ui.md`｜后端写库·建表·**路由三张表**·隔离租户 e2e→`backend-invariants.md`｜**库结构变更/迁移/结构漂移/金额精度**→`/opt/hergent-erp/migrations/README.md` + `db/precision.py` + `docs/批次A-版本化迁移与精度常量-2026-10-27.md`｜**报表/凭证/科目树/对账口径**→`docs/` 下 v707~v714 七份交付文档（**没有 topics 汇总页**，别照着老索引去 `topics/accounting-reports.md`，那文件不存在）｜部署·构建·测试基线→`deploy-ops.md`｜单位三档·自由退货·商品候选·**商品档案新增/编辑**·**收文案≠收反馈**→`inventory-psi.md`｜探针纪律·本机坑→`local-machine-pitfalls.md`｜凭证→`backend-auth.md`｜预报→`forecast-order-domain.md`｜返利→`rebate-domain.md`｜货损效期→`expiry-loss-domain.md`｜对账→`reconciliation-redo.md`｜副驾→`ai-copilot.md`｜并行→`parallel-dev-protocol.md`｜静默失效家族（改前端必读）→`v629-silent-failure-family.md`｜**v691–v715 各版完整口径**→`recent-versions-v691-v715.md`。
 
 ## 十五条最容易「静默失效」的
 
@@ -34,13 +34,15 @@
 22. 🔴 **`sqlite3.Row` 没有 `.get()`**（v711：purchase 的 ctx 写了 `o.get("order_no","")` ⇒ 采购过账 100% AttributeError）。取值用 `o["x"] if "x" in o.keys() else 默认`。
 23. 🔴 **补丁脚本另两条幂等纪律**（v711 各踩一次）：① **已经应用过的库上重跑时不能改 `NEW` 串的文字** —— 改一个标点就变成 `n_new=0 且 n_old=0` ⇒ 判「锚点不唯一」⇒ `patch_file` **整批回滚**；要改注释就单列一条替换。② 「只针对旧形态」的升级项必须标 **optional** —— 干净副本上旧形态 0 次是**正常的**，按错误处理会连带跳过后面几项（v711 一次重放差 39 行）。
 
-24. 🔴 **`try{window.X=X}catch{}` 是新的静默失效家族**（v712，详见 `topics/v629-silent-failure-family.md`）：`/opt/static` 的 chunk 有 885 处，页面实测 **407 处 `window.X` 是 `undefined`**；ReferenceError 被空 catch 吞掉 ⇒ 控制台无红字，调用点抛 `X is not a function`，外层无 try ⇒ 面板停在 spinner。`statCard` 就是其一（26 处调用全炸）。**判据**：在页面里批量核 `typeof window[name]`，别 grep「有没有定义」。**修法**：改 `index.html` 内联补全局函数（module 脚本延迟 ⇒ 内联先跑；chunk 里的赋值仍抛错被吞 ⇒ 不覆盖），不动 1.4MB 产物。同族：`document.addEventListener("scroll", t=>t.target.closest(...))` —— target 可能是 document ⇒ 每次滚动抛错 + 表头吸顶失效。
+24. 🔴 **`try{window.X=X}catch{}` 是静默失效家族**（v712，详见 `topics/v629-silent-failure-family.md`）：`/opt/static` chunk 有 885 处，页面实测 **407 处 `window.X` 是 `undefined`**；ReferenceError 被空 catch 吞掉 ⇒ 控制台无红字，调用点抛 `X is not a function` ⇒ 面板停在 spinner。**判据：在页面里批量核 `typeof window[name]`，别 grep「有没有定义」。** 修法：改 `index.html` 内联补（module 延迟 ⇒ 内联先跑；chunk 里的赋值仍抛错被吞 ⇒ 不覆盖）。同族：`document.addEventListener("scroll", t=>t.target.closest(...))` —— target 可能是 document ⇒ 每次滚动抛错 + 表头吸顶失效。
+25. 🔴 **「前端有没有某入口」必须先在真身目录 grep**（v712 连踩两次）：`erp.hergent.cn → /opt/static`（进销存后台，静态 JS 无构建链）；`hergent.cn → /opt/hergent-cn-v2`（预报/AI 副驾）。**报表接口只有 `/opt/static` 调**。`assets/` 有 4 个历史 `main-*.js`，**先看 `index.html` 引哪个再 grep**。两套都是 `no-cache` ⇒ 原地改即时生效。
+26. 🔴 **内联脚本比 `type="module"` 的 chunk 先跑**（v715）⇒ 想 hook `window.api` 之类必须**轮询挂载**；一次性 `var o = window.api` 拿到 undefined、随后被 chunk 覆盖 ⇒ 静默失效。同理 **MutationObserver 不能 observe 尚未创建的容器**（`#rptContent` 是点进报表才渲染的）⇒ observe `body`。
 
-25. 🔴 **「前端有没有某入口」必须先在真身目录 grep**（v712 连踩两次）：`erp.hergent.cn → /opt/static`（**进销存后台**，静态 JS 无构建链）；`hergent.cn → /opt/hergent-cn-v2`（**预报/AI 副驾**）。**报表接口只有 `/opt/static` 调**，cn-v2 一个都没有 ⇒ 验报表类改动只能打 erp.hergent.cn。`assets/` 有 4 个历史 `main-*.js`，**先看 `index.html` 引哪个再 grep**（v712 曾在旧 chunk 上得出"没有此功能"的错误结论）。两套静态资源都是 `no-cache` ⇒ 原地改即时生效。
+## 近十五版一句话（细节 → `topics/recent-versions-v691-v715.md`）
 
-## 近十三版一句话（细节 → `topics/recent-versions-v691-v713.md`）
-
-- **v713** 资产负债表(权责) 补明细字段：前端读 `assets.cash/ar/inventory/fixed_assets_net`、`liabilities.ap`、`equity.paid_in_capital/retained`，而 `get_balance_sheet_gl` **只返回三个 total** ⇒ 7 行明细**从来是 ¥0.00**（老 `get_balance_sheet()` 返回的是顶层 `cash/ar/inventory_val/ap` 且取自业务表，两边从未对上）。按编码前缀补：`10*` / `1122` / `1405+1406` / `1601+1602` / `2202` / `4001` / `4103+4104+unclosed_profit`，仍走叶子有效。**total/balanced 逐字未动**；实测明细加总==合计、权益明细==合计（实收150万+留存66.97万）、恒等式 0.00。
+- **v715** 利润表月份下拉真正生效：`#pnlGlMonth` **没绑 change** + 渲染每次重建 `<select>` 把默认值写回当前月 ⇒ **面板永远只能看当前月**。内联注入四件事（记选择 / change 委托 / 包装 `window.api` 改写 month / MutationObserver 纠正显示）。坑：**内联脚本比 module chunk 先跑** ⇒ `window.api` 时不存在，必须轮询挂载；**不能 observe `#rptContent`**（脚本执行时容器还没建）。
+- **v714** 利润表口径统一：`get_pnl_gl` 用 `category IN ('收入','成本','费用')` 取科目，而本账套 **109 个损益科目 category 是「损益」**、唯一有数的 `6001` 就在里面 ⇒ 三项**恒为 0** ⇒ GL 分支**从来没走到过**，一律回落现金制全期累计（**10 月 0 销售却显示 878 万**）。改：全集只认 **6 开头**，`60/61/63`=收入、`6401`=销货成本、其余=费用（**`6402` 归费用**，它挂的是客户费用/月返），按 v708 叶子有效去重，净额按方向取（红冲才对）。`get_pnl(month)` 新增按月（**不带 month 逐字不变**）；回落标 `basis=cash`+`source`。强判据：**逐月净利加总 == BS `unclosed_profit`**（98,325，同号）。验证 21+20+17，反向对照 13 项里 12 FAIL。
+- **v713** 资产负债表(权责) 补明细字段：前端读 `assets.cash/ar/inventory/fixed_assets_net`、`liabilities.ap`、`equity.paid_in_capital/retained`，而 `get_balance_sheet_gl` **只返回三个 total** ⇒ 7 行明细**从来是 ¥0.00**。按编码前缀补：`10*` / `1122` / `1405+1406` / `1601+1602` / `2202` / `4001` / `4103+4104+unclosed_profit`，仍走叶子有效。**total/balanced 逐字未动**。
 - **v712** 前端补 `window.statCard` + 顺修滚动报错（**这套前端 `/opt/static` 无源码仓库、无构建链，改动只在生产文件 + `.bak-v712`/`.bak-v712b`**）：详见下方第 24 条。
 - **v711** 凭证模板整功能补齐（此前是空壳）：`erp_db` 补 5 个 `voucher_template_*`（此前不存在 ⇒ 5 接口全 500，create/update 还 100% NameError：读了 `body` 却用未定义的 `d`）；4 个 `auto_journal_for_*` 改**模板优先、硬编码兜底**，三道闸（flag 关/无匹配/**借贷不平衡**）任一不满足即回落。**flag=0 ⇒ 与改前逐分一致**。附带修：`feature_flags` 缺 `updated_at` ⇒ **flag 机制从来没工作过**。验证 26+16+21，回滚重放 **0 差异**。遗留：前端有页面代码但**无 `window.*` 导出/菜单入口**（导出名含 voucher 的 0 个）⇒ 实际不可达；开 flag 要**主库+租户库各写一行**。
 - **v710** 对账判据按整数分（`money_eq` / `ROUND(,2)`）+ 月度快照改 GL 口径 + 顺修 `bank_auto_match` 的 `str - str` 崩溃（该函数**从来没跑通过**）。生产存量影响 0。
@@ -56,15 +58,16 @@
 **DDL 对账（只读）**：生产 `cd /opt/hergent-erp && sh tools/ddl_parity/run_parity.sh`（三步合一：抽代码 DDL → dump 库 → 比对）。与 `python3 -m migrations.doctor` 互补：doctor 查「租户库 vs 主库」，这个查「代码声明了但库里没有」。2026-10-28 实测真故障 0（18 张按需懒建 / 7 张独立库 / 68 张租户专属 / 9 处仅主库缺列，均非故障）。跑之前确认 `migrations/other_db_modules.txt` 在——缺它会把 `bid_radar.db` 的表误判成故障。
 
 卖前三关未过；调拨单生产仍 0 张。BI 唯一源 `_BI_MEASURES`（`soi.amount`）；库存周转 `get_inventory_turnover`。
-脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；PII 不落 `outputs/`。编号已到 **v713**（均已部署并重启）。**新 schema 变更一律写 `migrations/patches/NNNN_名字.sql|py`，不要再往 `erp_db.py` 加 `_safe_migrate`（已冻结，`--check` 会拦）。**
+脱敏红线：返利率/进货价/客户名/区域销量/厂家政策；PII 不落 `outputs/`。编号已到 **v715**（均已部署并重启；v712/v715 是**前端** `/opt/static`，生产文件直改 + `.bak-*`）。**新 schema 变更一律写 `migrations/patches/NNNN_名字.sql|py`，不要再往 `erp_db.py` 加 `_safe_migrate`（已冻结，`--check` 会拦）。**
 
 ## 待拍板（别自己开工）
 
-1. **凭证模板要不要接入口**（v711 后端已补齐、flag 默认关）：前端**已有页面代码**（`<div class="page-hd">凭证模板</div>` + 「新建凭证模板」表单 + 调 `/voucher-templates` 的 list/test/seed），但**没有 `window.*` 导出、侧栏菜单也无入口** ⇒ 实际不可达。接一个入口 ≈ 加一行菜单项；真正要先定的是：谁能改（这东西**能改账**）、改完要不要预览/试算。
+1. **凭证模板要不要接入口**（v711 后端已补齐、flag 默认关）：前端**已有页面代码**（`<div class="page-hd">凭证模板</div>` + 「新建凭证模板」表单 + 调 `/voucher-templates` 的 list/test/seed），但**没有 `window.*` 导出、侧栏菜单也无入口** ⇒ 实际不可达。真正要先定的是：谁能改（这东西**能改账**）、改完要不要预览/试算。
 2. **对账匹配/内部往来仍有一处浮点判等**：`erp_db.py:18721` 内部往来 `matched` 判定；同类缺陷但 `ic_transactions` 全库 0 行、`entities` 表不存在 ⇒ 功能未启用，无数据可验。
-3. 🔴 **利润表(权责) 显示的是「全期累计简化口径」**（v712 实测）：`/api/reports/pnl?month=2026-10` / `?month=2026-06` / 不带 month，**三次返回同一组数**（收入 8,786,105.85、净利 7,891,969.12）。根因两层：`get_pnl()` 走 `sale_orders` 现金制；且 GL 版在该月收入类无分录时**回落**到简化版。前端把「累计」当「当月」展示、还标着 `月份: 2026-10`。**改它要动仪表盘 KPI，需单独一版。**
+3. 🔴 **成本与费用凭证缺失**（v714 实测）：GL 里**只有 `6001` 98,325 收入**，没有任何成本/费用分录 ⇒ 权责利润表只在 2026-06 有数，其余月份走现金制回落。这不是代码问题——要让权责 P&L 真可用，得先让「销售出库结转成本」「客户费用/费用报销」产生分录。**这是业务数据问题，需老板决定从哪条业务线开始补。**
 4. **老口径「资产负债表 (BS)」tab 仍是 `—` / `¥0.00`**：它读的又是另一组字段，与接口返回不匹配 —— 同一类「按从未存在的字段写」。v713 只补了「(权责)」那张。
-3. **`get_pnl()` / `get_cashflow()` 仍是简化口径**（现金制 + `sale_orders`），`/api/reports/pnl` 只有传 `month` 且 GL 有数才走 GL 版 ⇒ 不带月份时利润表与资产负债表不同口径。改它要动仪表盘 KPI，需单独一版。
+5. **`get_cashflow()` 仍是现金制简化口径**（`cash_flow` + `sale_orders`），与利润表/资产负债表不同源。`get_cashflow_indirect()` 已从 `pnl.net_profit` 起算（v714 后跟着变对）。改它要单独一版。
+6. **利润表卡片金额截断**（v714 真机截图）：4 列 ×190px 下 `¥98,325.00` 末位被切，百万级更明显。是 `.stat-card-val` 既有字号与网格宽度约束，不是 v714 引入（改前这些卡根本渲染不出来）。按规矩 UI 单点单独一轮。
 
 ## 其它常查
 

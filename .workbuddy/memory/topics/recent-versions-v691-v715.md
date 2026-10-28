@@ -281,3 +281,79 @@ document.addEventListener("scroll", function(t){
 
 ### 坑
 回滚后拿「新形态」判据自检必然全红 —— 要单写一套「旧形态」判据（`_verify_reverted`）。
+
+---
+
+## v714 利润表口径统一（2026-10-28，已部署）
+
+文档：`docs/v714-利润表口径统一-2026-10-28.md`
+补丁：`tools/hergent/patch_v714_pnl_basis.py`｜探针：`tools/hergent/v714/probe_v714.py`（A/B）、`probe_v714_http.py`（C）
+
+### 改前实测
+```
+/reports/pnl?month=2026-10  → 营业收入 8,786,105.85
+/reports/pnl?month=2026-06  → 8,786,105.85（同一组数）
+/reports/pnl（不带 month）  → 8,786,105.85（还是同一组数）
+2026-10 真实 signed 销售    → 0 张
+```
+
+### 四条根因
+1. 🔴 **科目分类名对不上（主因）**：`get_pnl_gl` 取 `category IN ('收入','成本','费用')`（21 个科目），
+   而本账套 **109 个损益科目 category 是「损益」**，唯一有数的 `6001`（98,325.00）就在里面
+   ⇒ 三项**恒为 0** ⇒ 路由 `if revenue>0 or net_profit!=0` 永不成立 ⇒ GL 分支**从来没走到过**。
+2. 🔴 `category='成本'` 里混着 **5 个 5 开头**存货归集科目（5001 生产成本 / 5101 制造费用 /
+   5201 劳务成本 / 5301 研发支出 / 5401 工程施工）⇒ 有余额就被算成营业成本。
+   隔离库实测：造 9,999 ⇒ 老代码 `cogs = 9,999`。
+3. 父子科目一起加（同 v708 BS）；收入只取 credit、成本只取 debit ⇒ 红冲/退货全丢。
+4. `net_profit` 里 `+ (cat_sum(rev,'credit') - revenue)` 恒为 0（`revenue` 就是这个表达式）——死逻辑。
+
+### 改后口径
+- 全集 = `code LIKE '6%'`；`category='损益'` 仅作补漏，补进来的非 6 开头科目进 `unclassified` 上报
+- 三分：`60/61/63` = 收入；**`6401` = 销货成本**；其余 6 开头 = 费用
+- **`6402` 归费用不归成本**：本账套 6402 下面挂的是客户费用/月返/陈列费/促销工资/配送费（24 个子科目）
+- 净额按方向：收入 `credit-debit`；成本费用 `debit-credit`
+- 新增 `has_data` / `raw_net` / `source` / `unclassified`
+
+### 两条强判据
+1. **跨表勾稽**：`sum(get_pnl_gl(逐月).net_profit) == get_balance_sheet_gl().unclosed_profit`
+   （生产 98,325.00 == 98,325.00）。**同号**：`unclosed_profit = -sum(debit-credit)`。
+2. **自证**：`raw_net`（不分父子）`− net_profit` == 被叶子有效剔掉的父科目金额（隔离库 300 == 6051 余额）。
+
+### 按月回落
+`db.get_pnl(month)` 新增可选 month（`cash_flow.created_at` / 订单 `order_date`）。
+**不带 month 时 SQL 与返回体逐字不变**（KPI / `/reports/daily` / 快照走这条）。
+路由：`has_data` 真 ⇒ GL；假 ⇒ 该月现金制 + `basis="cash"` + `source="fallback_business_docs"`。
+
+### 验证 21 + 20 + 17
+- A 隔离库 21/21（造红冲、父子双记、5 开头污染）；**反向对照**：同一探针对未打补丁代码跑，13 项里 12 FAIL + 1 TypeError
+- B 生产副本 20/20（含跨表勾稽、全期 `get_pnl()` 与改前基线逐分一致、各月加总==全期）
+- C 真实 HTTP 17/17（三月份三次不同数，且没有一个是 878 万）
+
+### 真机
+```
+2026-10 → ¥0.00     成本 920.00  净利 -920.00   cash · 月份: 2026-10
+2026-09 → 1,128,410.37                        cash · 月份: 2026-09
+2026-06 → 98,325.00                           accrual · 月份: 2026-06
+```
+
+## v715 利润表月份下拉真正生效（2026-10-28，已上线）
+
+补丁：`tools/hergent/patch_v715_pnl_month_select.py`｜备份 `/opt/static/index.html.bak-v715`
+
+### 问题
+下拉 `#pnlGlMonth` **没绑 change**；且渲染函数每次重建 `<select>` 并把默认值写回
+**当前月**，紧接着读 `P.value` ⇒ 用户选择必然被丢弃 ⇒ **面板永远只能看当前月**。
+
+### 修法（内联注入，不动 1.4MB chunk）
+`window.__pnlMonth` 记住选择 + 事件委托监听 change + 包装 `window.api` 改写
+`/reports/pnl?month=` + MutationObserver 纠正 select 显示。
+
+### 两个坑（都踩过）
+1. 🔴 **内联脚本比 chunk 先跑**（module 延迟）⇒ 执行时 `window.api` 不存在。
+   一次性 `var o = window.api` 会拿到 undefined 且随后被 chunk 覆盖 ⇒ **静默失效**。必须轮询挂载。
+2. 🔴 **不能 observe `#rptContent`**：脚本执行时报表页还没建那个容器 ⇒ `getElementById` 得 null
+   ⇒ observer 没挂上 ⇒ **数据是 6 月、下拉显示 10 月，比不修更误导**。改 observe `body`。
+
+### 附带发现
+前端**本来就会渲染口径标签**（`accrual`/`cash` + `月份: YYYY-MM`），一直显示不出来是因为
+后端从不返回 `basis`/`month` 字段 —— 不需要改前端。
