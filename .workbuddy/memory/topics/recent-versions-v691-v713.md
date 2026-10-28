@@ -198,3 +198,86 @@
 - `sqlite3.Row` **没有 `.get()`**（purchase ctx 踩 ⇒ 采购过账 100% AttributeError）。
 - 已应用过的库上**别改 `NEW` 串文字**（改一个标点 ⇒ n_new=0 且 n_old=0 ⇒ 整批回滚，v711 踩两次）。
 - 「只针对旧形态」的升级项要标 **optional**（干净副本上 0 次正常 ⇒ 否则连带跳过后面几项，一次差 39 行）。
+
+
+---
+
+## v712 前端补回缺失的 window.statCard + 顺修滚动报错（2026-10-28，已上线）
+
+文档：`docs/v712-v713-报表前端可见性-2026-10-28.md`｜补丁：`tools/hergent/patch_v712_frontend_statcard.py`
+
+### 触发它的那个问题
+用户选「验前端报表是否体现 v707–v709 新口径」。答案是**根本没有体现**——
+不是数字不准，是「资产负债表(权责)」点进去**永远停在 spinner**。
+
+### 判据（先锁定唯一窗口，别按记忆里的路径）
+- `hergent.cn → /opt/hergent-cn-v2`（预报/AI 副驾）：`balance-sheet`/`trial-balance`/`资产负债表` **全 0 命中**
+- `erp.hergent.cn → /opt/static`（进销存后台，静态 JS 无构建链）：**4 个 chunk 命中**
+- `index.html` 实际加载 `main-CWrK_ez4.js`（目录里另有 3 个历史 `main-*.js`，先看引用再 grep）
+
+### 根因
+`main-CWrK_ez4.js` 有 **885 处** `try{window.X=X}catch{}`；页面里跑 `typeof window.X`
+⇒ **407 处是 `undefined`**（模块没声明，ReferenceError 被空 catch 吞掉）。
+`statCard` 是其一，26 处调用（10 处 `window.statCard`）全抛
+`window.statCard is not a function`，面板 `innerHTML` 停在 spinner。
+
+### 修法
+不改 1.4MB chunk，在 `index.html` 的 `<script type="module">` **之前**插内联脚本定义
+`window.statCard(label,value,cls,unit)`：
+- module 脚本天然延迟执行 ⇒ 内联先跑；chunk 里那句赋值仍抛错被吞 ⇒ **不会覆盖**
+- 语义按 CSS 契约反推：`.stat-card` + `.sc-blue|green|amber|red` 的 `:before/:after` 色条
+- 金额单位 `¥` 走 `toLocaleString('zh-CN',{min/maxFractionDigits:2})`；件/单/个 追加空格
+
+### 同轮顺修（同一份 chunk 的另一个静默失效）
+```js
+document.addEventListener("scroll", function(t){
+  var e = t.target.closest(".page-inner");   // 滚动在 document 上触发时 target 是 document
+```
+⇒ **每次滚动抛 TypeError** + 页面顶部红条 + 表头吸顶（`thead.scrolled`）失效。
+改为 `t.target&&t.target.closest?t.target.closest(".page-inner"):null`。
+`assets` 是 `no-cache` ⇒ 原地替换即生效（备份 `.bak-v712b`）。
+
+### 验证
+- `typeof window.statCard === 'function'`
+- 点按钮（不是直接调函数）后屏幕文本：2,258,504.26 / 88,832.25 / 2,169,672.01 + ✓ 借贷平衡
+- 滚动（window / documentElement / `.page-inner` + 合成 scroll）后 `window.__E` 为空数组
+- 补丁 `--revert` 往返与原件 **0 差异**
+
+## v713 资产负债表(权责) 补明细字段（2026-10-28，已部署）
+
+文档同上｜补丁：`tools/hergent/patch_v713_bs_breakdown.py`｜本地回写提交 `c1beb3b`
+
+### 问题
+前端读 `assets.cash/ar/inventory/fixed_assets_net`、`liabilities.ap`、
+`equity.paid_in_capital/retained`；`get_balance_sheet_gl()` **只返回三个 total**
+⇒ 7 行明细**从来是 ¥0.00**（老 `get_balance_sheet()` 返回的是顶层
+`cash/ar/inventory_val/ap`，且取自 `receivables`/`accounts`/`inventory` 业务表，不是 GL）。
+**比空着更误导**：老板会以为「账户没钱、没有库存」。
+
+### 修法（后端加法，不动前端产物）
+按科目编码前缀补，仍走 v708「叶子有效」：
+
+| 行 | 前缀 |
+|---|---|
+| 现金及存款 | `10*` |
+| 应收账款 | `1122` |
+| 库存商品 | `1405` + `1406`（两套编码同名，实账都有余额） |
+| 固定资产净值 | `1601` + `1602` |
+| 应付账款 | `2202`（贷方取正） |
+| 实收资本 | `4001`（贷方取正） |
+| 留存收益 | `4103` + `4104` + `unclosed_profit` |
+
+每组另给 `other`（合计−已列明细），用来自证「明细+other==合计」。
+
+### 实测（tenant_1）
+```
+资产 2,258,504.26 = cash 116,638.05 + ar 1,323,981.43 + 库存 291,629.27
+                    + 固资净 160,611.82 + 其他 365,643.69
+负债   88,832.25 = ap 88,832.25 + 0
+权益 2,169,672.01 = 实收 1,500,000.00 + 留存 669,672.01 + 0
+恒等式差 0.00 | balanced True | 未结转损益 98,325.00
+```
+**非回归**：三个 total 与改前逐分一致。
+
+### 坑
+回滚后拿「新形态」判据自检必然全红 —— 要单写一套「旧形态」判据（`_verify_reverted`）。

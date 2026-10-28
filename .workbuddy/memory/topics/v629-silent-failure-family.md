@@ -47,3 +47,43 @@
 脚本 `.workbuddy/tools/seed-demo-target.py`（直写 SQLite，`readonly=1` 走不了 API，故不翻闸门、不重启服务）。
 内容：商品 2 补 `large_unit='箱'/large_ratio=12`、本期清单登记 1 行、目标 1 条（现名「蒙牛特仑苏纯牛奶 250ml 9月目标」120 箱）、分解 刘小顶 60%(72) / 王老板 40%(48)。
 回滚：`ssh root@47.113.224.140 'cp /opt/hergent-erp/_backup/tenant_10.pre-allocprobe-20261022-072812.db /opt/hergent-erp/tenant_10.db'`
+
+
+---
+
+## 新成员（v712，静态前端 /opt/static）
+
+### 1. `try{window.X=X}catch{}` —— 空 catch 吞掉 ReferenceError
+`assets/main-CWrK_ez4.js` 共 **885 处**这种导出；页面里跑 `typeof window.X` 实测 **407 处是 `undefined`**。
+机制：模块里根本没声明 `X` ⇒ `window.X=X` 抛 `ReferenceError` ⇒ 空 `catch{}` 吃掉 ⇒
+**控制台无红字、页面不报错**，只是调用点在运行到的那一刻抛 `X is not a function`，
+而外层（如报表渲染）没有 try/catch ⇒ 面板 `innerHTML` 停在 `<div class="spinner">`，**永远转**。
+
+判据：**别看 grep「有没有定义」**，要在页面里批量核 `typeof window[name]`：
+```js
+var t = await (await fetch('/assets/main-CWrK_ez4.js')).text();
+var re = /window\.([A-Za-z_$][\w$]*)=\1\}catch/g, m, seen={}, names=[];
+while ((m = re.exec(t))) if (!seen[m[1]]) { seen[m[1]]=1; names.push(m[1]); }
+var dead = names.filter(n => typeof window[n] === 'undefined');
+```
+
+修法（优先级）：**改 `index.html` 内联补全局函数**，不动 1.4MB 产物。
+`<script type="module">` 天然延迟执行 ⇒ 内联经典脚本必定先跑；chunk 里那句赋值
+仍会抛错被吞，因此**不会覆盖**内联定义。`index.html` / `assets` 都是
+`cache-control: no-cache, no-store` ⇒ 刷新即生效。
+
+### 2. `document.addEventListener("scroll", t => t.target.closest(...))`
+滚动事件在 `document` 上触发时 `t.target` 是 `document`，**没有 `closest`** ⇒
+每次滚动抛 `TypeError`，页面顶部弹红条，`thead.scrolled` 吸顶逻辑整段失效。
+修法：`var e = t.target && t.target.closest ? t.target.closest(".page-inner") : null;`
+
+### 3. 前端按「从未存在过的字段」写，静默显示 0
+`assets.cash/ar/inventory/fixed_assets_net`、`liabilities.ap`、
+`equity.paid_in_capital/retained` 这些字段接口**从来没返回过**（老函数用的是
+顶层 `cash/ar/inventory_val/ap`）⇒ 界面 7 行明细恒为 ¥0.00，**比空着更误导**。
+判据：**拿真接口 payload 逐字段比对前端读取的 key**（`print(list(d['assets'].keys()))`），
+不要假设「前端能显示就说明后端有这个字段」。
+
+### 4. 同族：先看 `index.html` 引的是哪个 chunk 再 grep
+`/opt/static/assets` 有 4 个历史 `main-*.js`。在旧 chunk 上 grep 会得出
+「没有这个功能」「代码是旧形态」之类**完全错误的结论**（v712 连踩两次）。
