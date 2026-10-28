@@ -99,3 +99,68 @@ chunk 里 `setTimeout(..., 300)` 才找 `#rptBtn_cf`，而实测该按钮 **~100
 3. `expense_categories.gl_account` / `requires_receipt` 是**账外裸 DDL**（`ALTER TABLE` 直加），应走 `migrations/patches/`。
 4. `/opt/static` 无源码仓库，v717/v717c 只在生产文件 + `.bak-*`；回滚靠 `.bak`，重放文本在 `tools/hergent/patch_v717*.py`。
 5. 「日记账」入口注入同样依赖脆弱选择器，未修（同 38 的病根）。
+
+---
+
+## 七、v718 进货补录（2026-10-28）
+
+### 7.1 侦察发现（全部实测）
+
+| # | 发现 | 证据 |
+|---|---|---|
+| 1 | 采购单 84 张 / 90.07 万，**79 张无任何明细**，全库明细仅 14 行 | `purchase_orders` vs `purchase_order_items` |
+| 2 | 2026-10-20 上传的「采购订货明细报表.xlsx」（782 行 / 49 张单 / 57.48 万）被导入器当成 **products** 处理，映射只有 `名称+采购价` ⇒ 明细从未进 `purchase_order_items` | `import_receipts` id=2，`mapping_json={"1":"name","23":"factory_price"}` |
+| 3 | 那次误导入把 782 行明细**每行建了一个商品** ⇒ `products` 1270 个，其中 782 个空壳（无条码/无规格/`purchase_price=0`）；130 组重名，最多重复 12 次 | |
+| 4 | 782 个空壳**零引用**（销售/客户价/库存/采购明细/预报导入 全 0） | 5 张引用表逐一校验 |
+| 5 | 销售明细 142,859 行，**批次 0 行、效期 0 行**；库存 55 行，效期 55/55 全缺 | |
+| 6 | 成本口径 = `数量 × products.purchase_price`（`batch_trace` 空表 ⇒ 永远走回落），**不读进货单** | `erp_db.py:6879` |
+| 7 | 原始 xlsx 仍在服务器 `data/chat_files/2/6d700aa7fa3b4cd8b0415aff66dc1fbe.xlsx`（28 列全对） | |
+
+**单号交叉验证**：xlsx 的 49 个单号（`CD261001`~`CD261020`）与库内 84 张（`CD2605xx`~`CD2606xx` + 3 张手工 `PO2026...`）**一个都对不上** ⇒ 库内那批是 6 月底批量导入的旧单，10 月这批从未进系统。
+
+### 7.2 做了什么
+
+P1 清污：782 个空壳隔离到 `products_quarantine_v718`（不物理删；fail-closed，5 张引用表全 0 才执行）。商品 1270 → 488。
+P2 补录：49 张单 + 782 行明细 + 49 组入库凭证（借 1405 / 贷 2202）+ 库存 121 个商品-仓 +282,434 数量 + 自动建档 2 个（新希望南山 2 个新品，否则单头≠明细）。
+
+匹配率：按条码 719 / 按名称 61 / 未匹配 2（建档后全落地）。
+供应商：39 匹配 / 10 兜底（「蒙牛酸奶（湖北恒滋）」contacts 里没有 → 兜底 2923，原名写 note）。
+单位：xlsx 全是小单位（杯/瓶/袋/盒/桶/罐/组/包），与档案 `unit` 一致 ⇒ **无需换算**。
+幂等：单号判重 + 凭证 `(ref_type,ref_id)` 判重。
+凭证号：`JBP + YYYYMMDD + 4 位序号`，按日期各自起编。
+
+### 7.3 数字（改前 → 改后）
+
+| 指标 | 前 | 后 |
+|---|---|---|
+| 1405 库存商品 | −6,886,117.54 | **−6,311,338.27** |
+| 2202 应付账款 | −938,909.98 | **−1,513,689.25** |
+| 采购单 / 明细 | 84 / 14 | **133 / 796** |
+| 商品 / 库存行 | 1270 / 55 | **490 / 176** |
+| 凭证行 | 88,776 | **88,874**（+98 = 49×2） |
+| 不平凭证 | 0 | **0** |
+
+验证：库级 12/12 PASS（单头==明细逐单相符 0 张不符、49 组凭证借贷平、销售 22,506/142,859 未受影响）；接口 `balanced=true`、`unclosed_profit=1,001,055.58` == 逐月净利合计（差 0.00）、`basis=accrual`。
+
+### 7.4 两个口径澄清（探针误报，不是 bug）
+
+1. 接口 `assets.inventory = -6,068,564.00`，而 1405 是 −6,311,338.27 —— 差 242,774.27 正是 **1406**。接口按 **1405+1406** 取值（v713 既定实现）。
+2. `unclosed_profit` 在**顶层**（不在 `equity`，`equity.retained` 是另一回事）；成本字段名是 **`cogs`** 不是 `cost`。
+
+### 7.5 三个没解决的硬缺口
+
+1. 🔴 **1-9 月进货单完全没进系统**：账面 1405 仍 −631 万，补 10 月只补了 8%。同一张舟谱报表换日期区间即可，脚本已就绪。
+2. 🔴 **库存表只进不出**：`inventory_logs` 全部变动只有 `opening` 140 行（27,855）+ `batch_in` 2 行（130），**零销售出库**；销售明细应有出库 4,200,183，库存一分没扣 ⇒ `inventory` 现在是「累计入库量」不是库存余额。**真实库存要成立必须先补「销售出库扣减」这条功能链路。**
+3. 🔴 **批次/效期没有任何数据源**：10 月这份采购表 28 列里没有批次号/生产日期/到期日；销售明细批次效期 0/0 ⇒ 低温奶的核心（先进先出、临期预警）推不出来，需另找来源。
+
+### 7.6 回滚
+
+```bash
+python3 /tmp/v718.py --rollback /opt/hergent-data/backup/tenant_1.pre-v718-20261028-172342.db
+# 只撤商品隔离
+INSERT INTO products SELECT * FROM products_quarantine_v718;
+# 只撤补录（先凭证后明细后单头）
+DELETE FROM journal_entries WHERE ref_type='purchase' AND ref_id IN (SELECT id FROM purchase_orders WHERE source='v718');
+DELETE FROM purchase_order_items WHERE order_id IN (SELECT id FROM purchase_orders WHERE source='v718');
+DELETE FROM purchase_orders WHERE source='v718';
+```
