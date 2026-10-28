@@ -21,7 +21,7 @@
 10. 临时登录态只插主库 `erp.db` 的 `sessions`，测完删净并自证残留 0。
 11. 🔴 **mock 探针全绿 ≠ 生效**（v697：24 项全过，老板看不到入口，因为生产状态值是 `confirmed` 而我写死 `approved`）。凡判定依赖枚举值/存量数据形态，验证必须落在**生产真实数据**上；动手前先 `GROUP BY status` 看真实取值。
 12. 部署 `rsync -av`（默认就不删，别加 `--no-delete`）；rsync 与 scp 串 `&&` 时前者失败**不阻止后者** ⇒ 传完立刻 ls 新 chunk。
-13. 线上真登录探针注**两个** cookie：`erp_token`（真凭证）+ `hergent_auth='1'`（路由守卫读它）。写接口还要过 CSRF：cookie `csrf_token` + 头 `X-CSRF-Token` 同值，缺任一 403。
+13. 🔴 **真登录探针（v716 实测修正）**：`/opt/static` 的登录态是 **`localStorage.hergent_token`**（前端 `localStorage.setItem("hergent_token",...)`），**不认 cookie、也不认 `hergent_auth`** —— 后者在 `/opt/static` 全库 **0 处**，是 `/opt/hergent-cn-v2` 的机制。playwright 要用 `ctx.add_init_script` 写 LS，同时注 `erp_token` cookie（**接口鉴权走它**）。只注 cookie ⇒ 停在 `#/login`，但 `/api/products` 之类照样 200，**极易误判成"已登录但没数据"**。写接口还要过 CSRF：cookie `csrf_token` + 头 `X-CSRF-Token` 同值，缺任一 403。
 14. 🔴 **「业务接口全正常、只有图片裂」⇒ 查「带不了自定义头的请求」**：`<img>`/`<link>`/下载/`window.open` 只能吃 cookie，发不出 `X-Tenant-Id` ⇒ fail-closed 403 ⇒ 前端静默回落。头像在 `/opt/hergent-data/role-avatars/<tenant>/`。
 15. 🔴 **改过的迁移不会重跑也不报错**（v705）：`_migrations` 只记 `(name,status)`。⇒ 新变更写 `migrations/patches/NNNN_*.sql|py`；`schema_patches` 带 checksum，改已执行版本=**直接失败**。**别 import `erp_db` 做体检/脚本**（导入期就跑 389 条迁移=写生产）；`.sql` 别用 `executescript()`。体检 `python3 -m migrations.doctor`。
 16. 🔴 **账不平先查重复写入**（v709）：看同一 `ref_type` 的 `created_at` 有几个时间点（多批次=重复导入）、父科目金额是否**逐分等于**子科目合计（相等=派生行、不该当分录写）。**不编任何调整分录**。
