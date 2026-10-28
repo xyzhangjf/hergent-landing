@@ -87,3 +87,46 @@ var dead = names.filter(n => typeof window[n] === 'undefined');
 ### 4. 同族：先看 `index.html` 引的是哪个 chunk 再 grep
 `/opt/static/assets` 有 4 个历史 `main-*.js`。在旧 chunk 上 grep 会得出
 「没有这个功能」「代码是旧形态」之类**完全错误的结论**（v712 连踩两次）。
+
+---
+
+## 附录：MEMORY.md 原编号 13–23 全文（2026-10-28 迁出，MEMORY.md 留骨架）
+
+**13. 真登录探针（v716 实测修正）**
+`/opt/static` 的登录态是 **`localStorage.hergent_token`**（前端 `localStorage.setItem("hergent_token",...)`），**不认 cookie、也不认 `hergent_auth`** —— 后者在 `/opt/static` 全库 **0 处**，是 `/opt/hergent-cn-v2` 的机制。
+playwright 要用 `ctx.add_init_script` 写 LS，同时注 `erp_token` cookie（**接口鉴权走它**）。只注 cookie ⇒ 停在 `#/login`，但 `/api/products` 之类照样 200，**极易误判成"已登录但没数据"**。
+写接口还要过 CSRF：cookie `csrf_token` + 头 `X-CSRF-Token` 必须同值（`server.py:319`，缺任一 403 `CSRF_REQUIRED`；v711 C 组第一次跑 14 项全 403）。
+
+**14. 「业务接口全正常、只有图片/附件裂」⇒ 查「带不了自定义头的请求」**
+`<img>` / `<link>` / 下载 / `window.open` 都只能吃 cookie，发不出 `X-Tenant-Id`；`tenant_middleware` 对 `/api/*` fail-closed ⇒ 403 ⇒ 前端静默回落（v700 头像退回 🚀）。角色头像落盘在 `/opt/hergent-data/role-avatars/<tenant>/`（部署目录外，防 `rsync --delete`）。
+
+**15. 改过的迁移不会重跑，也不会报错（v705）**
+`_migrations` 只记 `(name,status)` ⇒ 名字没变就判"已执行"⇒ 老库旧 SQL、新库新 SQL，**两台都声称 ok**。
+⇒ 新变更一律写 `migrations/patches/NNNN_名字.sql|py`；`schema_patches` 带 checksum，改已执行版本=**直接失败**。
+两条连带纪律：**别 import `erp_db` 做任何体检/脚本**（导入期就跑 389 条迁移=会写生产）；`.sql` 别用 `executescript()`（隐式提交 ⇒ 留半截库）。体检 `python3 -m migrations.doctor`（只读）。
+
+**16. 账不平先查重复写入，别先想"记哪一方"（v709 血案）**
+判据两条：同一 `ref_type` 的 `created_at` 有几个时间点（多批次=重复导入）、每个父科目金额是否**逐分等于**其子科目合计（相等=父科目是派生行、不该当分录写）。
+v709 就是靠这两条把 169 万"缺口"证伪成 4 轮导入 + 12 个父科目双写，删完差 **0.00**、**不编任何调整分录**。
+
+**17. 补丁脚本幂等判据：先判「新串已在位」，再看旧串唯一**
+`NEW = OLD + 追加` ⇒ **OLD 是 NEW 的前缀**，写 `if n_new>=1 and n_old==0` 会**再替换一遍**（语法合法、静默劣化，v709 把 `total_equity +=` 改成 2 行、多加 98,325）。必须加硬断言 `count(new)==1`。同族：回读校验**不能全文扫**（同文件常有合法同构/同名局部变量）。
+
+**18. 批量改库的白名单别用 `startswith`**
+`tenant_*` 会抓到 `tenant_1.pre-v617-*.db` 历史归档，**改它=篡改证据** ⇒ 用 `^tenant_\d+\.db$`；判主库必须 `realpath`（macOS `/var`→`/private/var`），判不出路径 fail-closed。
+
+**19. 改口径先双算，验证必须人造边界**
+生产数据上「改与不改一样」时，跑接口证明不了生效 ⇒ 隔离库造边界值（1 分差必判平、2 分差必判不平）+ 一条**反向对照**（老判据在同组数结论相反，证明新判据有区分力）。**反向对照要程序化挑选**：手挑的边界可能老判据同样给 False，等于什么都没验证（v710 第一版探针就栽在这）。
+
+**20. 改完脚本先传，再执行（v710 事故）**
+脚本带 `--revert`/`--apply`/删除语义时，本地与服务端版本不一致 ⇒ 它做的事和你以为的完全不同，**而输出看起来完全正常**（"已从备份恢复"，只是恢复错了目录）。同族：`rsync` 与 `scp` 串 `&&` 前者失败不阻止后者。
+
+**21. 判据要看语义分家**
+`abs(a-b) < 0.01` 用在「两笔钱是否同一笔」上，浮点下同一事实给相反结论（`50.00-50.01=0.009999999999998010` 判相等 / `100.01-100.00=0.010000000000005116` 判不等；v710 双算 69,186 次比较里 16,456 次相反）；用在「这个数是不是零」上则无所谓（`> 0.005` 保持原样，别硬统一）。
+
+**22. `sqlite3.Row` 没有 `.get()`**
+v711：purchase 的 ctx 写了 `o.get("order_no","")` ⇒ 采购过账 100% AttributeError。取值用 `o["x"] if "x" in o.keys() else 默认`。
+
+**23. 补丁脚本另两条幂等纪律（v711 各踩一次）**
+① **已经应用过的库上重跑时不能改 `NEW` 串的文字** —— 改一个标点就变成 `n_new=0 且 n_old=0` ⇒ 判「锚点不唯一」⇒ `patch_file` **整批回滚**；要改注释就单列一条替换。
+② 「只针对旧形态」的升级项必须标 **optional** —— 干净副本上旧形态 0 次是**正常的**，按错误处理会连带跳过后面几项（v711 一次重放差 39 行）。
