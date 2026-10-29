@@ -35,6 +35,7 @@ v730 P0-S1库存金额化(patch0011+9写入点)｜v731 P0-S2库存内核重构(i
 v723落地report_definitions+执行器(routers/report_engine.py，仅在生产/opt/hergent-erp，本地server/旧扁平结构未含→源码待回收)；前端modules.js(reportEngineApi)+GenericReport.vue+ReportBuilder.vue(老板门禁)已部署hergent.cn。
 **29定义全部已配SQL**：faithful复刻执行器在tenant_1.db只读实跑→26张返回真实数据(3张大表截断5001:account-flow/customer-profit-analysis/sales-order)、3张kind=unavailable占位(material-data/material-usage/stock-upload)、0拒绝0报错。此前"25张报Incorrect number of bindings supplied"是带参SQL用`SELECT COUNT(*) FROM (<sql>)`空跑未绑定参数的测试假象，非执行器行为。
 **4张返回0行(执行正常但源表空，疑似口径指错表)**：income-summary(income_orders)/receipt-detail(payment_receipts)/payment-detail(period_payments)/attendance(attendance)——tenant_1这些表无数据，真实收入来自签收单signed等，待核对重定向源表。
+**2026-10-30 真实浏览器探针终审(CDP驱动系统Chrome，puppeteer-core)**：老板态(user_id=2临时session)注入hergent_v2_token+tenant=1，三张报表(customer-rank/goods-sales/account-flow)DOM实渲染426/229/5000行、/data全部HTTP200、consoleErrors=0、无跳登录、截断横幅正常→确证非静默失效，⑤全链路真可用。临时session已删净(残留0)。
 **待办**：①后端report_engine.py回收进仓库(生产routers/+db/结构与本地server/扁平不一致，先对齐再落，否则落本地无法import)；②4张0行报表口径重定向；③调拨双入口合并(v725已合并，见topic)。
 
 ## 待拍板
