@@ -14,7 +14,7 @@ import { store } from '../store'
 /* v291（2026-09-27）：「哪些角色能进哪些页」已收敛到 `constants/pages.js` 的**页面注册表**。
    本文件不再自己写判据 —— 侧栏 / 命令面板 / 守卫 / 页内跳转读的是同一份表。
    （旧写法是各页 `meta.roles` 自己带名单，只有 1 个页面填了。见文件末尾守卫处注释。） */
-import { ruleFor, pageRoleAllowed, PLACEHOLDER_PAGES } from '../constants/pages'
+import { ruleFor, pageRoleAllowed, PLACEHOLDER_PAGES, REPORT_PAGES } from '../constants/pages'
 /* v449：旧建单入口 → 新独立页面的路径解析。**纯数据模块、零副作用**（只导出常量与
    两个纯函数），静态 import 不影响首屏体积，也不会引入循环依赖。 */
 import { legacySalePath, legacyPurchasePath, DOC_PATHS } from '../pages/inventory/new/docTypes.js'
@@ -59,6 +59,19 @@ const ReportsGrossProfit = () => import('../pages/reports/GrossProfit.vue')
    生产促销活动 0 条 ⇒ 活动区为诚实空态。三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）
    缺一不可；路由条目必须排在下方 `PLACEHOLDER_PAGES.map` 之前（静态段先者胜）。 */
 const ReportsPromoRoi = () => import('../pages/reports/PromoRoi.vue')
+/* v720（2026-10-28 阶段1/M5）：**数据健康自检落真身**。新建 path、不在 PLACEHOLDER_PAGES。
+   数据读 GET /api/reports/data-health（`routers/data_health.py`，6 张只读卡）。
+   三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 的 NAV）缺一不可。 */
+const ReportsDataHealth = () => import('../pages/reports/DataHealth.vue')
+/* v723（2026-10-28 阶段4/M3）：**配置驱动的通用报表页** —— 29 条 `/reports/*` 共用这一个组件。
+   列定义/筛选项/合计列/口径说明全部来自后端 `report_definitions`，页面里不写任何一张
+   报表的字段名。路由由下方 `REPORT_PAGES.map(...)` 批量生成，`meta.reportName` 是取数键。
+   🔴 加一张新报表 = 在 `report_definitions` 插一行 + 在 `REPORT_PAGES` 插一行，
+      **不改 Python、不改 Vue**。 */
+const ReportsGeneric = () => import('../pages/reports/GenericReport.vue')
+/* v725：报表设计器。不是一张报表，是改报表口径的工具 —— 不进 REPORT_PAGES
+   （那里每条都会变成一页读数的报表），单独挂一条路由。 */
+const ReportBuilder = () => import('../pages/reports/ReportBuilder.vue')
 /* v537（2026-10-17 P2-1 二期）：**买赠活动管理落真身**。独立真组件，不在 PLACEHOLDER_PAGES。
    数据读 GET/POST/PUT/DELETE /api/promotions（后端 crm.py：读归 `sales` 模块门、写挂 `_admin`）。
    三处登记（本路由 + pages.js::PAGE_RULES + Shell.vue 侧栏）缺一不可。 */
@@ -155,6 +168,7 @@ const FundsBankReconcile = () => import('../pages/funds/FundsBankReconcile.vue')
 const FundsReconcile = () => import('../pages/funds/FundsReconcile.vue')
 const FundsStaffDebt = () => import('../pages/funds/FundsStaffDebt.vue')
 const FundsCost = () => import('../pages/funds/FundsCost.vue')
+const FundsPartyReconcile = () => import('../pages/funds/FundsPartyReconcile.vue')
 // v265（2026-09-24）：ProductTarget 不再由路由懒加载 —— 它已收进 Forecast.vue 当第 4 个页签
 // （静态 import，随 Forecast chunk 一起加载）。旧路由 /product-target 保留 redirect，见下。
 
@@ -349,6 +363,11 @@ export const router = createRouter({
            故此条是它唯一的真实路由；必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前。
            `meta.title` 与 pages.js 的 title、Shell.vue 的 name 逐字对应（同族纪律）。 */
         { path: 'reports/promo-roi', component: ReportsPromoRoi, meta: { title: '促销ROI分析' } },
+        /* v720（2026-10-28 阶段1/M5）：数据健康自检。**新建** path、不在 PLACEHOLDER_PAGES，
+           故此条是它唯一的真实路由；必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前
+           （静态段先者胜）。`meta.title` 与 pages.js、Shell.vue 的 name 逐字一致
+           —— 它就是路由守卫「你没有访问「xxx」的权限」的文案。 */
+        { path: 'reports/data-health', component: ReportsDataHealth, meta: { title: '数据健康自检' } },
         /* v537（2026-10-17 P2-1 二期）：买赠活动管理。**新建** path、不在 PLACEHOLDER_PAGES，
            故此条是它唯一的真实路由；必须排在下方 `PLACEHOLDER_PAGES.map(...)` 之前。
            `meta.title` 与 pages.js 的 title、Shell.vue 的 name 逐字对应（同族纪律）。 */
@@ -435,6 +454,7 @@ export const router = createRouter({
         { path: 'funds/cost-summary',      component: FundsCost,      meta: { title: '库存成本汇总', costMode: 'summary' } },
         { path: 'funds/qty-cost',          component: FundsCost,      meta: { title: '数量成本价',   costMode: 'qty' } },
         { path: 'funds/cost-abnormal',     component: FundsCost,      meta: { title: '成本异常调整', costMode: 'abnormal' } },
+        { path: 'funds/party-reconcile',   component: FundsPartyReconcile, meta: { title: '往来核销' } },
 
         /* v465（2026-10-11）：四新区（仓配管理 / 资金管理 / 数据报表 / 市场营销）的
            **占位页路由** —— 按 `pages.js::PLACEHOLDER_PAGES` 数据驱动批量挂载，
@@ -446,6 +466,29 @@ export const router = createRouter({
            🔴 某页落真身时：从 `PLACEHOLDER_PAGES` 移出 → 在 `PAGE_RULES` 写正式行 →
               这里换成真实组件（`pages.js` 合并循环会覆盖同键行，别两头都留）。
            ⚠️ `meta.area` 仅用于占位页副标题「XX · 规划能力」。 */
+        /* v723（2026-10-28 阶段4/M3）：**29 条 /reports/* 改为配置驱动**。
+           这一批原先全部指向占位骨架 `Placeholder.vue`（「开发中」卡），现已统一换成
+           通用报表组件，由后端 `report_definitions` 里的 SQL 决定每页显示什么。
+
+           🔴 `meta.reportName` 必须与 `report_definitions.name` 逐字一致（取数键）。
+           🔴 未配定义的那几条会显示「这张报表还没有配数据口径」——**诚实的未配置态**，
+              不是"加载失败"更不是"没数据"。这个区分是本轮的重点之一。
+           ⚠️ 本批已从 `PLACEHOLDER_PAGES` 移出（否则会被占位页遮蔽：路由先者胜），
+              `PAGE_RULES` 里的正式登记行由 `pages.js` 的 REPORT_PAGES 循环写入
+              （module:'reports' + BOSS_ROLES + lock）。 */
+        ...REPORT_PAGES.map(p => ({
+          path: p.path.slice(1),                    // children 用相对路径：'/reports/x' → 'reports/x'
+          component: ReportsGeneric,
+          meta: { title: p.title, reportName: p.name }
+        })),
+
+        /* v725 报表设计器（只给老板；后端 _require_boss 是第二道） */
+        {
+          path: 'reports/builder',
+          component: ReportBuilder,
+          meta: { title: '报表设计器' }
+        },
+
         ...PLACEHOLDER_PAGES.map(p => ({
           path: p.path.slice(1),                    // children 用相对路径：'/wh/inbound' → 'wh/inbound'
           component: Placeholder,

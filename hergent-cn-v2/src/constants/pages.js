@@ -329,6 +329,14 @@ export const PAGE_RULES = {
      🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
      ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
   '/reports/promo-roi': { title: '促销ROI分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* —— v720（2026-10-28 阶段1/M5）：**数据健康自检落真身**的正式登记行 ——
+     🔴 `module:'reports'` 与数据源一致：本页读 `GET /api/reports/data-health`，
+        该路径命中后端 `_PATH_MODULE_MAP` 的既有 `/api/reports` 前缀（首个 startswith 即停）
+        ⇒ RBAC 自动归 `reports` 模块，**后端无需新增映射**。写成别的域会造出
+        「入口可见、一开就 403」的假入口。
+     🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
+     ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
+  '/reports/data-health': { title: '数据健康自检', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   /* —— v537（2026-10-17 P2-1 二期）：**买赠活动管理落真身**的正式登记行 ——
      🔴 `module:'sales'` 与数据源一致：本页读 GET /api/promotions（后端 crm.py 归 `sales` 模块门）；
         写操作（POST/PUT/DELETE/toggle）后端另挂 `_admin`（role∈admin/boss）双保险，销售员不可自建让利政策。
@@ -586,6 +594,7 @@ export const PAGE_RULES = {
   '/funds/flow':              { title: '资金流水账', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/bank-reconcile':     { title: '银行流水对账', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/reconcile':          { title: '对账工作台',   module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
+  '/funds/party-reconcile':    { title: '往来核销',   module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/staff-debt':         { title: '员工欠款',   module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/cost-query':        { title: '库存成本查询', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
   '/funds/cost-summary':      { title: '库存成本汇总', module: 'funds', roles: BOSS_ROLES, lock: true, cat: 'admin' },
@@ -620,6 +629,50 @@ export const PAGE_RULES = {
         （钱更窄）、其余三区走 `BIZ_ROLES`」—— 那段**已被 v472 取代**，留在这里只为说明
         将来放开时各自该回哪一档（见 `BOSS_ROLES` 上方注释的"放开时两件事"）。
    ⚠️ `area` 只是给占位页副标题用的中文名，与权限无关；权限**只**认 `path` 前缀分档。 */
+  /* 🔴 v723（2026-10-28 阶段4/M3）：**29 条 /reports/* 全部从占位页改为配置驱动**。
+     取代原先「一张报表手写一个 Vue」——全部指向同一个 `GenericReport.vue`，
+     列定义 / 筛选项 / 合计列 / 口径说明一律从后端 `report_definitions` 拿。
+
+     **加一张新报表 = 在 report_definitions 里插一行**：不改 Python、不改 Vue、不改这里。
+     本表已登记 path 但后端没有对应定义的，页面显示「这张报表还没有配数据口径」——
+     那是**诚实的未配置态**，不是「没数据」。两者在界面上必须能区分，否则老板会把
+     「没配口径」读成「生意是 0」。
+
+     ⚠️ `name` 必须与 `report_definitions.name` 逐字一致（它就是取数的键）。
+     ⚠️ 这 29 条**已从 `PLACEHOLDER_PAGES` 移出**——留着会被下方的合并循环用
+        `module:null` 覆盖掉正式行，造出「入口可见、一开就 403」的局部假入口。 */
+export const REPORT_PAGES = [
+  { path: '/reports/sales-order',            title: '销售订单汇总表',             name: 'sales-order' },
+  { path: '/reports/purchase',               title: '采购汇总表',               name: 'purchase' },
+  { path: '/reports/transfer',               title: '调拨汇总表',               name: 'transfer' },
+  { path: '/reports/other-inout',            title: '其他出入库汇总表',            name: 'other-inout' },
+  { path: '/reports/summary',                title: '汇总报表',                name: 'summary' },
+  { path: '/reports/ar-summary',             title: '应收账款汇总表',             name: 'ar-summary' },
+  { path: '/reports/other-receivable',       title: '其他应收汇总表',             name: 'other-receivable' },
+  { path: '/reports/fee-summary',            title: '费用单汇总表',              name: 'fee-summary' },
+  { path: '/reports/income-summary',         title: '收入汇总表',               name: 'income-summary' },
+  { path: '/reports/account-flow',           title: '账户收支明细',              name: 'account-flow' },
+  { path: '/reports/online-receipt',         title: '线上收款流水',              name: 'online-receipt' },
+  { path: '/reports/receipt-detail',         title: '收款明细表',               name: 'receipt-detail' },
+  { path: '/reports/payment-detail',         title: '付款明细表',               name: 'payment-detail' },
+  { path: '/reports/presale-goods',          title: '预订货品汇总表',             name: 'presale-goods' },
+  { path: '/reports/presale-orders',         title: '预订货单明细表',             name: 'presale-orders' },
+  { path: '/reports/fee-usage',              title: '费用使用记录',              name: 'fee-usage' },
+  { path: '/reports/material-data',          title: '物料数据汇总',              name: 'material-data' },
+  { path: '/reports/material-usage',         title: '物料使用汇总',              name: 'material-usage' },
+  { path: '/reports/attendance',             title: '考勤统计',                name: 'attendance' },
+  { path: '/reports/visit-log',              title: '拜访记录',                name: 'visit-log' },
+  { path: '/reports/visit-achv',             title: '拜访达成',                name: 'visit-achv' },
+  { path: '/reports/stock-upload',           title: '库存上报分析',              name: 'stock-upload' },
+  { path: '/reports/company-profit',         title: '企业经营利润',              name: 'company-profit' },
+  { path: '/reports/customer-profit',        title: '客户利润概览',              name: 'customer-profit' },
+  { path: '/reports/customer-profit-analysis', title: '客户利润分析',              name: 'customer-profit-analysis' },
+  { path: '/reports/staff-profit',           title: '员工利润分析',              name: 'staff-profit' },
+  { path: '/reports/goods-sales',            title: '商品销售分析',              name: 'goods-sales' },
+  { path: '/reports/customer-rank',          title: '客户销额排名',              name: 'customer-rank' },
+  { path: '/reports/personal',               title: '个性化报表',               name: 'personal' }
+]
+
 export const PLACEHOLDER_PAGES = [
   /* —— 仓配管理（/wh/*）——
      🔴 v465c（P0）三页 + v465e（P1）六页**已落真身** ⇒ 从本表移出，改在 `PAGE_RULES`
@@ -645,38 +698,6 @@ export const PLACEHOLDER_PAGES = [
      否则本表合并循环会用 `BOSS_ROLES + module:null + lock` **覆盖**正式行的 `module:'stock'`。 */
 
 
-  /* —— 数据报表（/reports/*）—— */
-  { path: '/reports/sales-order',    title: '销售订单汇总表',   area: '数据报表' },
-  { path: '/reports/purchase',       title: '采购汇总表',       area: '数据报表' },
-  { path: '/reports/transfer',       title: '调拨汇总表',       area: '数据报表' },
-  { path: '/reports/other-inout',    title: '其他出入库汇总表', area: '数据报表' },
-  { path: '/reports/summary',        title: '汇总报表',         area: '数据报表' },
-  { path: '/reports/ar-summary',     title: '应收账款汇总表',   area: '数据报表' },
-  /* v507（2026-10-14）：账龄汇总表已落真身（ArAging.vue），
-     故**从占位表移除** —— 否则占位页会遮蔽真路由（路由注册先者胜）。 */
-  { path: '/reports/other-receivable', title: '其他应收汇总表', area: '数据报表' },
-  { path: '/reports/fee-summary',    title: '费用单汇总表',     area: '数据报表' },
-  { path: '/reports/income-summary', title: '收入汇总表',       area: '数据报表' },
-  { path: '/reports/account-flow',   title: '账户收支明细',     area: '数据报表' },
-  { path: '/reports/online-receipt', title: '线上收款流水',     area: '数据报表' },
-  { path: '/reports/receipt-detail', title: '收款明细表',       area: '数据报表' },
-  { path: '/reports/payment-detail', title: '付款明细表',       area: '数据报表' },
-  { path: '/reports/presale-goods',  title: '预订货品汇总表',   area: '数据报表' },
-  { path: '/reports/presale-orders', title: '预订货单明细表',   area: '数据报表' },
-  { path: '/reports/fee-usage',      title: '费用使用记录',     area: '数据报表' },
-  { path: '/reports/material-data',  title: '物料数据汇总',     area: '数据报表' },
-  { path: '/reports/material-usage', title: '物料使用汇总',     area: '数据报表' },
-  { path: '/reports/attendance',     title: '考勤统计',         area: '数据报表' },
-  { path: '/reports/visit-log',      title: '拜访记录',         area: '数据报表' },
-  { path: '/reports/visit-achv',     title: '拜访达成',         area: '数据报表' },
-  { path: '/reports/stock-upload',   title: '库存上报分析',     area: '数据报表' },
-  { path: '/reports/company-profit', title: '企业经营利润',     area: '数据报表' },
-  { path: '/reports/customer-profit', title: '客户利润概览',    area: '数据报表' },
-  { path: '/reports/customer-profit-analysis', title: '客户利润分析', area: '数据报表' },
-  { path: '/reports/staff-profit',   title: '员工利润分析',     area: '数据报表' },
-  { path: '/reports/goods-sales',    title: '商品销售分析',     area: '数据报表' },
-  { path: '/reports/customer-rank',  title: '客户销额排名',     area: '数据报表' },
-  { path: '/reports/personal',       title: '个性化报表',       area: '数据报表' },
 
   /* —— 市场营销（/mkt/*）—— */
   { path: '/mkt/display',             title: '陈列巡查',        area: '市场营销' },
@@ -716,6 +737,35 @@ for (const p of PLACEHOLDER_PAGES) {
     lock: true,
     cat: 'biz'
   }
+}
+
+/* v723（2026-10-28 阶段4/M3）：29 条 /reports/* 的**正式登记行**。
+   🔴 `module: 'reports'` 与数据源逐项一致：本组页面全部读 `/api/reports/def/*`
+      （`routers/report_engine.py`，prefix `/api`），命中 `server.py::_PATH_MODULE_MAP`
+      的既有 `/api/reports` 前缀 ⇒ RBAC 归 `reports`。
+      写成 `module:null` 会退化成「只读占位」语义 ⇒ 造出「入口可见、一开就 403」的假入口。
+   🔴 v472 纪律：数据报表区开发期一律 `BOSS_ROLES + lock`，只给老板。
+   ⚠️ 这些路径已从 `PLACEHOLDER_PAGES` 移出，故此循环是它们唯一的登记来源。 */
+for (const p of REPORT_PAGES) {
+  PAGE_RULES[p.path] = {
+    title: p.title,
+    module: 'reports',
+    roles: BOSS_ROLES,
+    lock: true,
+    cat: 'biz'
+  }
+}
+
+/* 报表设计器（v725）—— 它不是「一张报表」，是改报表口径的工具，
+   所以不进 REPORT_PAGES（那里每条都会变成一页读数的报表）。
+   🔴 只给老板：改口径 = 改所有人看到的数，后端 `_require_boss` 同样拦死，
+      这里是第二道（菜单不显示 + 深链被 roleGuarded 挡住）。 */
+PAGE_RULES['/reports/builder'] = {
+  title: '报表设计器',
+  module: 'reports',
+  roles: BOSS_ROLES,
+  lock: true,
+  cat: 'biz'
 }
 
 /**
