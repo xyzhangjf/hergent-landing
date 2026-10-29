@@ -28,7 +28,7 @@
 收入878.61/成本778.51/毛利100.11万(11.39%)01~09 accrual；库存v728按舟谱快照重建281行/15.69万/0负；资金域16账户期初116,638.05。动账须跑：净利合计==unclosed_profit、balanced、不平凭证0。
 
 ## 进度锚
-v730 P0-S1库存金额化(patch0011+9写入点)｜v731 P0-S2库存内核重构(inventory_balance+stock_ledger单一写入口，未部署)｜v731②数据健康S3(8卡，未部署)｜v722资金域16账户｜v723报表平台化(report_definitions+执行器+GenericReport.vue 29条/reports/*，前端v656)｜v724~v726报表修正/图表化｜v727补录1-10月｜v728库存重建｜v729合并8组重复商品｜v732 ④仓配闭环(W1拣货波次/W2预留reserve.py/W3库位，lock:true仅老板；backend 3d45452/08be6d3 + frontend a65c8ae)。**2026-10-29 已部署**：backend patch12/13/14 ok、新端点带鉴权200；frontend 从a65c8ae隔离构建(剥report路由改stub避免拖垮构建)+rsync assets+scp index.html，双侧md5一致、HTTP200。
+v730 P0-S1库存金额化：inventory 加 stock_value/valuation_rate 列并填 278/281 行，**但无独立 stock_ledger_entry 引擎、出库成本仍回落 products.purchase_price**（详见下）。v731 P0-S2**规划改走扩展旧表**：生产实际跑 inventory(281)+inventory_logs(281)，inventory_balance 建而**0行(空壳)**、write_stock_entry **未建**、写入散落 fefo_deduct/inventory_adjust/sale_order_deliver(被打补丁非单一入口)；psi.py 明确"不新增表"。v731②数据健康S3(8卡，未部署)｜v722资金域16账户｜v723报表平台化(report_definitions+执行器+GenericReport.vue 29条/reports/*，前端v656)｜v724~v726报表修正/图表化｜v727补录1-10月｜v728库存重建｜v729合并8组重复商品｜v732 ④仓配闭环(W1拣货波次/W2预留reserve.py/W3库位，lock:true仅老板；backend 3d45452/08be6d3 + frontend a65c8ae)。**2026-10-29 已部署**：backend patch12/13/14 ok、新端点带鉴权200；frontend 从a65c8ae隔离构建(剥report路由改stub避免拖垮构建)+rsync assets+scp index.html，双侧md5一致、HTTP200。
 **2026-10-29 ⑤验证**：29定义全配SQL，faithful复刻执行器(validate_sql+_build_params，只读RO)在tenant_1.db实跑→26张返回真实数据(3张大表截断5001)+3张kind=unavailable占位+0拒绝0报错；前端⑤组件(modules.js+GenericReport.vue+ReportBuilder.vue)已部署hergent.cn待commit；4张0行(income-summary/receipt-detail/payment-detail/attendance)源表空疑似口径指错表待核对。
 
 ## ⑤ 报表平台化(已上线·2026-10-29验证)
