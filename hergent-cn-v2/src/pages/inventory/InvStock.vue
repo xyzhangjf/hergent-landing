@@ -73,6 +73,8 @@
                 <th v-if="isVisible('expiry')">到期日</th>
                 <th v-if="isVisible('days')">剩余</th>
                 <th class="num">数量</th>
+                <th class="num" v-if="isVisible('reserved')" title="该商品-仓被拣货波次/销售单锁定的预留量">已预留</th>
+                <th class="num" v-if="isVisible('avail')" title="商品-仓实际总量 − 已预留（非批次级）">可用(商品级)</th>
                 <th class="num" v-if="isVisible('amount')">金额</th>
                 <th class="num" v-if="isVisible('cost')">成本价</th>
                 <th>状态</th>
@@ -89,6 +91,8 @@
                 <!-- 剩余天数由后端算（与排序、可售判定同源），前端不再拿今天去减 -->
                 <td v-if="isVisible('days')">{{ daysText(r) }}</td>
                 <td class="num">{{ fmtQty(r.quantity) }}</td>
+                <td class="num" v-if="isVisible('reserved')">{{ fmtQty(r.reserved) }}</td>
+                <td class="num" v-if="isVisible('avail')">{{ fmtQty(r.available) }}</td>
                 <td class="num" v-if="isVisible('amount')">¥{{ fmtMoney(r.stock_value) }}</td>
                 <td class="num" v-if="isVisible('cost')">¥{{ fmtMoney(r.cost_price) }}</td>
                 <td>
@@ -107,6 +111,8 @@
                 <td v-if="isVisible('expiry')"></td>
                 <td v-if="isVisible('days')"></td>
                 <td class="num">{{ fmtQty(pageTotals.qty) }}</td>
+                <td class="num" v-if="isVisible('reserved')">{{ fmtQty(pageTotals.reserved) }}</td>
+                <td class="num" v-if="isVisible('avail')">{{ fmtQty(pageTotals.available) }}</td>
                 <td class="num" v-if="isVisible('amount')">{{ fmtMoney(pageTotals.amount) }}</td>
                 <td class="num" v-if="isVisible('cost')"></td>
                 <td></td>
@@ -150,6 +156,8 @@ const STOCK_COLS = [
   { key: 'expiry', label: '到期日', core: false },
   { key: 'days', label: '剩余', core: false },
   { key: 'qty', label: '数量', core: true },
+  { key: 'reserved', label: '已预留', core: false },
+  { key: 'avail', label: '可用(商品级)', core: false },
   { key: 'amount', label: '金额', core: false },
   { key: 'cost', label: '成本价', core: false },
   { key: 'status', label: '状态', core: true },
@@ -225,14 +233,23 @@ function daysText (r) {
 
 function fmtQty (n) { return Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
 /* 本页合计：合计当前页可见行的「数量」与「金额」（金额 = 数量 × 单品进价，沿用 P0-S1 口径）。
-   成本价（单位成本）不合计（见 v512 规则）。 */
+   成本价（单位成本）不合计（见 v512 规则）。
+   🔴 reserved / available 是「商品-仓」级别，同一商品-仓可能有多行（不同批次），
+      故按 (product_id, warehouse_id) 去重后再合计，避免把预留量重复累加翻倍数。 */
 const pageTotals = computed(() => {
-  let qty = 0, amount = 0
+  let qty = 0, amount = 0, reserved = 0, available = 0
+  const seen = new Set()
   for (const r of rows.value) {
     qty += Number(r.quantity || 0)
     amount += Number(r.stock_value || 0)
+    const k = r.product_id + ':' + r.warehouse_id
+    if (!seen.has(k)) {
+      seen.add(k)
+      reserved += Number(r.reserved || 0)
+      available += Number(r.available || 0)
+    }
   }
-  return { qty, amount }
+  return { qty, amount, reserved, available }
 })
 onMounted(load)
 </script>

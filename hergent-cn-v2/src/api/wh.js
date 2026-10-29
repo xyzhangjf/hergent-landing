@@ -311,4 +311,41 @@ export const whApi = {
     { v: 'signed',    t: '已签收', cls: 'badge-green' },
     { v: 'failed',    t: '配送失败', cls: 'badge-red' },
   ]),
+
+  /* ================= ④ 仓配闭环 W1：拣货波次（/api/picking，归 stock） =================
+     🔴 生成波次即按小单位预留（auto_reserve），预留不足整体回滚并 400（前端要拦截报错）。
+        `pickWaveCreate` 返回 `{success, wave_id, wave_no, order_count, item_count, reserved}`。
+        ⚠️ `pickWaveList` 用 `_list()` 归一（后端 `{items,total}`）；`pickWaveDetail` 返回
+        波次对象（含 `items` 逐行：product_id/quantity/bin_location/picked_qty/status）。 */
+  pickWaveList: (p = {}) => api(`/api/picking/waves${qs(p)}`).then(_list),
+  pickWaveDetail: (id) => api(`/api/picking/waves/${id}`),
+  /* body `{warehouse_id, order_ids:[], picker_id}`；order_ids 空 = 聚合该仓全部 pickable 单 */
+  pickWaveCreate: (body) => api('/api/picking/waves', { method: 'POST', body }),
+  pickWaveComplete: (id) => api(`/api/picking/waves/${id}/complete`, { method: 'POST' }),
+  /* 作废波次：释放该波次各订单的预留（防可用量虚低），返回 `{success, released_orders}` */
+  pickWaveCancel: (id) => api(`/api/picking/waves/${id}/cancel`, { method: 'POST' }),
+  /* 记录某拣货明细行已拣数量（部分拣货也允许）body `{picked_qty}` */
+  pickItem: (itemId, pickedQty) =>
+    api(`/api/picking/waves/items/${itemId}/pick`, { method: 'POST', body: { picked_qty: pickedQty } }),
+
+  /* ================= ④ 仓配闭环 W3：库位管理（/api/wh/locations，归 stock） =================
+     `inventory.location_id` 把每行(lot)指向一个正式库位（替代 free-text bin_location）。
+     🔴 列表用 `_list()` 归一（后端 `{items,total}`）；每项 `{id, warehouse_id, code, name, zone, remark}`。 */
+  locationList: (p = {}) => api(`/api/wh/locations${qs(p)}`).then(_list),
+  /* body `{warehouse_id, code, name, zone, remark}` ⇒ `{success, id}` */
+  locationCreate: (body) => api('/api/wh/locations', { method: 'POST', body }),
+  /* body `{code, name, zone, remark}` ⇒ `{success, id}` */
+  locationUpdate: (id, body) => api(`/api/wh/locations/${id}`, { method: 'PUT', body }),
+  locationDelete: (id) => api(`/api/wh/locations/${id}`, { method: 'DELETE' }),
+  /* 把若干 inventory 行指向库位 body `{inventory_ids:[], location_id}` ⇒ `{success, updated}` */
+  locationAssign: (body) => api('/api/wh/locations/assign', { method: 'POST', body }),
+
+  /* ================= ④ 仓配闭环 W2：库存预留（/api/inventory/reserve|release|availability，归 stock） =================
+     🔴 预留是 W1 波次生成时的副作用（auto_reserve），本组方法主要供「手工预留 / 释放 / 查可用」。
+        `available = actual - reserved`；actual 实时取 SUM(inventory.quantity)，不依赖余额表新鲜度。
+        ⚠️ `reserveStock` 超额时后端抛 400 ⇒ api() 抛 Error，调用方必须显示，别吞。 */
+  reserveStock: (body) => api('/api/inventory/reserve', { method: 'POST', body }),
+  releaseReserve: (body) => api('/api/inventory/release', { method: 'POST', body }),
+  availability: (productId, warehouseId = 1) =>
+    api(`/api/inventory/availability${qs({ product_id: productId, warehouse_id: warehouseId })}`),
 }

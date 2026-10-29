@@ -103,6 +103,9 @@ const WhWastage = () => import('../pages/wh/Wastage.vue')
 const WhDeliveryOrder = () => import('../pages/wh/DeliveryOrder.vue')
 const WhDriverBoard = () => import('../pages/wh/DriverBoard.vue')
 const WhRouteSetup = () => import('../pages/wh/RouteSetup.vue')
+/* ④ 仓配闭环（2026-10-29）：W1 拣货波次 + W3 库位管理 落真身。 */
+const WhPickWave = () => import('../pages/wh/PickWave.vue')
+const WhLocation = () => import('../pages/wh/Location.vue')
 const CronJobs = () => import('../pages/CronJobs.vue')
 const RoleManage = () => import('../pages/RoleManage.vue')
 const BidRadar = () => import('../pages/BidRadar.vue')
@@ -415,6 +418,9 @@ export const router = createRouter({
         { path: 'wh/delivery',     component: WhDeliveryOrder, meta: { title: '配送单' } },
         { path: 'wh/driver-board', component: WhDriverBoard,   meta: { title: '司机任务看板' } },
         { path: 'wh/route-setup',  component: WhRouteSetup,    meta: { title: '线路设置' } },
+        /* ④ 仓配闭环（2026-10-29）：W1 拣货波次 + W3 库位管理（后端 /api/picking + /api/wh/locations） */
+        { path: 'wh/pick-wave',    component: WhPickWave,     meta: { title: '拣货波次' } },
+        { path: 'wh/location',     component: WhLocation,      meta: { title: '库位管理' } },
 
         /* v465d（2026-10-11 资金管理）：**全部 28 页落真身**。
            🔴 必须排在下方 `PLACEHOLDER_PAGES.map(...)` **之前**（相对路径 + 静态段在前）——

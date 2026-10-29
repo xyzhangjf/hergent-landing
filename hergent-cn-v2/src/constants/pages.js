@@ -396,6 +396,10 @@ export const PAGE_RULES = {
   '/wh/delivery':     { title: '配送单',       module: 'sales', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/wh/driver-board': { title: '司机任务看板', module: 'sales', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   '/wh/route-setup':  { title: '线路设置',     module: 'sales', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  /* ④ 仓配闭环（2026-10-29）：W1 拣货波次（/api/picking → stock）+ W3 库位管理（/api/wh/locations → stock）。
+     🔴 模块轴同其它 /wh/*：'stock'（W1/W3 端点都归 stock）；角色轴 BOSS_ROLES + lock（开发期只给老板）。 */
+  '/wh/pick-wave':   { title: '拣货波次',     module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/wh/location':    { title: '库位管理',     module: 'stock', roles: BOSS_ROLES, lock: true, cat: 'biz' },
   // 档案管理：`/archive/employees|customers|brands|products|warehouses|prices` 六个子路由自动继承本行。
   //   ⚠️ 子路由**必须**全部在 router/index.js 的 /archive children 里登记；父级只解析到
   //      `/archive` 这一段，多出的路径段不会自动继承、会落到 404。
