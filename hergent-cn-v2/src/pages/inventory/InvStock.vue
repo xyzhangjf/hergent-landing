@@ -73,6 +73,7 @@
                 <th v-if="isVisible('expiry')">到期日</th>
                 <th v-if="isVisible('days')">剩余</th>
                 <th class="num">数量</th>
+                <th class="num" v-if="isVisible('amount')">金额</th>
                 <th class="num" v-if="isVisible('cost')">成本价</th>
                 <th>状态</th>
               </tr>
@@ -88,6 +89,7 @@
                 <!-- 剩余天数由后端算（与排序、可售判定同源），前端不再拿今天去减 -->
                 <td v-if="isVisible('days')">{{ daysText(r) }}</td>
                 <td class="num">{{ fmtQty(r.quantity) }}</td>
+                <td class="num" v-if="isVisible('amount')">¥{{ fmtMoney(r.stock_value) }}</td>
                 <td class="num" v-if="isVisible('cost')">¥{{ fmtMoney(r.cost_price) }}</td>
                 <td>
                   <span class="tag" :class="tagOf(EXPIRY_STATUS, r.expiry_status)">
@@ -105,6 +107,7 @@
                 <td v-if="isVisible('expiry')"></td>
                 <td v-if="isVisible('days')"></td>
                 <td class="num">{{ fmtQty(pageTotals.qty) }}</td>
+                <td class="num" v-if="isVisible('amount')">{{ fmtMoney(pageTotals.amount) }}</td>
                 <td class="num" v-if="isVisible('cost')"></td>
                 <td></td>
               </tr>
@@ -147,6 +150,7 @@ const STOCK_COLS = [
   { key: 'expiry', label: '到期日', core: false },
   { key: 'days', label: '剩余', core: false },
   { key: 'qty', label: '数量', core: true },
+  { key: 'amount', label: '金额', core: false },
   { key: 'cost', label: '成本价', core: false },
   { key: 'status', label: '状态', core: true },
 ]
@@ -220,11 +224,15 @@ function daysText (r) {
 }
 
 function fmtQty (n) { return Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 0 }) }
-/* 本页合计：只合计当前页可见行的「数量」（金额类单位成本不合计，见 v512 规则）。 */
+/* 本页合计：合计当前页可见行的「数量」与「金额」（金额 = 数量 × 单品进价，沿用 P0-S1 口径）。
+   成本价（单位成本）不合计（见 v512 规则）。 */
 const pageTotals = computed(() => {
-  let qty = 0
-  for (const r of rows.value) qty += Number(r.quantity || 0)
-  return { qty }
+  let qty = 0, amount = 0
+  for (const r of rows.value) {
+    qty += Number(r.quantity || 0)
+    amount += Number(r.stock_value || 0)
+  }
+  return { qty, amount }
 })
 onMounted(load)
 </script>
