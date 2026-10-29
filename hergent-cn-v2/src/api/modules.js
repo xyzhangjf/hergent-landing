@@ -1076,3 +1076,31 @@ export const zhoupuApi = {
         别拿它当业务量统计（有人手工删过单就会与库不一致）。 */
   sourceStatus: () => api('/api/import/zhoupu/source-status', { timeout: 15000, raw: true }),
 }
+
+/* ---- 报表执行器（⑤ 报表平台化 / v723）：配置驱动报表 ----
+   🔴 模块轴 = `reports`（`server.py::_PATH_MODULE_MAP`：`/api/reports` → reports）。
+   🔴 读接口（list/getDef/getData）全租户可读（看自己公司的数）；
+      写接口（getRaw/preview/save/create）只有老板/管理员（改口径 = 改所有人看到的数的口径）。 */
+export const reportEngineApi = {
+  /** 可访问的报表清单（不含 SQL）。 */
+  list: () => api('/api/reports/defs'),
+  /** 单张报表元数据（列/筛选/口径说明，不含 SQL）。 */
+  getDef: (name) => api(`/api/reports/def/${encodeURIComponent(name)}`),
+  /** 执行报表：filters 为 { key: value }，空值不传。 */
+  getData: (name, filters = {}) => {
+    const q = new URLSearchParams()
+    for (const [k, v] of Object.entries(filters || {})) {
+      if (v !== '' && v !== null && v !== undefined) q.append(k, String(v))
+    }
+    const qs = q.toString()
+    return api(`/api/reports/def/${encodeURIComponent(name)}/data${qs ? '?' + qs : ''}`)
+  },
+  /** 🔴 老板/管理员：查看报表原始 SQL。 */
+  getRaw: (name) => api(`/api/reports/def/${encodeURIComponent(name)}/raw`),
+  /** 🔴 老板/管理员：保存前试跑（校验 + 试算）。body = 待保存定义。 */
+  preview: (body) =>
+    api('/api/reports/preview', { method: 'POST', body, timeout: 30000 }),
+  /** 🔴 老板/管理员：保存报表定义（会先试跑，跑不通不落库）。 */
+  save: (name, body) =>
+    api(`/api/reports/def/${encodeURIComponent(name)}`, { method: 'POST', body, timeout: 30000 }),
+}
