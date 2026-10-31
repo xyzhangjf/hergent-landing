@@ -2399,5 +2399,9 @@ onMounted(() => {
   .df-ph-right{width:100%;justify-content:flex-start}
   /* 账号操作行：label 与控件在窄屏必然换行，label 不再死占 56px */
   .df-acc-exp-label{min-width:0}
+  /* v708：角色 / 可登录端这类**长下拉**在窄屏独占整行 —— 原来被 56px 标签挤到 240px，
+     「财务/文员（仅网页端 · 账务 / 报表 / 订货汇总 / 返利）」只能显示一半。
+     只覆盖 select（`flex-basis:100%` 触发 wrap），含按钮的账号操作行不受影响。 */
+  .df-acc-row select{flex:1 1 100%}
 }
 </style>
