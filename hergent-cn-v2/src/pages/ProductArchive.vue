@@ -518,43 +518,6 @@
         </div>
       </Transition>
 
-      <!-- 新增商品弹窗 -->
-      <Transition name="fade"><div v-if="addOpen" class="pa-overlay" @click="addOpen = false"></div></Transition>
-      <Transition name="pop">
-        <div v-if="addOpen" class="pa-modal">
-          <div class="pa-modal-hd"><b>新增商品</b><button class="pa-x" @click="addOpen = false"><Icon name="close"/></button></div>
-          <div class="pa-modal-body">
-            <p class="pa-tip">名称重复将更新已有商品（其余字段按填写覆盖）。品牌自动归一，未匹配品牌进入待审。</p>
-            <div class="pa-form">
-              <label class="pa-f"><span>商品名称 <i>*</i></span><input v-model="addForm.name" class="input" placeholder="必填"></label>
-              <label class="pa-f"><span>条码</span><input v-model="addForm.barcode" class="input" placeholder="唯一编码，留空按名称匹配"></label>
-              <label class="pa-f"><span>规格</span><input v-model="addForm.spec" class="input" placeholder="如 200g×12"></label>
-              <label class="pa-f"><span>单位</span><input v-model="addForm.unit" class="input" placeholder="件（默认）"></label>
-              <!-- v233：报单单位（可选）。留空 = 跟随「单位」；填了就同时作用于**主表**与**舟谱模板**，
-                   并且模板会按档案换算把数量一并折算（不是只换标签）。与进价同一条守卫：留空 = 不带该键。
-                   v240：与编辑弹窗同一字段名（报单默认单位）。此处仍是**手填** —— 新建时还不知道中/大单位名，
-                   下拉无项可选；档位建好后到「编辑 → 包装单位」用下拉改即可。 -->
-              <label class="pa-f"><span>报单默认单位<span class="pa-hint">留空 = 跟随「单位」；填了则报单/导舟谱都用它</span></span><input v-model="addForm.order_unit" class="input" maxlength="8" placeholder="如 条 / 组 / 板"></label>
-              <label class="pa-f"><span>品牌</span><input v-model="addForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
-              <label class="pa-f"><span>分类</span><input v-model="addForm.category" class="input" placeholder="如 液态奶"></label>
-              <!-- v226：同编辑弹窗 —— 只留一个「进价」输入框（绑 factory_price）。 -->
-              <label class="pa-f"><span>进价<span class="pa-hint">厂家跟你结算的价（元/箱），可留空</span></span><input v-model="addForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
-              <label class="pa-f"><span>售价</span><input v-model="addForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
-              <label class="pa-f"><span>安全库存</span><input v-model="addForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
-              <label class="pa-f"><span>保质期(天)</span><input v-model="addForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
-              <!-- v184b：到货周期。留空 = **不改动**（不写这一列）—— 本弹窗保存走 bulk-upsert，
-                   同名商品会走更新分支；若把空值当 0 提交，会把别人已设好的到货周期清零
-                   （进价列踩过同一个坑，见 saveAdd 里的条件展开）。 -->
-              <label class="pa-f"><span>到货周期<span class="pa-hint">+几天到货，留空 = 不设置</span></span><input v-model="addForm.arrival_lead_days" class="input" type="number" min="0" :max="ARRIVAL_MAX" step="1" placeholder="如 3"></label>
-            </div>
-          </div>
-          <div class="pa-modal-ft">
-            <button class="btn btn-ghost" @click="addOpen = false">取消</button>
-            <button class="btn btn-primary" :disabled="addSaving" @click="saveAdd">{{ addSaving ? '保存中…' : '保存' }}</button>
-          </div>
-        </div>
-      </Transition>
-
       <!-- 导入弹窗 -->
       <Transition name="fade"><div v-if="impOpen" class="pa-overlay" @click="impOpen = false"></div></Transition>
       <Transition name="pop">

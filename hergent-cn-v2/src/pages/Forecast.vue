@@ -2181,10 +2181,13 @@
                 <div class="ctx-fx-tools">
                   <label class="ctx-uniq-all">
                     <!-- v668：部分勾选时必须显示「半选」——只看 :checked 的话，撤掉 30 个里的 1 个
-                         也和「一个都没勾」长得一模一样，用户会误以为自己已经清空了。 -->
-                    <input type="checkbox" :checked="fxAllOn()"
-                           :indeterminate.prop="fxChecked.length > 0 && !fxAllOn()"
-                           @change="fxToggleAll"> 全选
+                         也和「一个都没勾」长得一模一样，用户会误以为自己已经清空了。
+                         v705（合并）：改用全站共享件 `SelectAllCheckbox`（v671）。手写三态是
+                         `tests/select-all.contract.mjs` 明令禁止的第二套实现，而且迟早会踩回
+                         pre-click activation 那个坑（勾选态与真实集合永久相反，只有重建节点才对齐）。 -->
+                    <SelectAllCheckbox :checked="fxAllOn()" :indeterminate="fxChecked.length > 0 && !fxAllOn()"
+                                       :disabled="!fxVals.length" :count="fxVals.length" unit="个值"
+                                       tip="全选/取消全选当前列出的值" @toggle="fxToggleAll" /> 全选
                   </label>
                   <button class="ctx-fx-link" @click="fxClearSel">清空选择</button>
                   <span class="ctx-fx-cnt">{{ fxChecked.length }} / {{ fxVals.length }}</span>
@@ -7561,8 +7564,10 @@ function openColFilter(key, type) {
   hdrCtx.value.mode = 'excel'
 }
 function fxAllOn() { return fxChecked.value.length === fxVals.value.length }
-function fxToggleAll() {
-  fxChecked.value = fxAllOn() ? [] : fxVals.value.slice()
+/* v705（合并）：`SelectAllCheckbox` 的 `@toggle` 直接把目标态传进来（true=全选），
+   不再自己读 `fxAllOn()` 取反 —— DOM 只由 `fxChecked` 单向决定（v677 那条坑的同族）。 */
+function fxToggleAll(on) {
+  fxChecked.value = on ? fxVals.value.slice() : []
   fxSync()
 }
 function fxToggleVal(v) {
