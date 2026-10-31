@@ -3,7 +3,7 @@
     <div class="page-hd split">
       <div>
         <h2>商品档案</h2>
-        <span class="page-sub">浏览与维护商品主档 · <b>点行尾「编辑」改名称/规格/价格/描述等（没改动的会保持原样）</b> · 品牌、进价、到货周期三列也支持行内直接点改</span>
+        <span class="page-sub">浏览与维护商品主档 · <b>点行尾「编辑」改名称/规格/价格/描述等（没改动的会保持原样）</b> · 品牌、进价、到货周期三列支持行内直接点改，下单日点格子选节奏</span>
       </div>
       <div class="pa-actions">
         <span class="pa-stat" v-if="total !== null"><b>{{ total }}</b>&nbsp;个商品</span>
@@ -42,7 +42,7 @@
       </div>
 
       <Skeleton v-if="loading" />
-      <div v-else-if="products.length" class="table-wrap freeze-list">
+      <div v-else-if="products.length" class="table-wrap freeze-list" ref="listWrap">
         <table class="tbl">
           <thead><tr>
             <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th><th>名称</th><th v-if="isVisible('barcode')">条码</th><th v-if="isVisible('spec')">规格</th><th>单位</th>
@@ -62,6 +62,9 @@
             <!-- v184b：到货周期（该单品下单后第几天到货）。位置放在「商品身份」块（名称/条码/规格/单位）
                  之后、价格块之前 —— 它是 SKU 属性，不属于价格组（标准售价/进价/分销价）。 -->
             <th v-if="isVisible('cycle')" title="该单品下单后第几天到货（如 +3天）。点格子可直接改；留空或 0 = 取消设置">到货周期</th>
+            <!-- v674：下单日 —— 「哪天该下单」（到货周期答的是「下单后几天到」）。
+                 它同时是预报页「今日下单」筛选的判据来源 ⇒ 在这里就能核对、补配。 -->
+            <th v-if="isVisible('order_days')" class="col-od-th" title="该单品哪天该下单（每天 / 单号 / 双号 / 每周几 / 每月几号）。点格子可选；预报页的「今日下单」就按它判断">下单日</th>
             <th v-if="isVisible('brand')">品牌</th><th class="num">标准售价</th><th class="num" title="进价 ＝ 厂家跟你结算的价（元/箱），算「本期需付款」用的就是它。可留空：留空则按档案里的历史进价列取；点格子可直接改">进价</th><th v-if="isVisible('safety')" class="num">安全库存</th><th>状态</th><th></th>
           </tr></thead>
           <tbody>
@@ -108,6 +111,18 @@
                       title="点这里改（该单品下单后第几天到货）" @click="startEditCycle(p)">{{ arrivalCycleText(p.arrival_lead_days) }}</span>
                 <span v-else class="pa-cyc-none" title="点这里设置：该单品下单后第几天到货（如 3 = +3天）" @click="startEditCycle(p)">未设</span>
               </td>
+              <!-- v674：下单日 —— 与左邻「到货周期」成对（哪天该下 → 下完几天到）。
+                   三态与到货周期同构（有值 / 未设 / 编辑中），但**编辑不是行内输入框**：
+                   下单日是一个规则串（如 w:2,4、p:odd），填串没人看得懂 ⇒ 点开弹层选。
+                   🔴 无 data/update 权限时灰字且不绑 @click —— 不能点就别装成能点。 -->
+              <td v-if="isVisible('order_days')" class="pa-od-cell">
+                <span v-if="String(p.order_days || '').trim()" class="pa-od-val" :class="{ ro: !canEdit }"
+                      :title="(canEdit ? '点这里改下单日 · ' : '') + orderRuleFull(p.order_days)"
+                      @click="canEdit && openOrd(p)">{{ orderRuleText(p.order_days) }}</span>
+                <span v-else class="pa-od-none" :class="{ ro: !canEdit }"
+                      :title="'未设置 ⇒ 按「每天」算（预报页「今日下单」里恒命中）' + (canEdit ? '；点这里可设成 单号 / 双号 / 每周几 / 每月几号' : '')"
+                      @click="canEdit && openOrd(p)">未设</span>
+              </td>
               <td v-if="isVisible('brand')" class="pa-brand-cell">
                 <input v-if="editingId === p.id" v-model="editBrand" class="input pa-brand-input" list="pa-brand-list"
                        @keyup.enter="saveBrand(p)" @blur="saveBrand(p)">
@@ -145,20 +160,23 @@
             </tr>
           </tbody>
         </table>
-
-        <!-- 分页 -->
-        <div class="pa-pager" v-if="total > pageSize">
-          <button class="btn btn-ghost btn-sm" :disabled="page <= 1" @click="goPage(page - 1)">上一页</button>
-          <span class="pa-pageinfo">第 {{ page }} / {{ totalPages }} 页 · 共 {{ total }} 条</span>
-          <button class="btn btn-ghost btn-sm" :disabled="page >= totalPages" @click="goPage(page + 1)">下一页</button>
-          <select v-model="pageSize" class="input pa-size" @change="onPageSizeChange">
-            <option :value="20">20 / 页</option>
-            <option :value="50">50 / 页</option>
-            <option :value="100">100 / 页</option>
-          </select>
-        </div>
       </div>
-      <div v-else class="state-empty">没有匹配的商品，调整筛选条件试试</div>
+
+      <!-- 分页 —— 🔴 必须在 `.table-wrap`（滚动容器）**外面**。
+           放在里面时它跟表格一起滚：50 行/页时「下一页」在 3400px 处，得一路滚到底才找得到；
+           而且横向滚动条正好压在最后一行上（实测 33 行时第 9 行被切）。 -->
+      <div class="pa-pager" v-if="products.length && total > pageSize">
+        <button class="btn btn-ghost btn-sm" :disabled="page <= 1" @click="goPage(page - 1)">上一页</button>
+        <span class="pa-pageinfo">第 {{ page }} / {{ totalPages }} 页 · 共 {{ total }} 条</span>
+        <button class="btn btn-ghost btn-sm" :disabled="page >= totalPages" @click="goPage(page + 1)">下一页</button>
+        <select v-model="pageSize" class="input pa-size" @change="onPageSizeChange">
+          <option :value="20">20 / 页</option>
+          <option :value="50">50 / 页</option>
+          <option :value="100">100 / 页</option>
+        </select>
+      </div>
+      <!-- 不能再写 v-else：分页块插进来后 v-if/v-else 不再相邻 ⇒ 改成显式条件 -->
+      <div v-if="!loading && !products.length" class="state-empty">没有匹配的商品，调整筛选条件试试</div>
       <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
     </div>
 
@@ -451,6 +469,91 @@
         </div>
       </Transition>
 
+      <!-- v674：下单日（单条）—— 点档案列表「下单日」格子打开。
+           刻意做成弹层而不是行内输入框：值是一个**规则**（`w:2,4` / `p:odd` / `m:3,7,11`），
+           填串没人看得懂。选项文案与预报页「批量设置下单日」逐字同一批 ——
+           同一件事两个叫法，用户会以为功能不同。 -->
+      <Transition name="fade"><div v-if="ordOpen" class="pa-overlay pa-ord-ov" @click="ordOpen = false"></div></Transition>
+      <Transition name="pop">
+        <div v-if="ordOpen" class="pa-modal pa-ord" role="dialog" aria-modal="true" aria-label="设置下单日">
+          <div class="pa-modal-hd">
+            <b>下单日 · <span class="pa-ord-nm">{{ ordTarget ? ordTarget.name : '' }}</span></b>
+            <button class="pa-x" @click="ordOpen = false"><Icon name="close"/></button>
+          </div>
+          <div class="pa-modal-body">
+            <p class="pa-tip">配的是<b>规律</b>，不是某一个日期（配成「10月31号」这种具体日期，第二天就失效了）。预报页点<b>「今日下单」</b>就按它判断这个品今天该不该下。</p>
+            <div class="pa-od-now">
+              <span class="pa-od-k">当前</span>
+              <span class="pa-od-v">{{ ordNowText }}</span>
+              <span class="pa-od-hit" :class="{ off: !ordHitToday }">{{ ordHitToday ? '今天在列' : '今天不在列' }}</span>
+            </div>
+            <p v-if="ordMulti" class="pa-od-warn">当前是<b>组合规则</b>（多个条件任一命中），下面的单选只能表达一种 —— 重选会覆盖成单一规则。</p>
+
+            <div class="pa-ord-modes">
+              <label v-for="m in ORD_MODES" :key="m.v" class="ord-mode">
+                <input type="radio" name="paOrdMode" :value="m.v" v-model="ordMode"> {{ m.t }}
+              </label>
+            </div>
+            <div v-if="ordMode === 'w'" class="pa-ord-sub">
+              <label v-for="w in WEEK_OPTS" :key="w.v" class="ord-wd">
+                <input type="checkbox" :value="w.v" v-model="ordWeek"> {{ w.t }}
+              </label>
+            </div>
+            <div v-if="ordMode === 'm'" class="pa-ord-sub">
+              <input class="input pa-ord-month" v-model="ordMonthText" :class="{ bad: ordBad }"
+                     placeholder="如 3、7、11、15、19、23、27" aria-label="每月几号下单，用顿号或逗号分隔">
+              <span class="pa-ord-hint">填 1~31，用 、或 , 分隔</span>
+            </div>
+            <p class="pa-ord-preview">将要写入：<b>{{ ordPreview }}</b></p>
+            <p class="pa-ord-hint">「每天」与「未设置」在「今日下单」里效果相同（都恒命中）—— 想恢复每天都下就选「每天」。</p>
+          </div>
+          <div class="pa-modal-ft">
+            <!-- 颜色语义：只有「真的要改」和「填错了」才用警告橙；引导语/无变化一律灰
+                 （`.pa-ft-note` 全局是橙，「与当前设置一致」用橙会让人以为哪里出错了）。 -->
+            <span class="pa-ft-note" :class="{ calm: !ordBad && (!ordRule.ok || ordRule.rule === ordOrig) }">{{ ordSummary }}</span>
+            <button class="btn btn-ghost" @click="ordOpen = false">取消</button>
+            <button class="btn btn-primary" :disabled="ordBad || !ordRule.ok || ordSaving || ordRule.rule === ordOrig"
+                    :title="ordRule.rule === ordOrig ? '与当前设置一致' : ''" @click="applyOrd">{{ ordSaving ? '保存中…' : '保存' }}</button>
+          </div>
+        </div>
+      </Transition>
+
+      <!-- 新增商品弹窗 -->
+      <Transition name="fade"><div v-if="addOpen" class="pa-overlay" @click="addOpen = false"></div></Transition>
+      <Transition name="pop">
+        <div v-if="addOpen" class="pa-modal">
+          <div class="pa-modal-hd"><b>新增商品</b><button class="pa-x" @click="addOpen = false"><Icon name="close"/></button></div>
+          <div class="pa-modal-body">
+            <p class="pa-tip">名称重复将更新已有商品（其余字段按填写覆盖）。品牌自动归一，未匹配品牌进入待审。</p>
+            <div class="pa-form">
+              <label class="pa-f"><span>商品名称 <i>*</i></span><input v-model="addForm.name" class="input" placeholder="必填"></label>
+              <label class="pa-f"><span>条码</span><input v-model="addForm.barcode" class="input" placeholder="唯一编码，留空按名称匹配"></label>
+              <label class="pa-f"><span>规格</span><input v-model="addForm.spec" class="input" placeholder="如 200g×12"></label>
+              <label class="pa-f"><span>单位</span><input v-model="addForm.unit" class="input" placeholder="件（默认）"></label>
+              <!-- v233：报单单位（可选）。留空 = 跟随「单位」；填了就同时作用于**主表**与**舟谱模板**，
+                   并且模板会按档案换算把数量一并折算（不是只换标签）。与进价同一条守卫：留空 = 不带该键。
+                   v240：与编辑弹窗同一字段名（报单默认单位）。此处仍是**手填** —— 新建时还不知道中/大单位名，
+                   下拉无项可选；档位建好后到「编辑 → 包装单位」用下拉改即可。 -->
+              <label class="pa-f"><span>报单默认单位<span class="pa-hint">留空 = 跟随「单位」；填了则报单/导舟谱都用它</span></span><input v-model="addForm.order_unit" class="input" maxlength="8" placeholder="如 条 / 组 / 板"></label>
+              <label class="pa-f"><span>品牌</span><input v-model="addForm.brand" class="input" list="pa-brand-list" placeholder="可手填或选已有"></label>
+              <label class="pa-f"><span>分类</span><input v-model="addForm.category" class="input" placeholder="如 液态奶"></label>
+              <!-- v226：同编辑弹窗 —— 只留一个「进价」输入框（绑 factory_price）。 -->
+              <label class="pa-f"><span>进价<span class="pa-hint">厂家跟你结算的价（元/箱），可留空</span></span><input v-model="addForm.factory_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label class="pa-f"><span>售价</span><input v-model="addForm.sale_price" class="input" type="number" min="0" step="0.01" placeholder="0"></label>
+              <label class="pa-f"><span>安全库存</span><input v-model="addForm.safety_stock" class="input" type="number" min="0" step="1" placeholder="0"></label>
+              <label class="pa-f"><span>保质期(天)</span><input v-model="addForm.expiry_days" class="input" type="number" min="0" step="1" placeholder="0"></label>
+              <!-- v184b：到货周期。留空 = **不改动**（不写这一列）—— 本弹窗保存走 bulk-upsert，
+                   同名商品会走更新分支；若把空值当 0 提交，会把别人已设好的到货周期清零
+                   （进价列踩过同一个坑，见 saveAdd 里的条件展开）。 -->
+              <label class="pa-f"><span>到货周期<span class="pa-hint">+几天到货，留空 = 不设置</span></span><input v-model="addForm.arrival_lead_days" class="input" type="number" min="0" :max="ARRIVAL_MAX" step="1" placeholder="如 3"></label>
+            </div>
+          </div>
+          <div class="pa-modal-ft">
+            <button class="btn btn-ghost" @click="addOpen = false">取消</button>
+            <button class="btn btn-primary" :disabled="addSaving" @click="saveAdd">{{ addSaving ? '保存中…' : '保存' }}</button>
+          </div>
+        </div>
+      </Transition>
 
       <!-- 导入弹窗 -->
       <Transition name="fade"><div v-if="impOpen" class="pa-overlay" @click="impOpen = false"></div></Transition>
@@ -612,6 +715,11 @@ import { toast, canDo } from '../store'
 import { arrivalCycleText, parseArrivalDays, ARRIVAL_MAX } from '../utils/arrival.js'
 /* v671：表头全选（三态）全站统一件，原型 = 本期预报 v615 那颗。 */
 import SelectAllCheckbox from '../components/SelectAllCheckbox.vue'
+/* v674：下单日（`products.order_days`）—— 与「到货周期」是**两个正交维度**：
+   到货周期答「下单后几天到」，下单日答「哪天该下单」。
+   判定 / 文案 / 规则组装**一律走 orderDays.js**（与预报主表、批量弹窗同一份实现），
+   本页只负责展示与一个单条编辑入口 —— 自己再写一份格式化 = 第二份拷贝 = 静默漂移。 */
+import { orderRuleText, orderRuleFull, orderRuleHit, parseOrderRule, todayLabel } from '../utils/orderDays.js'
 
 /* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。 */
 const COLS = [
@@ -621,6 +729,11 @@ const COLS = [
   { key: 'medium_unit', label: '中单位', core: false },
   { key: 'large_unit', label: '大包装', core: false },
   { key: 'cycle', label: '到货周期', core: false },
+  // v674：下单日。放在「到货周期」之后 —— 两列说的是同一件事的两头
+  //   （哪天该下 → 下完几天到），拆开放会让用户来回横跳找。
+  //   ⚠️ 老用户的列设置存在云端（useColSettings 的 `apply` 以 defaultVis() 起底、
+  //   只覆盖存档里有的键）⇒ 新键不在存档里就保持默认可见，**不需要补迁移**。
+  { key: 'order_days', label: '下单日', core: false },
   { key: 'brand', label: '品牌', core: false },
   { key: 'safety', label: '安全库存', core: false },
 ]
@@ -1038,12 +1151,18 @@ function recomputeMissingFactory() {
     .filter(p => fpEff(p).from === 'none').length
 }
 
-function onFilterChange() { page.value = 1; loadProducts() }
-function onPageSizeChange() { page.value = 1; loadProducts() }
-function goPage(p) { if (p < 1 || p > totalPages.value) return; page.value = p; loadProducts() }
+/* 🔴 v675：翻页 / 改每页条数 / 换筛选后必须把表格滚回顶部。
+   过去分页条在滚动容器里、翻页时人本来就在底部，所以这毛病看不出来；
+   现在分页条常驻卡片底部 —— 不重置的话翻页后停在上一页的位置（比如第 40 行处），
+   看到的是新一页的中段，会以为「点了下一页没变」或「少了行」。 */
+const listWrap = ref(null)
+function scrollListTop() { const el = listWrap.value; if (el) el.scrollTop = 0 }
+function onFilterChange() { page.value = 1; loadProducts(); scrollListTop() }
+function onPageSizeChange() { page.value = 1; loadProducts(); scrollListTop() }
+function goPage(p) { if (p < 1 || p > totalPages.value) return; page.value = p; loadProducts(); scrollListTop() }
 function resetFilters() {
   keyword.value = ''; brandFilter.value = ''; categoryFilter.value = ''; includeInactive.value = false
-  page.value = 1; loadProducts()
+  page.value = 1; loadProducts(); scrollListTop()
 }
 
 function money(n) {
@@ -1121,6 +1240,123 @@ async function saveCycle(p) {
       ? `到货周期已设为 ${arrivalCycleText(r.value)}`
       : '已取消设置（该商品在预报主表显示「—」）', 'ok')
   } catch (e) { toast(e.message || '保存失败', 'err') }
+}
+
+/* ---- v674 下单日：单条编辑（弹出规则选择） ----
+   写的是 `products.order_days`（该单品**哪天该下单**），与左邻的「到货周期」是两个正交维度。
+
+   🔴 三条纪律（改这里之前先读）：
+   ① **唯一的写入口是 `POST /api/products/batch-order-days`**，不是 `PUT /api/products/{id}`。
+      后者（`db/queries/products.py::product_update.allowed`）**刻意没有放行 order_days**：
+      它要的是「结构校验过的紧凑串」，而 PUT 是通用字段通道，塞进去等于绕过校验。
+      ⇒ 也因此**「编辑」弹窗里没有下单日输入框**：能填却存不上，比没有更坏（v277 的教训）。
+   ② 展示与预览一律 `orderRuleText/orderRuleFull`（utils/orderDays.js），本页不写第二份格式化。
+   ③ 不提供「清除」这个第 6 选项（与预报页批量弹窗同口径）：`每天` 与 `未设置` 在
+      「今日下单」筛行上**等价**（都恒命中），多一个选项就多一种误操作。
+      但**回显**仍要区分：原本是空串就显示「未设」，不假装它已经是「每天」。 */
+const ordOpen = ref(false)
+const ordTarget = ref(null)
+const ordSaving = ref(false)
+/* 写入口的门禁（= data/update，与行尾「编辑」同一个判据）。
+   🔴 没权限时格子必须**看起来就不可点**（灰字 + 无 cursor），不能"点了没反应"。 */
+const canEdit = computed(() => canDo('data', 'update'))
+const ordMode = ref('')          // '' | 'd' | 'p:odd' | 'p:even' | 'w' | 'm'
+const ordWeek = ref([])          // number[]（1=周一 … 7=周日）
+const ordMonthText = ref('')
+const ordOrig = ref('')          // 打开那一刻的原值（判「无变化」与「原来是组合规则」）
+const ordMulti = ref(false)      // 原值是 `a|b` 这类组合规则 —— 单选表达不了，需明说
+
+/* 文案与预报页批量弹窗逐字同一批（两处给同一件事两个叫法，用户会以为功能不同）。 */
+const ORD_MODES = [
+  { v: 'd', t: '每天' },
+  { v: 'p:odd', t: '单号' },
+  { v: 'p:even', t: '双号' },
+  { v: 'w', t: '每周几' },
+  { v: 'm', t: '每月几号' },
+]
+const WEEK_OPTS = [
+  { v: 1, t: '周一' }, { v: 2, t: '周二' }, { v: 3, t: '周三' }, { v: 4, t: '周四' },
+  { v: 5, t: '周五' }, { v: 6, t: '周六' }, { v: 7, t: '周日' },
+]
+
+/** 把库里的规则串反解回表单（打开弹窗时回显）。认不出/多段 → 从空白开始选。 */
+function openOrd(p) {
+  ordTarget.value = p
+  ordOrig.value = String(p.order_days || '')
+  const parts = parseOrderRule(ordOrig.value)
+  ordMulti.value = parts.length > 1
+  ordWeek.value = []
+  ordMonthText.value = ''
+  ordMode.value = ''
+  if (parts.length === 1) {
+    const c = parts[0]
+    if (c.k === 'd') ordMode.value = 'd'
+    else if (c.k === 'p') ordMode.value = c.v === 'odd' ? 'p:odd' : 'p:even'
+    else if (c.k === 'w') { ordMode.value = 'w'; ordWeek.value = c.v.slice() }
+    else if (c.k === 'm') { ordMode.value = 'm'; ordMonthText.value = c.v.join('、') }
+  }
+  ordOpen.value = true
+}
+
+const ordMonthParsed = computed(() => {
+  const nums = []
+  let bad = false
+  String(ordMonthText.value || '').split(/[^\d]+/).forEach(x => {
+    if (!x) return
+    const n = Number(x)
+    if (!(n >= 1 && n <= 31)) { bad = true; return }
+    if (nums.indexOf(n) < 0) nums.push(n)
+  })
+  nums.sort((a, b) => a - b)
+  return { nums, bad }
+})
+
+const ordRule = computed(() => {
+  const m = ordMode.value
+  if (!m) return { ok: false, empty: true, rule: '' }
+  if (m === 'd' || m === 'p:odd' || m === 'p:even') return { ok: true, empty: false, rule: m }
+  if (m === 'w') {
+    const v = (ordWeek.value || []).slice().sort((a, b) => a - b)
+    if (!v.length) return { ok: false, empty: true, rule: '' }
+    return { ok: true, empty: false, rule: 'w:' + v.join(',') }
+  }
+  if (m === 'm') {
+    const p = ordMonthParsed.value
+    if (p.bad || !p.nums.length) return { ok: false, empty: !p.nums.length, rule: '' }
+    return { ok: true, empty: false, rule: 'm:' + p.nums.join(',') }
+  }
+  return { ok: false, empty: true, rule: '' }
+})
+const ordBad = computed(() => ordRule.value.ok === false && !ordRule.value.empty)
+const ordPreview = computed(() => (ordRule.value.ok ? orderRuleText(ordRule.value.rule) : '—'))
+const ordNowText = computed(() => orderRuleFull(ordOrig.value))
+/* 今天这一单在不在列 —— 直接复用判定函数，和预报页「今日下单」做到同口径（不另算一遍）。 */
+const ordHitToday = computed(() => orderRuleHit(ordOrig.value, new Date()))
+const ordSummary = computed(() => {
+  const rr = ordRule.value
+  if (rr.empty) return '先选一个下单日规则（每天 / 单号 / 双号 / 每周几 / 每月几号）'
+  if (!rr.ok) return '每月几号请填 1~31（用 、或 , 分隔，如 3、7、11）'
+  if (rr.rule === ordOrig.value) return '与当前设置一致，无需修改'
+  return '将改为「' + orderRuleText(rr.rule) + '」'
+})
+
+async function applyOrd() {
+  const p = ordTarget.value
+  const rr = ordRule.value
+  if (!p || !rr.ok || ordSaving.value) return
+  if (rr.rule === ordOrig.value) { ordOpen.value = false; return }
+  ordSaving.value = true
+  try {
+    await api('/api/products/batch-order-days', {
+      method: 'POST',
+      body: { product_ids: [Number(p.id)], rule: rr.rule },
+    })
+    p.order_days = rr.rule
+    const hit = allProducts.value.find(x => x.id === p.id)
+    if (hit) hit.order_days = rr.rule   // 索引同步：与 saveCycle 同做法
+    toast('「' + p.name + '」下单日已设为「' + orderRuleText(rr.rule) + '」', 'ok')
+    ordOpen.value = false
+  } catch (e) { toast(e.message || '保存失败', 'err') } finally { ordSaving.value = false }
 }
 
 /* ---- v157 进价：批量补（存量商品）---- */
@@ -1627,6 +1863,10 @@ async function exportXlsx() {
       //   ⚠️ 本导出**不是**回写通道：商品导入对已存在的条码是「冲突跳过」而非更新（见 import_router），
       //      要改存量商品的到货周期请在**本页点该格**改。
       '到货周期': Number(p.arrival_lead_days) > 0 ? arrivalCycleText(p.arrival_lead_days) : '',
+      // v674：下单日。用**完整文案**（「每月 3、7、11 号」），不用列里那个短写
+      //   （`orderRuleText` 超过 4 个会把中间省略成「…」，导出件给别人看就丢了信息）。
+      //   未设置导出空串，同「到货周期」——「未设置（按每天算）」这句话在表格里是噪音。
+      '下单日': String(p.order_days || '').trim() ? orderRuleFull(p.order_days) : '',
       '品牌': p.brand || '', '分类': p.category || '',
       '标准售价': p.sale_price || 0,
       // v226：原有两个中文键都叫「进价」（分别取 purchase_price / factory_price），
@@ -1695,6 +1935,60 @@ onMounted(() => {
 .pa-ou-follow{color:var(--t3);font-size:12px}
 .pa-cyc-input{width:74px;height:30px;text-align:center;padding:0 6px}
 
+/* ---- v674 下单日列 + 编辑弹层 ----
+   视觉语言与左邻「到货周期」逐条同构（虚线下划 + hover 变品牌色、未设用灰不警示），
+   差别只在「点了之后」：到货周期是行内数字框，下单日是一个规则 ⇒ 弹层选。
+   🔴 「未设置」用灰不用警示色（同 .pa-cyc-none 的道理）：本租户 300 多个商品
+   绝大多数是空的，一屏警示色反而盖掉真正的缺价提示。 */
+/* 🔴 v674 实测（对照实验，同一搜索态）：
+     含「下单日」列 → 名称列 75px、商品名折 6 行、行高 208px
+     关掉「下单日」列 → 名称列 158px、行高 83px
+   即：`table-layout:auto` 下新增一列会**先吃名称列的宽度**（它是最能压缩的列），
+   而这个页面上最该看清的恰恰就是商品名。故给名称列一个保底宽度：
+   空间不够时让整表横向滚动（`.freeze-list` 本来就 `overflow:auto`），不要靠压扁名称换空间。 */
+.pa-panel .tbl .pa-name{min-width:180px}
+
+/* 🔴 列宽写死 112：本列文案长短差很大（「未设」2 字 ≈ 24px vs「每月3·7·11·15…」实测 90px），
+   `table-layout:auto` 下会让列宽随当前页的内容从 67 跳到 150 —— 翻页时整张表左右抖。
+   固定宽度后，长文案由 span 的 max-width + ellipsis 兜（完整值在 title 与弹层里）。 */
+.pa-od-cell,.col-od-th{white-space:nowrap;text-align:center;width:112px;min-width:112px}
+.pa-od-val,.pa-od-none{display:inline-block;max-width:96px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;vertical-align:bottom;font-size:12px;border-bottom:1px dashed transparent}
+.pa-od-val{cursor:pointer;color:var(--t1);font-variant-numeric:tabular-nums}
+.pa-od-none{cursor:pointer;color:var(--t3)}
+.pa-od-val:hover,.pa-od-none:hover{border-bottom-color:var(--p);color:var(--p)}
+/* 无 data/update 权限：**不能点就别看起来能点**（不换手型、不 hover 变色） */
+.pa-od-val.ro,.pa-od-none.ro{cursor:default}
+.pa-od-val.ro:hover,.pa-od-none.ro:hover{border-bottom-color:transparent;color:inherit}
+.pa-od-val.ro:hover{color:var(--t1)}
+.pa-modal.pa-ord{width:min(560px,94vw)}
+/* 层级：本页既有弹窗用的是老档 --z-overlay/--z-modal（980/990），低于页面级浮层档，
+   会被顶栏/侧栏压住。新弹层一律取 v367 的页面模态档（1125/1130），不沿用老值。 */
+.pa-overlay.pa-ord-ov{z-index:var(--z-page-modal-overlay)}
+.pa-modal.pa-ord{z-index:var(--z-page-modal)}
+.pa-ord-nm{color:var(--t2);font-weight:400}
+.pa-od-now{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 2px;
+  padding:10px 12px;background:var(--bg2);border-radius:var(--radius-md)}
+.pa-od-k{font-size:var(--fs-sm);color:var(--t2)}
+.pa-od-v{font-size:var(--fs-base);color:var(--t1);font-weight:600}
+.pa-od-hit{margin-left:auto;font-size:var(--fs-sm);color:var(--ok);white-space:nowrap}
+.pa-od-hit.off{color:var(--t3)}
+.pa-od-warn{margin:8px 0 0;font-size:var(--fs-sm);color:var(--war)}
+.pa-ord-modes{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.ord-mode,.ord-wd{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-base);color:var(--t1);
+  padding:6px 10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);cursor:pointer}
+.ord-mode:hover,.ord-wd:hover{background:var(--bg2)}
+.ord-mode input,.ord-wd input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
+.pa-ord-sub{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.pa-ord-month{max-width:360px}
+.pa-ord-month.bad{border-color:var(--danger)}
+.pa-ord-preview{margin:14px 0 4px;font-size:var(--fs-base);color:var(--t1)}
+.pa-ord-preview b{color:var(--p)}
+.pa-ord-hint{font-size:var(--fs-sm);color:var(--t2)}
+/* `.pa-ft-note` 全局是警告橙（既有用法是「N 个字段已改，未保存」= 真提醒）。
+   本弹窗里「与当前设置一致，无需修改」是**正常态**，用橙会让人以为哪里错了 ⇒ 压成灰。 */
+.pa-ord .pa-ft-note.calm{color:var(--t2);font-weight:400}
+
 .pa-panel{padding:18px;margin-bottom:14px}
 .pa-filters{display:flex;gap:10px;flex-wrap:nowrap;align-items:center;overflow-x:auto;padding-bottom:2px}
 .pa-search{position:relative;display:flex;align-items:center;flex:0 1 260px;min-width:170px;max-width:300px}
@@ -1715,7 +2009,10 @@ onMounted(() => {
 .pa-ops{white-space:nowrap}
 .pa-ops .btn{margin-left:6px}
 
-.pa-pager{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+/* 🔴 v675：分页条移到滚动容器外面后，滚动区高度要**减掉它**（按钮 32 + 上下间距 ≈ 46，取 52 稳妥），
+   否则卡片总高会顶出一屏、页面多出一条整页滚动条（两条滚动条 = 用户分不清该滚哪个）。 */
+.pa-panel .table-wrap.freeze-list{max-height:calc(100vh - 292px)}
+.pa-pager{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
 .pa-pageinfo{font-size:12.5px;color:var(--t2)}
 .pa-size{height:30px;width:auto}
 

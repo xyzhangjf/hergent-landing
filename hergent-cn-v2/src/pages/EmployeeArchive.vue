@@ -304,7 +304,6 @@
                   <!-- v335 按钮级门禁：开通账号=POST /api/forecast-submissions/staff-accounts ⇒ data/create -->
                   <button v-if="!isCreate && canDo('data', 'create')" class="btn btn-primary btn-block" :disabled="accBusy || !accForm2.username || !pwdOk(accForm2.password)" @click="createAccountInEdit">开通账号</button>
                 </template>
-                <p v-else class="df-tip">开通登录账号需要相应权限，当前角色没有 —— 请联系管理员。</p>
               </div>
               <div v-else class="df-acc-manage df-acc-card">
                 <!-- v382（2026-10-06）：**保存单位从「行」改回「整个弹窗」**。

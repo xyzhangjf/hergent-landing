@@ -27,25 +27,133 @@
 .col-menu-overlay { position: fixed; inset: 0; z-index: var(--z-page-overlay, 1100) }
 .col-menu {
   position: fixed; z-index: var(--z-page-menu, 1101);
-  width: 240px; background: var(--bg); border: 1px solid var(--border-subtle);
-  border-radius: var(--radius); box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+  width: 284px; background: var(--bg); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
   display: flex; flex-direction: column; overflow: hidden;
 }
+
+/* ── 面板内控件规格（v676 唯一真相源）────────────────────────────────────
+   🔴 这条规格是**面板内一切控件**的共同基准，新增控件一律照抄，不许各自拍数：
+        高度 28px · 字号 12px · 1px 实边 --bd · 圆角 8px · 底色 --bg
+      由来：v676 之前这半个面板**没有样式**（`.cm-label` / `.col-menu-add` /
+      `.col-menu-schemes` / `.scheme-row` / `.scheme-name-ipt` 全站零命中），
+      于是分组下拉是设计系统样式（圆角 8px），而「列方案」的下拉与输入框是
+      **浏览器原生样式**（直角 + inset 阴影），按钮又是另一套 36px 胶囊 ——
+      三种规格并排，观感就是「乱」。控件规格散在各页 = 下一处必然再漂。
+   🔴 每块用 `.cm-sec` 包：`padding 10/12` + `border-top` 分隔。此前只有 header 与
+      footer 有分隔线，中间四块挤成一坨，看不出分区。 */
 .col-menu-hd {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; border-bottom: 1px solid var(--border-subtle);
-  font-weight: 600; font-size: 13px; color: var(--t1);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px;
+  color: var(--t1);
 }
-.col-menu-x { border: 0; background: transparent; cursor: pointer; color: var(--t2); padding: 2px; border-radius: var(--radius-sm) }
+/* 🔴 分隔线**只由下一块的 border-top 提供**，header 不画 border-bottom ——
+   两边都画就成了 2px 双线（相邻的 border-bottom + border-top 会叠加）。 */
+.cm-hd-tx { display: flex; flex-direction: column; gap: 2px; min-width: 0 }
+.cm-hd-t { font-weight: 600; font-size: 13px; line-height: 16px }
+.col-menu-sub { font-size: 11px; font-weight: 400; color: var(--t3); line-height: 14px }
+.col-menu-x {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border: 0; background: transparent; cursor: pointer;
+  color: var(--t2); padding: 0; border-radius: var(--radius-sm);
+}
 .col-menu-x:hover { background: var(--bg2); color: var(--t1) }
-.col-menu-list { list-style: none; margin: 0; padding: 6px; overflow: auto }
-.col-menu-list li { display: flex; align-items: center; padding: 6px 8px; border-radius: var(--radius-sm); font-size: 13px; color: var(--t1) }
+
+/* 分区壳：块与块之间的唯一分隔手段。
+   🔴 只给内边距 + 分隔线，**不加 flex** —— 采购单列表的「自定义字段」块沿用这套壳，
+      块内是 inline 混排（输入框 + 下拉 + 两个按钮同行），改成 flex 会把它拆成四行。 */
+.cm-sec, .col-menu-add, .col-menu-schemes, .col-menu-view {
+  padding: 10px 12px; border-top: 1px solid var(--border-subtle);
+}
+/* 分区小标题：比内容小一号 + 灰，靠字号差建立层级（此前与内容同为 14px，看起来像一行正文）。
+   `.cm-label` 是采购单列表「自定义字段」块沿用的旧类名 —— 合并到这里，
+   不留「注释说全局已有、实际零样式」的孤儿类（v676 就是被这类注释骗过）。 */
+.cm-sec-t, .cm-label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; color: var(--t3);
+  letter-spacing: .3px; line-height: 14px; margin-bottom: 8px;
+}
+/* 键值栅格：label 定宽 ⇒ 两个下拉的**左缘对齐**（此前按文字宽度排，94px 与 82px 错开 12px） */
+.cm-grid { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 6px 8px; align-items: center }
+.cm-k { font-size: 12px; color: var(--t2); text-align: right; white-space: nowrap }
+
+/* 统一控件：下拉 / 输入框 / 小按钮 —— 三者同高同边同圆角 */
+.cm-sel, .cm-in, .scheme-name-ipt {
+  height: 28px; padding: 0 8px; font-size: 12px; line-height: 26px;
+  border: 1px solid var(--bd); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--t1); font-family: inherit;
+  min-width: 0;
+}
+.cm-sel { cursor: pointer; padding-right: 4px }
+.cm-in:focus, .scheme-name-ipt:focus, .cm-sel:focus {
+  outline: 2px solid var(--p); outline-offset: -2px; border-color: var(--p);
+}
+.cm-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  height: 28px; padding: 0 10px; font-size: 12px; font-family: inherit;
+  border: 1px solid var(--bd); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--t1); cursor: pointer; white-space: nowrap;
+}
+.cm-btn:hover { background: var(--bg2) }
+.cm-btn:disabled { opacity: .45; cursor: not-allowed }
+.cm-btns { display: flex; flex-wrap: wrap; gap: 6px }
+
+/* 面板是定高 flex 列：除列清单外**一律不许被压缩**（`flex:none`）。
+   不给的话，max-height 不够时浏览器会按比例压缩每个块，标题被压成半个字高、
+   按钮被裁一半 —— 那比直接滚动更难理解。空间只从列清单里出。 */
+.col-menu > * { flex: none }
+
+/* 列清单：🔴 `flex:1 + min-height:0` 是**硬要求**。
+   面板是定高 flex 列（max-height 由 useColMenu 按视口现算），列表若不给收缩权，
+   列一多就按内容高度撑开 ⇒ 面板被 max-height 截断，下面的「列方案 / 重置列宽」
+   直接看不见且**滚不到**（v676 实测：10 列时刚好不溢出，19 列必中）。 */
+.col-menu-list { list-style: none; margin: 0; padding: 4px 6px; overflow: auto; flex: 1 1 auto; min-height: 0; border-top: 1px solid var(--border-subtle) }
+.col-menu-list li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 6px; border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--t1); line-height: 18px;
+}
 .col-menu-list li:hover { background: var(--bg2) }
 .col-menu-list li.locked { opacity: .65 }
-.col-menu-list li label { display: flex; align-items: center; gap: 8px; cursor: pointer }
+/* 🔴 `li.hidden` = 该列已取消勾选（模板里 `:class="{ hidden: colVis[key] === false }"`）。
+   v677 之前**这条规则压根不存在** —— 类名挂着、零样式 ⇒ 取消勾选后整行外观纹丝不动，
+   只有那颗 14px 的复选框变空。用户的原话是「勾选和取消勾选都没有变化」：
+   一半原因确实是勾选态卡死（pre-click activation，见 Forecast.vue::onColCheck），
+   另一半就是这里 —— 状态对了也看不出来。**模板用了的类必须有样式，反之亦然。** */
+.col-menu-list li.hidden { color: var(--t3) }
+.col-menu-list li.hidden input[type=checkbox] { opacity: .7 }
+.col-menu-list li label { display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1; min-width: 0 }
+.col-menu-list li label > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .col-menu-list li.locked label { cursor: default }
-.col-core-tag { font-size: 11px; color: var(--t2); background: var(--bg2); border-radius: 4px; padding: 0 5px; margin-left: 2px }
-.col-menu-reset { padding: 8px 12px; border-top: 1px solid var(--border-subtle) }
+/* 复选框统一到设计系统色：原生蓝与品牌青并排时是两套「选中色」 */
+.col-menu-list li input[type=checkbox] {
+  width: 14px; height: 14px; margin: 0; flex: none;
+  accent-color: var(--p-dark); cursor: pointer;
+}
+.col-menu-list li.locked input[type=checkbox] { cursor: default }
+/* 拖拽手柄：字符本身很轻，靠「hover 才加深 + grab 光标」表达可拖；
+   locked 行没有拖拽资格 ⇒ 手柄隐藏，而不是留一个拖不动的假控件。 */
+.col-menu-list li .drag { width: 12px; flex: none; color: var(--t3); cursor: grab; font-size: 12px; line-height: 1; letter-spacing: -1px }
+.col-menu-list li .drag:active { cursor: grabbing }
+.col-menu-list li.locked .drag { visibility: hidden }
+.col-menu-del {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; margin-left: auto;
+  border: 0; background: transparent; color: var(--t3); cursor: pointer;
+  border-radius: var(--radius-sm); opacity: .55; transition: opacity .12s;
+}
+.col-menu-list li:hover .col-menu-del { opacity: 1 }
+.col-menu-del:hover { background: var(--bg4); color: var(--danger-txt, #d33) }
+
+.col-core-tag { font-size: 11px; color: var(--t2); background: var(--bg2); border-radius: 4px; padding: 0 5px; margin-left: 2px; flex: none }
+
+/* 列方案：下拉独占一行（撑满面板宽），名字输入 + 按钮一行（输入框吃掉剩余宽度）。
+   🔴 下拉必须 `display:block; width:100%` —— select 默认是 inline-block 的内容宽，
+      不给就会像 v676 之前那样缩成 90px 一小截，与上面的「视图」下拉宽度对不上。 */
+.col-menu-schemes > .cm-sel { display: block; width: 100%; margin-bottom: 8px }
+.col-menu-schemes .scheme-row { display: flex; align-items: center; gap: 6px }
+.col-menu-schemes .scheme-row .scheme-name-ipt { flex: 1 1 auto; min-width: 0 }
+.col-menu-reset { padding: 10px 12px; border-top: 1px solid var(--border-subtle) }
 
 /* ── v444 列宽拖动（配套 composables/useColResize.js）──────────────────────
    🔴 手柄用 `float: right` 而**不是** `position: absolute`：

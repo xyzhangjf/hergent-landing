@@ -9,7 +9,7 @@
       <button class="col-menu-x" @click="showColMenu = false" title="关闭"><Icon name="close" /></button>
     </div>
     <ul class="col-menu-list">
-      <li v-for="c in colList" :key="c.key" :class="{ locked: c.core }">
+      <li v-for="c in colList" :key="c.key" :class="{ locked: c.core, hidden: !isVisible(c.key) }">
         <label>
           <input type="checkbox" :checked="isVisible(c.key)" :disabled="c.core"
                  @change="onCheck(c.key, $event)" />
@@ -37,11 +37,11 @@ const props = defineProps({
 
 const { showColMenu, colMenuEl, colMenuStyle, toggleColMenu } = useColMenu()
 
-/* 🔴 v669：**别再写 `@click.prevent` + 单向 `:checked`**（原写法在这里和 Forecast.vue 各一份）。
-   Chrome 的 pre-click activation 会在派发 click **之前**翻转复选框，`preventDefault()` 让浏览器在
-   派发结束后把翻转**还原**——而 Vue 的 patch 只写这次翻转前的值，还原之后不会再有 patch
-   ⇒ 勾选态与列显隐永久相反，直到关掉面板重开（v-if 重建节点）。真实鼠标必现，JS `el.click()` 不现。
-   改成 `@change`（不 prevent）+ nextTick 按状态回写，见宿主页 Forecast.vue::onColCheck 的同一段注释。 */
+/* 🔴 v677：**不许写回 `@click.prevent="toggleCol(...)"`**（第二次复发，v669 修过一次）。
+   Chrome 的 pre-click activation 会在派发 click **之前**翻转 checkbox，`preventDefault()`
+   让它在派发结束后**还原**；Vue 只在 vnode prop 变化时写 DOM ⇒ 还原后不再 patch
+   ⇒ 勾选态与列显隐永久相反，必须关掉面板重开才对齐。真实鼠标必现，JS `el.click()` 不现。
+   正解：`@change`（不 prevent）+ nextTick 按状态回写。详见 Forecast.vue::onColCheck。 */
 function onCheck (key, e) {
   props.toggleCol(key)
   const el = e && e.target

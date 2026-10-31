@@ -18,7 +18,8 @@
 /* 取值：页面内浮层天花板 = 天气面板 .wx-pop 1121（注释「高于页面内所有下拉浮层」），
    故模态取 1125/1130 压过它，且远低于 toast 9999 / 空闲超时 9998。
    不要再改回 < 1121，也不要为此抬高 .tb-pop（会破坏「弹层开着直接点别的触发按钮」）。
-   v704：`.tb-pop` 触发按钮 1101、`.tb-pop-panel` 1116 —— 都低于 1121，本处结论不变。 */
+   v705（合并 A/B 两线）：`.tb-pop` 触发按钮 1101、`.tb-pop-panel` 1116 —— 都低于 1121，
+   本处结论不变。🔴 这个修复在两条线上各做过一次（B 线 v704 / A 线 v678），合并后只此一份。 */
 .imp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-page-modal-overlay)}
 .imp-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(560px,94vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-page-modal);box-shadow:var(--shadow-lg);max-height:86vh;display:flex;flex-direction:column}
 .imp-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle)}

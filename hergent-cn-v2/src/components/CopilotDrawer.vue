@@ -1,10 +1,13 @@
 <template>
   <Teleport to="body">
     <Transition name="fade">
-      <div v-if="store.ui.copilotOpen" class="cp-overlay" @click="close"></div>
+      <!-- v652（2026-10-21）：抽屉级兜底门禁 —— 即使任何入口误开 copilotOpen，无 `chat` 模块权限
+           也不渲染可用 AI 界面（判据复用 store.canUseAi()，与各处入口同源）。防止未来新增 AI 入口
+           漏加门禁而再次漂移（本次正是 Workbench「问问 AI」漏门禁所致）。 -->
+      <div v-if="store.ui.copilotOpen && store.canUseAi()" class="cp-overlay" @click="close"></div>
     </Transition>
     <Transition name="slide">
-      <aside v-if="store.ui.copilotOpen" class="copilot" :class="{ 'is-typing': store.chat.streaming, fullscreen: isFullscreen }">
+      <aside v-if="store.ui.copilotOpen && store.canUseAi()" class="copilot" :class="{ 'is-typing': store.chat.streaming, fullscreen: isFullscreen }">
         <!-- 头部 -->
         <header class="cp-head">
           <div class="cp-brand">
@@ -42,6 +45,11 @@
             </button>
             <button class="cp-icon-btn" title="存为报告" :disabled="!hasChat || savingReport" @click="saveAsReport">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 13h6M9 17h6"/></svg>
+            </button>
+            <!-- v639：搜索历史消息。放大镜常驻在头部 ⇒ 「想找一句话」从「先点历史、再点输入框」
+                 降为一次点击；点开后焦点直接落在输入框，Esc 退出。 -->
+            <button class="cp-icon-btn" :class="{ on: searchOpen }" title="搜索历史消息" @click="toggleSearch">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </button>
             <button class="cp-icon-btn" title="历史会话" @click="toggleHistory">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><polyline points="12 7 12 12 15 15"/></svg>
@@ -89,8 +97,45 @@
           </div>
         </div>
 
+        <!-- 搜索历史消息（v639）——形态对齐 WorkBuddy 的会话搜索：32px 圆角输入条（左放大镜 + 右计数/关闭）
+             固定在上方，下面直接是**消息级**结果（说的人 · 会话名 · 时间 + 命中词左右文，命中词高亮）。 -->
+        <div v-if="searchOpen" class="cp-search-pane">
+          <div class="cp-search-bar">
+            <span class="cp-search-ico">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <input ref="searchInput" v-model="searchQ" class="cp-search-input" placeholder="搜索历史消息…"
+              @input="onSearchInput"
+              @keydown.down.prevent="moveHit(1)" @keydown.up.prevent="moveHit(-1)"
+              @keydown.enter.prevent="enterHit" @keydown.esc.prevent="closeSearch">
+            <span v-if="searchQ.trim()" class="cp-search-count">{{ searchPending ? '搜索中…' : `${searchHits.length} 条` }}</span>
+            <button class="cp-search-x" title="关闭搜索（Esc）" @click="closeSearch"><Icon name="close"/></button>
+          </div>
+
+          <div v-if="!searchQ.trim()" class="cp-search-tip">
+            <span class="cp-search-tip-ic">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            搜索全部历史对话里的每一句话<br>也能搜会话标题，找到后直接跳过去
+          </div>
+          <div v-else-if="!searchPending && !searchHits.length" class="cp-search-tip">
+            没有找到「{{ searchQ.trim() }}」相关内容
+          </div>
+          <div v-else class="cp-search-list">
+            <button v-for="(h, i) in searchHits" :key="h.session_id + ':' + h.idx" class="cp-search-item"
+              :class="{ active: i === searchIdx }" @click="gotoHit(h)" @mouseenter="searchIdx = i">
+              <div class="cp-search-item-hd">
+                <span class="cp-search-who">{{ hitWho(h) }}</span>
+                <span class="cp-search-item-title">{{ h.title || '（无标题会话）' }}</span>
+                <span class="cp-search-time">{{ fmtTime(h.created_at) }}</span>
+              </div>
+              <div class="cp-search-snip"><span>{{ h.pre }}</span><mark>{{ h.hit }}</mark><span>{{ h.post }}</span></div>
+            </button>
+          </div>
+        </div>
+
         <!-- 双栏：左聊天 / 右产物（方案 B） -->
-        <div v-show="!showHistory && !showPager" class="cp-split">
+        <div v-show="!showHistory && !searchOpen && !showPager" class="cp-split">
         <div class="cp-chat" :class="{'art-hidden': artFullscreen}">
         <!-- 对话流 -->
         <!-- v622：scroll 记录「离开时的位置」—— 抽屉是 v-if 挂载的，DOM 一销毁 scrollTop 就丢，
@@ -166,6 +211,17 @@
                   v-else-if="m.role === 'assistant' && store.chat.streaming && i === store.chat.messages.length - 1"
                   text="思考中…"
                 />
+                <!-- v634：用户消息里的「文档上下文注」不再原样显示（那是一段给模型看的英文，
+                     老板看到是百分号乱码）⇒ 抽成附件条「文件名 · 已收到」，正文只留人话。
+                     注：这是**渲染层**处理，落盘数据不动（历史会话一起变干净，可逆）。 -->
+                <template v-else-if="m.role === 'user'">
+                  <div v-for="(d, di) in docNoteView(bubbleText(m)).docs" :key="'dn' + di" class="cp-doc-chip">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
+                    <span class="cp-doc-chip-name" :title="d.name">{{ d.name }}</span>
+                    <span class="cp-doc-chip-tag">已收到</span>
+                  </div>
+                  {{ docNoteView(bubbleText(m)).text }}
+                </template>
                 <template v-else>{{ bubbleText(m) }}</template>
                 <!-- v309：用户主动停止的标记。对齐 WorkBuddy 的 `message.interrupted`（任务被中断）——
                      中断后**保留**已生成内容，只在末尾附一个中性标记，不弹错误、不删气泡。 -->
@@ -1410,7 +1466,13 @@ function shortArgs(s) {
 }
 function fmtTime(ts) {
   if (!ts) return ''
-  const d = new Date(ts)
+  // v636：服务端回的是 'YYYY-MM-DD HH:MM:SS'，**不能直接 new Date()** ——
+  //   这种非 ISO 串在 Safari/WebKit 上解析成 Invalid Date（Chrome 宽松才碰巧能过）
+  //   ⇒ 历史列表会显示「Invalid Date Invalid Date」。统一走 toTs 归一（数字 ms 原样，
+  //   字符串换成 ISO 再 parse）。toTs 定义在下方，函数声明提升，此处可用。
+  const t = toTs(ts)
+  if (!t) return ''
+  const d = new Date(t)
   const now = new Date()
   const sameDay = d.toDateString() === now.toDateString()
   if (sameDay) return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
@@ -1423,10 +1485,15 @@ function toggleHistory() {
     nextTick(() => { if (cpInput.value) cpInput.value.focus() })
   } else {
     saveCurrentSession()
+    if (searchOpen.value) closeSearch()   // v639：搜索面板与历史视图互斥
     showHistory.value = true
     loadSessions()   // 每次打开历史都向服务端对齐，保证看到别的设备/端刚聊过的会话
   }
 }
+
+/* v649：头部「新对话」按钮的悬停说明。Mac 显示 ⌘⇧O，其它平台显示 Ctrl+Shift+O
+   —— 快捷键提示必须跟着平台走，Windows 用户看到 ⌘ 只会以为按不到。 */
+const isMacOs = /Mac|iPhone|iPad|iPod/.test((navigator && navigator.userAgent) || '')
 
 function newSession() {
   explicitNew.value = true         // v488：用户主动要空白新对话 ⇒ 抽屉重开时不再自动恢复
@@ -1450,7 +1517,8 @@ function delSession(id) {
 }
 
 /* v488：进入副驾时自动恢复「当前角色」最近一次会话，取代默认空白新对话。
-   ① 按角色维度（latestSessionOfRole 已按 updated_at 取最新）；
+   ① 取会话分两级（v637）：**当前角色的最近一条** > **全局最近一条**（不按角色过滤）；
+       —— 只有第一级会在真实使用里频繁落空（最近聊的常是别的角色 / 企微同步来的会话）。
    ② 先等本地缓存 + 服务端对齐完再取最新（服务端可能比本地新/多），期间 restoringSession 遮罩覆盖，不闪空白；
    ③ 有最近会话 → openChatSession 恢复完整历史并滚到上次浏览位置（底部最新一条）；
       无会话 / 最近会话失效 → newChatSession 回退新建；
@@ -1469,9 +1537,22 @@ async function restoreLatestSession() {
     //    currentRole 还是 null ⇒ rid='' ⇒ latestSessionOfRole('') 恒返回 null ⇒
     //    误判「无历史会话」而回退空白新对话（本轮探针当场抓到，不是推测）。
     const rid = (currentRole.value && currentRole.value.role_id) || ''
-    const target = store.latestSessionOfRole(rid)
+    // v637：先找「当前角色的最近会话」，找不到再退到**全局最近一条**。
+    //   🔴 只按角色过滤等于「打开副驾不是上次那段」：真实数据里最近聊的常是别的角色
+    //      （秘书/会计）或企微同步来的会话（role_id 为空），而打开时默认角色是「经营副驾」
+    //      ⇒ latestSessionOfRole('copilot') 恒 null ⇒ 空白新对话。
+    //      2026-10-20 生产实证：boss 的 6 条会话 role 分别是 secretary/''/accountant/secretary/''/''
+    //      —— 一条 copilot 都没有，真机探针当场复现（不是推测）。
+    const target = store.latestSessionOfRole(rid) || store.latestSessionOverall()
     if (target && target.id) {
       explicitNew.value = false
+      // 会话归属角色 ≠ 当前角色 ⇒ 跟着切过去。否则「看的是秘书的历史、答话用经营副驾的口吻」，
+      // 比空白更让人困惑。归属为空串（存量会话 / 企微同步）时保持当前角色不动。
+      const trole = target.roleId || ''
+      if (trole && trole !== rid
+        && (store.chat.roles || []).some(r => r.role_id === trole && r.is_active !== 0)) {
+        setAiRole(trole)
+      }
       openChatSession(target.id)                     // 恢复历史；本地无全文（跨设备）则内部异步补拉
       if (target.messages && target.messages.length) {
         await nextTick(); scrollBottom()
@@ -1509,6 +1590,149 @@ function onHistSearch() {
       histHits.value = (d && d.hits) || []
     } catch (_) { histHits.value = [] }
   }, 300)
+}
+
+/* ---- v639 搜索历史消息（头部放大镜）----
+   与上面的 histQuery 是两件事：那个是「历史会话视图里的会话级筛选」，这个是**全局消息级搜索**
+   （头部常驻入口，一次点击就能搜，回车直达命中那条气泡）。
+   🔴 竞态：输入快、请求慢时旧响应会盖住新结果 ⇒ 每次请求带序号，回来序号不对就丢弃。
+   🔴 不做本地过滤兜底：本地只有当前会话和缓存列表，拿它当搜索结果会漏（跨设备/企微同步的会话不在本地）。 */
+const searchOpen = ref(false)
+const searchQ = ref('')
+const searchHits = ref([])
+const searchPending = ref(false)
+const searchIdx = ref(0)
+const searchInput = ref(null)
+let searchTimer = null
+let searchSeq = 0
+let flashTimer = null
+
+function toggleSearch() {
+  if (searchOpen.value) { closeSearch(); return }
+  showHistory.value = false          // 与历史视图互斥，避免两套列表并排
+  searchOpen.value = true
+  nextTick(() => { if (searchInput.value) searchInput.value.focus() })
+}
+
+function closeSearch() {
+  clearTimeout(searchTimer)
+  searchSeq++                        // 作废在途请求，防止关掉后又被写回结果
+  searchOpen.value = false
+  searchQ.value = ''
+  searchHits.value = []
+  searchIdx.value = 0
+  searchPending.value = false
+  nextTick(() => { if (cpInput.value) cpInput.value.focus() })
+}
+
+function onSearchInput() {
+  clearTimeout(searchTimer)
+  searchIdx.value = 0
+  const q = searchQ.value.trim()
+  if (!q) { searchHits.value = []; searchPending.value = false; searchSeq++; return }
+  searchPending.value = true
+  searchTimer = setTimeout(async () => {
+    const seq = ++searchSeq
+    try {
+      const d = await api(`/api/ai/search-chat?q=${encodeURIComponent(q)}&limit=30&msg_limit=60`, { silent401: true })
+      if (seq !== searchSeq) return
+      searchHits.value = (d && d.msgs) || []
+    } catch (_) {
+      if (seq === searchSeq) searchHits.value = []
+    } finally {
+      if (seq === searchSeq) searchPending.value = false
+    }
+  }, 260)
+}
+
+/* 命中行左侧的「谁说的」：人说的话标「我」，AI 说的话取会话归属角色名（存量/企微会话没角色 ⇒ 副驾） */
+function hitWho(h) {
+  if (!h) return ''
+  if (h.role === 'user') return '我'
+  return roleNameOf(h.role_id) || '副驾'
+}
+
+function moveHit(d) {
+  const n = searchHits.value.length
+  if (!n) return
+  searchIdx.value = (searchIdx.value + d + n) % n
+  nextTick(() => {
+    const el = document.querySelector('.cp-search-item.active')
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' })
+  })
+}
+
+function enterHit() {
+  const h = searchHits.value[searchIdx.value]
+  if (h) gotoHit(h)
+}
+
+/* 打开命中所在会话 → 滚到那条气泡 → 短暂描边高亮。
+   🔴 idx 是服务端 messages_json 里的下标，本地缓存/服务端刚拉回来的顺序可能不同 ⇒
+     先用 idx 命中、再校验文字里真有这个词；校验不过就退回「按内容找第一条」，都不中则只开会话不滚动
+     （宁可停在会话里，也不要把人滚到风马牛不相及的一条上）。 */
+function gotoHit(h) {
+  if (!h || !h.session_id) return
+  const q = (searchQ.value || '').trim()
+  clearTimeout(searchTimer)
+  searchSeq++
+  searchOpen.value = false
+  searchQ.value = ''
+  searchHits.value = []
+  searchIdx.value = 0
+  openSession(h.session_id)          // 内部会贴底并聚焦输入框——下面两帧后再覆盖成「定位到命中」
+  locateMsg(h.idx, q, h.session_id).then(el => {
+    if (!el) return
+    /* 🔴 用 setTimeout 而不是 requestAnimationFrame：后台标签页/无头浏览器里 rAF 可以不执行
+       （实测一次都没触发 ⇒ 定位和高亮全丢，看起来像"点了没反应"）。延时 90ms 是为了让
+       openSession 的「贴底」先跑完，再被我们覆盖成「定位到命中那条」。 */
+    setTimeout(() => scrollToMsgHit(el), 90)
+  })
+}
+
+function locateMsg(idx, q, sid) {
+  const nl = (q || '').toLowerCase()
+  return new Promise(resolve => {
+    let n = 0
+    const tick = () => {
+      const box = cpBody.value
+      /* 🔴 必须等会话真的切过来（currentId === 目标）再找：openSession 之后 Vue 才重渲染，
+         同步这一帧拿到的还是**上一个会话的旧气泡**，而且随后就被替换成 detached 节点 ——
+         高亮打在一个不在文档里的节点上，看起来就是"点了没反应"（探针实测）。 */
+      const sidOk = !sid || store.chat.currentId === sid
+      if (box && sidOk) {
+        const hit = box.querySelector(`.msg[data-msg="${idx}"]`)
+        if (hit && hit.isConnected && (!nl || (hit.textContent || '').toLowerCase().includes(nl))) return resolve(hit)
+        if (nl) {
+          const byText = [...box.querySelectorAll('.msg')].find(x => x.isConnected && (x.textContent || '').toLowerCase().includes(nl))
+          if (byText) return resolve(byText)
+        }
+      }
+      if (++n > 16) return resolve(null)   // 跨设备补拉最长等 ~2s，超时就只停在会话里
+      setTimeout(tick, 120)
+    }
+    tick()
+  })
+}
+
+/* 🔴 高亮**不能加 class**：`.msg` 上绑了动态 `:class="[m.role, ...]"`，Vue 每次 patch 会整份重写
+   className ⇒ 手写的 `msg-hit-flash` 会被擦掉（探针实测：类加上了，下一帧就没了）。
+   改成 `data-hit` 属性 + CSS 规则：data 属性 Vue 不接管，重渲染不会掉。 */
+function scrollToMsgHit(el) {
+  const box = cpBody.value
+  if (!box || !el) return
+  const r = el.getBoundingClientRect()
+  const br = box.getBoundingClientRect()
+  const boxH = box.clientHeight
+  /* 短气泡居中；**长气泡对齐顶部**——副驾的回复常有整页长（实测 671px 的视口里装不下），
+     居中的结果是"开头被滚到屏幕外"，用户看到的是回复中段，等于没定位到。 */
+  const top = r.height > boxH * 0.6
+    ? box.scrollTop + (r.top - br.top) - 12
+    : box.scrollTop + (r.top - br.top) - (boxH - r.height) / 2
+  box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+  clearTimeout(flashTimer)
+  el.setAttribute('data-hit', '1')
+  flashTimer = setTimeout(() => { el.removeAttribute('data-hit') }, 1800)
 }
 
 const suggestions = ['今天该订什么货？', '算一下这个月货损', '哪些客户该催款了？', '核对我该拿多少返利']
@@ -1667,6 +1891,70 @@ function bubbleText(m) {
   return isAutoCard(m) ? '' : (m.content || '')
 }
 
+/* v634：Hermes 网关把「用户发来文档」这件事写成一段**英文上下文注**塞进 user 回合 ——
+   `[The user sent a document: '<转义过的名字>'. It is saved at: <服务器路径>. Its text is not
+   inlined here (it's a binary format …). To read it, extract the document's text yourself …]`
+   这句是**对模型说的**（本意：别反问用户要内容，自己用工具去读），可它落在消息正文里，
+   老板看到的就是一串百分号「乱码」—— 原话「给人感觉像乱码」。
+   ⇒ 渲染层抽成附件标签、正文只留人话；**不改落盘数据**（与 v627 对旧文案的处理同法，可逆，
+      历史会话一起变干净）。🔴 判据只认这条英文注：前端自己拼的 `【附件：xx（N 行）】` 是
+      给用户看的，不能一起吃掉。
+   🔴 文件名有两份来源，保真度不同：
+      · display_name = `9_E6_9C_88_…xlsx` —— 非 ASCII 字符被转成「下划线 + UTF-8 字节的 hex」；
+      · agent_path 的 basename = `doc_<id>_9%E6%9C%88…xlsx` —— 标准 URL 编码。
+      优先解 agent_path（能还原空格/标点），解析失败再退 display_name。 */
+const _dnCache = new Map()
+/* 只解 %XX 序列，不对整串 decodeURIComponent —— 中文文件名里可能混着原生字符，整串解会抛 URIError */
+function _decodePct(raw) {
+  return String(raw || '')
+    .replace(/(?:%[0-9A-Fa-f]{2})+/g, (m) => { try { return decodeURIComponent(m) } catch (_) { return m } })
+    .replace(/\+/g, ' ')
+    .trim()
+}
+/* `9_E6_9C_88_E9_94_80_.xlsx` → `9月销售 .xlsx`：把 `_XX` 两字节 hex 累积成 UTF-8 字节再解码 */
+function _decodeUnder(raw) {
+  const out = []
+  let buf = []
+  const flush = () => {
+    if (!buf.length) return
+    try { out.push(new TextDecoder('utf-8').decode(new Uint8Array(buf))) } catch (_) { /* 解不了就丢这段 */ }
+    buf = []
+  }
+  for (const p of String(raw || '').split('_')) {
+    if (/^[0-9A-Fa-f]{2}$/.test(p)) buf.push(parseInt(p, 16))
+    else { flush(); out.push(p) }
+  }
+  flush()
+  return out.join('').trim()
+}
+function _docName(disp, path) {
+  const base = String(path || '').split('/').pop() || ''
+  const fromPath = _decodePct(base.replace(/^doc_[0-9a-f]+_/i, ''))
+  if (fromPath) return fromPath
+  return _decodeUnder(disp) || _decodePct(disp)
+}
+/* { text: 剥掉注之后的人话, docs: [{name, path}] } —— 按内容 memo（与 mediaView 同理：
+   长会话数百条气泡，不能每条都跑正则；流式期间内容逐字增长，超阈值整表清空防无界增长）。 */
+function docNoteView(content) {
+  const src = content || ''
+  if (src.indexOf('[The user sent') < 0) return { text: src, docs: [] }
+  const hit = _dnCache.get(src)
+  if (hit) return hit
+  const docs = []
+  const text = src
+    .replace(/\[The user sent a (?:text )?document: '([^']*)'\.([\s\S]*?)\]/g, (_all, disp, rest) => {
+      const pm = /saved at:\s*([^\]\n]+?)(?:\.\s|\.$)/.exec(rest)
+      const p = pm ? pm[1].trim() : ''
+      docs.push({ name: _docName(disp, p), path: p })
+      return ''
+    })
+    .trim()
+  const v = { text, docs }
+  if (_dnCache.size > 400) _dnCache.clear()
+  _dnCache.set(src, v)
+  return v
+}
+
 // v320：历史列表里的「这段是谁开的」标签。
 //   🔴 取不到名字（角色已被删除 / 归属为空）就返回空串 ⇒ **不显示标签**，
 //      绝不让 `ROLE_NAMES[x] || x` 那类回落把内部 id 印到界面上（本项目踩过的老坑）。
@@ -1741,7 +2029,7 @@ function resumeSession() {
   openSession(t.id)
 }
 
-function close() { store.ui.copilotOpen = false; showPager.value = false }
+function close() { store.ui.copilotOpen = false; showPager.value = false; if (searchOpen.value) closeSearch() }
 
 async function toggleSources(i) {
   if (openSources.value === i) { openSources.value = -1; return }
@@ -1907,9 +2195,14 @@ async function ensureProfile() {
 }
 
 function showDemo() {
+  /* v636：三条演示消息原先**都没写 created_at** ⇒ 气泡里没有时间，而紧跟着的真实对话有，
+     同一屏里"有的有时间有的没有"（用户报障的成因之一；实测存量会话
+     `先看一下我能怎么帮你…` 5/5 条全无时间）。演示是一次性插入，共用一个时刻。 */
+  const demoAt = Date.now()
   store.chat.messages.push({
     role: 'assistant',
     content: '先看一下我能怎么帮你——下面是几个例子：',
+    created_at: demoAt,
     followups: [
       { label: '按客户维度看货损', query: '按客户维度分析本月货损' },
       { label: '按商品维度看货损', query: '按商品维度分析本月货损' },
@@ -1919,7 +2212,8 @@ function showDemo() {
   store.chat.messages.push({
     role: 'assistant',
     content: '这是「货损核算」经营卡，带近 7 日趋势迷你图：',
-    card: demoCard()
+    card: demoCard(),
+    created_at: demoAt
   })
   // 过程回复：改成演示**真实在用的**「工具执行情况」UI（原 `progress` 是死路径，已移除）。
   // 字段与 Hermes `hermes.tool.progress` 实际下发的保持一致（含 emoji/label/耗时）。
@@ -1930,7 +2224,8 @@ function showDemo() {
       { id: 'demo-1', name: 'skill_view', emoji: '📚', label: 'hergent-milk-commission', status: 'done', ms: 320 },
       { id: 'demo-2', name: 'terminal', emoji: '💻', label: '读取库存与效期批次', status: 'done', ms: 1840 },
       { id: 'demo-3', name: 'run_payroll', emoji: '🧮', label: '核算本月工资提成', status: 'running' }
-    ]
+    ],
+    created_at: demoAt
   })
   scrollBottom()
   saveCurrentSession()
@@ -3535,6 +3830,7 @@ async function loadAiMode() {
 }
 
 /* 打开抽屉时聚焦输入框 */
+
 watch(() => store.ui.copilotOpen, (v) => {
   /* 🔴 v673：抽屉打开 ⇒ 给 <body> 挂 `copilot-on`，页面级**非模态**浮层统一让位（规则见 styles/app-layers.css）。
      为什么必须挂 body、不能挂页面根：`.tb-pop-panel`（品牌 / 到货周期 / 复制报单 的弹层）是
@@ -3573,6 +3869,7 @@ onBeforeUnmount(() => document.body.classList.remove('copilot-on'))
 watch(() => store.ui.copilotNewTick, () => {
   if (store.ui.copilotOpen && consumeNewTick()) newSession()
 })
+
 
 function onKeydown(e) {
   if (e.key === 'Escape' && isFullscreen.value) { isFullscreen.value = false; return }
@@ -3752,17 +4049,31 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-title-role{font-size:12px;font-weight:500;color:var(--t3)}
 .cp-sub{font-size:11px;color:var(--t3);margin-top:1px}
 .cp-actions{display:flex;gap:6px}
-/* v663：顶栏「新对话」按钮（常驻一级入口，不再藏在历史会话面板里）。
-   主色底 + 白字，视觉权重高于右侧那排图标按钮 —— 它是主动作，不是次要工具。 */
-.cp-new-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;height:30px;padding:0 10px;border:none;border-radius:8px;background:var(--p-dark);color:#fff;font-size:12.5px;font-weight:500;cursor:pointer;transition:filter .15s}
+/* v705（合并 A/B）：顶栏「新对话」按钮（常驻一级入口，不再藏在历史会话面板里）。
+   主色底 + 白字，视觉权重高于右侧那排图标按钮 —— 它是主动作，不是次要工具。
+   ① **高度 30px + radius 8** —— 与同一行 `.cp-icon-btn` 严格同构（顶边差 0、高度差 0）。
+      它是这一行唯一的实心按钮 ⇒ 主操作的权重靠「填充」表达，不靠做得更大；
+      做成 32px 反而会让整行出现 1px 的顶边错位。
+   ② `flex:none` —— 空间不够时 `.cp-actions` 会压缩子项，最不该被压的正是主入口。
+   ③ hover 用 brightness 而不是新颜色变量，避免依赖未定义的 token。
+   ④ 窄屏（≤760px）：头部 8 个图标已接近屏宽，再挂带文字的按钮必挤爆
+      ⇒ 收成与图标同尺寸的方形按钮（仍是唯一的实心主操作，只是不写字）。 */
+.cp-new-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;height:30px;padding:0 10px;
+  border:none;border-radius:8px;background:var(--p-dark);color:#fff;font-size:12.5px;font-weight:500;
+  cursor:pointer;transition:filter .15s}
 .cp-new-btn:hover{filter:brightness(1.12)}
 .cp-new-ic{flex:0 0 auto}
 .cp-new-tx{white-space:nowrap}
-/* 窄屏（手机/半屏）空间不够 ⇒ 只留 ＋ 图标，文案交给 title 提示 */
-@media(max-width:760px){.cp-new-btn{width:30px;padding:0}.cp-new-tx{display:none}}
+@media (max-width:760px){
+  .cp-new-btn{width:30px;padding:0}
+  .cp-new-tx{display:none}
+}
 .cp-icon-btn{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2);cursor:pointer}
 .cp-icon-btn:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .cp-icon-btn:disabled{opacity:.35;cursor:default}
+/* v639：图标按钮的「激活」态。原来模板里写了 :class="{on:...}" 但全站没有 .on 规则 ⇒
+   点了看不出开没开（产物/一页纸两个按钮一直如此）。补一条统一规则。 */
+.cp-icon-btn.on{background:var(--p-bg);color:var(--p-dark)}
 
 .cp-body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;position:relative}
 /* v488：进入副驾恢复最近会话时的加载遮罩，覆盖在对话流上，避免先闪空白新对话 */
@@ -3788,6 +4099,43 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-hist-hit{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);cursor:pointer;transition:all .15s}
 .cp-hist-hit:hover{border-color:var(--p);background:var(--p-bg)}
 .cp-hist-snippet{font-size:11.5px;color:var(--t3);margin-top:4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* v639 搜索历史消息。尺寸取自 WorkBuddy 的会话搜索（输入条 32 高 / 圆角 8 /
+   左图标 16 + 6 间距 / 输入 13px / 右侧计数 12px 等宽数字 / 关闭按钮 24），
+   配色换成我们自己的 token，深浅主题都跟着走。 */
+.cp-search-pane{flex:1;min-height:0;display:flex;flex-direction:column}
+.cp-search-bar{display:flex;align-items:center;height:32px;margin:12px 16px 8px;padding:0 4px 0 8px;border-radius:8px;
+  background:var(--bg2);border:1px solid transparent;transition:border-color .12s,background .12s;flex-shrink:0}
+.cp-search-bar:focus-within{border-color:var(--p);background:var(--bg)}
+.cp-search-ico{display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex:0 0 16px;margin-right:6px;color:var(--t3)}
+.cp-search-ico svg{display:block}
+.cp-search-input{flex:1;min-width:0;height:100%;padding:0;border:none;background:none;outline:none;
+  font-family:inherit;font-size:13px;line-height:1;color:var(--t1)}
+.cp-search-input::placeholder{color:var(--t3)}
+.cp-search-count{flex:0 0 auto;padding:0 6px;font-size:12px;color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cp-search-x{display:flex;align-items:center;justify-content:center;width:24px;height:24px;flex:0 0 24px;
+  border:none;background:none;border-radius:4px;color:var(--t3);cursor:pointer}
+.cp-search-x .ico{width:14px;height:14px}
+.cp-search-x:hover{background:var(--bg2);color:var(--t1)}
+.cp-search-tip{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  padding:0 24px;color:var(--t3);font-size:13px;line-height:1.8;text-align:center}
+.cp-search-tip-ic{color:var(--t3);opacity:.55}
+.cp-search-list{flex:1;min-height:0;overflow-y:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:2px}
+.cp-search-item{display:flex;flex-direction:column;gap:4px;width:100%;padding:8px 10px;border:none;border-radius:8px;
+  background:none;cursor:pointer;text-align:left;color:inherit;transition:background .12s}
+.cp-search-item:hover,.cp-search-item.active{background:var(--p-bg)}
+.cp-search-item-hd{display:flex;align-items:center;gap:6px;min-width:0}
+.cp-search-who{flex:0 0 auto;padding:0 6px;border-radius:var(--radius-md);background:var(--bg2);
+  border:1px solid var(--border-subtle);font-size:11px;line-height:16px;color:var(--t3)}
+.cp-search-item-title{flex:1;min-width:0;font-size:12.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-search-time{flex:0 0 auto;font-size:11.5px;color:var(--t3);font-variant-numeric:tabular-nums}
+.cp-search-snip{font-size:12.5px;line-height:1.6;color:var(--t2);word-break:break-word;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cp-search-snip mark{background:transparent;color:var(--p-dark);font-weight:600}
+/* 命中跳转后的短暂描边（1.8s 自动撤）。用 box-shadow 而不是 outline：不吃布局、圆角跟卡片一致。
+   🔴 挂在 `data-hit` 上而不是 class：`.msg` 的动态 `:class` 每次 patch 会整份重写 className，
+   手写 class 会被擦掉（实测一次都抓不到）；data 属性 Vue 不接管，重渲染不会掉。 */
+.msg[data-hit]{box-shadow:0 0 0 2px var(--p), 0 0 0 6px var(--p-bg);border-radius:10px;transition:box-shadow .25s ease-out}
 .cp-welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
 .cp-w-ic{width:56px;height:56px;border-radius:18px;background:var(--p-bg);display:flex;align-items:center;justify-content:center;margin-bottom:14px}
 .cp-w-title{font-size:15px;font-weight:500;color:var(--t1);margin:0 0 4px}
@@ -3822,6 +4170,13 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .msg-bubble{max-width:100%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 .msg.user .msg-bubble{background:var(--p-dark);color:#fff;border-bottom-right-radius:4px}
 .msg.assistant .msg-bubble{background:var(--bg2);border-bottom-left-radius:4px;color:var(--t1)}
+/* v634：用户消息里的「已收到附件」条（替代原先那段给模型看的英文上下文注）。
+   配色跟随 user 气泡（深底白字）⇒ 半透明白描边而不是用边框色 token。
+   🔴 文件名可能很长 ⇒ `min-width:0` + ellipsis，否则 flex 子项默认 min-width:auto 会把气泡撑爆。 */
+.cp-doc-chip{display:flex;align-items:center;gap:7px;max-width:100%;padding:6px 9px;margin:0 0 6px;border-radius:9px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24)}
+.cp-doc-chip>svg{flex:0 0 auto;opacity:.92}
+.cp-doc-chip-name{min-width:0;font-size:12.5px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-doc-chip-tag{flex:0 0 auto;margin-left:auto;font-size:11px;color:rgba(255,255,255,.72);letter-spacing:.2px}
 
 /* 溯源：参考来源 */
 .src-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:none;background:none;border-radius:8px;font-size:11px;color:var(--t3);cursor:pointer;transition:all .15s}

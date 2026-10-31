@@ -3,7 +3,7 @@
     <div class="page-hd split">
       <div>
         <h2>审批链配置</h2>
-        <span class="page-sub">设置每类单据要过哪几关（仅管理员可改）</span>
+        <span class="page-sub">设置每类单据要过哪几关</span>
       </div>
     </div>
 

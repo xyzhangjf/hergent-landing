@@ -519,6 +519,21 @@ export const useAppStore = defineStore('app', () => {
     return cands.reduce((a, b) => (tsNum(b.updated_at) >= tsNum(a.updated_at) ? b : a))
   }
 
+  /* v637：「全局最近一条会话」—— **不按角色过滤**，用于「打开副驾默认显示最后一次对话」。
+     🔴 为什么必须有它：v488 的自动恢复只找 `latestSessionOfRole(当前角色)`，
+        而真实使用里「最近聊的」经常不在默认角色名下 ⇒ 返回 null ⇒ 回退空白新对话，
+        用户看到的就是「打开副驾不是上次那段」。
+        生产实证（2026-10-20，tenant 1 / boss 共 6 条会话）：
+          secretary（13:45 最新）/ 企微同步 role=''（13:31）/ accountant（13:26）/ secretary / '' / ''
+        —— **没有一条 role=copilot**，而默认角色是 copilot ⇒ 自动恢复 100% 落空（真机探针复现）。
+     ⚠️ 「接着上次聊」按钮仍走严格口径（v320：归属为空串的会话谁都不认领，避免跳到陌生会话）；
+        这里放宽是刻意的：**打开抽屉** = 回到自己上次那段，本来就是"跨角色"的行为。 */
+  function latestSessionOverall() {
+    const arr = (chat.sessions || []).filter(s => s && s.id)
+    if (!arr.length) return null
+    return arr.reduce((a, b) => (tsNum(b.updated_at) >= tsNum(a.updated_at) ? b : a))
+  }
+
   /* 退出登录时清掉本地会话缓存：会话按账号存服务端，
      本地若跨账号残留，会让下一个登录的人看到上一个人的对话。 */
   function clearChatCache() {
@@ -657,7 +672,7 @@ export const useAppStore = defineStore('app', () => {
     permActs, canDo,
     loadSessions, loadSessionsFromServer, saveCurrentSession, newChatSession, openChatSession, deleteChatSession,
     clearChatCache,
-    loadAiRoles, setAiRole, latestSessionOfRole
+    loadAiRoles, setAiRole, latestSessionOfRole, latestSessionOverall
   }
 })
 
@@ -682,6 +697,7 @@ export const loadSessions = (...a) => store.loadSessions(...a)
 export const saveCurrentSession = (...a) => store.saveCurrentSession(...a)
 export const loadSessionsFromServer = (...a) => store.loadSessionsFromServer(...a)
 export const latestSessionOfRole = (...a) => store.latestSessionOfRole(...a)
+export const latestSessionOverall = (...a) => store.latestSessionOverall(...a)
 export const newChatSession = (...a) => store.newChatSession(...a)
 export const openChatSession = (...a) => store.openChatSession(...a)
 export const deleteChatSession = (...a) => store.deleteChatSession(...a)

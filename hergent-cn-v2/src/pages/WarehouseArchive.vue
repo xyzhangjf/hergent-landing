@@ -17,13 +17,7 @@
         <span class="tag info">共 {{ rows.length }} 个仓</span>
       </div>
 
-      <!-- 无权限：显式说明，绝不显示成"空列表" —— 空表会被读成"我一个仓都没有"，
-           而真相是"这个账号看不到"（本项目反复在修的"假"）。 -->
-      <div v-if="denied" class="state-empty">
-        当前账号没有「仓库」权限，看不到仓库档案。<br>
-        请联系管理员在「设置 → 权限」里为该角色勾选「库存」模块。
-      </div>
-      <Skeleton v-else-if="loading" />
+      <Skeleton v-if="loading" />
       <div v-else-if="rows.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
@@ -112,13 +106,19 @@
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
 import Modal from '../components/Modal.vue'
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { toast, canDo } from '../store'
 import { warehouseApi } from '../api/modules'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const rows = ref([])
 const loading = ref(false)
 const denied = ref(false)
+// v651：模块被拒（403）⇒ 不页内挂解释，改走与路由守卫一致的「回工作台 + 一句提示」。
+watch(denied, (v) => {
+  if (v) router.replace({ path: '/workbench', query: { denied: '仓库档案' } }).catch(() => {})
+})
 
 const editOpen = ref(false)
 const isCreate = ref(true)

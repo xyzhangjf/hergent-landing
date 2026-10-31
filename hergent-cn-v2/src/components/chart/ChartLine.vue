@@ -75,10 +75,11 @@
             >{{ shortVal(p.v) }}</text>
           </template>
 
-          <!-- 横轴标签：点多时按步长抽稀（避免叠字）；首尾必留 -->
+          <!-- 横轴标签：点多时按步长抽稀（避免叠字）；首尾必留，
+               且首标左对齐、尾标右对齐，否则边缘标签会被裁掉半个字 -->
           <text
             v-for="l in xLabels" :key="'x' + l.i" class="ch-ax-lb"
-            :x="l.x" :y="H - PAD.b + 16" text-anchor="middle"
+            :x="l.x" :y="H - PAD.b + 16" :text-anchor="l.anchor || 'middle'"
           >{{ l.t }}</text>
 
           <!-- 0 轴 -->
@@ -127,7 +128,7 @@
 import { computed, inject, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
 import ChartFigure from './ChartFigure.vue'
 import { seriesColor } from './chartTheme'
-import { money, moneyUnit, axisNum, niceMax, niceMin, tickValues, compact, qty, int } from './chartFmt'
+import { money, moneyUnit, axisNum, niceMax, niceMin, niceFloor, tickValues, compact, qty, int } from './chartFmt'
 import { lineGeometry, smoothPath } from './chartGeom'
 import { useChartTip } from './useChartTip'
 
@@ -199,13 +200,32 @@ const dataMax = computed(() => {
   for (const s of props.series || []) for (const v of nums(s.data)) m = Math.max(m, v)
   return m
 })
+/* 🔴 v726 第二层修正：下界初值必须是 +Infinity，不能是 0。
+   原来写 `let m = 0`，对全正数据 `Math.min(0, v)` **恒为 0** ⇒ dataMin 永远是 0，
+   于是任何"从数据下界起"的取法都拿到 0（等于第一层零基线没修）。
+   这个问题两轮才看清：先修了 `yMin` 的判据，图还是平的，才回头怀疑数据源本身。
+   `zeroBase=true`（Dashboard / 返利的默认调用）压根不读 dataMin，所以这次改动
+   对既有调用方零影响。 */
 const dataMin = computed(() => {
-  let m = 0
-  for (const s of props.series || []) for (const v of nums(s.data)) m = Math.min(m, v)
-  return m
+  let m = Infinity
+  let seen = false
+  for (const s of props.series || []) {
+    for (const v of nums(s.data)) {
+      m = Math.min(m, v)
+      seen = true
+    }
+  }
+  return seen ? m : 0
 })
 const yMax = computed(() => niceMax(dataMax.value))
-const yMin = computed(() => (props.zeroBase || dataMin.value >= 0 ? 0 : niceMin(dataMin.value)))
+/* 纵轴下界。
+   🔴 v726 修正：原写法是 `zeroBase || dataMin >= 0 ? 0 : niceMin(...)` ——
+      数据全为正时**无论如何都从 0 起**，于是 `zeroBase=false` 只对含负数的图有效，
+      对"销售额 61万→112万"这种全正数据完全不起作用（真机截图里折线还是平的）。
+      现在按 prop 语义直判：zeroBase=true 一律 0 起（既有的 Dashboard / 返利调用方
+      都用默认值 true，行为逐像素不变）；false 才从数据下界取整。
+      用 niceFloor 而不是 niceMin —— 后者对正数直接返回 0，等于没改。 */
+const yMin = computed(() => (props.zeroBase ? 0 : niceFloor(dataMin.value)))
 
 /** 纵轴单位键（用于数字换算）与单位标签（写在轴顶） */
 const axUnitKey = computed(() => {
@@ -264,7 +284,14 @@ const xLabels = computed(() => {
   const out = []
   for (let i = 0; i < N; i++) {
     if (i % step !== 0 && i !== N - 1) continue
-    out.push({ i, x: Math.round(scales.value.xAt(i)), t: labels.value[i] })
+    /* 🔴 首尾标签改对齐方式（v726 真机截图抓到）：
+       点都居中对齐时，最后一个标签有一半落在 `W - PAD.r`(18px) 之外被裁掉 ——
+       「2026-09」这种 7 字符日期宽约 44px，右半 22px > 18px ⇒ 显示成「2026-0」。
+       Dashboard 的 7 天图没暴露，是因为它的标签是「09-23」这种 5 字符。
+       首标 start、尾标 end，两边都不会溢出；中间保持 middle（与数据点对齐）。
+       不改 PAD.r：那会压缩绘图区，影响所有既有调用方。 */
+    const anchor = (N === 1) ? 'middle' : (i === 0 ? 'start' : (i === N - 1 ? 'end' : 'middle'))
+    out.push({ i, x: Math.round(scales.value.xAt(i)), t: labels.value[i], anchor })
   }
   return out
 })

@@ -168,6 +168,20 @@ export const reportsApi = {
   /** 促销（买赠/折扣）活动：{ rows[{id,name,start_date,end_date,discount_pct,bonus_qty,
    *   is_active,promo_type,buy_qty,free_qty,gift_product_name,gift_qty}] } —— 来自 promotions。 */
   mktPromotions: () => api('/api/reports/mkt-promotions'),
+  /* ---- 数据健康自检（v720 / 阶段1 M5）----
+     `GET /api/reports/data-health` → { checked_at, summary:{pass,warn,fail,unavailable},
+                                        total, cards:[…], note }
+     每张 card 的形状（后端 `routers/data_health.py::_card` 唯一真源）：
+       { key, title, status, headline, numbers:{}, why, hint, columns:[], rows:[] }
+     🔴 `status` 四态，前端**不许**自己改语义：
+        pass 判据成立 / warn 数值异常但配置允许 / fail 真不平 / unavailable 结构上算不了。
+        把 warn 画成红色（或把 unavailable 画成绿色）等于推翻后端判据，
+        而这张页存在的意义就是「判据不被界面美化」。
+     🔴 一次取全（不要按卡发 6 个请求）：卡的结论必须来自同一个快照，
+        否则会出现「凭证卡说 0 张不平、勾稽卡说差 3 块」这种自相矛盾的画面。
+     单卡端点另有 `?limit=`（默认 200，最大 2000），只用于排障放大明细。 */
+  dataHealth: () => api('/api/reports/data-health'),
+  dataHealthCard: (key, limit = 200) => api(`/api/reports/data-health/${key}?limit=${limit}`),
 }
 
 /* ---- 开放API 控制台（v637 P2 开放API）：租户级 API 令牌自助管理 ---- */
@@ -181,6 +195,36 @@ export const openapiApi = {
   createToken: (body) => api('/api/openapi/tokens', { method: 'POST', body }),
   /** 吊销令牌：DELETE /api/openapi/tokens/{id} → { ok } */
   revokeToken: (id) => api('/api/openapi/tokens/' + id, { method: 'DELETE' }),
+}
+
+/* ---- 报表平台化（v723 / 阶段4 M3）— 配置驱动的通用报表 ----
+   三个端点全部在 `routers/report_engine.py`（前缀 `/api/reports` ⇒ RBAC 归 `reports`）：
+     GET /api/reports/defs                 可访问的报表清单（不含 SQL）
+     GET /api/reports/def/{name}           元数据：columns / filters / total_row / note / max_rows
+     GET /api/reports/def/{name}/data      执行，返回 { columns, rows, row_count, truncated, totals, elapsed_ms, note }
+
+   🔴 为什么单独一个 api 对象、不塞进 reportsApi：`reportsApi` 里全是**手写口径的具体报表**
+      （毛利、账龄、周转…），而这一组是**平台能力**（跑别人定义的 SQL）。两者失败模式不同：
+      前者会"口径错"，后者会"没配置（404）/超时（504）/被安全闸门拒（400）"，
+      调用方要按 status 区分处理（GenericReport 就是这么做的）。
+   🔴 404 的语义是「这张报表还没配口径」，**不是**「查询失败」，更**不是**「没有数据」。
+      页面必须区分展示，否则老板会把"没配置"读成"生意是 0"。
+   🔴 超时给到 40s：后端执行器硬超时 10s，留足网络与串行开销；不要把前端超时设得比后端短，
+      否则用户看到的是"请求超时"而不是后端那条更精确的"请缩小日期范围"。 */
+export const reportEngineApi = {
+  defs: () => api('/api/reports/defs', { timeout: 30000 }),
+  defMeta: (name) => api(`/api/reports/def/${encodeURIComponent(name)}`, { timeout: 30000 }),
+  defData: (name, qs = '') =>
+    api(`/api/reports/def/${encodeURIComponent(name)}/data${qs ? '?' + qs : ''}`, { timeout: 40000 }),
+
+  /* ---- 编辑器（v725）：只有老板账号能拿到 SQL 与保存 ---- */
+  // 这一组是**唯一**会吐出报表 SQL 的接口，后端用 _require_boss 拦死。
+  // 保存 = 改所有人看到的数的口径，等同于"能改账"，所以不放进通用 api 里混用。
+  raw: (name) => api(`/api/reports/def/${encodeURIComponent(name)}/raw`, { timeout: 30000 }),
+  preview: (body) => api('/api/reports/preview', { method: 'POST', body, timeout: 60000 }),
+  save: (name, body) =>
+    api(`/api/reports/def/${encodeURIComponent(name)}`, { method: 'PUT', body, timeout: 60000 }),
+  create: (body) => api('/api/reports/def', { method: 'POST', body, timeout: 60000 }),
 }
 
 /* ---- 买赠活动管理（v537 P2-1 二期）----
@@ -1077,30 +1121,3 @@ export const zhoupuApi = {
   sourceStatus: () => api('/api/import/zhoupu/source-status', { timeout: 15000, raw: true }),
 }
 
-/* ---- 报表执行器（⑤ 报表平台化 / v723）：配置驱动报表 ----
-   🔴 模块轴 = `reports`（`server.py::_PATH_MODULE_MAP`：`/api/reports` → reports）。
-   🔴 读接口（list/getDef/getData）全租户可读（看自己公司的数）；
-      写接口（getRaw/preview/save/create）只有老板/管理员（改口径 = 改所有人看到的数的口径）。 */
-export const reportEngineApi = {
-  /** 可访问的报表清单（不含 SQL）。 */
-  list: () => api('/api/reports/defs'),
-  /** 单张报表元数据（列/筛选/口径说明，不含 SQL）。 */
-  getDef: (name) => api(`/api/reports/def/${encodeURIComponent(name)}`),
-  /** 执行报表：filters 为 { key: value }，空值不传。 */
-  getData: (name, filters = {}) => {
-    const q = new URLSearchParams()
-    for (const [k, v] of Object.entries(filters || {})) {
-      if (v !== '' && v !== null && v !== undefined) q.append(k, String(v))
-    }
-    const qs = q.toString()
-    return api(`/api/reports/def/${encodeURIComponent(name)}/data${qs ? '?' + qs : ''}`)
-  },
-  /** 🔴 老板/管理员：查看报表原始 SQL。 */
-  getRaw: (name) => api(`/api/reports/def/${encodeURIComponent(name)}/raw`),
-  /** 🔴 老板/管理员：保存前试跑（校验 + 试算）。body = 待保存定义。 */
-  preview: (body) =>
-    api('/api/reports/preview', { method: 'POST', body, timeout: 30000 }),
-  /** 🔴 老板/管理员：保存报表定义（会先试跑，跑不通不落库）。 */
-  save: (name, body) =>
-    api(`/api/reports/def/${encodeURIComponent(name)}`, { method: 'POST', body, timeout: 30000 }),
-}

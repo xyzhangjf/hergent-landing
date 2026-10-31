@@ -476,7 +476,6 @@
           <button class="btn btn-xs btn-ghost" @click="cancelAddField">取消</button>
         </template>
         <button v-else-if="canAddCol" class="btn btn-xs btn-ghost" @click="startAddField">新增字段</button>
-        <span v-else class="ipl-cm-err">当前账号没有新增字段的权限</span>
       </div>
       <div class="col-menu-reset">
         <button class="btn btn-ghost btn-xs" @click="resetCols">恢复默认</button>
@@ -916,9 +915,11 @@ function toggleCol (k) {
   colVis.value = { ...colVis.value, [k]: !(colVis.value[k] !== false) }
   persistCols()
 }
-/* v670：列清单复选框的**唯一**事件入口（与 ColMenuPanel.vue::onCheck 同写法）。
-   `@change` 不 prevent ⇒ 浏览器翻转与状态同向；再 nextTick 按状态回写一次，
-   兜住「状态没变（如固定列）但 DOM 已被翻过」的残余。 */
+/* 🔴 v677：列设置复选框的唯一入口 —— **不许写回 `@click.prevent="toggleCol(...)"`**
+   （全站第二次复发，v669 修过一次）。Chrome 的 pre-click activation 先翻转 checked 再派发 click，
+   `preventDefault()` 之后浏览器把翻转还原；Vue 只在 vnode prop 变化时写 DOM ⇒ 不再 patch
+   ⇒ 勾选态与列显隐永久相反。真实鼠标必现，JS `el.click()` 不打这儿，所以探针必须用真鼠标。
+   正解：`@change`（不 prevent）+ nextTick 按状态回写。详见 Forecast.vue::onColCheck。 */
 function onColCheck (k, e) {
   toggleCol(k)
   const el = e && e.target
