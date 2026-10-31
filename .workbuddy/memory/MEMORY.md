@@ -14,6 +14,7 @@
 - 前端→`topics/frontend-ui.md`：入口与门禁唯一源 `pages.js`（未登记=放行，删登记=放宽门禁）｜`permView.js` 唯一源、`module:null`=只读｜文案三禁⇒`hergent-ui-copy-guard`｜图表唯一源 `src/components/chart/`｜列表页冻结/密度/合计 `psi-list.css`｜侧栏系列只删菜单项。🔴 副驾快捷键 `⌘K`/`⌘⇧K` 已占用 ⇒ 新的用 `⌘⇧O`；外部触发「新建会话」必须用可消费计数器 `ui.copilotNewTick` + `takeNewTick()` 与 watcher 里 `restoreLatestSession()` 抢首分支（v649）。
 - 后端→`topics/backend-invariants.md`：路由遮蔽先注册者胜｜静默失效=恒空恒0⇒`undefined-call-scan.py`｜门禁用接口模块非页面模块｜FastAPI 未声明 query 被静默忽略｜意图路由按序首匹配｜`execute_tool` 返回键是 `success`。
 - 部署→`topics/deploy-ops.md`：后端 FLAT `/opt/hergent-erp/`（无 `server/` 前缀）｜前端 `/opt/hergent-cn-v2`｜服务 `hergent-erp.service`｜部署前 `git fetch` v509｜**rsync 绝不 `--delete`**（后端 `deploy.sh` 内联了它）｜🔴 `https://hergent.cn/` = ERP 前端，`/admin/` = 平台运营控制台（另一应用）⇒ 探针/部署一律用根路径（`/admin/assets/x.js` 永远 200 但返回 index.html，v636）。
+- 🔴🔴 **免密码做生产 UI 真机验证**（v707，最省事的正路）：**生产后端不是 git 仓**，改它要 `scp` 下来改 → `.bak` 备份 → `install -o hergent -g hergent -m 644` → `systemctl restart`。验证登录态：从主库 `sessions` join `users`(role='boss') 取 `token`，puppeteer `setCookie` 注入 `erp_token`(httpOnly)+`hergent_auth=1`+`csrf_token`(任意值，双提交)+`hergent_tenant`，domain `hergent.cn` secure ⇒ **直接以老板身份跑生产页面**，不用猜密码。⚠️ `sessions` 表**没有 id 列**（用 `created_at` 排序）、`users` 表**没有 tenant_id**。
 - 预报主表→`topics/forecast-order-domain.md`（细节全在那边，只留最常踩的 5 条）：
   - 🔴 「我怎么只看到 N 个品」先查品牌筛选残留（`brandSel` 持久化于 `hergent.forecast.brandSel`，`cycleSel` 刻意不持久化）；汇总条必须写**筛选来源**+「清除」（v672 `rowFilterShort`/`clearEveryRowFilter`）。
   - 🔴 **新增一种行筛选条件要改三处**：`rowFilterPass` + `cfOn`（汇总条分支）+ `anyRowFilterOn`（空态）；漏 `cfOn` = 行少了但汇总条还挂「187 个商品」（v673）。
@@ -36,6 +37,8 @@
 - 🔴 `ui_col_prefs` 是租户级不是 per-user ⇒ 探针切列显隐会改掉全租户视野，测完必须查库确认最终值。
 - 🔴 `GET /api/products` 是 `SELECT *` ⇒ 新字段自动下发；`PUT /api/products/{id}` 白名单**故意不收** `order_days` ⇒ 编辑弹窗别放该输入框。`.pa-ft-note` 全局是警告橙 ⇒ 正常态要自带 class 压灰。
 - 🔴 给商品加字段要改 4 处（v670）：`_safe_migrate` 加列＋`GRID_COLUMNS`＋`products_grid` 输出＋summary 的 `imported_products` SQL；前端另需 `asProdRow`＋`loadEditGrid`/`loadCross`。缺一处 = 某态恒空。新增列还要 `applySaved` 补列 + `after:'<锚点>'` 定首次落位。
+- 🔴 **给 `hr_employees` 之类员工表加列也是 4 处**（v707）：主库 `_safe_migrate` ALTER ＋ 租户库手工补列 tuple ＋ `v131_hr_employees` 建表 DDL ＋ `_init_payroll_tables` 建表 DDL（后两处不给就等于**新库缺列**，ALTER 对新库无效）。**且 `employee_create` 里还有第三份 `allowed` 白名单**（注释写着"三处必须同时改"）⇒ 加字段前先 `grep "allowed = \["` 数清。读端不用改：`employee_list` 是 `SELECT *`。
+- 🔴 **附件别复用通用 `/api/attachments`**（v707）：那套只 `_auth`、**不校验归属**，换 `ref_id` 就能读别人的合同/证件（IDOR+PII）。照 psi（v408）范式做独立四件套，越界回 **404 不是 403**。`attachment_create` 的 `ref_type` 现在有白名单（原可 `../` 逃出 uploads）、落盘名带 8 位随机（原同名互相覆盖 ⇒ 删一条另一条变幽灵）。
 - 🔴 探针数行数别数 `tbody tr`（虚拟滚动只渲染首屏）、也别读 `body.innerText`（headless 可能空串）⇒ 直接查接口。
 - scopeId 由文件内容派生（动过 SFC 必重构建）｜全屏层外的元素全屏看不见｜Modal 一律 `--z-page-modal-overlay/-modal`（1125/1130）｜与视口相关的尺寸不许写死 vh｜判「折行」只认行高｜打开即输入用 `data-autofocus`。
 
