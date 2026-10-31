@@ -533,6 +533,12 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .wx{position:relative;display:flex;align-items:center}
+/* v708：窄屏隐藏天气，给顶栏腾位置（375px 实测各元素合计 ≈ 451px，必然把用户名压成竖排）。
+   🔴 必须写在本文件：Shell.vue 的 `@media(max-width:768px){.wx{display:none}}` **从没生效过** ——
+      @media 不提高优先级，同特异性的 `.wx{display:flex}`（下面这行）会把它盖掉。
+      选择隐藏天气而不是品牌名：天气信息在手机上价值最低，它的展开面板在窄屏也不好点。
+   320px 级机型再隐藏品牌文字（`.tb-brand b`），见 Shell.vue 的 360 断点。 */
+@media(max-width:768px){ .wx{display:none} }
 .wx-now{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:18px;
   background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
 .wx-now:hover{background:var(--p);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}

@@ -29,7 +29,10 @@
         <button class="tb-btn" @click="toggleTheme" title="切换主题">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
         </button>
-        <div class="tb-user" @click.stop="toggleUserMenu">{{ store.user.name || '我' }}<svg class="tb-user-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
+        <!-- v708：名字必须包在 span 里。裸文本节点是**匿名 flex item**，空间不足时会被压到
+             1 个字宽 ⇒ 逐字换行（375px 实测「张 / 俊 / 峰」竖排三行，且字被顶出 --topbar-h）。
+             包成元素后才能用 `white-space:nowrap` + 省略号把它约束成一行。 -->
+        <div class="tb-user" :title="store.user.name || '我'" @click.stop="toggleUserMenu"><span class="tb-user-name">{{ store.user.name || '我' }}</span><svg class="tb-user-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
         <div v-if="userMenuOpen" class="tb-menu-mask" @click="userMenuOpen=false"></div>
         <div v-if="userMenuOpen" class="tb-menu" @click.stop>
           <button class="tb-menu-item" @click="openProfile">修改资料</button>
@@ -1641,12 +1644,17 @@ function stopResize() {
 .tb-brand b{font-size:16px;font-weight:600;letter-spacing:.2px}
 .tb-sub{font-size:12px;color:var(--t3);padding:3px 8px;border-radius:8px;background:var(--p-bg);color:var(--p-dark)}
 .tb-right{display:flex;align-items:center;gap:8px;flex:1;min-width:0;justify-content:flex-end}
-.tb-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2)}
+/* v708：`.tb-btn` 与 `.tb-user` 都不许收缩 —— 顶栏空间不够时，宁可让空间从
+   `.tb-brand`（有 flex:1 且 min-width:0）那里让出来，也不要挤压图标和名字。 */
+.tb-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2);flex-shrink:0}
 .tb-btn:hover{background:var(--bg2);color:var(--p-dark)}
 /* 通知铃铛：未读数用中文数目直接显示，不用英文缩写 */
 .tb-bell{position:relative}
 .tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--dan);color:#fff;font-size:10px;line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
-.tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer}
+.tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;max-width:180px}
+/* v708：名字单行 + 过长省略（hover 有 title 看全）。`min-width:0` 是让 ellipsis 真正生效的前提
+   —— flex item 默认 min-width:auto，内容多长就多长，省略号永远不出现。 */
+.tb-user-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
 .tb-ai{display:flex;align-items:center;gap:12px;flex-shrink:0}
 .tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
@@ -1856,7 +1864,15 @@ function stopResize() {
   .sidebar{display:none}
   .sb-resizer{display:none}
   .tb-sub{display:none}
-  .wx{display:none}
+  /* v708：375px 实测顶栏元素总宽 ≈ 450px（含内边距与间距）⇒ 必然溢出，把用户名压成竖排。
+     这里收紧间距与内边距，并给用户名设上限（名字再长也只省略，不再逐字换行）。
+     天气组件的隐藏放在它自己文件里 —— 在**这里**写 `.wx{display:none}` 从未生效过：
+     它被编译成 `.wx[data-v-<Shell>]`，而天气元素的 scope 属性是它自己的，
+     加上 `@media` 本身不提高优先级，两头都不占优。放在组件自己文件里才是唯一可靠位置。 */
+  .topbar{gap:8px;padding:0 12px}
+  .tb-ai{gap:8px}
+  .tb-right{gap:6px}
+  .tb-user{max-width:96px;padding:0 10px}
   .mnav{display:flex;position:fixed;bottom:0;left:0;right:0;height:calc(56px + env(safe-area-inset-bottom));background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-top:1px solid var(--glass-border);z-index:800;padding-bottom:env(safe-area-inset-bottom)}
   .mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;color:var(--t3);font-size:11px}
   .mnav-item.router-link-active{color:var(--p-dark)}
@@ -1867,5 +1883,11 @@ function stopResize() {
      v417f：标签栏已并入顶栏，这里不再为它预留通栏空间。
      手机端标签栏整条隐藏（Q6 A），所以这里只补底部安全区，视觉与原来一致。 */
   .view-wrap{padding:14px 12px calc(72px + env(safe-area-inset-bottom))}
+}
+/* v708：320px 级机型（iPhone SE 一代等）空间再紧一档 —— 让出品牌文字只留 logo（logo 本身可识别），
+   用户名上限再收。375px 用不着这一档，所以单开断点而不是塞进 768。 */
+@media(max-width:360px){
+  .tb-brand b{display:none}
+  .tb-user{max-width:80px}
 }
 </style>

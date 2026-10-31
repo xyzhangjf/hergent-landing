@@ -380,12 +380,12 @@
                            已有 `watch(() => accForm2.role)` 负责（见脚本区），此处**不再重复实现**。
                            合并到一屏后角色与端同屏可见，这条同步变得更显眼：
                            不同步就会出现"我选了导购、端还停在员工那个"（同屏两句互相矛盾）。 -->
-                      <select v-model="accForm2.role" class="input acc-role">
+                      <select v-model="accForm2.role" class="input acc-role" :title="optLabel(ROLE_OPTIONS, accForm2.role)">
                         <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                       </select>
                     </label>
                     <label class="df-field"><span>可登录端</span>
-                      <select v-model="accForm2.login_scope" class="input acc-role" @change="accScopeTouched = true">
+                      <select v-model="accForm2.login_scope" class="input acc-role" :title="optLabel(LOGIN_SCOPE_OPTIONS, accForm2.login_scope)" @change="accScopeTouched = true">
                         <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                       </select>
                     </label>
@@ -428,7 +428,7 @@
                      改完却没处存 = "看得见存不了"。宁可看不见。 -->
                 <div v-if="canDo('data', 'update')" class="df-acc-row">
                   <span class="df-acc-exp-label">角色</span>
-                  <select v-model="accRoleEdit" class="input acc-role">
+                  <select v-model="accRoleEdit" class="input acc-role" :title="optLabel(ROLE_OPTIONS, accRoleEdit)">
                     <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
                 </div>
@@ -440,7 +440,7 @@
                      与上面角色行一起挂 `canDo('data','update')`。 -->
                 <div v-if="canDo('data', 'update')" class="df-acc-row">
                   <span class="df-acc-exp-label">可登录端</span>
-                  <select v-model="accScopeEdit" class="input acc-role" aria-label="可登录端">
+                  <select v-model="accScopeEdit" class="input acc-role" :title="optLabel(LOGIN_SCOPE_OPTIONS, accScopeEdit)" aria-label="可登录端">
                     <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
                 </div>
@@ -985,6 +985,12 @@ const ROLE_OPTIONS = computed(() => {
   }
   return out
 })
+/** v708：下拉框关闭态只显示一行、长角色名会走省略号 ⇒ 全称挂到 `title`（hover / 长按可见）。
+ *  做成函数而不是每处内联 `(list.find(...) || {}).label` —— 四个 select 抄四遍必漂移。 */
+function optLabel(list, v) {
+  const hit = (list || []).find(o => o.value === v)
+  return hit ? hit.label : ''
+}
 /** 角色**显示名**：内置走共享表；本租户自定义角色**直接显示原名**
  *  （它不是"未知" —— 是客户在权限页真配过的角色，`roleCatalog` 里查得到）。
  *  真·未知角色仍走 `roleName()` 的 `未知角色( x )`，让配置漂移在下一次看界面时暴露。 */
@@ -2369,7 +2375,11 @@ onMounted(() => {
 .rc-exp{font-size:12px;color:var(--t3);margin-left:auto}
 .btn-block{width:100%}
 .warn-text{color:var(--dan);font-weight:500}
-.acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:9px;padding:0 11px;font-size:13px;background:var(--bg);color:var(--t1);appearance:none;cursor:pointer}
+/* v708：`appearance:none` 抹掉了原生箭头、却没补一个 ⇒ 看着像只读文本框（用户实测反馈），
+   而角色 label 是「财务/文员（仅网页端 · 账务 / 报表 / 订货）」这种长句，窄屏被硬切成半截。
+   补自绘 chevron（背景 svg + 右侧让位 padding）；关闭态走省略号，全称在 title 里（长按/hover 可见）。
+   注意：必须写 `background-color` 而不是 `background` 简写 —— 简写会把 background-image 一起重置掉。 */
+.acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:9px;padding:0 32px 0 11px;font-size:13px;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;color:var(--t1);appearance:none;-webkit-appearance:none;cursor:pointer;text-overflow:ellipsis;white-space:nowrap}
 
 /* ============================================================
    v706 响应式（断点 768px —— 与全站「移动端基础」一致，见 variables.css）
