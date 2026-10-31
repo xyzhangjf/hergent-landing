@@ -257,17 +257,84 @@
                  后端 `PUT /api/employees/{eid}` 的 `warehouse_id` 白名单**仍然保留**
                  （兼容脚本与回滚），只是界面不再从这里发。 -->
 
-            <!-- 薪资与社保 —— v706：原「薪酬与账户」有 **7 个**字段（奇数），两列栅格下
-                 最后一行必然剩半格空白（旧注释自己就记着「7 个字段会挤出半行留白」）。
-                 拆成 4 + 2 两块后每块都是整数行；语义上也更准：**「缴多少」与「发到哪」
-                 是两件事**，混在一区会让人以为改银行账号会影响社保口径。 -->
+            <!-- v706（2026-11-01）：原「薪资与社保」扩成「合同与薪资」。
+                 为什么合并：合同（我们签了多久）与薪资（一个月多少钱）在 HR 读档案时是
+                 **同一次决策**的两个面 —— 「他 3 月到期、现在 6000」要在一屏里看完才谈得上续签。
+                 布局纪律：合同 5 项 + 薪资 4 项（社保城市 span2）= **10 格 = 5 个整行**，
+                 半格留白为 0（旧版 7 个字段必然剩半格，那正是"显得杂乱"的一部分）。 -->
             <section class="df-sec">
-              <div class="df-sec-title">薪资与社保</div>
+              <div class="df-sec-title">合同与薪资</div>
               <div class="df-edit-grid">
+                <label class="df-field"><span>合同编号</span><input v-model="editForm.contract_no" class="input" placeholder="如 HT-2026-018"></label>
+                <label class="df-field"><span>合同类型</span>
+                  <select v-model="editForm.contract_type" class="input">
+                    <option v-for="o in CONTRACT_TYPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                  </select>
+                </label>
+                <label class="df-field"><span>签订日期</span><input v-model="editForm.contract_sign_date" class="input" placeholder="2026-03-01"></label>
+                <label class="df-field"><span>合同起始</span><input v-model="editForm.contract_start" class="input" placeholder="2026-03-01"></label>
+                <label class="df-field">
+                  <span>合同到期
+                    <!-- 到期状态就地提示：不加这一行，`合同到期` 只是一个静态日期，
+                         想看"谁该续签"仍要人工比对今天 ⇒ 字段等于白存。 -->
+                    <i v-if="contractEndState" class="cf-end-tip" :class="'is-' + contractEndState">{{ contractEndTip }}</i>
+                  </span>
+                  <input v-model="editForm.contract_end" class="input" placeholder="2027-02-28">
+                </label>
                 <label class="df-field"><span>底薪/月</span><input v-model.number="editForm.base_salary" class="input" type="number"></label>
                 <label class="df-field"><span>社保基数</span><input v-model.number="editForm.social_insurance_base" class="input" type="number"></label>
                 <label class="df-field"><span>公积金基数</span><input v-model.number="editForm.housing_fund_base" class="input" type="number"></label>
-                <label class="df-field"><span>社保缴纳城市</span><input v-model="editForm.social_insurance_city" class="input"></label>
+                <!-- 城市是长值（「湖北省襄阳市」），独占整行 ⇒ 顺带把本区凑成 10 个整格 -->
+                <label class="df-field df-field-wide"><span>社保缴纳城市</span><input v-model="editForm.social_insurance_city" class="input"></label>
+              </div>
+            </section>
+
+            <!-- v706（2026-11-01）：绩效与附件。
+                 ⚠️ 「考核周期 / 等级 / 得分」记的是**最近一次**考核，不是考核台账
+                    （历史考核表在后端还不存在，为它造一个只能装一行的界面更糟）。
+                 附件走 `/api/employees/{eid}/attachments`（hr 模块 + 归属校验），
+                 不是通用 `/api/attachments` —— 那套不校验归属，合同与证件会被跨员工读取。 -->
+            <section class="df-sec">
+              <div class="df-sec-title">绩效与附件</div>
+              <div class="df-edit-grid">
+                <label class="df-field"><span>考核周期</span><input v-model="editForm.perf_period" class="input" placeholder="如 2026-Q3"></label>
+                <label class="df-field"><span>绩效等级</span>
+                  <select v-model="editForm.perf_level" class="input">
+                    <option v-for="o in PERF_LEVEL_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                  </select>
+                </label>
+                <label class="df-field df-field-wide"><span>绩效得分</span><input v-model.number="editForm.perf_score" class="input" type="number" step="0.1" placeholder="未评（留空即可）"></label>
+              </div>
+
+              <!-- 附件区：新建态没有 eid，先说明"保存后可传"，不画一个点了会失败的按钮 -->
+              <div class="cf-attach">
+                <div class="cf-attach-hd">
+                  <b>档案附件</b>
+                  <span class="cf-attach-sub">劳动合同、学历、体检报告等；单个 ≤ {{ empAttachMaxMb }}MB</span>
+                </div>
+                <div v-if="isCreate" class="cf-attach-empty">保存员工后即可上传附件。</div>
+                <template v-else>
+                  <div v-if="empAttachLoading" class="cf-attach-empty">加载中…</div>
+                  <div v-else-if="!empAttachments.length" class="cf-attach-empty">还没有附件。</div>
+                  <ul v-else class="cf-attach-list">
+                    <li v-for="a in empAttachments" :key="a.id">
+                      <button type="button" class="cf-attach-name" :title="'下载 ' + a.filename" @click="downloadEmpAttachment(a)">
+                        <!-- ⚠️ 图标名必须来自 `Icon.vue` 的 ICONS 映射（手写表）：
+                             写错名字不会报错，会**静默兜底成齿轮**。`file` 在表内。 -->
+                        <Icon name="file" :size="14" />{{ a.filename }}
+                      </button>
+                      <span class="cf-attach-meta">{{ fmtAttachSize(a) }}</span>
+                      <button type="button" class="cf-attach-del" :disabled="empAttachBusy" @click="deleteEmpAttachment(a)">删除</button>
+                    </li>
+                  </ul>
+                  <div class="cf-attach-actions">
+                    <input ref="empAttachInput" type="file" class="cf-attach-file" @change="uploadEmpAttachment">
+                    <button type="button" class="btn btn-sm" :disabled="empAttachBusy" @click="pickEmpAttachFile">
+                      {{ empAttachBusy ? '处理中…' : '上传附件' }}
+                    </button>
+                    <span v-if="empAttachHint" class="cf-attach-hint">{{ empAttachHint }}</span>
+                  </div>
+                </template>
               </div>
             </section>
 
@@ -589,11 +656,12 @@
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
 import Modal from '../components/Modal.vue'
+import Icon from '../components/Icon.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { api } from '../api/client'
+import { api, apiBlob } from '../api/client'
 import { toast, store, canDo, confirm } from '../store'
 /* v291：页内跳转入口同判据（见 goConnect）。 */
 import { canSee } from '../constants/pages'
@@ -624,6 +692,13 @@ const editForm = reactive({
   // v381：原「个人仓」字段（`warehouse_id`）已移出本表单 ——
   // 入口搬到「预报订单管理 → 报单配置」（「本人仓」映射的对象那一格）。
   // 理由：它的唯一读取方是 `report_mapping_create/update`，放在员工档案是错位。
+  // v706（2026-11-01）：合同 / 绩效 8 字段 —— 与后端 `hr_employees` 新增的 8 列**同名**。
+  //   ⚠️ 日期一律 'YYYY-MM-DD' 字符串：库里是 TEXT（与 hire_date 同口径），
+  //      改成 `<input type="date">` 会在用户系统时区下产出偏移日（凌晨时差一天）。
+  //   ⚠️ `perf_score` 用 null 表示"未评"，与库里 0 区分（见 resetEditForm）。
+  contract_no: '', contract_type: '', contract_sign_date: '',
+  contract_start: '', contract_end: '',
+  perf_period: '', perf_level: '', perf_score: null,
 })
 /* v290（2026-09-27）：「人事档案有没有被改过」的基线快照。
    打开弹窗时由 resetEditForm 存一份，关窗前拿它和当前 editForm 比 —— 见 tryCloseEdit。 */
@@ -640,7 +715,181 @@ function snapshotForm() { formSnap.value = JSON.stringify(editForm) }
    ⚠️ 只列**原样落库**的字符串字段：`salary_structure`（底薪 JSON）、两个基数
    （数字）刻意不列 —— 它们的库里形态与提交形态不同，混进来会误报。 */
 const DRIFT_CHECK_FIELDS = ['name', 'employee_no', 'position', 'hire_date', 'id_card',
-  'bank_name', 'bank_account', 'social_insurance_city']
+  'bank_name', 'bank_account', 'social_insurance_city',
+  // v706：合同 / 绩效的 7 个文本列同样"先回读再判成功"。它们是本轮刚接的写路径，
+  //   最可能因为某处白名单漏了而静默不落库 —— 正好让这道闸门替我们抓住。
+  //   ⚠️ `perf_score` 刻意不列：库里 0 与界面空串语义不同（0 = 未评），
+  //      按字符串比对必然误报「保存未生效」（'' vs '0'）。
+  'contract_no', 'contract_type', 'contract_sign_date', 'contract_start', 'contract_end',
+  'perf_period', 'perf_level']
+
+/* ---- v706（2026-11-01）：合同 / 绩效的下拉值域 ----
+   值用英文 key、label 用中文：与 `LOGIN_SCOPE_OPTIONS` / `ROLE_OPTIONS` 同口径。
+   ⚠️ 顺序即业务优先级：「固定期限」最常见、放第一；「未设置」永远排最前（空值可回退）。 */
+const CONTRACT_TYPE_OPTIONS = [
+  { value: '', label: '未设置' },
+  { value: 'fixed', label: '固定期限' },
+  { value: 'open', label: '无固定期限' },
+  { value: 'task', label: '以完成一定工作为期限' },
+  { value: 'labor', label: '劳务合同' },
+  { value: 'intern', label: '实习协议' },
+]
+const PERF_LEVEL_OPTIONS = [
+  { value: '', label: '未评' },
+  { value: 'excellent', label: '优秀' },
+  { value: 'good', label: '良好' },
+  { value: 'pass', label: '合格' },
+  { value: 'improve', label: '待改进' },
+]
+
+/* 合同到期状态：'expired' 已过期 / 'soon' 30 天内 / 'ok' 正常 / '' 没填或格式不认识。
+   🔴 只认 `YYYY-MM-DD`：库里是 TEXT，历史/导入数据可能有 `2026/3/1` 这类写法，
+      直接 `new Date()` 解析会在 Safari 上得到 Invalid Date，进而整行提示错乱
+      ⇒ 格式不合就当"没填"，不猜。 */
+const contractEndState = computed(() => {
+  const s = String(editForm.contract_end || '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return ''
+  const end = new Date(s + 'T00:00:00')
+  if (Number.isNaN(end.getTime())) return ''
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const days = Math.round((end - today) / 86400000)
+  if (days < 0) return 'expired'
+  if (days <= 30) return 'soon'
+  return 'ok'
+})
+/** 到期提示文案 —— 只报事实（还剩几天 / 已过期几天），不替用户决定要不要续签。 */
+const contractEndTip = computed(() => {
+  const st = contractEndState.value
+  if (!st) return ''
+  const end = new Date(String(editForm.contract_end).trim() + 'T00:00:00')
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const days = Math.round((end - today) / 86400000)
+  if (st === 'expired') return `已到期 ${Math.abs(days)} 天`
+  if (st === 'soon') return days === 0 ? '今天到期' : `还剩 ${days} 天`
+  return ''
+})
+
+/* ---- v706：员工档案附件 ----
+   🔴 端点必须是 `/api/employees/{eid}/attachments`（四个都带归属校验），
+      **不能**用通用 `/api/attachments` —— 那套只校验登录，换个 ref_id 就能读别人的
+      合同与证件（PII）。详见 server.py 该段的注释。 */
+const empAttachments = ref([])
+const empAttachLoading = ref(false)
+const empAttachBusy = ref(false)
+const empAttachHint = ref('')
+const empAttachMaxMb = ref(10)
+const empAttachInput = ref(null)
+
+/** 附件副信息：`attachments` 表没有 size 列 ⇒ 退回显示上传日期（空则留白）。 */
+function fmtAttachSize(a) {
+  const t = String((a && a.created_at) || '')
+  return t ? t.slice(0, 10) : ''
+}
+
+async function loadEmpAttachments(eid) {
+  empAttachments.value = []
+  empAttachHint.value = ''
+  empAttachLoading.value = false
+  if (!eid) return                      // 新建态：还没有 eid，不去打接口
+  empAttachLoading.value = true
+  try {
+    const r = await api(`/api/employees/${eid}/attachments`)
+    empAttachments.value = (r && r.items) || []
+    if (r && r.max_mb) empAttachMaxMb.value = r.max_mb
+  } catch (e) {
+    // 不弹红框：档案可能刚被停用/无 hr 权限，附件区空着 + 一句说明比弹窗更诚实
+    empAttachHint.value = (e && e.message) || '附件加载失败'
+  } finally {
+    empAttachLoading.value = false
+  }
+}
+
+/** 由按钮触发原生 file input。用模板 ref 而不是 querySelector ——
+ *  本页将来若再加一个 file input，querySelector 会选错那个。 */
+function pickEmpAttachFile() {
+  if (empAttachInput.value) empAttachInput.value.click()
+}
+
+function readFileAsB64(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader()
+    fr.onload = () => {
+      const s = String(fr.result || '')
+      resolve(s.slice(s.indexOf(',') + 1))   // 去掉 `data:...;base64,` 前缀
+    }
+    fr.onerror = () => reject(new Error('读取文件失败'))
+    fr.readAsDataURL(file)
+  })
+}
+
+async function uploadEmpAttachment(ev) {
+  const input = ev && ev.target
+  const file = input && input.files && input.files[0]
+  const eid = editTarget.value && editTarget.value.id
+  if (!file) return
+  if (!eid) { toast('请先保存员工档案，再上传附件', 'err'); if (input) input.value = ''; return }
+  if (file.size > empAttachMaxMb.value * 1024 * 1024) {
+    toast(`文件超过 ${empAttachMaxMb.value}MB，请压缩后再传`, 'err')
+    if (input) input.value = ''
+    return
+  }
+  empAttachBusy.value = true
+  empAttachHint.value = ''
+  try {
+    const b64 = await readFileAsB64(file)
+    await api(`/api/employees/${eid}/attachments`, {
+      method: 'POST',
+      body: { filename: file.name, data_b64: b64 },
+      timeout: 180000,                   // base64 比原文件大 1/3，大文件别用默认超时
+    })
+    toast('附件已上传', 'ok')
+    await loadEmpAttachments(eid)
+  } catch (e) {
+    toast((e && e.message) || '上传失败', 'err')
+  } finally {
+    empAttachBusy.value = false
+    // 🔴 必须清空：否则再次选**同一个文件**不触发 `change`（浏览器按 value 判重）
+    if (input) input.value = ''
+  }
+}
+
+async function deleteEmpAttachment(a) {
+  const eid = editTarget.value && editTarget.value.id
+  if (!eid || !a) return
+  if (!await confirm(`删除附件「${a.filename}」？删除后不可恢复。`)) return
+  empAttachBusy.value = true
+  try {
+    await api(`/api/employees/${eid}/attachments/${a.id}`, { method: 'DELETE' })
+    toast('已删除', 'ok')
+    await loadEmpAttachments(eid)
+  } catch (e) {
+    toast((e && e.message) || '删除失败', 'err')
+  } finally {
+    empAttachBusy.value = false
+  }
+}
+
+async function downloadEmpAttachment(a) {
+  const eid = editTarget.value && editTarget.value.id
+  if (!eid || !a) return
+  try {
+    // 走 apiBlob（带 Bearer）：`<a href>` 直接开链接不会带 Authorization ⇒ 401
+    const blob = await apiBlob(`/api/employees/${eid}/attachments/${a.id}/download`)
+    const url = URL.createObjectURL(blob)
+    const el = document.createElement('a')
+    el.href = url
+    el.download = a.filename || 'attachment'
+    document.body.appendChild(el)
+    el.click()
+    el.remove()
+    // 立刻 revoke 会让部分浏览器（Safari）下载失败 ⇒ 延后释放
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
+  } catch (e) {
+    toast((e && e.message) || '下载失败', 'err')
+  }
+}
 
 /* ---- 登录账号（整合进"编辑员工"弹窗）与门店 ---- */
 /* 角色下拉的**值域**。
@@ -891,6 +1140,20 @@ function resetEditForm(e) {
   editForm.housing_fund_base = src.housing_fund_base != null ? src.housing_fund_base : null
   editForm.base_salary = e ? (salaryOf(e) || null) : null
   // v381：`warehouse_id` 不再回填（字段已移出本表单）。
+  // v706：合同 / 绩效 —— 逐字段 `|| ''` 与上一段同口径（列表接口是 `SELECT *`，
+  //   新列本来就在行里；这里写字面量是为了**老数据/老接口**下也是空串而不是 undefined）。
+  editForm.contract_no = src.contract_no || ''
+  editForm.contract_type = src.contract_type || ''
+  editForm.contract_sign_date = src.contract_sign_date || ''
+  editForm.contract_start = src.contract_start || ''
+  editForm.contract_end = src.contract_end || ''
+  editForm.perf_period = src.perf_period || ''
+  editForm.perf_level = src.perf_level || ''
+  // 🔴 库里 `perf_score` 默认 0 = **未评**（REAL DEFAULT 0），不能原样回填成"0 分"
+  //   —— 那会让每个员工的档案都显示一条"绩效 0 分"的假记录。
+  //   0 一律折算成 null（输入框空白 + placeholder「未评」）。
+  editForm.perf_score = src.perf_score ? src.perf_score : null
+  loadEmpAttachments(src.id)
   // 账号区状态复位
   accForm2.username = ''
   accForm2.password = ''
@@ -952,6 +1215,21 @@ async function saveEmployeeCore() {
     housing_fund_base: f.housing_fund_base != null ? f.housing_fund_base : undefined,
     // v381：`warehouse_id` 不再随本表单提交（入口已搬到报单配置）。
     // 后端 `PUT /api/employees/{eid}` 的白名单**仍保留**它以兼容脚本与回滚。
+    // v706（2026-11-01）：合同 / 绩效 —— 这 7 个**文本**列发 `''` 而不是 `undefined`。
+    //   🔴 差别是致命的：`undefined` 会被 `JSON.stringify` **整个丢掉**，后端 `if k in d`
+    //   判不到 ⇒ 用户把「合同编号」清空后保存，界面提示成功、库里旧值还在（静默失效）。
+    //   后端 v706 已把这 7 列放进 `_clearable` 白名单，允许用空串表达"清空" ——
+    //   前端必须**真的把空串发出去**才配套（这一对少改一边就退化成静默失效）。
+    contract_no: f.contract_no || '',
+    contract_type: f.contract_type || '',
+    contract_sign_date: f.contract_sign_date || '',
+    contract_start: f.contract_start || '',
+    contract_end: f.contract_end || '',
+    perf_period: f.perf_period || '',
+    perf_level: f.perf_level || '',
+    // 空 = 未评 ⇒ 发 0（与库里 REAL DEFAULT 0 同义）；不要发 null，后端会当成"没传"。
+    perf_score: (f.perf_score === null || f.perf_score === '' || f.perf_score === undefined)
+      ? 0 : Number(f.perf_score),
   }
   if (f.base_salary != null) body.salary_structure = JSON.stringify({ base_salary: f.base_salary })
   try {
@@ -2002,6 +2280,46 @@ onMounted(() => {
 .df-edit-grid .df-field-wide{grid-column:1/-1}
 .df-field{display:flex;flex-direction:column;gap:var(--sp-2);font-size:12.5px;color:var(--t2)}
 .df-field .input, .df-field select{width:100%;box-sizing:border-box;height:36px}
+
+/* ---- v706（2026-11-01）：合同到期提示 + 档案附件 ---- */
+/* 到期徽标：贴在「合同到期」标签右侧。用**语义色对**（--danger/warn/ok-green 的 -bg 版），
+   不自己调 rgba —— 深色模式下这四组是成对定义的，拍数字会在暗色里发灰。 */
+.cf-end-tip{font-style:normal;font-size:11px;font-weight:600;margin-left:6px;
+  padding:1px 6px;border-radius:6px;line-height:1.5;white-space:nowrap}
+.cf-end-tip.is-expired{color:var(--danger-txt);background:var(--danger-bg)}
+.cf-end-tip.is-soon{color:var(--warn-amber);background:var(--warn-amber-bg)}
+.cf-end-tip.is-ok{color:var(--ok-green);background:var(--ok-green-bg)}
+
+/* 附件区：与上方栅格之间用一条细分隔线切开 —— 它不是"又一个字段"，是一份清单。
+   ⚠️ 不要给这里加 `position:absolute` 之类的浮层化处理：它就在弹窗文档流里，
+      弹窗已经自带滚动，做成浮层会脱离栅格、还会在窄屏压住字段。 */
+.cf-attach{margin-top:var(--sp-3);padding-top:var(--sp-3);
+  border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:var(--sp-2)}
+.cf-attach-hd{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cf-attach-hd b{font-size:12.5px;color:var(--t1)}
+.cf-attach-sub{font-size:11.5px;color:var(--t3)}
+.cf-attach-empty{font-size:12px;color:var(--t3);padding:6px 0}
+.cf-attach-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.cf-attach-list li{display:flex;align-items:center;gap:10px;padding:6px 9px;
+  border-radius:var(--radius-sm);background:var(--bg2)}
+/* 文件名可能很长：`min-width:0` + 省略号，**不能让文件名把"删除"挤出去** ——
+   否则长名附件的删除键会被推到可视区外，看起来像"没有删除按钮"。 */
+.cf-attach-name{display:inline-flex;align-items:center;gap:6px;min-width:0;
+  background:none;border:0;padding:0;cursor:pointer;color:var(--p);font-size:12.5px;
+  text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cf-attach-name:hover{text-decoration:underline}
+.cf-attach-meta{font-size:11.5px;color:var(--t3);margin-left:auto;flex:0 0 auto}
+.cf-attach-del{background:none;border:0;color:var(--dan);font-size:12px;cursor:pointer;
+  padding:2px 4px;flex:0 0 auto;border-radius:var(--radius-xs)}
+.cf-attach-del:hover{background:var(--dan-bg)}
+.cf-attach-del:disabled{opacity:.5;cursor:not-allowed}
+/* ⚠️ `position:relative` 是给下面那个绝对定位的隐藏 input 兜底的：
+   不给定位祖先，0 尺寸元素会相对弹窗定位，在弹窗边缘撑出一条多余滚动条。 */
+.cf-attach-actions{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* 原生 file input 隐藏，由按钮触发 —— 但**不能 display:none**：部分浏览器对
+   完全不可见的 input 拒绝 open file dialog，用 0 尺寸 clip 更稳。 */
+.cf-attach-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.cf-attach-hint{font-size:11.5px;color:var(--t3)}
 .df-field span{font-size:12.5px;color:var(--t2)}
 /* 必填星号：全页唯一一份（原先 `.req` 与 `.df-field .req` 把 color 写了两遍） */
 .req{color:var(--dan);font-style:normal;font-weight:600}
