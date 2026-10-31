@@ -41,6 +41,7 @@
 
 ## 前端实现细则（全文 `topics/frontend-ui.md`，改前端前先 grep）
 - 🔴 构建：`--emptyOutDir false`（`rm -rf` 被 safe-delete 拦）；**报失败先排除 safe-delete**；行高真凶常是**子元素 display** 不是 padding。浮层定式 `Teleport + fixed` + **层级一律取 `--z-page-*` 令牌**（页面里不许拍数）。
+- 🔴 **页面文件名 ≠ 产物 chunk 名**（v706 实踩）：员工档案页是 `EmployeeArchive.vue`，产物却落在 **`Archive-*.js/.css`**（`EmployeeArchive-*.js` 不存在）⇒ 按页面名找产物必扑空。另：**每次 build 全部 chunk hash 都会变**，「只传改动那个 chunk」一定白屏，必须走闭包补传。
 - 🔴🔴 **弹层本体必须高于自己的触发器**（v678 第三次复发，v704 修过）：`.tb-pop` 1101 < `.tb-pop-panel` 1116。反过来 ⇒ 按钮浮在面板上成「遮挡带」并**静默劫走点击**（点面板中部实际触发的是那个按钮），界面看着只是"多了条带边框"。优先**降按钮**（1101 已够"高过遮罩 1100"）。护栏 `tests/zorder-trigger-below-panel.guard.mjs`。
 - 🔴 抬高浮层 = 把风险从"被盖"转成"盖住自己触发器"：凡 `position + 估算高度` 的定位，必须同时改「实测宽高 + 选空间大的一侧 + max-height 钳制」（v678 `positionTbPop`）。
 - 🔴 样式不生效先排除三条：多根组件丢父级 class（`inheritAttrs:false`+`v-bind="$attrs"`）、`v-html` 拿不到 scoped（挂 `:deep()`）、`v-if` 面板连 `scrollTop` 一起销毁。flex 超长文本要 `min-width:0`、可折行工具行要 `flex:0 0 auto`。
