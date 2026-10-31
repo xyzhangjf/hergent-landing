@@ -177,6 +177,22 @@ export const ADMIN_ROLES = ['admin', 'boss']
 export const BOSS_ROLES = ['boss']
 
 /**
+ * 🔴 v705f（2026-10-31）：**数据报表区的可见角色** —— 老板拍板「主管也要能看报表」。
+ *
+ * 这是 v472「四区开发期只给 boss」的**局部反转**：只放开「数据报表」这一区给
+ * 主管（supervisor），其余三区（仓配 / 资金 / 市场）维持 boss 硬锁不变。
+ *
+ * 选 supervisor 而非 BIZ_ROLES 全集（含销售）：报表含毛利 / 成本 / 往来等经营数据，
+ * 销售岗不必看；supervisor 是管理岗，老板明确要放开。admin 仍排除（与 BOSS_ROLES
+ * 注释一致：老板说过"四区只有我这个账号"）。
+ *
+ * 🔴 仍配 `lock: true`：产品硬锁 ⇒ 即便租户权限页给别的角色勾了 `reports` 模块，
+ *    也放不开（只有本名单里的 boss / supervisor 能进）。将来要再放开，改这一行即可。
+ *    改动请同步 `Shell.vue` 报表区与 `router/index.js` 的 REPORT_PAGES 循环引用处。
+ */
+export const REPORT_VIEWER_ROLES = ['boss', 'supervisor']
+
+/**
  * 🔴 v517（2026-10-16）：**进销存岗位名单** —— 老板拍板「进销存先给会计 + 主管开」。
  *
  * 与上面三份名单的分工：
@@ -316,19 +332,19 @@ export const PAGE_RULES = {
         「入口可见、一开就 403」的局部假入口。
      🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
      ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
-  '/reports/gross-profit': { title: '毛利分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/gross-profit': { title: '毛利分析', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
   /* v507（2026-10-14 数据报表 P1-3 续）：均单分析 / 账龄汇总表 / 库存周转。
      三张数据源都在 /api/reports/*（账龄与均单读 BI，同为报表域）⇒ module 一律 'reports'；
      角色轴沿用 v472 纪律：开发期四区只放 BOSS_ROLES + lock。 */
-  '/reports/avg-order': { title: '均单分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/ageing': { title: '账龄汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/inventory-turnover': { title: '库存周转', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/avg-order': { title: '均单分析', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/ageing': { title: '账龄汇总表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/inventory-turnover': { title: '库存周转', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
   /* —— v536（2026-10-17 数据报表 P2-1）：**促销ROI分析落真身**的正式登记行 ——
      🔴 `module:'reports'` 与数据源一致：本页读 `GET /api/promotion-impact`，与既有四张报表页同域；
         写成 `module:null` 会退化成「只读占位」语义，写成别的域会造出「入口可见、一开就 403」的假入口。
      🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
      ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
-  '/reports/promo-roi': { title: '促销ROI分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/promo-roi': { title: '促销ROI分析', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
   /* —— v634（2026-10-22 P2-1 经营报表分析）：6 张报表页落真身的正式登记行 ——
      🔴 路径与 PLACEHOLDER_PAGES 中对应的 6 条**同时移除**（上方已删），否则占位页
         会以 module:null 盖掉本行的 module:'reports'，造出「入口可见、一开就 403 / 读不到数」的假入口。
@@ -337,28 +353,28 @@ export const PAGE_RULES = {
         /api/reports/transfer-summary（调拨汇总）、/api/reports/ar-summary（应收汇总）、
         /api/reports/customer-profitability（客户销额）、/api/reports/sales-leaderboard（业务员业绩）。
      🔴 v472 纪律：四区（报表）开发期一律 BOSS_ROLES + lock，只给老板。 */
-  '/reports/sales-order': { title: '销售订单汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/purchase':    { title: '采购汇总表',     module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/transfer':    { title: '调拨汇总表',     module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/sales-order': { title: '销售订单汇总表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/purchase':    { title: '采购汇总表',     module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/transfer':    { title: '调拨汇总表',     module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
   /* v640b：三张明细报表页（与汇总同源，drill 下钻目标）。
      🔴 同源铁律：明细必须读与汇总**同一张表**（sale_orders / purchase_orders / transfer_orders），
         绝不可指向进销存 psi/inventory 那套订单列表（口径不同会对不上数）。 */
-  '/reports/sales-detail':    { title: '销售订单明细',   module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/purchase-detail': { title: '采购订单明细',   module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/transfer-detail': { title: '调拨订单明细',   module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/ar-summary':  { title: '应收账款汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/customer-profit': { title: '客户利润概览', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/staff-profit':    { title: '员工利润分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/sales-detail':    { title: '销售订单明细',   module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/purchase-detail': { title: '采购订单明细',   module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/transfer-detail': { title: '调拨订单明细',   module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/ar-summary':  { title: '应收账款汇总表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/customer-profit': { title: '客户利润概览', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/staff-profit':    { title: '员工利润分析', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
   /* —— v635（2026-10-22 P2-1 批次2）：5 张分析类报表页落真身的正式登记行 ——
      🔴 路径与 PLACEHOLDER_PAGES 中对应的 5 条**同时移除**（上方已删）。
      🔴 零后端风险：五页全部复用现有 BI 引擎（POST /api/bi/pivot / /api/bi/top），
         不新造端点；只读、前端不重算，口径同毛利分析页。
      🔴 客户利润 / 经营利润页：缺进货价时成本记 0、毛利虚高，页面顶部红色警示，不静默当真盈利。 */
-  '/reports/summary':        { title: '汇总报表',     module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/goods-sales':    { title: '商品销售分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/customer-rank':  { title: '客户销额排名', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/customer-profit-analysis': { title: '客户利润分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/company-profit': { title: '企业经营利润', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/summary':        { title: '汇总报表',     module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/goods-sales':    { title: '商品销售分析', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/customer-rank':  { title: '客户销额排名', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/customer-profit-analysis': { title: '客户利润分析', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/company-profit': { title: '企业经营利润', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
   /* —— v636（2026-10-22 P2-1 批次4+3）：剩余 18 张报表页落真身的正式登记行 ——
      🔴 路径与 PLACEHOLDER_PAGES 中对应的 18 条**同时移除**（上方已删）。
      🔴 批次4（12 页）：各自新增只读端点 GET /api/reports/{fee-summary|income-summary|receipt-detail|
@@ -367,24 +383,24 @@ export const PAGE_RULES = {
      🔴 批次3（6 页：预订货/物料/库存上报/个性化）：对应业务模块在系统中**尚无数据表**，
         页面为诚实空态（ReportUnavailable 组件），显式「数据待接入」、不编造数字。
      🔴 v472 纪律：四区（报表）一律 BOSS_ROLES + lock，只给老板。 */
-  '/reports/other-inout':     { title: '其他出入库汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/other-receivable':{ title: '其他应收汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/fee-summary':     { title: '费用单汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/income-summary':  { title: '收入汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/account-flow':    { title: '账户收支明细', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/online-receipt':  { title: '线上收款流水', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/receipt-detail':  { title: '收款明细表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/payment-detail':  { title: '付款明细表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/presale-goods':   { title: '预订货品汇总表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/presale-orders':  { title: '预订货单明细表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/fee-usage':       { title: '费用使用记录', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/material-data':   { title: '物料数据汇总', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/material-usage':  { title: '物料使用汇总', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/attendance':      { title: '考勤统计', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/visit-log':       { title: '拜访记录', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/visit-achv':      { title: '拜访达成', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/stock-upload':    { title: '库存上报分析', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
-  '/reports/personal':        { title: '个性化报表', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/other-inout':     { title: '其他出入库汇总表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/other-receivable':{ title: '其他应收汇总表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/fee-summary':     { title: '费用单汇总表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/income-summary':  { title: '收入汇总表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/account-flow':    { title: '账户收支明细', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/online-receipt':  { title: '线上收款流水', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/receipt-detail':  { title: '收款明细表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/payment-detail':  { title: '付款明细表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/presale-goods':   { title: '预订货品汇总表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/presale-orders':  { title: '预订货单明细表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/fee-usage':       { title: '费用使用记录', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/material-data':   { title: '物料数据汇总', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/material-usage':  { title: '物料使用汇总', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/attendance':      { title: '考勤统计', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/visit-log':       { title: '拜访记录', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/visit-achv':      { title: '拜访达成', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/stock-upload':    { title: '库存上报分析', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
+  '/reports/personal':        { title: '个性化报表', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
   /* —— v720（2026-10-28 阶段1/M5）：**数据健康自检落真身**的正式登记行 ——
      🔴 `module:'reports'` 与数据源一致：本页读 `GET /api/reports/data-health`，
         该路径命中后端 `_PATH_MODULE_MAP` 的既有 `/api/reports` 前缀（首个 startswith 即停）
@@ -392,7 +408,7 @@ export const PAGE_RULES = {
         「入口可见、一开就 403」的假入口。
      🔴 v472 纪律：四区（仓配 / 资金 / 报表 / 市场）开发期**一律 `BOSS_ROLES + lock`**，只给老板。
      ⚠️ 本页是**新增**路径、不在 `PLACEHOLDER_PAGES` 里 ⇒ 不会被合并循环用 `module:null` 盖掉。 */
-  '/reports/data-health': { title: '数据健康自检', module: 'reports', roles: BOSS_ROLES, lock: true, cat: 'biz' },
+  '/reports/data-health': { title: '数据健康自检', module: 'reports', roles: REPORT_VIEWER_ROLES, lock: true, cat: 'biz' },
   /* —— v537（2026-10-17 P2-1 二期）：**买赠活动管理落真身**的正式登记行 ——
      🔴 `module:'sales'` 与数据源一致：本页读 GET /api/promotions（后端 crm.py 归 `sales` 模块门）；
         写操作（POST/PUT/DELETE/toggle）后端另挂 `_admin`（role∈admin/boss）双保险，销售员不可自建让利政策。
@@ -859,13 +875,15 @@ for (const p of PLACEHOLDER_PAGES) {
       （`routers/report_engine.py`，prefix `/api`），命中 `server.py::_PATH_MODULE_MAP`
       的既有 `/api/reports` 前缀 ⇒ RBAC 归 `reports`。
       写成 `module:null` 会退化成「只读占位」语义 ⇒ 造出「入口可见、一开就 403」的假入口。
-   🔴 v472 纪律：数据报表区开发期一律 `BOSS_ROLES + lock`，只给老板。
+   🔴 v472 纪律已被 v705f **局部反转**：数据报表区不再只给老板，而是 `REPORT_VIEWER_ROLES`
+      （boss + supervisor）—— 老板拍板「主管也要能看报表」。其余三区仍维持 `BOSS_ROLES + lock`。
+      `lock: true` 保留 = 产品硬锁，只有名单里的 boss / supervisor 能进，租户权限页勾选放不开。
    ⚠️ 这些路径已从 `PLACEHOLDER_PAGES` 移出，故此循环是它们唯一的登记来源。 */
 for (const p of REPORT_PAGES) {
   PAGE_RULES[p.path] = {
     title: p.title,
     module: 'reports',
-    roles: BOSS_ROLES,
+    roles: REPORT_VIEWER_ROLES,
     lock: true,
     cat: 'biz'
   }

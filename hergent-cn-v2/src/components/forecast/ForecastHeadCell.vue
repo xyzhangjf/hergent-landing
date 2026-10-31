@@ -50,6 +50,16 @@ function onCtx (e) {
       <div class="th-in">
         <span>{{ col.label }}</span>
       </div>
+      <!-- v705：列头漏斗（改单态只给主档列 —— 客户列头已有输入框 + ✕，52px 里再塞一个
+           就点到别的东西了；客户列筛选走右键「筛选…」，面板是同一份）。与 view 态表头共用
+           cfHas/cfGet/quickOpenColFilter（经 rowCtx 下发），口径零变化。 -->
+      <button class="th-funnel" :class="{ on: ctx.cfHas(col.key, 'master') }"
+              :title="ctx.cfHas(col.key, 'master') ? '已筛选：' + ctx.cfText(ctx.cfGet(col.key, 'master')) + '（点击修改）' : '筛选此列'"
+              @mousedown.stop.prevent @click.stop="ctx.quickOpenColFilter($event, col.key, 'master')"><Icon name="filter"/></button>
+      <!-- v654：表头悬停「＋」= 快捷插入列（改单态直接弹列名输入）。
+           ⚠️ `@mousedown.stop.prevent` 必须 —— 否则会先触发 `onHeadDown` 把整列铺成列选区。 -->
+      <button class="th-qa" :title="ctx.qaTitle(col.label, col.key)"
+              @mousedown.stop.prevent @click.stop="ctx.quickAddCol($event, col.key, 'master')"><Icon name="plus"/></button>
       <span class="col-resizer" @mousedown.stop.prevent="ctx.startResize($event, col.key)" @click.stop></span>
     </template>
     <template v-else>

@@ -1181,28 +1181,12 @@
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
                 </th>
-                <th v-for="(c, ci) in visibleCols" :key="c.key" scope="col" :class="['th', c.cls, { frozen: c.fixed || c.key === frozenExtra, 'sel-col': inColSpan(ci), 'cur-col-hd': isCurColHd(ci) }]" :aria-current="isCurColHd(ci) ? 'true' : null" :aria-selected="inColSpan(ci) ? 'true' : null" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')" @mousedown="onHeadDown(ci, $event)" @mouseover="onHeadOver(ci)" @contextmenu.prevent="openHdrCtx($event, c.key, 'master')">
-                  <div class="th-in">
-                    <span>{{ c.label }}</span>
-                  </div>
-                  <!-- v666：列头漏斗（改单态只给主档列 —— 客户列头已有输入框 + ✕，52px 里再塞一个
-                       就点到别的东西了；客户列筛选走右键「筛选…」，面板是同一份）。 -->
-                  <button class="th-funnel" :class="{ on: cfHas(c.key, 'master') }"
-                          :title="cfHas(c.key, 'master') ? '已筛选：' + cfText(cfGet(c.key, 'master')) + '（点击修改）' : '筛选此列'"
-                          @mousedown.stop.prevent @click.stop="quickOpenColFilter($event, c.key, 'master')"><Icon name="filter"/></button>
-                  <!-- v654：表头悬停「＋」= 快捷插入列（改单态直接弹列名输入；只读态见另一处表头）。
-                       ⚠️ `@mousedown.stop.prevent` 必须 —— 否则会先触发 `onHeadDown` 把整列铺成列选区。 -->
-                  <button class="th-qa" :title="qaTitle(c.label, c.key)"
-                          @mousedown.stop.prevent @click.stop="quickAddCol($event, c.key, 'master')"><Icon name="plus"/></button>
-                  <span class="col-resizer" @mousedown.stop.prevent="startResize($event, c.key)" @click.stop></span>
-                </th>
-                <th v-for="(u, ui) in cross.units" :key="u.name" class="qty-th" scope="col" :class="{ 'sel-col': inColSpan(visibleCols.length + ui), 'cur-col-hd': isCurColHd(visibleCols.length + ui) }" :aria-current="isCurColHd(visibleCols.length + ui) ? 'true' : null" :aria-selected="inColSpan(visibleCols.length + ui) ? 'true' : null" @mousedown="onHeadDown(visibleCols.length + ui, $event)" @mouseover="onHeadOver(visibleCols.length + ui)" @contextmenu.prevent="openHdrCtx($event, u.name, 'qty', ui)">
-                  <div class="cust-hd">
-                    <input :value="u.name" class="cell-input cell-cust" @change="renameCol(ui, $event.target.value)" :title="u.role || '报单单元'">
-                    <button class="col-del" @click="delCol(ui)" title="删除该客户列"><Icon name="close"/></button>
-                  </div>
-                  <span class="col-resizer" @mousedown.stop.prevent="startResize($event, u.name)" @click.stop></span>
-                </th>
+                <!-- v705：改单网格表头下沉到 ForecastHeadCell（v655 组件化 + 本轮回接）。
+                     原来父模板在 `<th>` 上直接读 `isCurColHd(ci)`（内部读 `selected`）⇒ 聚焦换格
+                     父整模板重渲染一次；下沉后只重渲染变动的那两个表头格（见组件注释）。
+                     漏斗 / ＋ / 右键筛选 口径与 view 态共用，经 rowCtx 下发，零变化。 -->
+                <ForecastHeadCell v-for="(c, ci) in visibleCols" :key="c.key" kind="master" :ci="ci" :col="c" />
+                <ForecastHeadCell v-for="(u, ui) in cross.units" :key="u.name" kind="qty" :ci="visibleCols.length + ui" :ui="ui" :unit="u" />
                 <!-- v188：列名自证单位（用户 2026-09-18）——「合计」→「合计(小单位)」、「件数(箱)」→「合计(箱)」。
                      原「合计」二字未标单位、同屏又与按箱的「件数(箱)」并列，易被读成同一个量。 -->
                 <th class="num calc-th sum" scope="col">合计(小单位)<span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'sum')" @click.stop></span></th>
@@ -2798,7 +2782,7 @@ import { canSee } from '../constants/pages'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ViewSeg from '../components/forecast/ViewSeg.vue'
 import ForecastRow from '../components/forecast/ForecastRow.vue'
-import ForecastAgg from '../components/forecast/ForecastAgg.vue'
+import ForecastHeadCell from '../components/forecast/ForecastHeadCell.vue'
 import ForecastQtyOptions from '../components/forecast/ForecastQtyOptions.vue'
 /* v655：编辑网格表头单元格下沉（父模板不再读 isCurColHd ⇒ 聚焦换格父组件 0 重渲染）。 */
 /* v671：全选复选框上提为全站共享件（本节 v615 那颗就是它的原型，外观与行为零变化）。 */
@@ -13583,6 +13567,10 @@ const rowCtx = reactive({
   /* 🔴 v655：表头单元格抽到 ForecastHeadCell 子组件（从 ctx 读选区判据），父模板不再读
      `isCurColHd`（它内部读 selected）⇒ 聚焦换格只重渲染那一个表头格，父组件 0 次重渲染。 */
   isCurColHd, onHeadDown, onHeadOver, openHdrCtx, startResize, renameCol, delCol,
+  /* v705：列头漏斗 / 快捷插列 的判据与动作（改单网格表头下沉到 ForecastHeadCell 后，
+     这些原本在父模板里直接读的函数也要一并下放，否则组件内拿不到）。
+     —— 与 view 态表头（仍内联）共用同一套函数，口径零变化。 */
+  cfHas, cfGet, cfText, quickOpenColFilter, qaTitle, quickAddCol,
 })
 provide(FC_ROW_CTX, rowCtx)
 /* 🔴 v655：返利冲刺摘要 `sprintSummary` 原被父模板直接读（工具栏 `v-if="sprintVisible"` +

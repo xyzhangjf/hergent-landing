@@ -53,6 +53,19 @@
       </p>
     </div>
 
+    <!-- ③ 无权查看：这个账号的角色没有该报表的数据权限（后端 403）。诚实说明，不白屏也不假装"没数据"。 -->
+    <div v-else-if="denied" class="card gr-hollow">
+      <div class="gr-hollow-ic"><Icon name="lock" :size="22" /></div>
+      <h3>你没有查看这张报表的权限</h3>
+      <p class="gr-hollow-desc">
+        报表「{{ title }}」需要相应的数据权限，当前账号的角色尚未开通，所以看不到内容。
+        <b>这不是"没有数据"，而是"还没有被授权查看"</b> —— 两者看起来都是空，含义完全不同。
+      </p>
+      <p class="gr-hollow-foot">
+        如需开通，请联系系统管理员在后台为你的角色分配对应模块权限。
+      </p>
+    </div>
+
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert-triangle" :size="22" /></div>
       <p>{{ err }}</p>
@@ -200,6 +213,10 @@ const notConfigured = ref(false)
    一个是"这功能我还没用到"，一个是"系统还没做好"。所以分成两个状态。 */
 const unavailable = ref(false)
 const reason = ref('')
+/* v705f（2026-10-31）：无权限查看态。账号角色没有该报表的数据权限时（后端 403），
+   显示「无权查看」而非白屏 / "加载失败" —— 二者含义完全不同，用户曾被静默误导。
+   后端模块门（module:'reports'）才是真边界，本态只是把"被挡住"这件事说清楚。 */
+const denied = ref(false)
 const columns = ref([])
 const rows = ref([])
 const totals = ref({})
@@ -486,6 +503,11 @@ async function loadMeta() {
       subtitle.value = '报表定义尚未配置'
       return false
     }
+    if (e && e.status === 403) {
+      denied.value = true
+      subtitle.value = '无权查看该报表'
+      return false
+    }
     err.value = (e && e.message) || '加载报表定义失败'
     return false
   }
@@ -533,6 +555,9 @@ async function load() {
     if (e && e.status === 404) {
       notConfigured.value = true
       subtitle.value = '报表定义尚未配置'
+    } else if (e && e.status === 403) {
+      denied.value = true
+      subtitle.value = '无权查看该报表'
     } else {
       err.value = (e && e.message) || '加载失败'
       rows.value = []
@@ -587,6 +612,7 @@ function resetForRoute() {
   columns.value = []; rows.value = []; totals.value = {}; filters.value = []
   notConfigured.value = false; err.value = ''
   unavailable.value = false; reason.value = ''
+  denied.value = false
   rowCount.value = 0; truncated.value = false; maxRows.value = 5000
   note.value = ''; elapsedMs.value = 0
   // 图也要重置：上一个页面的走势图留下来配新表格，比"没图"更误导（v723 title 同族坑）
