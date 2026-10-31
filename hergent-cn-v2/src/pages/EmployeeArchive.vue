@@ -14,6 +14,73 @@
       </div>
     </div>
 
+    <div class="card df-panel">
+      <div class="panel-hd df-ph">
+        <b>在职员工</b>
+        <div class="df-ph-right">
+          <span class="tag info">工资按档案底薪算</span>
+          <button v-if="canDo('hr', 'create')" class="btn btn-primary btn-sm" @click="openCreate">＋ 添加员工</button>
+        </div>
+      </div>
+
+      <Skeleton v-if="loading" />
+      <div v-else-if="employees.length" class="table-wrap freeze-list">
+        <table class="tbl">
+          <thead><tr>
+            <th class="seq-th">序号</th><th>员工</th><th>岗位</th><th class="num">底薪/月</th>
+            <th>登录账号</th><th>可报门店</th><th></th>
+          </tr></thead>
+          <tbody>
+            <tr v-for="(e, i) in employees" :key="e.id" :class="{ stopped: e.is_active === 0 }">
+              <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
+              <td>
+                {{ e.name }}
+                <span v-if="e.employee_no" class="df-no">{{ e.employee_no }}</span>
+                <span v-if="e.is_active === 0" class="df-no stopped-tag">已停用</span>
+              </td>
+              <td>{{ e.position || '—' }}</td>
+              <td class="num">¥{{ fmt(salaryOf(e)) }}</td>
+              <td>
+                <span v-if="e.has_account" class="df-acc" :class="{ on: e.account_active }" :title="'账号：' + e.account_username + (e.account_active ? '（启用中）' : '（已禁用，点「编辑」可重新启用）')">已开通 {{ e.account_username }}</span>
+                <span v-else class="df-acc">未开通</span>
+                <span v-if="e.account_role" class="df-role" :class="['r-' + e.account_role, { stopped: e.is_active === 0 }]">{{ roleDisplay(e.account_role) }}</span>
+                <span
+                  v-for="r in extraRolesOf(e)"
+                  :key="'x-' + r"
+                  class="df-role df-role-extra"
+                  :title="'兼任角色：' + roleDisplay(r)"
+                >+{{ roleDisplay(r) }}</span>
+              </td>
+              <!-- v381（2026-10-06）：个人仓列**已移除** —— 「设个人仓」的唯一入口搬到
+                   「预报订单管理 → 报单配置」（老板拍板 Q2=B：弹窗与列表列都撤）。
+                   理由与 2026-09-19「门店」那次收敛同源：它本就是报单域的属性，
+                   且它的**唯一读取方**是 `report_mapping_create/update` 的本人仓分支。
+                   在这里留一列只读展示，只会让用户以为"要在这儿改"。 -->
+              <!-- 2026-09-19 收敛：门店配置入口已移出员工档案，本列只读展示数量。
+                   数据 = 报单配置派生 ∪ 历史授权（见后端 employee_stores_get）。 -->
+              <td class="num" title="在「预报订单管理 → 报单配置」里为该员工配门店，配了即授权其小程序可报">  {{ (e.store_ids || []).length }} 家</td>
+              <td class="df-ops">
+                <!-- v335 按钮级门禁：员工主档走 /api/employees/* ⇒ 模块 **hr**
+                     编辑=PUT /api/employees/{eid} ⇒ update
+                     停用·启用=**POST** /api/employees/{eid}/toggle ⇒ hr/**create**（动作由 HTTP 方法推导） -->
+                <button v-if="canDo('hr', 'update')" class="btn btn-ghost btn-sm" @click="openEdit(e)">编辑</button>
+                <button v-if="e.is_active !== 0 && canDo('hr', 'create')" class="btn btn-ghost btn-sm danger" @click="askDisable(e)">停用</button>
+                <button v-else-if="canDo('hr', 'create')" class="btn btn-ghost btn-sm" @click="employeeToggle(e.id, 1)">启用</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div v-else class="state-empty">还没有员工档案，先添加或从 Excel 导入</div>
+    </div>
+
+    <!-- 开账号已整合进「编辑员工」弹窗（见下方 edit-modal 的"登录账号"区） -->
+
+    <!-- 2026-09-19：「分配门店」弹窗已移除 —— 门店配置收敛到「预报订单管理 → 报单配置」。
+         在那里按「员工 × 门店」建一条报单映射，即等于授权该员工小程序可报该门店
+         （后端 employee_stores_get 从报单配置派生可见范围）。
+         员工档案只保留只读的「可报门店」数量列，避免两个入口配同一件事、且互不感知。 -->
+
     <!-- ══ v686：业务员部门 ══════════════════════════════════════════════════════
          进销存建单页选中「业务员」后会自动带出他的所属部门（老板口径 2026-10-25）。
          🔴 为什么这张卡在**员工档案**而不是进销存里：它配的是**账号**的属性
@@ -25,7 +92,10 @@
             等于永远不生效。没有写端的读字段就是死字段。
          🔴 门禁 `canDo('data','update')`：`PUT /api/users/*` 的模块就是 `data`，
             与「外部客户账号」那张卡同一套判据（没权限就别摆一个点了会 403 的控件）。 -->
-    <div v-if="canDo('data', 'update')" class="card">
+    <!-- v706：补上 `df-panel` —— 此前本卡是**裸 .card**（全页唯一一处），
+         而其余三张卡都是 `card df-panel` ⇒ 只有它拿不到 `.df-panel` 的 14px 下间距，
+         与下方卡片贴死在一起，是全页「间距忽紧忽松」的直接来源。 -->
+    <div v-if="canDo('data', 'update')" class="card df-panel">
       <div class="panel-hd">
         <b>业务员部门</b>
         <span class="page-sub">开单时选中业务员，会自动带出这里配的部门</span>
@@ -116,73 +186,6 @@
       <div v-else class="state-empty">还没有外部客户账号 —— 点右上角「＋ 新建外部客户」开通</div>
     </div>
 
-    <div class="card df-panel">
-      <div class="panel-hd df-ph">
-        <b>在职员工</b>
-        <div class="df-ph-right">
-          <span class="tag info">工资按档案底薪算</span>
-          <button v-if="canDo('hr', 'create')" class="btn btn-primary btn-sm" @click="openCreate">＋ 添加员工</button>
-        </div>
-      </div>
-
-      <Skeleton v-if="loading" />
-      <div v-else-if="employees.length" class="table-wrap freeze-list">
-        <table class="tbl">
-          <thead><tr>
-            <th class="seq-th">序号</th><th>员工</th><th>岗位</th><th class="num">底薪/月</th>
-            <th>登录账号</th><th>可报门店</th><th></th>
-          </tr></thead>
-          <tbody>
-            <tr v-for="(e, i) in employees" :key="e.id" :class="{ stopped: e.is_active === 0 }">
-              <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-              <td>
-                {{ e.name }}
-                <span v-if="e.employee_no" class="df-no">{{ e.employee_no }}</span>
-                <span v-if="e.is_active === 0" class="df-no stopped-tag">已停用</span>
-              </td>
-              <td>{{ e.position || '—' }}</td>
-              <td class="num">¥{{ fmt(salaryOf(e)) }}</td>
-              <td>
-                <span v-if="e.has_account" class="df-acc" :class="{ on: e.account_active }" :title="'账号：' + e.account_username + (e.account_active ? '（启用中）' : '（已禁用，点「编辑」可重新启用）')">已开通 {{ e.account_username }}</span>
-                <span v-else class="df-acc">未开通</span>
-                <span v-if="e.account_role" class="df-role" :class="['r-' + e.account_role, { stopped: e.is_active === 0 }]">{{ roleDisplay(e.account_role) }}</span>
-                <span
-                  v-for="r in extraRolesOf(e)"
-                  :key="'x-' + r"
-                  class="df-role df-role-extra"
-                  :title="'兼任角色：' + roleDisplay(r)"
-                >+{{ roleDisplay(r) }}</span>
-              </td>
-              <!-- v381（2026-10-06）：个人仓列**已移除** —— 「设个人仓」的唯一入口搬到
-                   「预报订单管理 → 报单配置」（老板拍板 Q2=B：弹窗与列表列都撤）。
-                   理由与 2026-09-19「门店」那次收敛同源：它本就是报单域的属性，
-                   且它的**唯一读取方**是 `report_mapping_create/update` 的本人仓分支。
-                   在这里留一列只读展示，只会让用户以为"要在这儿改"。 -->
-              <!-- 2026-09-19 收敛：门店配置入口已移出员工档案，本列只读展示数量。
-                   数据 = 报单配置派生 ∪ 历史授权（见后端 employee_stores_get）。 -->
-              <td class="num" title="在「预报订单管理 → 报单配置」里为该员工配门店，配了即授权其小程序可报">  {{ (e.store_ids || []).length }} 家</td>
-              <td class="df-ops">
-                <!-- v335 按钮级门禁：员工主档走 /api/employees/* ⇒ 模块 **hr**
-                     编辑=PUT /api/employees/{eid} ⇒ update
-                     停用·启用=**POST** /api/employees/{eid}/toggle ⇒ hr/**create**（动作由 HTTP 方法推导） -->
-                <button v-if="canDo('hr', 'update')" class="btn btn-ghost btn-sm" @click="openEdit(e)">编辑</button>
-                <button v-if="e.is_active !== 0 && canDo('hr', 'create')" class="btn btn-ghost btn-sm danger" @click="askDisable(e)">停用</button>
-                <button v-else-if="canDo('hr', 'create')" class="btn btn-ghost btn-sm" @click="employeeToggle(e.id, 1)">启用</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-else class="state-empty">还没有员工档案，先添加或从 Excel 导入</div>
-    </div>
-
-    <!-- 开账号已整合进「编辑员工」弹窗（见下方 edit-modal 的"登录账号"区） -->
-
-    <!-- 2026-09-19：「分配门店」弹窗已移除 —— 门店配置收敛到「预报订单管理 → 报单配置」。
-         在那里按「员工 × 门店」建一条报单映射，即等于授权该员工小程序可报该门店
-         （后端 employee_stores_get 从报单配置派生可见范围）。
-         员工档案只保留只读的「可报门店」数量列，避免两个入口配同一件事、且互不感知。 -->
-
     <!-- Excel 批量导入 -->
     <div class="card df-panel">
       <div class="panel-hd"><b>Excel 批量导入员工</b><span class="tag info">按模板整理后上传</span></div>
@@ -221,12 +224,27 @@
            @close="tryCloseEdit">
           <div class="df-body df-edit-body">
 
-            <!-- 基本信息 -->
+            <!-- 基本信息：这个人「是谁」 —— 只收身份标识类字段。
+                 v706：身份证号**从原「薪酬与账户」移到本区** —— 它是身份标识，与姓名/工号同源，
+                   放在薪资区会让人误以为「身份证参与算薪」。
+                   它同时是全表最长的值（18 位）⇒ 独占整行（.df-field-wide），
+                   顺带消掉两列栅格在奇数个字段时必然出现的半格留白。 -->
             <section class="df-sec">
               <div class="df-sec-title">基本信息</div>
               <div class="df-edit-grid">
                 <label class="df-field"><span>姓名 <i class="req">*</i></span><input v-model="editForm.name" class="input"></label>
                 <label class="df-field"><span>工号</span><input v-model="editForm.employee_no" class="input"></label>
+                <label class="df-field df-field-wide"><span>身份证号</span><input v-model="editForm.id_card" class="input"></label>
+              </div>
+            </section>
+
+            <!-- 岗位与任职：他在组织里的位置 × 什么时候来的（HR 读档案时最常成对读的两个值）。
+                 ⚠️ 部门**不在这个表单里**：`users.department_id` 是**登录账号**的属性，
+                   唯一写入口在本页上方「业务员部门」卡（v686），`editForm` 没有该字段 ——
+                   不为凑满「岗位与部门」这个标题而凭空造一个输入框（那才是真冗余）。 -->
+            <section class="df-sec">
+              <div class="df-sec-title">岗位与任职</div>
+              <div class="df-edit-grid">
                 <label class="df-field"><span>岗位</span><input v-model="editForm.position" class="input"></label>
                 <label class="df-field"><span>入职日期</span><input v-model="editForm.hire_date" class="input" placeholder="2026-03-01"></label>
               </div>
@@ -239,15 +257,24 @@
                  后端 `PUT /api/employees/{eid}` 的 `warehouse_id` 白名单**仍然保留**
                  （兼容脚本与回滚），只是界面不再从这里发。 -->
 
-            <!-- 薪酬与账户 -->
+            <!-- 薪资与社保 —— v706：原「薪酬与账户」有 **7 个**字段（奇数），两列栅格下
+                 最后一行必然剩半格空白（旧注释自己就记着「7 个字段会挤出半行留白」）。
+                 拆成 4 + 2 两块后每块都是整数行；语义上也更准：**「缴多少」与「发到哪」
+                 是两件事**，混在一区会让人以为改银行账号会影响社保口径。 -->
             <section class="df-sec">
-              <div class="df-sec-title">薪酬与账户</div>
+              <div class="df-sec-title">薪资与社保</div>
               <div class="df-edit-grid">
                 <label class="df-field"><span>底薪/月</span><input v-model.number="editForm.base_salary" class="input" type="number"></label>
                 <label class="df-field"><span>社保基数</span><input v-model.number="editForm.social_insurance_base" class="input" type="number"></label>
                 <label class="df-field"><span>公积金基数</span><input v-model.number="editForm.housing_fund_base" class="input" type="number"></label>
                 <label class="df-field"><span>社保缴纳城市</span><input v-model="editForm.social_insurance_city" class="input"></label>
-                <label class="df-field"><span>身份证号</span><input v-model="editForm.id_card" class="input"></label>
+              </div>
+            </section>
+
+            <!-- 工资发放账户（从原「薪酬与账户」拆出：发放通道 ≠ 薪资口径） -->
+            <section class="df-sec">
+              <div class="df-sec-title">工资发放账户</div>
+              <div class="df-edit-grid">
                 <label class="df-field"><span>开户银行</span><input v-model="editForm.bank_name" class="input"></label>
                 <label class="df-field"><span>银行账号</span><input v-model="editForm.bank_account" class="input"></label>
               </div>
@@ -273,22 +300,29 @@
                        「可登录端」下拉可能相反（选了员工 ⇒ 默认仅小程序）⇒ 改成跟随所选值。
                        这类"同屏两句互相矛盾"的措辞，正是老板得出「权限没生效」结论的来源。 -->
                   <p v-else class="df-tip">该员工暂无登录账号。开通后可登录：<b>{{ loginScopeLabel(accForm2.login_scope) }}</b> —— 默认值按所选角色给出，可随时在下方调整；能进哪些页面由角色决定。</p>
-                  <label class="df-field"><span>手机号 / 账号</span><input v-model="accForm2.username" class="input" placeholder="如 13800000001"></label>
-                  <label class="df-field"><span>初始密码</span><input v-model="accForm2.password" class="input" type="text" :placeholder="PWD_HINT"></label>
-                  <label class="df-field"><span>角色 / 权限</span>
-                    <!-- v385：角色一改，「可登录端」会自动重取该角色的默认端 ——
-                         已有 `watch(() => accForm2.role)` 负责（见脚本区），此处**不再重复实现**。
-                         合并到一屏后角色与端同屏可见，这条同步变得更显眼：
-                         不同步就会出现"我选了导购、端还停在员工那个"（同屏两句互相矛盾）。 -->
-                    <select v-model="accForm2.role" class="input acc-role">
-                      <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-                    </select>
-                  </label>
-                  <label class="df-field"><span>可登录端</span>
-                    <select v-model="accForm2.login_scope" class="input acc-role" @change="accScopeTouched = true">
-                      <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-                    </select>
-                  </label>
+                  <!-- v706：这 4 项改用与档案字段**同一套两列栅格**（.df-edit-grid）。
+                       原先它们直接躺在 .df-acc-create 的 flex column 里 ⇒ 单列纵向堆叠，
+                       与上方「基本信息 / 薪资与社保」的两列对齐节奏不是一套
+                       ⇒ 同一个弹窗里出现两种字段排布，是「杂乱」的直接来源之一。
+                       绑定与事件一律未动，只换了承载容器。 -->
+                  <div class="df-edit-grid">
+                    <label class="df-field"><span>手机号 / 账号</span><input v-model="accForm2.username" class="input" placeholder="如 13800000001"></label>
+                    <label class="df-field"><span>初始密码</span><input v-model="accForm2.password" class="input" type="text" :placeholder="PWD_HINT"></label>
+                    <label class="df-field"><span>角色 / 权限</span>
+                      <!-- v385：角色一改，「可登录端」会自动重取该角色的默认端 ——
+                           已有 `watch(() => accForm2.role)` 负责（见脚本区），此处**不再重复实现**。
+                           合并到一屏后角色与端同屏可见，这条同步变得更显眼：
+                           不同步就会出现"我选了导购、端还停在员工那个"（同屏两句互相矛盾）。 -->
+                      <select v-model="accForm2.role" class="input acc-role">
+                        <option v-for="o in ROLE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                      </select>
+                    </label>
+                    <label class="df-field"><span>可登录端</span>
+                      <select v-model="accForm2.login_scope" class="input acc-role" @change="accScopeTouched = true">
+                        <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                      </select>
+                    </label>
+                  </div>
                   <!-- v312：把「这个默认值是从哪来的」写出来 —— 它来自「档案管理 › 组织相关 › 角色权限」里给该角色配的端。
                        不写的话，老板改完权限页来这里看不到变化（或看到旧值），会以为没生效。 -->
                   <p class="df-tip df-scope-src">
@@ -442,24 +476,31 @@
 
             <section class="df-sec">
               <div class="df-sec-title">客户与登录账号</div>
-              <label class="df-field"><span>客户名称 <i class="req">*</i></span>
-                <input v-model="extForm.name" class="input" placeholder="如 永辉超市（分销）">
-              </label>
-              <label class="df-field"><span>登录账号（手机号） <i v-if="!extEditId" class="req">*</i></span>
-                <input v-model="extForm.username" class="input" :disabled="!!extEditId" placeholder="如 13800000001">
-              </label>
-              <label v-if="!extEditId" class="df-field"><span>初始密码 <i class="req">*</i></span>
-                <input v-model="extForm.password" class="input" type="text" :placeholder="PWD_HINT">
-              </label>
+              <!-- v706：改用与员工弹窗**同一套**两列栅格（此前是单列堆叠）。
+                   「客户名称」是最主要、也最长的值 ⇒ 独占整行（.df-field-wide）。 -->
+              <div class="df-edit-grid">
+                <label class="df-field df-field-wide"><span>客户名称 <i class="req">*</i></span>
+                  <input v-model="extForm.name" class="input" placeholder="如 永辉超市（分销）">
+                </label>
+                <label class="df-field"><span>登录账号（手机号） <i v-if="!extEditId" class="req">*</i></span>
+                  <input v-model="extForm.username" class="input" :disabled="!!extEditId" placeholder="如 13800000001">
+                </label>
+                <label v-if="!extEditId" class="df-field"><span>初始密码 <i class="req">*</i></span>
+                  <input v-model="extForm.password" class="input" type="text" :placeholder="PWD_HINT">
+                </label>
+              </div>
             </section>
 
             <section class="df-sec">
               <div class="df-sec-title">可登录端</div>
-              <label class="df-field"><span>允许登录</span>
-                <select v-model="extForm.login_scope" class="input">
-                  <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-                </select>
-              </label>
+              <div class="df-edit-grid">
+                <!-- v706：本区只有 1 个字段 ⇒ 让它独占整行，否则右侧留半格空白。 -->
+                <label class="df-field df-field-wide"><span>允许登录</span>
+                  <select v-model="extForm.login_scope" class="input">
+                    <option v-for="o in LOGIN_SCOPE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+                  </select>
+                </label>
+              </div>
               <p class="df-tip">
                 外部客户默认<b>仅小程序</b>。除非确有需要，不要给他开网页端 ——
                 网页端能看到整店的经营数据。
@@ -1876,7 +1917,8 @@ onMounted(() => {
 .df-ph{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .df-ph-right{display:flex;align-items:center;gap:10px}
 .df-no{display:inline-block;margin-left:6px;font-size:11px;color:var(--t3)}
-.df-edit-in{width:110px;height:30px;font-size:12.5px}
+/* v706：`.df-edit-in` 已删 —— 全页模板**零引用**（死 CSS：改它不会产生任何效果，
+   却会让后来人以为「表单输入框宽度在这里调」，是典型的误导性冗余）。 */
 .df-ops{white-space:nowrap}
 .df-ops .btn{margin-left:6px}
 
@@ -1892,7 +1934,7 @@ onMounted(() => {
 .df-acc{font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 /* v294：个人仓（有仓 = 可用色标出，未设 = 弱化 —— 后者是需要老板去补的状态） */
 /* v381：`.df-wh`（个人仓行内标签）已随列表列删除。 */
-.df-muted{font-size:11px;color:var(--t3)}
+/* v706：`.df-muted` 已删 —— 同上，模板零引用的死 CSS。 */
 .df-acc.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .df-role{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;margin-left:6px;background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--teal,#0ea5a4);white-space:nowrap}
 .df-role.r-admin{background:rgba(239,68,68,.14);color:#ef4444}
@@ -1924,9 +1966,12 @@ onMounted(() => {
    提供，本页只保留弹窗内部排版 —— 这些 class 挂在 slot 内元素上，才拿得到本页 scope id。
    ⚠️ 遮罩深浅的历史：v290 把 .3 调到 .45，理由是「太浅时右侧还能看清整个员工列表」。
       统一后取全站值 .4 —— 仍明显深于当初被打回的 .3，v290 的诉求（要能遮住背景）不倒退。 */
-.df-body{display:flex;flex-direction:column;gap:12px}
-.df-field{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--t2)}
-.req{color:var(--dan)}
+/* v706：`.df-field` 与 `.req` 的完整定义**只保留一份**（收在下面「编辑弹窗布局」段）。
+   此前 `.df-field` 在这两处被**逐字重复声明**（display/flex-direction/gap/font-size/color 全同），
+   `.req` 的 color 也写了两遍 ⇒ 改其中一处，另一处静默接管，是「改了没反应」的温床。
+   `.df-body` 的块间距 12px → --sp-5(18px)：它与 .df-edit-body 的 20px 本就是同一个语义
+   （弹窗内「块与块之间」），却有两个值，现统一。 */
+.df-body{display:flex;flex-direction:column;gap:var(--sp-5)}
 /* .df-store-list / .df-store-item 于 2026-09-19 随「分配门店」弹窗一并移除
    （门店配置收敛到「预报订单管理 → 报单配置」）。 */
 
@@ -1939,14 +1984,27 @@ onMounted(() => {
 
 /* 编辑弹窗布局 */
 /* v290：600 → 680 —— 两列栅格下每列约 270px 太挤（"薪酬与账户"7 个字段会挤出半行留白）。 */
-.df-edit-body{display:flex;flex-direction:column;gap:20px}
-.df-sec{display:flex;flex-direction:column;gap:13px}
+/* v706：分区 / 栅格 / 字段的间距全部改用间距令牌，消掉原先 6 / 13 / 14 / 18 / 20 五个散值，
+   改成**逐级递减**的四级节奏 —— 视觉层次由「间距差」建立，而不是靠多加分割线：
+     弹窗块之间          --sp-5 = 18px
+     分区内（标题 ↔ 字段） --sp-4 = 14px
+     栅格（字段 ↔ 字段）  行 --sp-3 = 12px / 列 --sp-5 = 18px
+     字段内（标签 ↔ 控件） --sp-2 = 8px
+   ⚠️ 分区内(14) 必须 < 弹窗块间(18)：否则「分区」这一层在视觉上就不复存在，又回到一锅粥。 */
+.df-edit-body{display:flex;flex-direction:column;gap:var(--sp-5)}
+.df-sec{display:flex;flex-direction:column;gap:var(--sp-4)}
 .df-sec-title{font-size:13px;font-weight:600;color:var(--t1);padding-left:11px;border-left:3px solid var(--p);line-height:1.2}
-.df-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
-.df-field{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--t2)}
+.df-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-5)}
+/* 独占整行：给「身份证号（18 位）/ 客户名称 / 允许登录」这类**明显更长**或**本区唯一**的字段。
+   v706 引入 —— 它同时消掉了「奇数个字段 ⇒ 末行留半格空白」的老问题
+   （原「薪酬与账户」7 项就是这样，旧注释自己都记着「会挤出半行留白」）。
+   窄屏单列时 grid-column:1/-1 自然退化成整行，无需在媒体查询里再覆盖一次。 */
+.df-edit-grid .df-field-wide{grid-column:1/-1}
+.df-field{display:flex;flex-direction:column;gap:var(--sp-2);font-size:12.5px;color:var(--t2)}
 .df-field .input, .df-field select{width:100%;box-sizing:border-box;height:36px}
 .df-field span{font-size:12.5px;color:var(--t2)}
-.df-field .req{color:var(--dan);font-style:normal;font-weight:600}
+/* 必填星号：全页唯一一份（原先 `.req` 与 `.df-field .req` 把 color 写了两遍） */
+.req{color:var(--dan);font-style:normal;font-weight:600}
 
 /* 登录账号区 */
 /* v385：`.df-acc-hint`（原「新建态那行提示」的容器，只有 margin-top:-2px）已随
@@ -1994,4 +2052,24 @@ onMounted(() => {
 .btn-block{width:100%}
 .warn-text{color:var(--dan);font-weight:500}
 .acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:9px;padding:0 11px;font-size:13px;background:var(--bg);color:var(--t1);appearance:none;cursor:pointer}
+
+/* ============================================================
+   v706 响应式（断点 768px —— 与全站「移动端基础」一致，见 variables.css）
+   ------------------------------------------------------------
+   此前本页**零媒体查询**：栅格写死 `1fr 1fr`，页头 `.page-hd.split` 在窄屏把
+   「同步」按钮挤到标题右侧、换行后错位。
+   表格本身已有 `.table-wrap{overflow-x:auto}` ⇒ 横滚即可，不去改列宽（改了会牵动
+   已在用的冻结列与列宽设置）。
+   ============================================================ */
+@media(max-width:768px){
+  /* 两列在窄屏下每列不足 150px，输入框被压得没法填 ⇒ 改单列。
+     .df-field-wide 的 grid-column:1/-1 此时自然等于整行，无需再覆盖一次。 */
+  .df-edit-grid{grid-template-columns:1fr}
+  /* 页头：标题 + 同步按钮改纵向，按钮不再与标题抢同一行 */
+  .page-hd.split{flex-direction:column;align-items:stretch;gap:var(--sp-3)}
+  /* 卡片标题行右侧（标签 + 主按钮）独占一行并左对齐，避免与标题挤在一起 */
+  .df-ph-right{width:100%;justify-content:flex-start}
+  /* 账号操作行：label 与控件在窄屏必然换行，label 不再死占 56px */
+  .df-acc-exp-label{min-width:0}
+}
 </style>
