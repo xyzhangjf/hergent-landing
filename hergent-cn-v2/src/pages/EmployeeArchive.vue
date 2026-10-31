@@ -2401,7 +2401,11 @@ onMounted(() => {
   .df-acc-exp-label{min-width:0}
   /* v708：角色 / 可登录端这类**长下拉**在窄屏独占整行 —— 原来被 56px 标签挤到 240px，
      「财务/文员（仅网页端 · 账务 / 报表 / 订货汇总 / 返利）」只能显示一半。
-     只覆盖 select（`flex-basis:100%` 触发 wrap），含按钮的账号操作行不受影响。 */
-  .df-acc-row select{flex:1 1 100%}
+     只覆盖 select（`flex-basis:100%` 触发 wrap），含按钮的账号操作行不受影响。
+     🔴 必须带 `.acc-role` 提高特异性：实测 `.df-acc-row select{flex:1}`（同文件前面的
+        `.df-acc-row .input, .df-acc-row select`）与 `.df-acc-row select[data-v-x]` **同为 0,2,1**，
+        而压缩后前者反而在后 ⇒ 光写 `.df-acc-row select` 会被它盖回 `flex:1`（computed 量到
+        `1 1 0%`，规则 matches:true 却不生效）。别把 `.acc-role` 当装饰删掉。 */
+  .df-acc-row select.acc-role{flex:1 1 100%}
 }
 </style>
