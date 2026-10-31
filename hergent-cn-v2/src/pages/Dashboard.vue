@@ -152,11 +152,6 @@
         />
       </div>
     </template>
-
-    <div v-else class="card dash-hint">
-      <b>还有几张图没打开</b>
-      <p>「收支趋势」「品牌毛利结构」「商品毛利排行」「品类毛利对比」「客户销额排行」读的是数据报表，当前账号还没有这块权限。需要的话，让管理员在「档案管理 › 组织相关 › 角色权限」里给对应角色勾上。</p>
-    </div>
   </div>
 </template>
 
@@ -480,8 +475,6 @@ watch(repOk, (ok) => {
 .dash-err{display:flex;flex-direction:column;align-items:flex-start;gap:6px;color:var(--danger-txt)}
 .dash-err-ti{font-weight:500}
 .dash-err-msg{font-size:12px;color:var(--t2)}
-.dash-hint b{font-size:14px;font-weight:500;color:var(--t1)}
-.dash-hint p{font-size:12px;color:var(--t2);margin-top:6px;line-height:1.8}
 
 /* 区间切换（沿用全站分段按钮的长相） */
 .seg{display:inline-flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}

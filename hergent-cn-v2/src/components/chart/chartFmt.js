@@ -115,6 +115,31 @@ export function niceMin(v) {
   return -10 * base
 }
 
+/**
+ * 量程下限的另一种取法：**向下取到整齐值，而不是 0**。
+ *
+ * 🔴 只给「看走势」的折线用，且调用方必须用图注声明"纵轴未从 0 起"。
+ *    场景（v726 真机截图）：1-9 月销售额在 61 万–112 万之间，从 0 起画出来
+ *    是一条几乎水平的直线 —— 图白画了。但换个角度，不从 0 起会把
+ *    7% 的波动放大成"翻倍"的观感，所以**必须配文字说明**，不能默默改。
+ *
+ *    柱状图 / 条形图 / 环形图一律不要用它：长度和角度编码必须从 0 起，
+ *    否则"这根柱是那根的两倍长"就是假话。
+ */
+export function niceFloor(v) {
+  const x = Number(v) || 0
+  if (x === 0) return 0
+  const neg = x < 0
+  const a = Math.abs(x)
+  const exp = Math.floor(Math.log10(a))
+  const base = Math.pow(10, exp)
+  let pick = 1
+  for (const k of [1, 1.5, 2, 3, 5, 7.5, 10]) {
+    if (k * base <= a) pick = k
+  }
+  return (neg ? -1 : 1) * pick * base
+}
+
 /** 均分刻度：返回 [{v, y}]，由量程与段数决定，坐标由调用方给（scales 由 chartGeom 提供） */
 export function tickValues(min, max, segs) {
   const lo = Number(min) || 0

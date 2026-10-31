@@ -12,18 +12,15 @@
       </div>
 
       <!-- B · 经营概览（L1 核心指标）。
-           v349：KPI 条数据源归 `dashboard` 模块，默认只给老板/管理员 —— 原为整条 v-if
-           静默消失；v496 P0-6 改为无权限时给一句降级说明（员工仍可用「今日要务」）。
-           v496：空账套时一并隐藏（全 0 的 KPI 无意义，由导入引导替代）。 -->
+           v349：KPI 条数据源归 `dashboard` 模块，默认只给老板/管理员。
+           v651：无权限时**直接不渲染**（撤销 v496 P0-6 的降级说明条）—— 不向无权限者
+                 主动曝光「仅老板/管理员可见」，隐藏即可；空账套时一并隐藏。 -->
       <div class="card kpi-strip" v-if="store.canModule('dashboard') && !isEmptyTenant">
         <div class="kpi" v-for="k in kpis" :key="k.label">
           <div class="kpi-label">{{ k.label }}</div>
           <div class="kpi-val" :class="k.cls">{{ k.val }}</div>
           <div class="kpi-sub">{{ k.sub }}</div>
         </div>
-      </div>
-      <div class="card kpi-denied" v-else-if="!store.canModule('dashboard') && !isEmptyTenant">
-        经营数据看板仅老板 / 管理员可见 · 你仍可处理下方的「今日要务」
       </div>
 
       <!-- 空账套引导：KPI 全 0 且无任何业务信号时出现（新注册租户 / 尚未导入数据）。
@@ -629,7 +626,10 @@ async function loadTodo() {
       prio: 'amber', path: '/loss',
     })
   }
-  items.push({ icon: '聊', title: '问问 AI 今天该做什么', sub: '打开对话，AI 副驾随时待命', prio: 'blue', path: '/chat' })
+  // v652（2026-10-21）：AI 入口按权限收窄 —— 无 `chat` 模块（= 无 AI 权限）就不生成这条待办。
+  //   判据走 store.canUseAi()（唯一定义处见 store/index.js），与顶部栏 / ⌘K / 命令面板 / 预报右键同源。
+  //   此前漏了这一处 ⇒ 无 AI 权限的员工在经营工作台看到「问问 AI」且点击能打开副驾（权限缺陷）。
+  if (store.canUseAi()) items.push({ icon: '聊', title: '问问 AI 今天该做什么', sub: '打开对话，AI 副驾随时待命', prio: 'blue', path: '/chat' })
   todoItems.value = items.slice(0, 5)
   todoLoading.value = false
 }
@@ -689,7 +689,7 @@ const wbStatus = computed(() => {
 function goTodo(t) {
   /* v496：「问问 AI 今天该做什么」原对 '/chat' 直接 return ⇒ 点了没反应（假入口）。
      /chat 并非本仓路由（副驾是全局抽屉 CopilotDrawer）⇒ 开抽屉才是正确动作。 */
-  if (t.path === '/chat') { store.ui.copilotOpen = true; return }
+  if (t.path === '/chat') { if (store.canUseAi()) store.ui.copilotOpen = true; return }
   /* v291（2026-09-27）：待办项也会指向**受权限保护的页面**（如「临期预警」→ /loss）——
      入口必须与侧栏同一判据，否则司机/导购看到待办、点一下被守卫弹回工作台，
      正是 v267 修过的那类**假入口**。 */
@@ -726,8 +726,6 @@ onMounted(loadData)
 .wb-hi{font-size:20px;font-weight:700;color:var(--t1);letter-spacing:-.3px}
 .wb-date{font-size:13px;color:var(--t3)}
 .wb-status{margin-left:auto;font-size:13px;color:var(--t2);font-variant-numeric:tabular-nums}
-/* B · 无权限降级条（v496 P0-6）：替代原 KPI 条整条静默消失 */
-.kpi-denied{grid-column:1/-1;padding:10px 18px;font-size:12.5px;color:var(--t3);background:var(--bg2)}
 /* 面板内口径说明小字（v496 P0-4）：替代滥用 badge-blue 的说明标 */
 .panel-note{font-size:12px;color:var(--t3);font-weight:400}
 /* G 区 tab 页内的「说明 + 主操作」行 */

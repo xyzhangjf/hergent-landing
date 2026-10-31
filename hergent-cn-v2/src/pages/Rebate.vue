@@ -41,7 +41,6 @@
             <!-- v132：全页空态唯一入口，直达创建（原「去创建目标」只切 tab，还要再点一次） -->
             <!-- v335：按钮级门禁 —— 目标创建走 POST /api/rebate-rules ⇒ 动作 create -->
             <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" style="display:block;margin:10px auto 0" @click="openCreate('brand')">去创建品牌目标</button>
-            <span v-else class="page-sub" style="display:block;margin-top:10px">当前角色无权创建返利目标，请联系管理员。</span>
           </p>
           <p v-else>所选月份（{{ dashMonth }}）没有处于生效期的返利目标。</p>
         </EmptyState>

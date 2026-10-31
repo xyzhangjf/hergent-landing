@@ -8,7 +8,7 @@
     </button>
     <!-- 展开面板 Teleport 到 <body>：顶栏 .topbar 同时带 z-index:10 与 backdrop-filter，
          双重创建 stacking context → 面板的 z-index 无论设多高都被困在顶栏内（等效全局 10），
-         会被预报页工具栏的 .tb-pop（z-index:1120）压住。只有脱离该 context 才能参与全局层叠。
+         会被预报页工具栏的 .tb-pop（z-index 现为 1101，v678 前 1120）压住。只有脱离该 context 才能参与全局层叠。
          v-if 首帧隐藏（.pre）避免出现「先落在静态位置、再跳到按钮下方」的闪烁。 -->
     <Teleport to="body">
     <div v-if="open" ref="popEl" class="wx-pop" :class="{ pre: !popPlaced }" :style="popStyle">
@@ -137,7 +137,7 @@ const root = ref(null)
 const popEl = ref(null)          // 面板根节点：脱离 .wx 后 onClickOutside 需单独判定是否在面板内
 const popPos = ref({})           // placePop() 写入的 { left, top }
 const popPlaced = ref(false)     // 首帧未定位前置隐藏，避免「先落在静态位置、再跳到按钮下方」的闪烁
-// 层级：常态须高于页面内最高的浮层 .tb-pop（z-index:1120）；副驾抽屉（.copilot z-index:950）
+// 层级：常态须高于页面内最高的浮层 .tb-pop-panel（现 1116，v678 起）；副驾抽屉（.copilot z-index:950）
 // 打开时让位，避免天气面板压住抽屉。
 const popStyle = computed(() => ({
   ...popPos.value,
@@ -554,7 +554,8 @@ onBeforeUnmount(() => {
 /* 面板由 Teleport 挂在 <body> 上、position:fixed，坐标由 placePop() 写入。
    ⚠️ 不能回到「留在顶栏内 + position:absolute」的写法：顶栏 .topbar 同时带 z-index:10 与
    backdrop-filter，双重创建 stacking context，面板 z-index 设多高都会被困在顶栏内（等效全局 10），
-   会被预报页工具栏的 .tb-pop（z-index:1120）压住。1121 即为此定：高于页面内所有下拉浮层。 */
+   会被预报页工具栏的 .tb-pop（现 1101，v678 前 1120）压住。1121 即为此定：高于页面内所有下拉浮层
+   （最高的下拉是 .tb-pop-panel 1116）。 */
 .wx-pop{position:fixed;z-index:1121;
   display:flex;flex-direction:column;gap:10px;padding:10px 12px;border-radius:12px;width:max-content;max-width:calc(100vw - 20px);
   background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);

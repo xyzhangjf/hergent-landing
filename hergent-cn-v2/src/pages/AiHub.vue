@@ -184,13 +184,10 @@
         </template>
       </div>
 
-      <div v-if="proposalsDenied" class="state-empty">
-        当前账号没有「AI 对话」模块权限，看不到待审提案。请管理员在【员工档案 → 角色权限】里为你开通该模块。
-      </div>
-      <div v-else-if="!proposals.length" class="state-empty">
+      <div v-if="!proposalsDenied && !proposals.length" class="state-empty">
         暂无待审提案。当同类口径被反复改写（经验闭环判定）或运营手工提交时，提案会出现在这里等你拍板。
       </div>
-      <div v-else class="prop-list">
+      <div v-else-if="!proposalsDenied" class="prop-list">
         <div v-for="p in proposals" :key="p.id" class="prop-item" :class="{ done: p.status !== 'pending' }">
           <div class="prop-main">
             <div class="prop-title">
@@ -206,13 +203,12 @@
             </div>
             <div v-if="p.status === 'pending' && fuelOf(p)" class="prop-fuel">{{ fuelOf(p) }}</div>
           </div>
-          <div v-if="p.status === 'pending'" class="prop-ops">
-            <button class="btn btn-sm btn-primary" :disabled="!isAdmin || reviewing === p.id" @click="reviewProposal(p, 'accept')">采纳</button>
-            <button class="btn btn-sm btn-ghost danger" :disabled="!isAdmin || reviewing === p.id" @click="reviewProposal(p, 'reject')">驳回</button>
+          <div v-if="p.status === 'pending' && isAdmin" class="prop-ops">
+            <button class="btn btn-sm btn-primary" :disabled="reviewing === p.id" @click="reviewProposal(p, 'accept')">采纳</button>
+            <button class="btn btn-sm btn-ghost danger" :disabled="reviewing === p.id" @click="reviewProposal(p, 'reject')">驳回</button>
           </div>
         </div>
       </div>
-      <div v-if="!isAdmin && proposals.some(p => p.status === 'pending')" class="quota-sub">仅管理员可采纳 / 驳回</div>
     </div>
 
     <!-- ==================== ③ AI 经营洞察 ==================== -->

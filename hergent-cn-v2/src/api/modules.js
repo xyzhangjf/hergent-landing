@@ -79,6 +79,51 @@ export const reportsApi = {
    *     ⇒ 三者不同源，直接拿 avg_order_value 当均单会混入未送达订单、把均单算小。
    *     ⇒ 均单一律用 **revenue ÷ order_count**（两者同为已送达口径），本文件不提供捷径。 */
   biPivot: (body) => api('/api/bi/pivot', { method: 'POST', body }),
+
+  /* ---- 数据健康自检（v720 / 阶段1 M5）----
+     `GET /api/reports/data-health` → { checked_at, summary:{pass,warn,fail,unavailable},
+                                        total, cards:[…], note }
+     每张 card 的形状（后端 `routers/data_health.py::_card` 唯一真源）：
+       { key, title, status, headline, numbers:{}, why, hint, columns:[], rows:[] }
+     🔴 `status` 四态，前端**不许**自己改语义：
+        pass 判据成立 / warn 数值异常但配置允许 / fail 真不平 / unavailable 结构上算不了。
+        把 warn 画成红色（或把 unavailable 画成绿色）等于推翻后端判据，
+        而这张页存在的意义就是「判据不被界面美化」。
+     🔴 一次取全（不要按卡发 6 个请求）：卡的结论必须来自同一个快照，
+        否则会出现「凭证卡说 0 张不平、勾稽卡说差 3 块」这种自相矛盾的画面。
+     单卡端点另有 `?limit=`（默认 200，最大 2000），只用于排障放大明细。 */
+  dataHealth: () => api('/api/reports/data-health'),
+  dataHealthCard: (key, limit = 200) => api(`/api/reports/data-health/${key}?limit=${limit}`),
+}
+
+/* ---- 报表平台化（v723 / 阶段4 M3）— 配置驱动的通用报表 ----
+   三个端点全部在 `routers/report_engine.py`（前缀 `/api/reports` ⇒ RBAC 归 `reports`）：
+     GET /api/reports/defs                 可访问的报表清单（不含 SQL）
+     GET /api/reports/def/{name}           元数据：columns / filters / total_row / note / max_rows
+     GET /api/reports/def/{name}/data      执行，返回 { columns, rows, row_count, truncated, totals, elapsed_ms, note }
+
+   🔴 为什么单独一个 api 对象、不塞进 reportsApi：`reportsApi` 里全是**手写口径的具体报表**
+      （毛利、账龄、周转…），而这一组是**平台能力**（跑别人定义的 SQL）。两者失败模式不同：
+      前者会"口径错"，后者会"没配置（404）/超时（504）/被安全闸门拒（400）"，
+      调用方要按 status 区分处理（GenericReport 就是这么做的）。
+   🔴 404 的语义是「这张报表还没配口径」，**不是**「查询失败」，更**不是**「没有数据」。
+      页面必须区分展示，否则老板会把"没配置"读成"生意是 0"。
+   🔴 超时给到 40s：后端执行器硬超时 10s，留足网络与串行开销；不要把前端超时设得比后端短，
+      否则用户看到的是"请求超时"而不是后端那条更精确的"请缩小日期范围"。 */
+export const reportEngineApi = {
+  defs: () => api('/api/reports/defs', { timeout: 30000 }),
+  defMeta: (name) => api(`/api/reports/def/${encodeURIComponent(name)}`, { timeout: 30000 }),
+  defData: (name, qs = '') =>
+    api(`/api/reports/def/${encodeURIComponent(name)}/data${qs ? '?' + qs : ''}`, { timeout: 40000 }),
+
+  /* ---- 编辑器（v725）：只有老板账号能拿到 SQL 与保存 ---- */
+  // 这一组是**唯一**会吐出报表 SQL 的接口，后端用 _require_boss 拦死。
+  // 保存 = 改所有人看到的数的口径，等同于"能改账"，所以不放进通用 api 里混用。
+  raw: (name) => api(`/api/reports/def/${encodeURIComponent(name)}/raw`, { timeout: 30000 }),
+  preview: (body) => api('/api/reports/preview', { method: 'POST', body, timeout: 60000 }),
+  save: (name, body) =>
+    api(`/api/reports/def/${encodeURIComponent(name)}`, { method: 'PUT', body, timeout: 60000 }),
+  create: (body) => api('/api/reports/def', { method: 'POST', body, timeout: 60000 }),
 }
 
 /* ---- 买赠活动管理（v537 P2-1 二期）----

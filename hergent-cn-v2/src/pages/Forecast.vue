@@ -24,25 +24,9 @@
             于是本页合法子页从 4 个变 7 个（见下方 `TAB_KEYS`）。
          ⚠️ 历史分析工具不在页签里 —— 它在汇总表工具箱的「对比分析」组（见下）。 -->
 
-    <!-- 🔴 v347（2026-09-30）：**模块权限**被拒时的常驻说明（判据与理由见代码区 `forecastDenied`）。
-         位置有两处讲究：
-         ① 放在页面**最顶部、四个子页之外** —— 权限是**整页**的事，不能只在「本期预报」
-            里说；否则用户切到「历史期次」就再也看不到原因（那才是最容易让人以为"数据没了"的状态）。
-            （v405 页签条退役后本处位置未变，只是"之下"改成了"最顶部"。）
-         ② 复用 `.gate-bar`（与「没有进行中期次」同一条横幅）⇒ 零新增 CSS，视觉上与旁边那条
-            「需要你动手」的横幅同级。两者现实中**互斥**（权限被拒时根本问不到期次，
-            `noOpenPeriod` 恒假），不会叠成两条。
-         措辞口径（v331 / v338 / v339）：说清「你的角色没有权限」+「找谁开、在哪儿开」+「不是故障」，
-         不出现状态码、英文缩写与内部键名。路径写「档案管理 › 组织相关 › 角色权限」—— 这是**本前端**的真实入口
-         （全仓统一称呼，见 `constants/pages.js`；后端那条 403 文案不敢写路径，因它被两个前端共享）。 -->
-    <div v-if="forecastDenied" class="gate-bar" role="status">
-      <Icon name="alert-triangle"/>
-      <span class="gate-txt">
-        <b>你的角色没有「预报订单管理」的权限</b>，这一页的期次和报单都读不到 ——
-        这不是系统故障。需要老板在「档案管理 › 角色权限」里，为你的角色勾上「预报订单管理」。
-      </span>
-    </div>
-
+    <!-- v651：模块权限被拒（403 ⇒ `forecastDenied`）时**不再页内挂解释横幅** —— 不向无权限者
+         主动曝光「你的角色没有 X 权限 / 去找老板开」。改走与路由守卫（v275）一致的落地：
+         重定向回经营工作台 + 一句「没有这一页的访问权限」提示（见脚本区对 forecastDenied 的 watch）。 -->
     <template v-if="activeTab === 'summary'">
     <!-- v193（既定方案 §五 阶段 0）：「无进行中期次」时的**常驻**通告 + 就地出口。
          为什么不改成「点了导入才弹错误」：既定方案的判据是
@@ -377,12 +361,26 @@
       <div class="card cross-card">
         <!-- 列配置条 -->
           <div class="col-config-bar">
+            <!-- 点面板外收起（`.col-menu` 是 position:fixed，overlay 铺满视口接住点击） -->
             <div v-if="showColMenu && !editMode" class="col-menu-overlay" @click="showColMenu=false"></div>
+            <!-- 🔴 v676：本面板与下方「改单态」那一份（`.edit-col-menu`）**必须结构逐字一致**，
+                 只有「视图」块是查看态独有（改单表格不支持分组/冻结）。
+                 由来：两份此前各写一套，改单态漏了方案名输入框 ⇒ 点「保存当前」永远提示
+                 「请输入方案名」（`useForecastSchemes.saveScheme` 读的就是 `schemeSaveName`），
+                 面板还矮一截、块序也不同。同一面板抄两遍就一定会漂，改一处必须两处同改。 -->
             <div v-if="showColMenu && !editMode" class="col-menu" ref="colMenuEl" :style="colMenuStyle" @click.stop>
-              <div class="col-menu-hd"><span>显示列（拖拽排序，<Icon name="check"/> 显示）</span><button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button></div>
+              <div class="col-menu-hd">
+                <div class="cm-hd-tx">
+                  <span class="cm-hd-t">显示列</span>
+                  <span class="col-menu-sub">拖拽调整顺序 · 勾选控制显示</span>
+                </div>
+                <button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button>
+              </div>
               <div class="col-menu-view">
-                <label class="basis-toggle">分组
-                  <select v-model="groupBy" aria-label="分组方式">
+                <div class="cm-sec-t">视图</div>
+                <div class="cm-grid">
+                  <label class="cm-k" for="cmGroup">分组</label>
+                  <select id="cmGroup" class="cm-sel" v-model="groupBy">
                     <option value="none">不分组</option>
                     <option value="category">按品类</option>
                     <option value="brand">按品牌</option>
@@ -390,14 +388,13 @@
                     <option value="unit">按单位</option>
                     <option value="spec">按规格</option>
                   </select>
-                </label>
-                <label class="basis-toggle">冻结列
-                  <select v-model="frozenKey" aria-label="冻结列">
+                  <label class="cm-k" for="cmFrozen">冻结列</label>
+                  <select id="cmFrozen" class="cm-sel" v-model="frozenKey">
                     <option value="name">商品名称</option>
                     <option value="product_code">厂家编码</option>
                     <option value="none">不冻结</option>
                   </select>
-                </label>
+                </div>
               </div>
               <ul class="col-menu-list">
                 <template v-for="(c, ci) in colOrder" :key="c.key">
@@ -407,31 +404,34 @@
                        toggleCol 拒绝（点了跟没点一样 = 假控件）。 -->
                   <li v-if="canSeeCol(c.key)" :class="{ locked: isLockedCol(c.key), hidden: colVis[c.key] === false }" :draggable="!isLockedCol(c.key)" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
                     <span class="drag">⠿</span>
-                    <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
+                    <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @change="onColCheck(c.key, $event)"> <span>{{ c.label }}</span></label>
                     <button v-if="!isLockedCol(c.key) && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
                   </li>
                 </template>
               </ul>
-              <div class="col-menu-add">
-                <span class="cm-label"><Icon name="plus"/> 添加主档列</span>
-                <button v-for="c in addableMasterCols" :key="c.key" class="btn btn-xs btn-ghost" @click="addMasterCol(c.key)">{{ c.label }}</button>
+              <!-- v676：没有可添加的候选时**整块隐藏**（此前留一个 22px 的空标题块，看着像坏了一半） -->
+              <div v-if="addableMasterCols.length" class="col-menu-add">
+                <div class="cm-sec-t">添加主档列</div>
+                <div class="cm-btns">
+                  <button v-for="c in addableMasterCols" :key="c.key" class="cm-btn" @click="addMasterCol(c.key)">{{ c.label }}</button>
+                </div>
               </div>
               <div class="col-menu-schemes">
-                <span class="cm-label">列方案</span>
-                <select v-model="schemeName" @change="applyScheme(schemeName)">
+                <div class="cm-sec-t">列方案</div>
+                <select class="cm-sel" v-model="schemeName" @change="applyScheme(schemeName)" aria-label="列方案">
                   <option value="">选择方案…</option>
                   <option v-for="s in schemes" :key="s.name" :value="s.name">{{ s.name }}</option>
                 </select>
-                <div class="scheme-row">
-                  <input class="scheme-name-ipt" v-model="schemeSaveName" placeholder="输入方案名" @keyup.enter="saveScheme">
-                  <!-- v335：按钮级门禁 —— 列方案保存 = PUT /api/forecast/column-schemes ⇒ data/update
-                       （保存与删除都写同一端点，故同一判据） -->
-                  <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs scheme-btn" @click="saveScheme">保存当前</button>
-                  <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs scheme-btn" :disabled="!schemeName" @click="delScheme(schemeName)" title="删除所选方案">删除</button>
+                <!-- v335：按钮级门禁 —— 列方案保存 = PUT /api/forecast/column-schemes ⇒ data/update
+                     （保存与删除都写同一端点，故同一判据） -->
+                <div v-if="canDo('data', 'update')" class="scheme-row">
+                  <input class="scheme-name-ipt" v-model="schemeSaveName" placeholder="新方案名" @keyup.enter="saveScheme" aria-label="新方案名">
+                  <button class="cm-btn" @click="saveScheme">保存当前</button>
+                  <button class="cm-btn" :disabled="!schemeName" @click="delScheme(schemeName)" title="删除所选方案">删除</button>
                 </div>
               </div>
               <div class="col-menu-reset">
-                <button class="btn btn-ghost btn-xs" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
+                <button class="cm-btn" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
               </div>
             </div>
           </div>
@@ -446,17 +446,10 @@
              措辞口径：说清「谁不能看 / 谁能看 / 这不是故障」三件事，不出现状态码与英文缩写
              （产品面向不懂技术的经销商）。
              ⚠️ 它必须是这条条件链的**第一支**：放后面就会被 `crossLoading` / `grid-area` 盖住。 -->
+        <!-- v651：无汇总权限时**不再曝光角色名单 / 让你去找老板改角色** —— 改成中性空态。
+             （彻底「隐藏汇总 tab」需改 Shell 级 URL/NAV 页签系统，风险大，留作后续。） -->
         <div v-if="summaryDenied || crossDenied" class="tbl-state denied-state">
-          <div class="denied-hd"><Icon name="alert-triangle"/> 你的角色不能查看报单汇总</div>
-          <p class="denied-body">
-            报单汇总表是全公司各门店报单的合计，只对 管理员 / 老板 / 主管 开放。
-            你的角色是「<b>{{ roleName(store.user.role) }}</b>」，所以这里没有数据 ——
-            这不是系统故障，也不是网络问题。
-          </p>
-          <p class="denied-body">
-            要看你自己报的单，用手机上的小程序；<br>
-            如果你确实需要看全公司的合计，让老板在「员工账号」里把你的角色改成 主管。
-          </p>
+          <div class="denied-hd"><Icon name="alert-triangle"/> 暂无汇总数据</div>
         </div>
         <div v-else-if="crossLoading" class="tbl-state tbl-skeleton" aria-busy="true" aria-label="数据加载中">
           <div class="sk-row" v-for="n in 8" :key="n"><span class="sk-bar" v-for="m in 6" :key="m"></span></div>
@@ -558,24 +551,30 @@
               </div>
               </Teleport>
             </div>
+            <!-- v673：「今日下单」——**纯开关**，不弹面板（不需要候选，判定基准只有一个：今天）。
+                 与品牌/到货周期同一行、同一几何（.btn-sm.btn-ghost + on 态），不新增控件形态。
+                 文案常显「今日下单」；开启后由汇总条的「· 今日下单（10月31日 周六）」自证，
+                 这里不再叠徽标 —— 触发器能表达的就别再加 chip（v608 的教训）。 -->
+            <button class="btn btn-sm btn-ghost" :class="{ on: todayOnly }" :title="todayToggleTitle" @click="toggleTodayOnly"><Icon name="calendar"/> 今日下单</button>
             <!-- v167：「复制报单」从主工具栏下移至此，紧邻品牌筛选 —— 用户的动作链是「勾品牌 →
                  复制那些品牌的编码/数量」，同一行内连续完成，不必回页头。弹层定位走共用的
                  positionTbPop()（fixed + 按触发按钮坐标），与位置无关；.tb-pop 容器自带
-                 z-index:1120（> .pop-overlay 1100），故与品牌筛选的互斥点击行为完全一致。
+                 z-index:var(--z-page-trigger) 1101（> .pop-overlay 1100；v678 起，此前 1120），
+                 故与品牌筛选的互斥点击行为完全一致。
                  v168：此处是**唯一**入口 —— 编辑态（改单）已刻意撤掉，理由是草稿数据未定稿。 -->
             <div class="tb-pop">
               <button ref="copyBtn" class="btn btn-sm btn-ghost" :class="{on:copyMenuOpen}" @click="toggleCopyMenu" title="复制本期期次报单：厂家编码 / 最终下单数量（分开复制，粘贴到厂家系统下单）"><Icon name="copy"/> 复制报单 <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="copyMenuOpen" class="tb-pop-panel copy-pop" :style="popStyle" @click.stop>
                 <div class="cp-title">复制本期报单<span v-if="copyUnitName" class="cp-title-sub"> · {{ copyUnitName }}</span></div>
-                <p v-if="brandSel.length || cycleSel.length" class="cp-tip">只复制当前筛选出来的行：<span v-if="brandSel.length">品牌 {{ brandSel.join('、') }}</span><span v-if="brandSel.length && cycleSel.length"> · </span><span v-if="cycleSel.length">到货周期 {{ cycleSelText }}</span></p>
+                <p v-if="brandSel.length || cycleSel.length || todayOnly" class="cp-tip">只复制当前筛选出来的行：<span v-if="todayOnly">今日下单（{{ todayText }}）</span><span v-if="todayOnly && brandSel.length"> · </span><span v-if="brandSel.length">品牌 {{ brandSel.join('、') }}</span><span v-if="brandSel.length && cycleSel.length"> · </span><span v-if="cycleSel.length">到货周期 {{ cycleSelText }}</span></p>
                 <p class="cp-tip">有报单 = 「最终下单(箱)」列有数量（合计(箱) + 加单(箱)）；搜索 / 列筛选 / 「仅显示有报单」也计入；行序与表格一致</p>
                 <div class="cp-unit-btns">
                   <button class="grp-btn cp-act" :disabled="!copyCount" title="复制厂家编码（有报单，按行序）" @click="doCopyCodes"><Icon name="barcode"/> 厂家编码</button>
                   <button class="grp-btn cp-act" :disabled="!copyCount" title="复制最终下单数量（与编码行序一致）" @click="doCopyQty"><Icon name="hash"/> 下单数量</button>
                 </div>
                 <p v-if="copyCount" class="cp-tip ok">共 <b>{{ copyCount }}</b> 个 SKU 有最终下单可复制</p>
-                <p v-else-if="brandSel.length || cycleSel.length" class="cp-empty">当前筛选下没有「最终下单」有数量的 SKU</p>
+                <p v-else-if="brandSel.length || cycleSel.length || todayOnly" class="cp-empty">当前筛选下没有「最终下单」有数量的 SKU</p>
                 <p v-else class="cp-empty">本期没有「最终下单」有数量的 SKU</p>
               </div>
               </Teleport>
@@ -610,12 +609,20 @@
             </div>
           </div>
           <!-- v608：品牌筛选不再另起一条胶囊 —— 工具栏「品牌」按钮自带已选数量角标，
-               面板内已有「全选 / 清空」⇒ 清除途径不缺。此筛选条只服务列筛选/唯一值筛选。 -->
-          <div class="filter-row" v-if="colFilter || colFilterSet">
-            <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选"><Icon name="close"/></button></span>
-            <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选"><Icon name="close"/></button></span>
+               面板内已有「全选 / 清空」⇒ 清除途径不缺。此筛选条只服务**列筛选**。
+               v666：列筛选可多列并存 ⇒ 每列一枚胶囊（单独 × 掉）+ 末尾「清除全部筛选」。 -->
+          <div class="filter-row" v-if="cfCount()">
+            <span v-for="(f, fk) in colFilters" :key="fk" class="filter-chip"
+                  :title="'按「' + colLabel(f.key, f.type, -1) + '」筛选：' + cfText(f)">
+              筛选「{{ colLabel(f.key, f.type, -1) }}」{{ cfText(f) }}
+              <button class="chip-x" @click="cfDrop(f.key, f.type)" aria-label="清除该列筛选"><Icon name="close"/></button>
+            </span>
+            <button v-if="cfCount() > 1" class="btn btn-xs btn-ghost" @click="clearAllColFilters">清除全部筛选</button>
           </div>
-          <div class="table-wrap cross-viewport" ref="scrollEl" @scroll="onScroll">
+          <!-- v633：上限由 `viewMaxH`（与编辑态同一套算法）写成内联值；CSS 里的
+               `calc(72vh + 119px)` 只作首帧兜底（JS 未跑到时用它，避免表体先塌再长）。 -->
+          <div class="table-wrap cross-viewport" ref="scrollEl" @scroll="onScroll"
+               :style="viewMaxH ? { maxHeight: viewMaxH + 'px' } : null">
             <table class="tbl cross-tbl" role="grid" :aria-rowcount="flatItems.length" :aria-colcount="colOrderList.length" @dblclick="onResizerDblClick" :style="{ zoom: gridZoom + '%' }">
             <colgroup>
               <col v-for="col in colOrderList" :key="'cg' + col.key" :style="{ width: colW(col.key) + 'px' }"></col>
@@ -631,6 +638,17 @@
                       <span>{{ col.label }}<span v-if="canSort(col)" class="sort-ind"><Icon v-if="sortInd(col.key)" :name="sortInd(col.key)"/></span></span>
                     </template>
                   </div>
+                  <!-- v654：表头悬停「＋」= 快捷插入列（插在本列右侧）。
+                       只读态的点击会**先进入改单**再弹列名输入（结构编辑只在改单态成立，
+                       见 quickAddCol 注释）；做成绝对定位的 14px 小块，不参与表头行高计算。 -->
+                  <!-- v666：Excel 式筛选用例 —— 列头漏斗。已筛的列**常显且高亮**（不靠悬停才看得见），
+                       未筛的列 hover 才露出。点开走 openColFilter（面板只有一份 UI）。
+                       与「＋」并排（各 14px，right 8 / 26），都走绝对定位 ⇒ 表头高度不变。 -->
+                  <button v-if="col.type !== 'seq'" class="th-funnel" :class="{ on: cfHas(col.key, col.type) }"
+                          :title="cfHas(col.key, col.type) ? '已筛选：' + cfText(cfGet(col.key, col.type)) + '（点击修改）' : '筛选此列'"
+                          @mousedown.stop.prevent @click.stop="quickOpenColFilter($event, col.key, col.type)"><Icon name="filter"/></button>
+                  <button v-if="col.type === 'master' || col.type === 'qty'" class="th-qa" :title="qaTitle(col.label, col.key)"
+                          @mousedown.stop.prevent @click.stop="quickAddCol($event, col.key, col.type)"><Icon name="plus"/></button>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, col.key)" @click.stop></span>
                 </th>
               </tr>
@@ -641,6 +659,17 @@
                    三个动作 = 三条填数路：手工填 / 从上一期带 / 导入 Excel。 -->
               <tr v-if="!flatItems.length" class="empty-row">
                 <td :colspan="colOrderList.length">
+                  <!-- v667：勾选即筛 ⇒「一个值都不勾」会合法地把表筛成 0 行。这一屏必须说「被筛选挡住了」，
+                       而不是「本期没有商品行 · 去导入 Excel」（后者会让人以为数据丢了、甚至重新导一遍）。 -->
+                  <template v-if="filteredToNone">
+                    <div class="er-ic"><Icon name="filter"/></div>
+                    <div class="er-t">没有符合筛选条件的行</div>
+                    <div class="er-s">本期共 {{ liveRows.length }} 个商品行，全部被当前的筛选条件挡住了 —— 数据没有丢，清掉筛选就能全部看到。</div>
+                    <div class="er-ops">
+                      <button class="btn btn-primary btn-sm" @click="clearEveryRowFilter"><Icon name="close"/> 清除全部筛选</button>
+                    </div>
+                  </template>
+                  <template v-else>
                   <!-- v193：这一屏正是「没有进行中期次时用户会落到哪里」—— 旧文案照样招呼他
                        「导入 Excel」，等于把绕流程的入口直接递到手上。现在无进行中期次时只指路
                        「新建期次」：此刻它确实是唯一有意义的动作（另两个动作没有可落的期次）。
@@ -668,6 +697,7 @@
                               :title="canImport ? '从 Excel 导入预报订单汇总表' : importBlockedReason"><Icon name="upload"/> 导入 Excel</button>
                     </template>
                   </div>
+                  </template>
                 </td>
               </tr>
               <tr class="vs-spacer" :style="{ height: vsWindow.top + 'px' }"><td :colspan="colOrderList.length"></td></tr>
@@ -775,12 +805,12 @@
                 <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')">
                   <template v-if="col.key === 'seq'"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（合计/单价换算口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="13"/></button></template>
                   <template v-else-if="col.key === 'name'">合计</template>
-                  <template v-else-if="col.type === 'qty'">{{ cross.colTotals[(ci - 1) - visibleCols.length] || '' }}</template>
-                  <template v-else-if="col.key === 'qty'">{{ fmt(cross.grand.qty) }}</template>
-                  <template v-else-if="col.key === 'boxes'">{{ fmtBox(cross.grand.boxes) }}<span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></template>
-                  <template v-else-if="col.key === 'extra'">{{ fmt(liveRows.reduce((s, r) => s + rowExtraQty(r), 0)) }}</template>
-                  <template v-else-if="col.key === 'final'">{{ fmt(liveRows.reduce((s, r) => s + rowFinalQty(r), 0)) }}</template>
-                  <template v-else-if="col.key === 'amount'">{{ fmt(cross.grand.amount) }}</template>
+                  <template v-else-if="col.type === 'qty'">{{ footUnit((ci - 1) - visibleCols.length) || '' }}</template>
+                  <template v-else-if="col.key === 'qty'">{{ fmt(footNum('qty')) }}</template>
+                  <template v-else-if="col.key === 'boxes'">{{ fmtBox(footNum('boxes')) }}<span v-if="footMissing.length" class="box-miss">（缺规格 {{ footMissing.length }} 行未计入）</span></template>
+                  <template v-else-if="col.key === 'extra'">{{ fmt(footTotals.extra) }}</template>
+                  <template v-else-if="col.key === 'final'">{{ fmt(footTotals.final) }}</template>
+                  <template v-else-if="col.key === 'amount'">{{ fmt(footNum('amount')) }}</template>
                   <template v-else>—</template>
                 </td>
               </tr>
@@ -797,9 +827,16 @@
             <!-- v189：原写「总订量 X 件」——X 是 Σ各报单单元数量（小单位，可能是盒/袋/包），
                  「件」不对；且同屏没有箱口径，用户无法自证「合计(箱)=合计(小单位)÷规格」。
                  两个数并列显示，规则错了一眼可见。 -->
-            <span class="big">合计(小单位) <b>{{ fmt(cross.grand.qty) }}</b> · 合计(箱) <b>{{ fmtBox(cross.grand.boxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span></span>
-            <span class="mini">下单金额 <b>¥{{ fmt(cross.grand.amount) }}</b></span>
-            <span class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
+            <span class="big">合计(小单位) <b>{{ fmt(footNum('qty')) }}</b> · 合计(箱) <b>{{ fmtBox(footNum('boxes')) }}</b><span v-if="footMissing.length" class="box-miss">（缺规格 {{ footMissing.length }} 行未计入）</span></span>
+            <span class="mini">下单金额 <b>¥{{ fmt(footNum('amount')) }}</b></span>
+            <!-- v666：筛选生效时这里的三个数**只算筛出来的行**（Excel SUBTOTAL 语义，用户拍板）。
+                 🔴 必须自证口径：只说「合计」会被当成整期的数 ⇒ 前面标「筛选后」，后面给全期对照。 -->
+            <span v-if="cfOn" class="mini pin-filtered"
+                  :title="'上面的合计只统计筛出来的行。当前筛选来源：' + (rowFilterSources || '—') + '（点右侧「清除」恢复全期）'">
+              筛选后 <b>{{ footTotals.rows }}</b> / 共 {{ footTotals.total }} 行<span v-if="rowFilterShort" class="pin-src"> · {{ rowFilterShort }}</span><button class="pin-clr" title="清掉品牌 / 到货周期 / 列筛选 / 搜索，恢复全期" @click="clearEveryRowFilter">清除</button>
+            </span>
+            <span v-if="cfOn" class="mini pin-all" title="不带筛选时这一期的合计">全期：合计 {{ fmt(cross.grand.qty) }} · ¥{{ fmt(cross.grand.amount) }}</span>
+            <span v-if="!cfOn" class="mini">{{ cross.grand.sku }} 个商品 · {{ cross.reportedUnits }} 个报单单元</span>
             <!-- v621：从表格工具行挪来的计数（见 .grid-ctl-row 里那条注释）。放这里是因为
                  它和左边这三个数是一回事 —— 都是"这张表里有多少行"。动作不变：点它 = 显示全部商品。 -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="pin-more"
@@ -875,6 +912,11 @@
                   <button class="batch-item" :disabled="!rowCycRows.length || savingEdit" @click="openRowCyc">
                     <Icon name="clock"/><span class="bi-t">批量设置到货周期</span><b>{{ rowCycRows.length }}</b>
                   </button>
+                  <!-- v673：与「批量设置到货周期」并列 —— 两者都是改商品档案、都不产生报单数量，
+                       但一个是「下单后几天到」、一个是「哪天该下单」，用户要成对配。 -->
+                  <button class="batch-item" :disabled="!rowCycRows.length || savingEdit" @click="openRowOrd">
+                    <Icon name="calendar"/><span class="bi-t">批量设置下单日</span><b>{{ rowCycRows.length }}</b>
+                  </button>
                   <p v-if="batchDelBlocked" class="bp-tip">
                     另有 {{ batchDelBlocked }} 个已选商品本期已有人报单（有数量），不会被撤下 —— 撤了下次保存会被自动加回。
                   </p>
@@ -886,6 +928,10 @@
                     </p>
                     <p class="bp-tip">
                       设置到货周期 = 改<b>商品档案</b>（全期生效、不产生报单数量），与本期清单无关。
+                    </p>
+                    <p class="bp-tip">
+                      设置下单日 = 告诉系统<b>这个品哪天该下单</b>（每天 / 单号 / 双号 / 每周几 / 每月几号），
+                      配好后点上方<b>「今日下单」</b>一键筛出今天要下的品，再复制报单。
                     </p>
                   </template>
                 </div>
@@ -952,6 +998,10 @@
               </div>
               </Teleport>
             </div>
+            <!-- v673：改单态同样给「今日下单」（与查看态同构、同判据）。
+                 两态各一份是既有结构（本页工具栏本来就是查看/改单两套 DOM），
+                 判定走同一个 rowFilterPass ⇒ 不存在「两态答案不同」。 -->
+            <button class="btn btn-sm btn-ghost" :class="{ on: todayOnly }" :title="todayToggleTitle" @click="toggleTodayOnly"><Icon name="calendar"/> 今日下单</button>
             <!-- v170：「新增客户」入口 —— 承接从表头撤下的那一格（合计右侧，默认在视口外 2475px
                  且回车在碰过表格后静默失效）。与品牌筛选用完全同构的 .tb-pop + positionTbPop()，
                  零新增定位代码；面板内回车即可提交，弹层常显故不再有"看不见"的问题。 -->
@@ -1014,14 +1064,27 @@
             </div>
           </div>
           <!-- v608：品牌筛选不再另起一条胶囊 —— 工具栏「品牌」按钮自带已选数量角标，
-               面板内已有「全选 / 清空」⇒ 清除途径不缺。此筛选条只服务列筛选/唯一值筛选。 -->
-          <div class="filter-row" v-if="colFilter || colFilterSet">
-            <span v-if="colFilter" class="filter-chip" :title="'按「' + colLabel(colFilter.key, colFilter.type, colFilter.ui) + '」筛选'">筛选「{{ colLabel(colFilter.key, colFilter.type, colFilter.ui) }}」={{ colFilter.val }} <button class="chip-x" @click="clearColFilter" aria-label="清除列筛选"><Icon name="close"/></button></span>
-            <span v-if="colFilterSet" class="filter-chip" :title="'按「' + colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) + '」唯一值筛选'">筛选「{{ colLabel(colFilterSet.key, colFilterSet.type, colFilterSet.ui) }}」∈ {{ colFilterSet.values.length }} 值 <button class="chip-x" @click="clearUniqFilter" aria-label="清除唯一值筛选"><Icon name="close"/></button></span>
+               面板内已有「全选 / 清空」⇒ 清除途径不缺。此筛选条只服务**列筛选**。
+               v666：列筛选可多列并存 ⇒ 每列一枚胶囊（单独 × 掉）+ 末尾「清除全部筛选」。 -->
+          <div class="filter-row" v-if="cfCount()">
+            <span v-for="(f, fk) in colFilters" :key="fk" class="filter-chip"
+                  :title="'按「' + colLabel(f.key, f.type, -1) + '」筛选：' + cfText(f)">
+              筛选「{{ colLabel(f.key, f.type, -1) }}」{{ cfText(f) }}
+              <button class="chip-x" @click="cfDrop(f.key, f.type)" aria-label="清除该列筛选"><Icon name="close"/></button>
+            </span>
+            <button v-if="cfCount() > 1" class="btn btn-xs btn-ghost" @click="clearAllColFilters">清除全部筛选</button>
           </div>
           <div v-if="showColMenu" class="col-menu-overlay" @click="showColMenu=false"></div>
           <div v-if="showColMenu" class="col-menu edit-col-menu" ref="colMenuEl" :style="colMenuStyle" @click.stop>
-            <div class="col-menu-hd"><span>显示列（拖拽排序，<Icon name="check"/> 显示）</span><button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button></div>
+            <!-- 🔴 与查看态那份（`.col-config-bar` 内）结构逐字一致 —— 只少「视图」块。
+                 改动请两处同改，否则必漂（v676：本处曾漏了方案名输入框）。 -->
+            <div class="col-menu-hd">
+              <div class="cm-hd-tx">
+                <span class="cm-hd-t">显示列</span>
+                <span class="col-menu-sub">拖拽调整顺序 · 勾选控制显示</span>
+              </div>
+              <button class="col-menu-x" @click="showColMenu=false" title="关闭"><Icon name="close"/></button>
+            </div>
             <ul class="col-menu-list">
               <!-- v192：判定统一走 isLockedCol()，与查看态菜单、toggleCol、quickHide 同源。
                    此前这里读的是 `c.fixed`，而 `c` 来自 colOrder —— 那里**只有 name 带 fixed**
@@ -1030,25 +1093,30 @@
                    成了「点了跟没点一样」的假控件（查看态菜单 v184 已修好，改单态这处漏了）。 -->
               <li v-for="(c, ci) in colOrder" :key="c.key" :class="{ locked: isLockedCol(c.key), hidden: colVis[c.key] === false }" :draggable="!isLockedCol(c.key)" @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
                 <span class="drag">⠿</span>
-                <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @click.prevent="toggleCol(c.key)"> {{ c.label }}</label>
+                <label><input type="checkbox" :checked="colVis[c.key] !== false" :disabled="isLockedCol(c.key)" @change="onColCheck(c.key, $event)"> <span>{{ c.label }}</span></label>
                 <button v-if="!isLockedCol(c.key) && c.deletable" class="col-menu-del" @click="deleteMasterCol(c.key)" title="删除该列"><Icon name="close"/></button>
               </li>
             </ul>
-            <div class="col-menu-add">
-              <span class="cm-label"><Icon name="plus"/> 添加主档列</span>
-              <button v-for="c in addableMasterCols" :key="c.key" class="btn btn-xs btn-ghost" @click="addMasterCol(c.key)">{{ c.label }}</button>
+            <div v-if="addableMasterCols.length" class="col-menu-add">
+              <div class="cm-sec-t">添加主档列</div>
+              <div class="cm-btns">
+                <button v-for="c in addableMasterCols" :key="c.key" class="cm-btn" @click="addMasterCol(c.key)">{{ c.label }}</button>
+              </div>
             </div>
             <div class="col-menu-schemes">
-              <span class="cm-label">列方案</span>
-              <select v-model="schemeName" @change="applyScheme(schemeName)">
+              <div class="cm-sec-t">列方案</div>
+              <select class="cm-sel" v-model="schemeName" @change="applyScheme(schemeName)" aria-label="列方案">
                 <option value="">选择方案…</option>
                 <option v-for="s in schemes" :key="s.name" :value="s.name">{{ s.name }}</option>
               </select>
-              <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs" @click="saveScheme">保存当前</button>
-              <button v-if="canDo('data', 'update')" class="btn btn-ghost btn-xs" @click="delScheme(schemeName)" :disabled="!schemeName" title="删除所选方案">删除</button>
+              <div v-if="canDo('data', 'update')" class="scheme-row">
+                <input class="scheme-name-ipt" v-model="schemeSaveName" placeholder="新方案名" @keyup.enter="saveScheme" aria-label="新方案名">
+                <button class="cm-btn" @click="saveScheme">保存当前</button>
+                <button class="cm-btn" :disabled="!schemeName" @click="delScheme(schemeName)" title="删除所选方案">删除</button>
+              </div>
             </div>
             <div class="col-menu-reset">
-              <button class="btn btn-ghost btn-xs" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
+              <button class="cm-btn" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
             </div>
           </div>
           <div class="table-wrap edit-grid-wrap" :class="{ 'is-filling': fillDragging }" :style="editMaxH ? { maxHeight: editMaxH + 'px' } : null" @scroll="onEditScroll">
@@ -1092,6 +1160,15 @@
                   <div class="th-in">
                     <span>{{ c.label }}</span>
                   </div>
+                  <!-- v666：列头漏斗（改单态只给主档列 —— 客户列头已有输入框 + ✕，52px 里再塞一个
+                       就点到别的东西了；客户列筛选走右键「筛选…」，面板是同一份）。 -->
+                  <button class="th-funnel" :class="{ on: cfHas(c.key, 'master') }"
+                          :title="cfHas(c.key, 'master') ? '已筛选：' + cfText(cfGet(c.key, 'master')) + '（点击修改）' : '筛选此列'"
+                          @mousedown.stop.prevent @click.stop="quickOpenColFilter($event, c.key, 'master')"><Icon name="filter"/></button>
+                  <!-- v654：表头悬停「＋」= 快捷插入列（改单态直接弹列名输入；只读态见另一处表头）。
+                       ⚠️ `@mousedown.stop.prevent` 必须 —— 否则会先触发 `onHeadDown` 把整列铺成列选区。 -->
+                  <button class="th-qa" :title="qaTitle(c.label, c.key)"
+                          @mousedown.stop.prevent @click.stop="quickAddCol($event, c.key, 'master')"><Icon name="plus"/></button>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, c.key)" @click.stop></span>
                 </th>
                 <th v-for="(u, ui) in cross.units" :key="u.name" class="qty-th" scope="col" :class="{ 'sel-col': inColSpan(visibleCols.length + ui), 'cur-col-hd': isCurColHd(visibleCols.length + ui) }" :aria-current="isCurColHd(visibleCols.length + ui) ? 'true' : null" :aria-selected="inColSpan(visibleCols.length + ui) ? 'true' : null" @mousedown="onHeadDown(visibleCols.length + ui, $event)" @mouseover="onHeadOver(visibleCols.length + ui)" @contextmenu.prevent="openHdrCtx($event, u.name, 'qty', ui)">
@@ -1567,6 +1644,10 @@
                v188：写「合计(小单位)」而非「件」—— editTotalQty 是 Σ报单单元数量，小单位可能是盒/袋/包。 -->
           <div class="edit-summary">
             <span class="es-txt">合计(小单位) <b>{{ fmt(editTotalQty) }}</b> · 合计(箱) <b>{{ fmtBox(editTotalBoxes) }}</b><span v-if="boxMissingRows.length" class="box-miss">（缺规格 {{ boxMissingRows.length }} 行未计入）</span> · 下单金额(进价) <b>¥{{ fmt(editTotalAmount) }}</b></span>
+            <!-- v666：改单态的合计**故意不跟筛选**（与只读态页脚相反）。理由：这一行是「保存/推送」的
+                 口径，一旦只算筛出来的行，用户会以为保存也只存这些 —— 那正是最危险的一种误解。
+                 所以这里恒为全量，并在筛选生效时**明写**一句，把话说死。 -->
+            <span v-if="cfOn" class="es-note">含被筛选隐藏的行 · 保存与推送都是全量<span v-if="rowFilterShort"> · 当前：{{ rowFilterShort }}</span></span>
             <!-- v621：同查看态页脚 —— 「另有 N 个在售商品未显示」从工具行挪到这里（两态位置一致，
                  否则点了「改单」这条角标会从表格底部跳回工具行）。 -->
             <span v-if="!showAllProducts && hiddenByRowBase" class="pin-more"
@@ -2050,11 +2131,14 @@
               <button @click="ctxInsertCol(false)">→ 在右侧插入列</button>
               <button class="danger" @click="ctxDeleteCol"><Icon name="trash"/> 删除此列</button>
             </template>
-            <template v-else-if="ctx.type === 'master' && ctx.deletable">
-              <button class="danger" @click="ctxDeleteCol"><Icon name="trash"/> 删除此列</button>
-            </template>
-            <template v-else-if="ctx.type === 'master' && !ctx.deletable">
-              <div class="ctx-note">该主档列不可删除（可经列配置隐藏）</div>
+            <!-- v653：主档单元格右键也支持插列（复用表头插入列表单）。冻结列区不可插。 -->
+            <template v-else-if="ctx.type === 'master'">
+              <template v-if="!FROZEN_COLS.includes(ctx.key)">
+                <button @click="ctxOpenHdrInsert(true)">← 在左侧插入列</button>
+                <button @click="ctxOpenHdrInsert(false)">→ 在右侧插入列</button>
+              </template>
+              <button v-if="ctx.deletable" class="danger" @click="ctxDeleteCol"><Icon name="trash"/> 删除此列</button>
+              <div v-else class="ctx-note">该主档列不可删除（可经列配置隐藏）</div>
             </template>
             </template>
             <div class="ctx-sep"></div>
@@ -2084,8 +2168,12 @@
             <button :disabled="!undoStack.length" @click="undoPanelOpen = true" title="查看改动记录，可直接回退到某一步"><Icon name="history"/> 改动记录</button>
             </template>
           </div>
-          <div v-if="hdrCtx.show" class="ctx-overlay" @click="closeHdrCtx" @contextmenu.prevent="closeHdrCtx"></div>
-          <div v-if="hdrCtx.show" class="ctx-menu" :style="hdrCtxStyle">
+        </div>
+        <!-- v653：列头右键菜单**移出编辑态 .grid-area** —— 默认只读视图也要能右键看列菜单
+             （只读态给视图级操作 + 一句「增删列请先改单」引导，不做假旋钮）。
+             .ctx-menu/.ctx-overlay 是 position:fixed，不依赖所在容器 ⇒ 移出不影响定位与样式。 -->
+        <div v-if="hdrCtx.show" class="ctx-overlay" @click="closeHdrCtx" @contextmenu.prevent="closeHdrCtx"></div>
+          <div v-if="hdrCtx.show" class="ctx-menu" :class="{ 'ctx-fx-menu': hdrCtx.mode === 'excel' }" :style="hdrCtxStyle">
             <!-- 内联：重命名 -->
             <template v-if="hdrCtx.mode === 'rename'">
               <div class="ctx-ipt-row">
@@ -2096,45 +2184,61 @@
                 <button @click="hdrCtx.mode='menu'">取消</button>
               </div>
             </template>
-            <!-- 内联：新增列 -->
+            <!-- 内联：插入列（v653：带位置 —— 左/右侧由点中的菜单项决定） -->
             <template v-else-if="hdrCtx.mode === 'add'">
+              <div class="ctx-note">将插入到「{{ colLabel(hdrCtx.key, hdrCtx.type, hdrCtx.ui) }}」{{ hdrAddSide === 'left' ? '左侧' : '右侧' }}</div>
               <div class="ctx-ipt-row">
-                <input ref="hdrAddInput" v-model="hdrAddName" class="ctx-ipt" placeholder="新列名称" @keyup.enter="applyHdrAdd" @keyup.esc="hdrCtx.mode='menu'">
-                <select v-model="hdrAddType" class="ctx-sel">
+                <input ref="hdrAddInput" v-model="hdrAddName" class="ctx-ipt" :placeholder="hdrCtx.type === 'qty' ? '客户/单元名称' : '新列名称'" @keyup.enter="applyHdrAdd" @keyup.esc="hdrCtx.mode='menu'">
+                <select v-if="hdrCtx.type === 'master'" v-model="hdrAddType" class="ctx-sel">
                   <option value="text">文本</option>
                   <option value="num">数字</option>
                 </select>
               </div>
               <div class="ctx-ipt-actions">
-                <!-- v335：按钮级门禁 —— 新增自定义列 = POST /api/forecast/columns ⇒ data/create -->
-                <button v-if="canDo('data', 'create')" class="btn-primary" @click="applyHdrAdd">确认</button>
+                <!-- v335：按钮级门禁 —— 新增自定义列 = POST /api/forecast/columns ⇒ data/create。
+                     v653：客户列（qty）是网格内编辑、不走上表接口，故不套 data/create（与单元格右键插列同口径）。 -->
+                <button v-if="hdrCtx.type === 'qty' || canDo('data', 'create')" class="btn-primary" @click="applyHdrAdd">确认</button>
                 <button @click="hdrCtx.mode='menu'">取消</button>
               </div>
             </template>
             <!-- 主菜单 -->
             <template v-else-if="hdrCtx.mode === 'menu'">
               <!-- v377：列轴选中时的批量块。单列 / 未选中时给一条「选中整列」——
-                   让「表头能选整列」这件事在菜单里也说得出来（不只靠试）。 -->
-              <template v-if="hdrColSelOn">
-                <div class="ctx-note">列选中 {{ hdrSelCount }} 列</div>
-                <button @click="hdrColCopy"><Icon name="copy"/> 复制选中列</button>
-                <button @click="hdrColClear"><Icon name="backspace"/> 清空选中列<kbd>Delete</kbd></button>
-                <div class="ctx-sep"></div>
-              </template>
-              <template v-else>
-                <button @click="hdrColSelect"><Icon name="check"/> 选中整列</button>
-                <div class="ctx-sep"></div>
+                   让「表头能选整列」这件事在菜单里也说得出来（不只靠试）。
+                   v653：列选中/批量清空是**改单态**语义（只读态没有可编辑选区）⇒ 只读态不显示，避免假控件。 -->
+              <template v-if="editMode">
+                <template v-if="hdrColSelOn">
+                  <div class="ctx-note">列选中 {{ hdrSelCount }} 列</div>
+                  <button @click="hdrColCopy"><Icon name="copy"/> 复制选中列</button>
+                  <button @click="hdrColClear"><Icon name="backspace"/> 清空选中列<kbd>Delete</kbd></button>
+                  <div class="ctx-sep"></div>
+                </template>
+                <template v-else>
+                  <button @click="hdrColSelect"><Icon name="check"/> 选中整列</button>
+                  <div class="ctx-sep"></div>
+                </template>
               </template>
               <template v-if="hdrCtx.type === 'master' || hdrCtx.type === 'qty'">
-                <button v-if="hdrCtx.key !== 'name'" @click="startHdrRename"><Icon name="edit"/> 修改字段</button>
-                <button @click="startHdrAdd"><Icon name="plus"/> 增加列</button>
-                <!-- v335：按钮级门禁 —— 删除自定义列 = DELETE /api/forecast/columns/{key} ⇒ data/delete -->
-                <button v-if="hdrCtx.key !== 'name' && (hdrCtx.type === 'qty' || canDeleteMaster(hdrCtx.key)) && canDo('data', 'delete')" class="danger" @click="hdrDeleteCol"><Icon name="close"/> 删除列</button>
-                <div v-if="hdrCtx.key !== 'name' && hdrCtx.type === 'master' && !canDeleteMaster(hdrCtx.key)" class="ctx-note">该主档列不可删除（可在列设置中隐藏）</div>
+                <!-- v653：列**结构编辑**（改字段 / 插入列 / 删除列）只在改单态生效；
+                     只读态给一句明确指引，不做「点了没反应」的假旋钮。视图级操作（统计/筛选/排序/隐藏/冻结/列宽）下方照常可用。 -->
+                <template v-if="editMode">
+                  <button v-if="hdrCtx.key !== 'name'" @click="startHdrRename"><Icon name="edit"/> 修改字段</button>
+                  <!-- 插入列带位置。冻结列区（FROZEN_COLS）是渲染期强制归位的不变区，不能在其内部插列。 -->
+                  <template v-if="hdrCtx.type === 'master' && FROZEN_COLS.includes(hdrCtx.key)">
+                    <button @click="startHdrAdd('right')"><Icon name="plus"/> 新增列（冻结列之后）</button>
+                  </template>
+                  <template v-else>
+                    <button @click="startHdrAdd('left')"><Icon name="plus"/> ← 在左侧插入列</button>
+                    <button @click="startHdrAdd('right')"><Icon name="plus"/> → 在右侧插入列</button>
+                  </template>
+                  <!-- v335：按钮级门禁 —— 删除自定义列 = DELETE /api/forecast/columns/{key} ⇒ data/delete -->
+                  <button v-if="hdrCtx.key !== 'name' && (hdrCtx.type === 'qty' || canDeleteMaster(hdrCtx.key)) && canDo('data', 'delete')" class="danger" @click="hdrDeleteCol"><Icon name="close"/> 删除列</button>
+                  <div v-if="hdrCtx.key !== 'name' && hdrCtx.type === 'master' && !canDeleteMaster(hdrCtx.key)" class="ctx-note">该主档列不可删除（可在列设置中隐藏）</div>
+                </template>
+                <div v-else class="ctx-note">增删列 / 改字段请先点上方「改单」进入编辑态</div>
                 <div class="ctx-sep"></div>
                 <button @click="hdrColStats"><Icon name="list"/> 列统计</button>
-                <button @click="startHdrFilter"><Icon name="filter"/> 筛选此列…</button>
-                <button @click="startHdrUniq"><Icon name="filter"/> 按唯一值筛选…</button>
+                <button @click="startHdrFilter"><Icon name="filter"/> {{ cfHas(hdrCtx.key, hdrCtx.type) ? '修改筛选…' : '筛选…' }}</button>
                 <div class="ctx-sep"></div>
                 <template v-if="hdrCtx.type === 'master' && groupableCol(hdrCtx.key)">
                   <button @click="hdrGroupBy"><Icon name="sort"/> 按此列分组小计</button>
@@ -2157,36 +2261,87 @@
               </template>
               <template v-else>
                 <button @click="hdrColStats"><Icon name="list"/> 列统计</button>
-                <button @click="startHdrFilter"><Icon name="filter"/> 筛选此列…</button>
-                <button @click="startHdrUniq"><Icon name="filter"/> 按唯一值筛选…</button>
+                <button @click="startHdrFilter"><Icon name="filter"/> {{ cfHas(hdrCtx.key, hdrCtx.type) ? '修改筛选…' : '筛选…' }}</button>
                 <button @click="hdrCopyName"><Icon name="copy"/> 复制列名</button>
                 <button @click="startHdrWidth"><Icon name="edit"/> 设置列宽…</button>
                 <div class="ctx-note">系统列，不支持字段编辑/增删</div>
               </template>
             </template>
-            <!-- 内联：筛选 -->
-            <template v-else-if="hdrCtx.mode === 'filter'">
+            <!-- v666：Excel 式筛选面板（替换原「筛选此列…包含」与「唯一值筛选」两个内联态） -->
+            <template v-else-if="hdrCtx.mode === 'excel'">
+              <div class="ctx-fx-hd">
+                <span class="ctx-fx-title">筛选「{{ colLabel(fxKey, fxType, -1) }}」</span>
+                <button class="ctx-fx-x" title="关闭（筛选已实时生效）" aria-label="关闭筛选面板" @click="closeHdrCtx"><Icon name="close"/></button>
+              </div>
               <div class="ctx-ipt-row">
-                <input ref="hdrFilterInput" v-model="hdrFilterVal" class="ctx-ipt" :placeholder="'筛选「' + colLabel(hdrCtx.key, hdrCtx.type, hdrCtx.ui) + '」包含…'" @keyup.enter="applyHdrFilter" @keyup.esc="hdrCtx.mode='menu'">
+                <input v-model="fxSearch" class="ctx-ipt" placeholder="搜索值…" aria-label="搜索值">
               </div>
-              <div class="ctx-ipt-actions">
-                <button class="btn-primary" @click="applyHdrFilter">应用筛选</button>
-                <button v-if="colFilter && colFilter.key === hdrCtx.key && colFilter.type === hdrCtx.type" @click="clearColFilter">清除</button>
-                <button @click="hdrCtx.mode='menu'">取消</button>
+              <!-- 值清单：fxOp='in' 时生效；选了条件运算符则整段让位（Excel 同语义）。
+                   v667：**勾选即生效** —— 没有「应用」按钮，勾完直接关掉就是结果。 -->
+              <template v-if="fxOp === 'in'">
+                <div class="ctx-fx-tools">
+                  <label class="ctx-uniq-all">
+                    <!-- v668：部分勾选时必须显示「半选」——只看 :checked 的话，撤掉 30 个里的 1 个
+                         也和「一个都没勾」长得一模一样，用户会误以为自己已经清空了。 -->
+                    <input type="checkbox" :checked="fxAllOn()"
+                           :indeterminate.prop="fxChecked.length > 0 && !fxAllOn()"
+                           @change="fxToggleAll"> 全选
+                  </label>
+                  <button class="ctx-fx-link" @click="fxClearSel">清空选择</button>
+                  <span class="ctx-fx-cnt">{{ fxChecked.length }} / {{ fxVals.length }}</span>
+                </div>
+                <div class="ctx-uniq-list ctx-fx-list">
+                  <label v-for="v in fxValsShown" :key="v" class="ctx-uniq-item">
+                    <input type="checkbox" :checked="fxChecked.includes(v)" @change="fxToggleVal(v)">
+                    <span class="ctx-uniq-val">{{ fxLabel(v) }}</span>
+                  </label>
+                  <div v-if="!fxValsShown.length" class="ctx-note">没有匹配的值</div>
+                </div>
+                <div v-if="!fxChecked.length" class="ctx-fx-warn">一个值都没勾 ⇒ 表格现在是空的。勾回任意值即可恢复。</div>
+              </template>
+              <!-- v667：条件筛选降为**二级折叠**（Excel 的「数字筛选」同理）——
+                   默认只看到勾选清单，需要「>、介于、包含」时再展开；展开后要填值，所以这里保留「应用条件」。 -->
+              <div class="ctx-fx-cond">
+                <button class="ctx-fx-cond-hd" @click="fxCondOpen = !fxCondOpen">
+                  <span>条件筛选</span>
+                  <span v-if="fxOp !== 'in'" class="ctx-fx-cond-on">{{ CF_OP_TEXT[fxOp] }}</span>
+                  <Icon :name="fxCondOpen ? 'chevron-down' : 'chevron-right'"/>
+                </button>
+                <template v-if="fxCondOpen">
+                  <div class="ctx-ipt-row">
+                    <select v-model="fxOp" class="ctx-sel" aria-label="条件筛选" @change="onFxOpChange">
+                      <option value="in">（改回按勾选的值）</option>
+                      <option value="contains">包含</option>
+                      <option value="notContains">不包含</option>
+                      <option value="startsWith">开头是</option>
+                      <option value="endsWith">结尾是</option>
+                      <option value="eq">等于</option>
+                      <option value="neq">不等于</option>
+                      <option value="blank">为空</option>
+                      <option value="notBlank">非空</option>
+                      <option value="gt">大于</option>
+                      <option value="gte">大于等于</option>
+                      <option value="lt">小于</option>
+                      <option value="lte">小于等于</option>
+                      <option value="between">介于</option>
+                    </select>
+                  </div>
+                  <div v-if="fxOp !== 'in' && fxOp !== 'blank' && fxOp !== 'notBlank'" class="ctx-ipt-row">
+                    <input v-model="fxA" class="ctx-ipt" :placeholder="fxNumOps ? '数值' : '条件值'" @keyup.enter="applyColFilter">
+                    <template v-if="fxOp === 'between'">
+                      <span class="ctx-ipt-unit">~</span>
+                      <input v-model="fxB" class="ctx-ipt" placeholder="数值" @keyup.enter="applyColFilter">
+                    </template>
+                  </div>
+                  <div class="ctx-ipt-actions">
+                    <button class="btn-primary" :disabled="fxOp === 'in'" @click="applyColFilter">应用条件</button>
+                    <button v-if="fxOp !== 'in'" @click="fxResetCond">改回勾选</button>
+                  </div>
+                </template>
               </div>
-            </template>
-            <!-- 内联：唯一值筛选 -->
-            <template v-else-if="hdrCtx.mode === 'uniq'">
-              <div class="ctx-uniq-hd">按唯一值筛选「{{ colLabel(hdrCtx._fk ? hdrCtx._fk.key : hdrCtx.key, hdrCtx._fk ? hdrCtx._fk.type : hdrCtx.type, hdrCtx._fk ? hdrCtx._fk.ui : hdrCtx.ui) }}」
-                <label class="ctx-uniq-all"><input type="checkbox" :checked="uniqAll" @change="uniqAll = !uniqAll; hdrUniqChecked = uniqAll ? hdrUniqVals.slice() : []"> 全选</label>
-              </div>
-              <div class="ctx-uniq-list">
-                <label v-for="v in hdrUniqVals" :key="v" class="ctx-uniq-item"><input type="checkbox" :checked="hdrUniqChecked.includes(v)" @change="toggleUniqVal(v)"> <span class="ctx-uniq-val">{{ v }}</span></label>
-              </div>
-              <div class="ctx-ipt-actions">
-                <button class="btn-primary" @click="applyHdrUniq">应用筛选</button>
-                <button v-if="colFilterSet" @click="clearUniqFilter">清除</button>
-                <button @click="hdrCtx.mode='menu'">取消</button>
+              <div class="ctx-ipt-actions ctx-fx-foot">
+                <button class="btn-primary" @click="closeHdrCtx">完成</button>
+                <button v-if="cfHas(fxKey, fxType)" @click="clearThisColFilter">清除此列筛选</button>
               </div>
             </template>
             <!-- 内联：精确列宽 -->
@@ -2200,7 +2355,6 @@
               </div>
             </template>
           </div>
-        </div>
 
         <!-- v584：底部汇总条（.pin）已移入上方的 `.grid-area` 内部，全屏时也可见。 -->
 
@@ -2645,6 +2799,69 @@
         </button>
       </template>
     </Modal>
+
+    <!-- ══════════ v673：按选中商品批量设置「下单日」 ══════════
+         由来：用户「已经能给每个商品配到货周期，但下单时还是得自己算今天该下哪些」——
+         到货周期答的是「下单后几天到」，本弹窗配的是「哪天该下单」。
+         交互与 v618 逐条同构（同一批勾选 / 改商品档案 / 不产生报单数量 / 应用后本地同步），
+         只多了一样：**从品名识别**（生产实测本期 33 个品的名字里本来就写着下单节奏）。 -->
+    <Modal :show="rowOrdOpen" title="批量设置下单日" :width="600" @close="closeRowOrd">
+      <p class="cb-lead">改的是<b>商品档案</b>的下单日：以后点<b>「今日下单」</b>就按它判断这个品今天该不该下；<b>不产生报单数量</b>，也不动本期清单。</p>
+
+      <div class="rc-picked">
+        <div class="rc-line">
+          <span class="rc-k">已勾选</span>
+          <span class="rc-v"><b>{{ rowOrdRows.length }}</b> 个商品</span>
+        </div>
+        <div class="rc-line">
+          <span class="rc-k">涉及品牌</span>
+          <span class="rc-v">{{ rowOrdBrandText }}</span>
+        </div>
+        <div class="rc-line">
+          <span class="rc-k">当前下单日</span>
+          <span class="rc-v rc-dist">
+            <span v-for="c in rowOrdDist" :key="c.rule" class="cb-chip" :class="{ unset: !c.rule }">{{ c.label }} × {{ c.n }}</span>
+            <span v-if="!rowOrdDist.length" class="rc-none">—</span>
+          </span>
+        </div>
+      </div>
+      <p v-if="rowOrdHidden" class="cb-note">其中 {{ rowOrdHidden }} 个被当前筛选隐藏（勾选在改筛选之前就存在），<b>同样会设置</b>。</p>
+
+      <div class="rc-set">
+        <label class="rc-lb">从品名识别</label>
+        <button class="btn btn-sm btn-ghost" :disabled="!ordGuessCount || rowOrdSaving" @click="applyOrdGuess">
+          <Icon name="sparkle"/> 按识别结果设置（{{ ordGuessCount }} 个）
+        </button>
+        <span class="rc-hint">{{ ordGuessText }}</span>
+      </div>
+
+      <div class="rc-set rc-set-col">
+        <label class="rc-lb">统一设为</label>
+        <div class="ord-modes">
+          <label v-for="m in ORD_MODES" :key="m.v" class="ord-mode">
+            <input type="radio" name="ordMode" :value="m.v" v-model="ordMode"> {{ m.t }}
+          </label>
+        </div>
+        <div v-if="ordMode === 'w'" class="ord-sub">
+          <label v-for="w in WEEK_OPTS" :key="w.v" class="ord-wd"><input type="checkbox" :value="w.v" v-model="ordWeek"> {{ w.t }}</label>
+        </div>
+        <div v-if="ordMode === 'm'" class="ord-sub">
+          <input class="cb-input" v-model="ordMonthText" placeholder="如 3、7、11、15、19、23、27"
+                 aria-label="每月几号下单，用顿号或逗号分隔" :class="{ bad: ordBad }" />
+          <span class="rc-hint">填 1~31，用 、或 , 分隔</span>
+        </div>
+        <p class="ord-preview">将要写入：<b>{{ ordRuleText }}</b></p>
+        <p class="rc-hint">「每天」与「未设置」在「今日下单」里效果相同（都恒命中）—— 想恢复每天都下就选「每天」。</p>
+      </div>
+
+      <template #footer>
+        <span class="cb-sum" :class="{ warn: ordBad }">{{ rowOrdSummary }}</span>
+        <button class="btn btn-ghost" @click="closeRowOrd">取消</button>
+        <button class="btn btn-primary" :disabled="ordBad || !rowOrdCount || rowOrdSaving" @click="applyRowOrd">
+          {{ rowOrdSaving ? '保存中…' : '应用' }}
+        </button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -2707,6 +2924,12 @@ import { useForecastSchemes } from '../composables/useForecastSchemes.js'
 /* v184b：到货周期文案的**唯一实现**移到 utils/arrival.js —— 「商品档案」页也要显示同一个值，
    两处各留一份函数就是第二份拷贝（静默漂移）。本文件只 import，不再定义。 */
 import { arrivalCycleText, parseArrivalDays } from '../utils/arrival.js'
+/* v673：下单日节奏的**唯一实现**（判定/文案/品名识别都在那里）。
+   🔴 不要在页面里再写一份 `day % 2` 之类的判定 —— 「今日下单」筛行与「下单日」列显示
+      必须同源，否则会出现「列里写着单号、今天却筛不出来」这种最难查的口径漂移。 */
+import {
+  orderRuleHit, orderRuleText, todayLabel, guessOrderRuleFromName,
+} from '../utils/orderDays.js'
 import { pyInitials } from '../utils/pinyin.js'
 /* v379（P0·E-13）：打印改走仓内既有可打印页基建（PayrollWorkflow / LossWorkflow / AiHub 已在用）。
    原实现是裸 `window.print()` —— 428 行 × 30 列交给浏览器，无分页/无重复表头/无横版 ⇒ 一片乱码。 */
@@ -2904,6 +3127,10 @@ function asProdRow(src) {
     name: src.name || src.product_name || '',
     spec: src.spec || '', unit: src.unit || '件',
     barcode: src.barcode || '', product_code: src.product_code || '',
+    /* v670：永辉编码。同上一条「显式白名单」纪律 —— 漏了它，凡走本函数的行
+       （已停用/已删除但被本期引用、summary 的 imported_products）该列恒显示「—」，
+       而在售档案行（products/grid）却有值 ⇒ 同一列两种表现，最难排查的那种。 */
+    yonghui_code: src.yonghui_code || '',
     dist_price: src.dist_price || 0, sale_price: src.sale_price || 0,
     purchase_price: src.purchase_price || 0,
     /* 🔴 v226b：本函数是**显式白名单**（见下方 v184 注释）—— 漏列即等于该字段在此路径上不存在。
@@ -2919,6 +3146,10 @@ function asProdRow(src) {
           真机实测已复现：沙箱 tenant_9999 的 pid 1160（已停用，本期登记）DB=3 而页面显示「—」。
           对应的后端下发在 erp_db.py::forecast_submission_summary 的 imported_products 查询。 */
     arrival_lead_days: Number(src.arrival_lead_days) || 0,
+    /* v673：下单日节奏 —— 同一条「显式白名单」纪律：漏列 ⇒ 停用/已删除但被本期引用的行
+       「下单日」列恒显示「未设置」、「今日下单」也筛不中它（而后端已下发）。
+       对应下发在 erp_db.py::forecast_submission_summary 的 imported_products 查询。 */
+    order_days: src.order_days || '',
     /* v222：三级单位换算（`perCase` 的唯一权威数据源）。两处来源不同，务必分清：
        ① **在售档案行不走本函数** —— `buildRowBase` 的 keep 直接用 `products/grid` 的原对象，
           换算字段由 `routers/data.py::products_grid` 下发；
@@ -3049,6 +3280,8 @@ function rowFilterPass(r) {
   if (brandSel.value.length && !brandSelSet.value.has(rowBrand(r))) return false
   // v616：到货周期（+N 天到货）—— 用户按天分批下单，故按这一档筛行
   if (cycleSel.value.length && !cycleSelSet.value.has(rowCycle(r))) return false
+  // v673：今日下单 —— 只留「今天按它自己的下单日节奏该下单」的行（未设 ⇒ 每天，恒命中）
+  if (todayOnly.value && !rowOrderHit(r)) return false
   return true
 }
 function rowVisible(r) { return rowFilterPass(r) }
@@ -3175,6 +3408,10 @@ const crossDenied = ref(false)
    ⚠️ 它只管**模块**被拒；「接口抖动 / 超时」仍走静默 —— 沿用 v193 的取舍，
       避免网络抖一下就让页面乱报原因（那时用户等一会就好，不需要动手）。 */
 const forecastDenied = ref(false)
+// v651：模块被拒（403）⇒ 不页内挂解释横幅，改走与路由守卫一致的「回工作台 + 一句提示」。
+watch(forecastDenied, (v) => {
+  if (v) router.replace({ path: '/workbench', query: { denied: '预报订单管理' } }).catch(() => {})
+})
 
 const selectedPid = ref(null)
 const expandedRows = ref({})            // pid -> true 展开明细
@@ -3255,6 +3492,41 @@ function recomputeTotals() {
 /* v207：表尾「合计(箱)」必须说清有多少行**没被算进去**（判据见 boxMissing —— 唯一来源）。
    表尾只是「能换算的行」之和；不报出行数，用户会看到表尾比逐行相加少一截却找不到原因。 */
 const boxMissingRows = computed(() => liveRows.value.filter(boxMissing))
+/* ===== v666：筛选生效时的合计（Excel SUBTOTAL 语义）= **只算筛出来的行** =====
+   用户 2026-10-30 拍板：「合计跟筛选走 + 标注全期」。
+   🔴 为什么不改 `cross.grand` 而要另算一份：grand 是「整期合计」，还被推送/导出等口径引用
+      （push 的 total_qty 走 editTotalQty、导出走 cross.grand）—— 把它换成筛选值，等于把
+      「这个期次一共多少」偷偷改成「你筛出来多少」，那是另一类事故。
+      故：**显示层**用它，**数据层**一个字段都不动。
+   ⚠️ 判据必须与渲染同一把尺子（rowFilterPass）—— 否则「筛出来的行」和「加起来的值」会对不上。 */
+const cfOn = computed(() => cfCount() > 0
+  || !!(filterText.value || '').trim() || !!(findText.value || '').trim()
+  /* v673：🔴 这里与 `anyRowFilterOn`（空态判据）是**两处**必须同改的枚举 —— 漏这一处，
+     点「今日下单」行真的少了、但底部汇总条还挂着「187 个商品」的不带筛选口径
+     （= 数字与屏幕不同源，实测就是这样被抓到的）。 */
+  || hideZeroReport.value || brandSel.value.length > 0 || cycleSel.value.length > 0
+  || todayOnly.value)
+const footTotals = computed(() => {
+  const rs = liveRows.value.filter(r => rowFilterPass(r))
+  const units = cross.value.units
+  return {
+    rows: rs.length,
+    total: liveRows.value.length,
+    units: units.map(u => rs.reduce((s, r) => s + (Number(r.qtyByUnit[u.name]) || 0), 0)),
+    qty: rs.reduce((s, r) => s + (r.total || 0), 0),        // 合计(小单位) —— 与 recomputeTotals 同源
+    boxes: rs.reduce((s, r) => s + rowBoxes(r), 0),         // 合计(箱)
+    amount: rs.reduce((s, r) => s + (amountValue(r) || 0), 0),
+    // v666：加单/最终下单两列原来在模板里各写一次 filter+reduce（每次重渲染两遍全表）⇒ 收到这里
+    extra: rs.reduce((s, r) => s + rowExtraQty(r), 0),
+    final: rs.reduce((s, r) => s + rowFinalQty(r), 0),
+    sku: rs.length,
+  }
+})
+// 显示取值：有筛选用筛选后，无筛选用原口径（零变化 —— 这是「不筛时和以前一模一样」的保证）
+function footNum(k) { return cfOn.value ? footTotals.value[k] : cross.value.grand[k] }
+function footUnit(ui) { return cfOn.value ? (footTotals.value.units[ui] || 0) : (cross.value.colTotals[ui] || 0) }
+// 「缺规格未计入」同理要跟着筛 —— 否则会出现「合计是筛后的、缺规格行数却是全表的」
+const footMissing = computed(() => cfOn.value ? liveRows.value.filter(r => rowFilterPass(r) && boxMissing(r)) : boxMissingRows.value)
 function rowState(r) { return rowStates.value[r.product_id] || (r._deleted ? 'disabled' : '') }
 function setRowState(pid, s) { rowStates.value = { ...rowStates.value, [pid]: s } }
 function toggleExpand(pid) { expandedRows.value = { ...expandedRows.value, [pid]: !expandedRows.value[pid] } }
@@ -3386,7 +3658,7 @@ const colWidths = ref({})
    （历史命名分裂，改名会牵动 readCellVal/导出/col_defs，本轮不动，只保证宽度一致）。 */
 /* v615：seq 46 → 76 —— 序号格前面多了一个「选行」复选框（批量上架/撤下的入口）。
    装不下就会出现「checkbox 压在数字上」，所以宽度必须一起改。 */
-const COL_DEFAULTS = { seq: 76, name: 210, arrival_lead_days: 92, barcode: 132, product_code: 120, category: 90, brand: 90, spec: 90, unit: 70, qty: 104, boxes: 100, extra: 78, final: 78, ai: 84, amount: 104, price: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 104, op: 64 }
+const COL_DEFAULTS = { seq: 76, name: 210, arrival_lead_days: 92, order_days: 96, barcode: 132, product_code: 120, yonghui_code: 104, category: 90, brand: 90, spec: 90, unit: 70, qty: 104, boxes: 100, extra: 78, final: 78, ai: 84, amount: 104, price: 104, suggest: 80, comparePrev: 80, compareDelta: 80, spark: 92, yoyPrev: 80, yoyDelta: 80, sum: 104, op: 64 }
 function colDefault(key) { return COL_DEFAULTS[key] != null ? COL_DEFAULTS[key] : (key === 'seq' ? 46 : 90) }
 function colW(key) { return colWidths.value[key] != null ? colWidths.value[key] : colDefault(key) }
 // v176：序号列已冻结在 left:0，故**其后每个冻结列的 left 必须整体右移「一个序号列宽」**，
@@ -3654,6 +3926,25 @@ const flatItems = computed(() => {
   }
   return out
 })
+/* v667：勾选即筛之后，「一个值都不勾」会**合法地**把表筛成 0 行。
+   这时绝不能落进下面那条「本期还没有商品行 · 去导入 Excel / 从上一期复制」的空态 ——
+   那会让人以为数据没了，甚至真的去重新导入一遍。两者必须分开说。 */
+const anyRowFilterOn = computed(() => cfCount() > 0
+  || brandSel.value.length > 0 || cycleSel.value.length > 0 || todayOnly.value
+  || !!((filterText.value || findText.value || '').trim()) || hideZeroReport.value)
+const filteredToNone = computed(() => anyRowFilterOn.value && liveRows.value.length > 0
+  && !flatItems.value.some(it => it.kind === 'row'))
+/* 空态里的「清除全部筛选」必须清掉**所有**挡行的条件（列筛选之外还有品牌/到货周期/搜索/仅显示有报单），
+   只清列筛选会让用户点了没反应。 */
+function clearEveryRowFilter() {
+  colFilters.value = {}
+  brandSel.value = []
+  cycleSel.value = []
+  todayOnly.value = false          // v673：今日下单也是挡行的条件之一，不清它 = 点了「清除」还剩 37 行
+  filterText.value = ''
+  findText.value = ''
+  hideZeroReport.value = false
+}
 const vScrollOn = computed(() => flatItems.value.length > VSCROLL_MIN)
 function offsetOf(i) { let h = 0; const arr = flatItems.value; for (let k = 0; k < i; k++) h += arr[k].h || ROW_H; return h }
 const vsWindow = computed(() => {
@@ -3665,6 +3956,15 @@ const vsWindow = computed(() => {
   let end = start, acc2 = acc
   while (end < arr.length && acc2 < scrollTop.value + viewportH.value + OVER * ROW_H) { acc2 += arr[end].h || ROW_H; end++ }
   return { items: arr.slice(start, end), top: offsetOf(start), bottom: Math.max(0, total - offsetOf(end)) }
+})
+/* v666：筛选会骤减 flatItems（几百行 → 几行）。虚拟滚动的 scrollTop 仍停在旧位置，
+   而 scrollHeight 已经缩到比它还小 ⇒ 视口滚进一片空白，看起来像「筛完之后啥都没了」。
+   筛/取消筛都把滚动位置夹回合法范围（只在越界时动，不打断正常滚动）。 */
+watch(() => flatItems.value.length, () => {
+  const el = scrollEl.value
+  if (!el) return
+  const max = Math.max(0, el.scrollHeight - el.clientHeight)
+  if (el.scrollTop > max) { el.scrollTop = max; scrollTop.value = max }
 })
 function onScroll(e) { scrollTop.value = e.target.scrollTop; if (scrollEl.value) viewportH.value = scrollEl.value.clientHeight; const sl = e.target.scrollLeft; if (crossFoot.value) crossFoot.value.style.setProperty('--foot-sl', -sl + 'px') }
 function onEditScroll(e) { const sl = e.target.scrollLeft; if (editFoot.value) editFoot.value.style.setProperty('--foot-sl', -sl + 'px'); if (copyMark.value) syncCopyMark() }
@@ -3755,6 +4055,25 @@ const MASTER_COL_DEFS = [
   //   报单金额仍按进价口径计算（见 factoryPrice）。仅从 MASTER_COL_DEFS 与列权限表移除。
   { key: 'dist_price', label: '分销价', cls: 'fc-num', edit: 'num', deletable: false, fmt: r => r.dist_price ? r.dist_price.toFixed(2) : '—' },
   { key: 'product_code', label: '厂家编码', cls: 'fc-code', edit: 'text', deletable: false },
+  /* v670：永辉编码 —— 永辉门店系统认的商品编码，与「厂家编码」是**两套体系**
+     （厂家下单系统认 product_code，永辉门店/分销系统认这个）。数据源 `products.yonghui_code`，
+     由「厂家下单模板」的「永辉代码」列回填而来，**非全量**（本期 187 行里 77 行有值）。
+     · 只读（`edit:'ro'`）：值属商品主档。主表网格若可写，保存路径 `bulk_upsert` 是
+       「缺省写 0」的无条件覆盖语义 —— 任何一条不带该键的保存路径都会把它**静默清零**
+       （正是 `factory_price`/`arrival_lead_days` 当年踩过的坑），故本列只展示不接回写。
+     · `after:'product_code'`：仅在「老用户已存列配置里没有这一列」时决定首次落位
+       （紧跟厂家编码）。用户自己拖过顺序后不会再被动过。 */
+  { key: 'yonghui_code', label: '永辉编码', cls: 'fc-code', edit: 'ro', after: 'product_code' },
+  /* v673：下单日 —— 这个品**哪天该下单**（每天 / 单号 / 双号 / 每周几 / 每月几号）。
+     由来：用户「已经能给每个商品配到货周期，但下单时还是得自己算今天该下哪些」。
+     · 与「到货周期」正交：到货周期 = 下单后几天到（lag），本列 = 哪天该下（cadence）。
+     · 只读（`edit:'ro'`）：写入口只有「批量操作 → 批量设置下单日」一个
+       （后端 `POST /api/products/batch-order-days`）。网格保存路径 `bulk_upsert`
+       根本不含该字段 ⇒ 不存在「保存时被静默清零」的风险（v670 那族的坑）。
+     · `after:'arrival_lead_days'`：紧跟到货周期落位（用户是成对看这两个值的）。
+     · 文案唯一实现 = `utils/orderDays.js::orderRuleText`（与「今日下单」判定同源）。 */
+  { key: 'order_days', label: '下单日', cls: 'fc-text fc-order', edit: 'ro', after: 'arrival_lead_days',
+    fmt: r => orderRuleText(r.order_days) },
 ]
 const COL_STORAGE_KEY = 'forecast_cols_v1'
 // colOrder: 完整列顺序（含 name）。colVis: key->bool 是否显示。
@@ -3812,6 +4131,12 @@ function applySaved (p) {
       if (m.fixed) {
         const ni = merged.findIndex(c => c.key === 'name')
         merged.splice(ni < 0 ? 0 : ni + 1, 0, item)
+      } else if (m.after) {
+        /* v670：带 `after` 的新列插到指定列之后（而不是一律甩到末尾）。
+           只在「存储里没有这一列」时生效 ⇒ 已排好序的老用户不会被后续新增打乱；
+           目标列被用户删掉时退回末尾（不能让一个新列因为锚点不在就消失）。 */
+        const ai = merged.findIndex(c => c.key === m.after)
+        if (ai >= 0) merged.splice(ai + 1, 0, item); else merged.push(item)
       } else merged.push(item)
     })
     // 确保 name 在第一且 fixed
@@ -3939,6 +4264,28 @@ function toggleCol(key) {
   // colVis[key]: undefined/true=显示, false=隐藏。点击切换为相反态。
   colVis.value[key] = colVis.value[key] === false ? true : false
   _persistCols()
+}
+/* 🔴🔴 v677（**第二次复发**，v669 修过一次后被回退）：列设置复选框的**唯一**入口，
+   查看态 / 改单态两个面板共用 —— 别再写回 `@click.prevent="toggleCol(...)"`。
+
+   为什么 `@click.prevent` + 单向 `:checked` 必然坏：
+     Chrome 对复选框有 **pre-click activation** —— 点下去时先翻转 `checked`，再派发 click。
+     `preventDefault()` 让浏览器在**事件派发结束后**把翻转**还原**；而 Vue 的 patch 只在
+     vnode prop **变化**时写 DOM，这次翻转前后 prop 都是旧值 ⇒ 不再 patch
+     ⇒ DOM 与 colVis 永久相反，只有关掉面板重开（v-if 重建节点）才对齐。
+     用户看到的正是「勾选和取消勾选都没有变化」——列其实已经变了，勾却纹丝不动。
+
+   ⚠️ 为什么探针一直判「正常」：**JS 的 `el.click()` 没有 pre-click activation**，
+   必须用 CDP `Input.dispatchMouseEvent` 打真实鼠标才复现（v669 与 v677 各踩一次）。
+   验收脚本：`.workbuddy/tools/v677-mouse-toggle.mjs`（真鼠标三路径）。
+
+   实现：`@change` 不 prevent（浏览器翻到新值 → change → toggleCol 让状态跟上），
+   再 nextTick 按状态回写 DOM —— 兜住「浏览器已翻、状态没变」的残余（如固定列被拒）。 */
+function onColCheck(key, e) {
+  toggleCol(key)
+  const el = e && e.target
+  if (!el) return
+  nextTick(() => { el.checked = colVis.value[key] !== false })
 }
 function quickHide(key) {
   if (isLockedCol(key)) { toast('「' + _colLabel(key) + '」是固定列，不能隐藏', 'warn'); return }
@@ -4202,6 +4549,7 @@ async function loadEditGrid() {
        只喂一处 ⇒ 某些期次进编辑态后候选空着，而用户看不出「为什么这次没提示」。 */
     masterNameOptions.value = buildNameOptions(allProds)
     const importedProducts = d.imported_products || []
+    setImportNames(importedProducts)          // v673：快照名映射（编辑态赋值点）
     const importedSet = new Set(importedProducts.map(p => Number(p.id)))
     listPidSet.value = importedSet          // v613：编辑态赋值点（供「加入本期清单」算候选）
     const rowBase = buildRowBase(allProds, importedProducts, d.rows || [], showAllProducts.value)
@@ -4238,6 +4586,9 @@ async function loadEditGrid() {
         factory_price: Number(pd.factory_price) || 0,
         safety_stock: pd.safety_stock || 0, expiry_days: pd.expiry_days || 0,
         product_code: pd.product_code || '', dist_price: pd.dist_price || 0,
+        /* v670：永辉编码。loadEditGrid / loadCross 是**两条互不相干的加载路径**，
+           缺任何一条，对应那一态该列就整列「—」（与 v190 进价、v222 换算字段同一个坑）。 */
+        yonghui_code: pd.yonghui_code || '',
         /* v178：品牌/品类是商品档案字段，此前这条行映射里漏了 —— 编辑网格的品牌列**只有「草稿恢复」
            一条路能拿到值**（草稿是 loadCross 存的整份 cross，行里带 brand），一旦草稿被清
            （「放弃修改」/换期次/首次使用）品牌列就整列空白。
@@ -4247,6 +4598,9 @@ async function loadEditGrid() {
            0 或缺 = 未设置 ⇒ 该格显示「—」。本列只读，**不进 prodRows 的保存载荷**
            （写入口是导入；网格保存的白名单里没有它，带上去也会被后端丢弃）。 */
         arrival_lead_days: Number(pd.arrival_lead_days) || 0,
+        /* v673：下单日节奏。与到货周期同一条「两条加载路径都要带」纪律 ——
+           缺本处（编辑网格），改单态「今日下单」就筛不到任何品、列恒「未设置」。 */
+        order_days: pd.order_days || '',
         price: pd.sale_price || 0, qtyByUnit, extraQty: extraByPid[pd.id] || 0,
         /* v190：本期手工单价 —— 编辑态的**草稿初始值**。没有它，刷新或换个人打开改单网格时
            单价框会回到灰色自动价（明明存过），用户会以为「保存没生效」。 */
@@ -4567,7 +4921,7 @@ async function delRow(ri) {
    applyHdrAdd() qty 分支。后者还漏了重名提示（静默 return，用户以为没点上）——
    正是"第二份拷贝 = 静默漂移"的典型。v170 入口从表头迁到工具行「新增客户」弹层，
    两处逻辑一并收敛到本函数。返回是否真的加成功。 */
-function addUnit(name) {
+function addUnit(name, at = -1) {
   const v = String(name || '').trim()
   if (!v) return false
   if (cross.value.units.find(u => u.name === v)) {
@@ -4576,7 +4930,11 @@ function addUnit(name) {
     return false
   }
   snapshot()
-  cross.value.units.push({ name: v, role: '' })
+  /* v653：支持**指定位置插入**（表头/单元格右键「在左/右侧插入列」）。
+     at < 0 或越界 ⇒ 追加到末尾，与旧的 push 行为逐字等价 ⇒ 既有「新增客户」弹层零变化。 */
+  const unit = { name: v, role: '' }
+  if (at < 0 || at > cross.value.units.length) cross.value.units.push(unit)
+  else cross.value.units.splice(at, 0, unit)
   cross.value.rows.forEach(r => { if (!(v in r.qtyByUnit)) r.qtyByUnit[v] = 0 })
   /* v199：**加回列**的入口。若这个名字在「待隐去」集合里 ⇒ 移除它；
      保存时该名会出现在 `customers` 里，后端 save_matrix 反向 DELETE 隐藏记录 ⇒ 列真正回来。
@@ -4602,6 +4960,9 @@ function renameCol(ui, newName) {
   }
   // 校验通过后才入撤销栈，避免「无变化也产生一条撤销记录」
   snapshot()
+  /* v666：客户列的筛选**键就是列名** ⇒ 改名必须同步迁移，否则那一列看着还在筛、
+     实际匹配不到任何值（整表被筛空，用户会当成数据丢了）。与 qtyByUnit 的重键同一时刻做。 */
+  const _f = cfGet(oldName, 'qty')
   cross.value.rows.forEach(r => {
     if (oldName in r.qtyByUnit) {
       r.qtyByUnit[v] = r.qtyByUnit[oldName]
@@ -4609,6 +4970,7 @@ function renameCol(ui, newName) {
     }
   })
   u.name = v
+  if (_f) { cfDrop(oldName, 'qty'); cfPut(v, 'qty', { ..._f, key: v }) }
 }
 
 /* v197（P1-2c）：客户列是这张表**唯一**的「下单对象」维度 —— 删到一列不剩，
@@ -4629,6 +4991,7 @@ function delCol(ui) {
   }
   snapshot()
   const u = cross.value.units[ui]
+  cfDrop(u.name, 'qty')     // v666：列没了，它的筛选必须一起走 —— 否则残留一个指向不存在列的筛选，整表被筛空
   cross.value.units.splice(ui, 1)
   cross.value.rows.forEach(r => { delete r.qtyByUnit[u.name] })
   /* v199：把这一列记进「待隐去」集合 —— 保存时随 save-matrix 提交，后端落
@@ -5666,12 +6029,68 @@ const hdrCtx = ref({ show: false, x: 0, y: 0, key: '', type: 'master', ui: -1, m
 const hdrRenameVal = ref('')
 const hdrAddName = ref('')
 const hdrAddType = ref('text')
+// v653：插入列位置（表头/单元格右键「在左/右侧插入列」）—— 'left' | 'right'，默认右。
+const hdrAddSide = ref('right')
 const hdrRenameInput = ref(null)
 const hdrAddInput = ref(null)
 const frozenExtra = ref('')   // 商品名称之外额外冻结的列 key（会话级，仅一列）
-// 表头右键「筛选」：按某一列的值过滤行（与全局搜索 findText 叠加生效）
-const colFilter = ref(null)        // { key, type, ui, val } | null（包含筛选）
-const colFilterSet = ref(null)     // { key, type, ui, values:[...] } | null（唯一值筛选：命中集合）
+/* ===== v666：Excel 式列筛选 =====
+   一张**按列的表**，多列之间是「且」。此前是两个单例：`colFilter`（包含）+ `colFilterSet`
+   （唯一值多选），各只允许一列 ⇒ 筛第二列就把第一列顶掉，无法「品牌=蒙牛 且 规格=24盒 且 客户A>0」。
+   结构：{ 'master:brand': { key, type, op, values, a, b }, 'qty:永诺旗舰店': {...} }
+   复合键（type:key）—— 主档列 key 与客户列名分属两个命名空间，不去拼运气防撞名。
+   op 取值与语义：
+     'in'          → 值清单多选命中（空值用 CF_BLANK 哨兵，UI 上显示「(空白)」）
+     'blank'/'notBlank' → 空 / 非空
+     'contains' 'notContains' 'eq' 'neq' 'startsWith' 'endsWith' → a 作比较值
+     'gt' 'gte' 'lt' 'lte' → a 作数值；'between' → a..b
+   🔴 只改这一处：`rowFilterPass` 是「行看不看得见」的唯一实现（v616）⇒ 查看态 / 改单态 /
+      复制报单 / 导出 / 区间统计天然同口径，不会再出现「筛了但复制还是全量」那种分叉。 */
+const colFilters = ref({})
+const CF_BLANK = '\u0000__blank__'   // 空值哨兵（真实数据里不可能出现的串）
+function cfKey(key, type) { return type + ':' + key }
+function cfGet(key, type) { return colFilters.value[cfKey(key, type)] || null }
+function cfHas(key, type) { return !!colFilters.value[cfKey(key, type)] }
+function cfCount() { return Object.keys(colFilters.value).length }
+function cfPut(key, type, f) {
+  const next = { ...colFilters.value }
+  next[cfKey(key, type)] = f
+  colFilters.value = next
+}
+function cfDrop(key, type) {
+  const k = cfKey(key, type)
+  if (!(k in colFilters.value)) return
+  const next = { ...colFilters.value }
+  delete next[k]
+  colFilters.value = next
+}
+function clearAllColFilters() { colFilters.value = {} }
+/* 一行人话，给胶囊与漏斗 title 用（别在模板里拼 switch） */
+function cfText(f) {
+  if (!f) return ''
+  switch (f.op) {
+    /* 选中值：少于一屏能读完的（≤3）直接写出来 —— 胶囊上写「∈ 1 值」等于没说。
+       超过 3 个才收成计数（逐字铺开会把工具栏挤爆）。 */
+    case 'in': {
+      const vs = f.values || []
+      /* v667：一个值都不勾是合法状态（Excel 里就是筛出空表）⇒ 胶囊上必须写清楚，
+         不能显示「∈ 0 值」这种没人看得懂的话。 */
+      if (!vs.length) return '全不选'
+      if (vs.length === 1) return vs[0] === CF_BLANK ? '（空白）' : `=${vs[0]}`
+      if (vs.length <= 3) return '=' + vs.map(v => v === CF_BLANK ? '（空白）' : v).join('、')
+      return `∈ ${vs.length} 值`
+    }
+    case 'blank': return '为空'
+    case 'notBlank': return '非空'
+    case 'between': return `${f.a} ~ ${f.b}`
+    default: return `${CF_OP_TEXT[f.op] || f.op} ${f.a}`
+  }
+}
+const CF_OP_TEXT = {
+  in: '选中值', contains: '包含', notContains: '不包含', eq: '等于', neq: '不等于',
+  startsWith: '开头是', endsWith: '结尾是', gt: '大于', gte: '大于等于',
+  lt: '小于', lte: '小于等于', between: '介于', blank: '为空', notBlank: '非空',
+}
 // 品牌（供货方）多选筛选：空数组=不过滤；非空时同时作用于表格显示(rowVisible)与复制动作
 const brandSel = ref([])
 /* v178：品牌取「**行内值优先、档案兜底**」。原实现档案优先 ⇒ 编辑网格里刚把品牌改成
@@ -5749,6 +6168,90 @@ const cycleUnsetHidden = computed(() => {
   let n = 0
   ;(cross.value.rows || []).forEach(r => { if (rowCycle(r) === 0) n++ })
   return n
+})
+/* ===================== v673：按「下单日」筛行（今日下单） =====================
+   用户场景（原话）：「已经能给每个商品配到货周期，但下单的时候还是得自己算今天该下哪些单品；
+   用户点今日下单即可筛出今天可以下单的单品，再通过筛品牌把某品牌今日下单的筛出来，
+   然后复制报单 → 厂家编码，再复制下单数量，粘贴到厂家系统。」
+   ⇒ 本功能只做「筛」，复制回路一行不动 —— 复制报单本来就只复制**当前筛出来的行**
+     （copyRows 走的就是 rowFilterPass），所以筛对＝复制对。
+
+   🔴 与「到货周期」是两个正交维度，别互相顶替：
+      · `arrival_lead_days`（到货周期）= 下单后第几天到（lag）；
+      · `order_days`（下单日，本功能）= 哪天该下单（cadence）。
+      同一个品牌既能「+3 到货」又「双号下单」。判定的唯一实现在 utils/orderDays.js。
+
+   🔴 不做本地持久化（与品牌筛选**刻意不同**）：今天勾了「今日下单」，明天打开还留着
+      ⇒ 明天看到的仍是昨天的集合，一整天都在漏单。品牌是长期视角，这个是当天视角。
+   🔴 未设下单日的行**恒命中**（= 每天都能下）：生产本期 187 个品里 154 个品名无线索、
+      到货周期也多为空；若未设置就判"不下"，用户点一下看到空表＝以为数据丢了（v672 同一个雷）。 */
+const todayOnly = ref(false)
+const todayDate = ref(new Date())
+/* v673：pid → **报单快照名**（summary 的 `imported_products[].import_name`）。
+   用途只有一个：批量设置下单日时的「从品名识别」。
+   🔴 为什么需要它：本期 187 行里 91 行的「档案名 ≠ 报单快照名」，其中 20 行的下单节奏
+      （「单号下单」「（3.7.11…）」）**只写在快照名里**，档案名早已改成规范品名
+      ⇒ 只看档案名会漏掉这 20 个品（实测 11 vs 31）。
+   刻意**不挂在行对象上**（与 import_name 无关的字段一律不进 asProdRow 白名单：
+     那是「加一个字段要改 4 处」的雷区），只做一张旁路映射。 */
+const importNameByPid = ref({})
+function setImportNames (importedProducts) {
+  const m = {}
+  ;(importedProducts || []).forEach(p => {
+    const k = Number(p.id)
+    if (p && p.import_name) m[k] = String(p.import_name)
+  })
+  importNameByPid.value = m
+}
+const todayText = computed(() => todayLabel(todayDate.value))
+function toggleTodayOnly () {
+  // 每次「开启」都重新取今天 —— 页面挂着跨过零点后，判定基准不能还停在昨天。
+  if (!todayOnly.value) todayDate.value = new Date()
+  todayOnly.value = !todayOnly.value
+}
+function rowOrderRule (r) { return String((r && r.order_days) || '') }
+function rowOrderHit (r) { return orderRuleHit(rowOrderRule(r), todayDate.value) }
+/* 命中数 / 未设数只为**按钮 title 自证**用（不另出徽标：触发器能表达的就别再叠一个 chip，v608）。 */
+const todayHitCount = computed(() => (cross.value.rows || []).filter(r => rowOrderHit(r)).length)
+const todayUnsetCount = computed(() => (cross.value.rows || []).filter(r => !rowOrderRule(r).trim()).length)
+const todayToggleTitle = computed(() => {
+  const head = todayOnly.value
+    ? '已开启：表格只显示今天该下单的商品，复制报单也只复制这些行。再点一次取消。'
+    : '只看今天该下单的商品（与品牌 / 到货周期 / 搜索叠加生效）。'
+  return head + '今天 ' + todayText.value + '：命中 ' + todayHitCount.value + ' 个品' +
+    (todayUnsetCount.value ? '（其中 ' + todayUnsetCount.value + ' 个未设下单日，按「每天」算）' : '') + '。'
+})
+
+/* v672：**筛选来源必须自证** —— 用户实测报障「我怎么只看到 177 个品」。
+   查下来数据一个没少：期次 40 清单 187 行，DB / 接口 / 真机三处都是 187。
+   真实原因是他上次在「品牌」面板勾过品牌，而**品牌筛选会被持久化**
+   （BRAND_SEL_KEY，见 brandRestored 的恢复逻辑）⇒ 下次进页面直接带着筛。
+   当时汇总条只说「筛选后 177 / 共 187 行」，**不说是谁筛的** ⇒ 看着像数据丢了。
+   ⇒ 把挡行的四类条件（品牌 / 到货周期 / 列筛选 / 搜索·仅显示有报单）显式报出来，
+     并在同一格给「清除」，一键回全期。
+   ⚠️ 判据必须与 `rowFilterPass` 一一对应：新增一种筛选就加一条，否则汇总条又会「少说不说清」。 */
+const rowFilterSourceList = computed(() => {
+  const out = []
+  const bn = brandSel.value.length
+  if (bn) {
+    const total = brandCandidates.value.length
+    out.push(bn >= total ? `品牌全选（${total} 个）` : `品牌 ${bn}/${total} 个`)
+  }
+  if (cycleSel.value.length) out.push('到货周期 ' + cycleSelText.value)
+  // v673：与 rowFilterPass 一一对应 —— 新增一种筛选就必须在这里加一条
+  if (todayOnly.value) out.push('今日下单（' + todayText.value + '）')
+  if (cfCount() > 0) out.push('列筛选 ' + cfCount() + ' 项')
+  const kw = (filterText.value || findText.value || '').trim()
+  if (kw) out.push('搜索「' + kw + '」')
+  if (hideZeroReport.value) out.push('仅显示有报单')
+  return out
+})
+const rowFilterSources = computed(() => rowFilterSourceList.value.join(' · '))
+/* 汇总条那一行横向很挤：只显示第一项 + 「等 N 项」，完整来源放 title。 */
+const rowFilterShort = computed(() => {
+  const l = rowFilterSourceList.value
+  if (!l.length) return ''
+  return l.length === 1 ? l[0] : `${l[0]} 等 ${l.length} 项`
 })
 
 /* v618：v617 那套「按品牌批量设置」的前端逻辑已整体移除 —— 品牌粒度是错的
@@ -5847,8 +6350,6 @@ watch(brandSel, () => {
   try { localStorage.setItem(BRAND_SEL_KEY, JSON.stringify(brandSel.value || [])) } catch (e) {}
 }, { deep: true })
 
-const hdrFilterVal = ref('')
-const hdrFilterInput = ref(null)
 // 取某行在指定列上的「显示值」用于筛选（复用只读表渲染逻辑 cellText，兼容 master/qty/calc/计算列）
 function cellValOf(r, key, type) {
   if (!r) return ''
@@ -5859,18 +6360,68 @@ function cellValOf(r, key, type) {
        || { key, type: type === 'master' ? 'master' : 'calc' })
   return cellText(r, col)
 }
-// 当前列筛选是否放行该行（无筛选或值为空则放行）
+/* v666：列 key → 列定义（master 取值要列对象）。预建 Map 的理由见 cfRowVal 注释。
+   🔴 v668 修复（用户实测「厂家编码筛选面板只有（空白）、显示 1/1」）：
+      `visibleCols` 的元素**没有 `type` 字段**（它的 map 只搬 key/label/cls/fixed/edit/fmt…），
+      而 `cellText` 的分支是 `col.type === 'master'` ⇒ type 为 undefined 时一路漏到末尾
+      `return ''` ⇒ 该列每一行的取值都是空串 ⇒ 值清单里只剩一个「（空白）」。
+      受影响的是**全部主档列**（厂家编码 / 条码 / 规格 / 单位 / 品牌 / 分销价…），
+      不只是这一列 —— 客户列（qty 分支）与计算列（走 colOrderList 兜底）没被波及，
+      这也是它一直没被发现的原因：先测的恰好是能用的那两类。
+      ⇒ 建 Map 时显式补 `type: 'master'`，并把**计算列**（合计/箱/加单/最终下单/单价/金额…）
+        从 `colOrderList` 补进来（它们只在那里，且带 type:'calc'），否则 calc 列同样取到空串。 */
+const colByKey = computed(() => {
+  const m = new Map()
+  visibleCols.value.forEach(c => m.set(c.key, c.type ? c : { ...c, type: 'master' }))
+  colOrderList.value.forEach(c => { if (!m.has(c.key) && c.type !== 'seq') m.set(c.key, c) })
+  return m
+})
+/* v666：单个列条件是否放行该行（一个 f 一个判据）。
+   ⚠️ 取值必须走 colByKey 预建 Map，**不要**每次 cellValOf（内部 colOrderList.find）——
+      本函数在 renderModel 里按行调用，嵌套 find 会退化成 O(行×列×筛)：300×30×3 ≈ 2.7 万次/帧。 */
+function cfRowVal(r, f) {
+  if (f.type === 'qty') return String(r.qtyByUnit[f.key] ?? '')
+  const col = colByKey.value.get(f.key)
+  const s = String(col ? cellText(r, col) : cellValOf(r, f.key, f.type))
+  /* v668：主档列的「空」在网格里显示为 `—`（masterVal / arrivalCycleText 的约定），
+     但筛选口径必须把它当**空**——否则同一列的值清单里会同时出现「（空白）」与「—」，
+     用户分不清哪个才是"这列没填"的行，而真正的空行还分成了两桶。Excel 里空就是空。 */
+  if (f.type === 'master' && s === '—') return ''
+  return s
+}
+function cfPassOne(r, f) {
+  const s = cfRowVal(r, f)
+  const low = s.toLowerCase()
+  const A = String(f.a ?? '').toLowerCase()
+  switch (f.op) {
+    case 'blank': return s === ''
+    case 'notBlank': return s !== ''
+    case 'in': return (f.values || []).includes(s === '' ? CF_BLANK : s)
+    case 'contains': return low.includes(A)
+    case 'notContains': return !low.includes(A)
+    case 'eq': return low === A
+    case 'neq': return low !== A
+    case 'startsWith': return low.startsWith(A)
+    case 'endsWith': return low.endsWith(A)
+    case 'gt': case 'gte': case 'lt': case 'lte': case 'between': {
+      // 允许「24盒」这类混排值：剥掉非数字字符再比（规格列最常见的比较场景）
+      const v = parseFloat(s.replace(/[^0-9.\-]/g, ''))
+      if (!isFinite(v)) return false
+      const a = parseFloat(f.a); const b = parseFloat(f.b)
+      if (f.op === 'between') return isFinite(a) && isFinite(b) && v >= Math.min(a, b) && v <= Math.max(a, b)
+      if (!isFinite(a)) return false
+      if (f.op === 'gt') return v > a
+      if (f.op === 'gte') return v >= a
+      if (f.op === 'lt') return v < a
+      return v <= a
+    }
+    default: return true
+  }
+}
+// 列筛选是否放行该行（多列 = 且；无筛选恒通过）
 function passColFilter(r) {
-  const cf = colFilter.value
-  if (cf && cf.val) {
-    const v = String(cellValOf(r, cf.key, cf.type)).toLowerCase()
-    if (!v.includes(cf.val.trim().toLowerCase())) return false
-  }
-  const cs = colFilterSet.value
-  if (cs && cs.values && cs.values.length) {
-    const v = String(cellValOf(r, cs.key, cs.type))
-    if (!cs.values.includes(v)) return false
-  }
+  const fs = colFilters.value
+  for (const k in fs) { if (!cfPassOne(r, fs[k])) return false }
   return true
 }
 // 由列 key/type/ui 解析可读列名（用于菜单占位与筛选提示）
@@ -5889,7 +6440,17 @@ function colLabel(key, type, ui) {
 const hdrCtxStyle = computed(() => {
   const wh = typeof window !== 'undefined' ? window.innerHeight : 800
   const ww = typeof window !== 'undefined' ? window.innerWidth : 400
-  return { top: Math.min(hdrCtx.value.y, wh - 180) + 'px', left: Math.min(hdrCtx.value.x, ww - 190) + 'px' }
+  /* v666：Excel 筛选面板比普通菜单宽（值清单要读得清）也更高 ⇒ 边界钳制按模式分开算，
+     否则右边缘会被视口切掉、底部按钮够不到。面板自身 overflow-y:auto，钳不住时可滚。
+     v667：面板现在锚在**列头下方**，高度随值清单变化 ⇒ 下限按 460 估（比 v666 的 380 宽裕），
+     若下方实在放不下（列头贴近视口底部，例如全屏浮动窗口），CSS 的 max-height + 内部滚动兜住。 */
+  const fx = hdrCtx.value.mode === 'excel'
+  const w = fx ? 268 : 190
+  const h = fx ? 460 : 180
+  return {
+    top: Math.max(8, Math.min(hdrCtx.value.y, wh - h)) + 'px',
+    left: Math.max(8, Math.min(hdrCtx.value.x, ww - w)) + 'px',
+  }
 })
 // ===== 右键增强状态 =====
 const condWarnOn = ref(false)      // 条件格式：库存<安全库存 整行高亮
@@ -5900,7 +6461,6 @@ const colStats = ref(null)         // { key, label, numeric, sum, avg, min, max,
    （用户对「同屏两个数对不上」最敏感，0.13 vs 0.125 正好会让人以为其中一个是错的。） */
 
 const hdrWidthVal = ref(120)       // 精确列宽输入
-const uniqAll = ref(false)         // 唯一值筛选：全选
 // 列统计：取某行在某列上的「数值」（可统计列返回 number，否则返回 null 视为文本列）
 const NUMERIC_MASTER = { sale_price: 1, factory_price: 1, purchase_price: 1, dist_price: 1, safety_stock: 1, expiry_days: 1, moq: 1, lead_days: 1 }
 function colStatVal(r, desc) {
@@ -6606,6 +7166,20 @@ function ctxInsertCol(left) {
   cross.value.units.splice(at, 0, { name, role: '' })
   cross.value.rows.forEach(rw => { if (!(name in rw.qtyByUnit)) rw.qtyByUnit[name] = 0 })
   closeCtx()
+  /* v654：与表头「＋」同手感 —— 插入后光标直接落在新列第一格（列名可事后在表头改）。 */
+  const colIdx = visibleCols.value.length + at
+  nextTick(() => focusNewCol(colIdx))
+}
+/* v653：主档单元格右键「插入列」→ 复用**表头的插入列内联表单**（同一份输入 UI 与落库逻辑），
+   不写第二套 —— 避免"两处输入框/两套落库漂移"这种本仓反复踩过的坑。 */
+function ctxOpenHdrInsert(left) {
+  const { key, x, y } = ctx.value
+  closeCtx()
+  hdrCtx.value = { show: true, x, y, key, type: 'master', ui: -1, mode: 'add' }
+  hdrAddName.value = ''
+  hdrAddType.value = 'text'
+  hdrAddSide.value = left ? 'left' : 'right'
+  nextTick(() => { if (hdrAddInput.value) hdrAddInput.value.focus() })
 }
 function ctxDeleteCol() {
   if (ctx.value.type === 'qty') { snapshot(); delCol(ctx.value.ui) }
@@ -6738,23 +7312,145 @@ function openHdrCtx(e, key, type, ui = -1) {
     mode: 'menu' }
 }
 function closeHdrCtx() { hdrCtx.value.show = false; hdrCtx.value.mode = 'menu' }
-// 表头右键 → 筛选：进入内联输入框
+/* ===== v666：Excel 式筛选面板（表头漏斗 / 右键「筛选此列…」都进这里，只有一份 UI） =====
+   面板内三件事：值清单多选（含搜索、全选、清空、空白项）+ 条件筛选（包含/等于/大于/介于…，二级折叠）。
+   v667：**勾选即生效**（Excel 交互，无「应用」按钮），条件区仍要填值后确认。
+   `fxOp === 'in'` 时值清单生效，选了任何条件运算符则值清单让位（Excel 同语义：值是「∈」，条件是判据）。 */
+const fxKey = ref(''), fxType = ref('master')
+const fxOp = ref('in')
+const fxVals = ref([])        // 本列全部可选值（含 CF_BLANK 哨兵，排在最后）
+const fxChecked = ref([])
+const fxSearch = ref('')
+const fxA = ref(''), fxB = ref('')
+const fxCondOpen = ref(false)     // v667：条件筛选二级区是否展开
+const fxNumOps = computed(() => ['gt', 'gte', 'lt', 'lte', 'between'].includes(fxOp.value))
+// 值清单按搜索词过滤（只影响显示，不影响已勾选集合）
+const fxValsShown = computed(() => {
+  const q = fxSearch.value.trim().toLowerCase()
+  if (!q) return fxVals.value
+  return fxVals.value.filter(v => (v === CF_BLANK ? '(空白)' : v).toLowerCase().includes(q))
+})
+// 值清单里的显示文本：空值哨兵在界面上写「（空白）」（Excel 同名），其余原样
+function fxLabel(v) { return v === CF_BLANK ? '（空白）' : v }
+function fxInit(key, type) {
+  const f = cfGet(key, type)
+  fxKey.value = key
+  fxType.value = type
+  // 该列可选值：取全部活跃行（不受其它列筛选影响 —— Excel 也是「这一列有哪些值」的静态清单）
+  const set = new Set()
+  liveRows.value.forEach(r => {
+    const v = cfRowVal(r, { key, type })
+    set.add(v)
+  })
+  // v666：纯数字列按**数值**排（Excel 同感）。按字符串排会把 100 排在 24 前面，值清单一乱，
+  //   用户找「24」得翻半天 —— 这是筛选面板最高频的交互，值得这一行判断。
+  const allNum = Array.from(set).every(v => v === '' || /^-?\d+(\.\d+)?$/.test(v))
+  const vals = Array.from(set).sort((a, b) => allNum ? (Number(a) || 0) - (Number(b) || 0) : a.localeCompare(b, 'zh'))
+  const blankAt = vals.indexOf('')
+  if (blankAt >= 0) { vals.splice(blankAt, 1); vals.push(CF_BLANK) }   // 空值固定排最后，与 Excel 一致
+  fxVals.value = vals
+  fxOp.value = f ? f.op : 'in'
+  /* v667：重开面板必须把**已生效的筛选**还原成勾选状态，而不是一律「全选」——
+     这就是「关闭后保留已选状态」的落点：状态存在 colFilters 里（不是面板临时 state），
+     面板关掉/切到别的列再回来，勾选与结果都还在。`values: []`（一个都不勾）也如实还原成空勾。 */
+  fxChecked.value = f && f.op === 'in' ? (f.values || []).slice() : vals.slice()
+  fxA.value = f ? (f.a ?? '') : ''
+  fxB.value = f ? (f.b ?? '') : ''
+  fxSearch.value = ''
+  fxCondOpen.value = !!(f && f.op !== 'in')   // 条件型筛选打开面板时先展开，否则用户看不到「为什么筛成这样」
+}
+function openColFilter(key, type) {
+  fxInit(key, type)
+  hdrCtx.value.mode = 'excel'
+}
+function fxAllOn() { return fxChecked.value.length === fxVals.value.length }
+function fxToggleAll() {
+  fxChecked.value = fxAllOn() ? [] : fxVals.value.slice()
+  fxSync()
+}
+function fxToggleVal(v) {
+  const i = fxChecked.value.indexOf(v)
+  fxChecked.value = i >= 0 ? fxChecked.value.filter(x => x !== v) : [...fxChecked.value, v]
+  fxSync()
+}
+/* v667：勾选即生效（Excel 的核心交互，不再有「应用筛选」按钮）。三条口径：
+   ① 勾满 = 不筛 —— 否则每列都挂一枚「∈ N 值」的假筛选，漏斗全亮反而看不出哪列真筛了；
+   ② 一个都不勾 = **筛出 0 行** —— 不能退回「不筛」：点掉最后一个勾、表格反而全回来，与 Excel 相反，
+      也让人以为没点上。空表态由 `filteredToNone` 那条专属提示兜住（不会掉进「去导入 Excel」）；
+   ③ 其余 = ∈ 选中值。
+   只写 `colFilters` 一个源 ⇒ 查看态 / 改单态 / 复制报单 / 导出自动同口径（rowFilterPass 是唯一实现）。 */
+function fxSync() {
+  if (fxOp.value !== 'in') return
+  const key = fxKey.value, type = fxType.value
+  if (fxChecked.value.length === fxVals.value.length) { cfDrop(key, type); return }
+  cfPut(key, type, { key, type, op: 'in', values: fxChecked.value.slice() })
+}
+function fxClearSel() {
+  fxChecked.value = []
+  fxSync()
+}
+/* 条件区与勾选区互斥：切运算符时值清单让位，切回「按勾选的值」要立刻按勾选集合落筛，
+   否则屏幕上还留着上一个条件的筛选结果，而面板已经在展示勾选清单 —— 两处说的不是一回事。 */
+function onFxOpChange() {
+  if (fxOp.value === 'in') fxSync()
+  else fxCondOpen.value = true
+}
+function fxResetCond() {
+  fxOp.value = 'in'
+  fxCondOpen.value = false
+  fxA.value = ''; fxB.value = ''
+  fxSync()
+}
+function applyColFilter() {
+  const key = fxKey.value, type = fxType.value
+  const op = fxOp.value
+  if (op === 'in') { fxSync(); return }
+  if (op === 'blank' || op === 'notBlank') {
+    cfPut(key, type, { key, type, op })
+  } else if (op === 'between') {
+    if (!String(fxA.value).trim() || !String(fxB.value).trim()) { toast('「介于」需要填两个数', 'warn'); return }
+    cfPut(key, type, { key, type, op, a: fxA.value, b: fxB.value })
+  } else {
+    if (!String(fxA.value).trim()) { toast('请填写条件值', 'warn'); return }
+    cfPut(key, type, { key, type, op, a: fxA.value })
+  }
+  /* 条件生效后把勾选恢复成「全选」语义 —— 此刻面板展示的是条件而不是值，
+     清掉条件时若沿用一份看不见的 ∈ 集合，用户会得到「什么都没勾却还在筛」的怪状态。 */
+  fxChecked.value = fxVals.value.slice()
+}
+/* v667：只清筛选、**不关面板** —— 点「清除此列筛选」是要接着挑值的，
+   旧实现把面板退回右键菜单，等于逼用户再开一次。 */
+function clearThisColFilter() {
+  cfDrop(fxKey.value, fxType.value)
+  fxOp.value = 'in'
+  fxCondOpen.value = false
+  fxChecked.value = fxVals.value.slice()
+  fxA.value = ''; fxB.value = ''
+}
+// 表头右键 → 筛选面板（保留旧函数名，菜单两处入口都指向它）
 function startHdrFilter() {
-  const cf = colFilter.value
-  hdrFilterVal.value = (cf && cf.key === hdrCtx.value.key && cf.type === hdrCtx.value.type) ? cf.val : ''
-  hdrCtx.value.mode = 'filter'
-  nextTick(() => { if (hdrFilterInput.value) hdrFilterInput.value.focus() })
+  const { key, type } = hdrCtx.value
+  fxInit(key, type)
+  hdrCtx.value.mode = 'excel'
 }
-function applyHdrFilter() {
-  const { key, type, ui } = hdrCtx.value
-  const v = (hdrFilterVal.value || '').trim()
-  if (!v) { clearColFilter(); return }
-  colFilter.value = { key, type, ui, val: v }
-  closeHdrCtx()
-}
-function clearColFilter() {
-  colFilter.value = null
-  if (hdrCtx.value.mode === 'filter') { hdrCtx.value.mode = 'menu'; hdrFilterVal.value = '' }
+/* v666：列头漏斗的入口。
+   与「＋」不同，筛选是**纯视图操作**（不写数据、不进改单）⇒ 只读态直接可用，不需要 enterEdit。
+   v667：面板锚在**列头正下方、左边缘对齐**，不再跟随鼠标落点 —— 漏斗贴在列头最右侧，
+   按落点定位会把 268px 宽的面板整体右推，值清单被屏幕边缘切掉。Excel 也是贴着列头掉下来的。
+   再点一次同一个漏斗 = 收起（Excel 同）。 */
+function quickOpenColFilter(e, key, type) {
+  if (hdrCtx.value.show && hdrCtx.value.mode === 'excel' && fxKey.value === key && fxType.value === type) {
+    closeHdrCtx(); return
+  }
+  openHdrCtx({ clientX: e.clientX, clientY: e.clientY }, key, type,
+    type === 'qty' ? cross.value.units.findIndex(u => u.name === key) : -1)
+  const th = e && e.currentTarget && e.currentTarget.closest ? e.currentTarget.closest('th') : null
+  if (th) {
+    const r = th.getBoundingClientRect()
+    hdrCtx.value.x = Math.round(r.left)
+    hdrCtx.value.y = Math.round(r.bottom + 2)
+  }
+  startHdrFilter()
 }
 // ===================== 右键增强功能 =====================
 // A. 让 AI 分析这一行（调用 Hermes 副驾）
@@ -6843,32 +7539,8 @@ function ctxCopyMd() {
 }
 // F. 本行加备注
 function ctxSetNote() { const ri = ctx.value.r; closeCtx(); setRowNote(ri) }
-// H. 唯一值筛选（表头入口）
-function startHdrUniq() {
-  const { key, type, ui } = hdrCtx.value
-  const set = new Set()
-  cross.value.rows.forEach(r => { const v = String(cellValOf(r, key, type)); if (v !== '') set.add(v) })
-  const vals = Array.from(set).sort((a, b) => a.localeCompare(b, 'zh'))
-  hdrUniqVals.value = vals; hdrUniqChecked.value = vals.slice(); uniqAll.value = true
-  hdrCtx.value.mode = 'uniq'
-  hdrCtx.value._fk = { key, type, ui }
-}
-const hdrUniqVals = ref([])
-const hdrUniqChecked = ref([])
-function toggleUniqVal(v) {
-  const i = hdrUniqChecked.value.indexOf(v)
-  if (i >= 0) hdrUniqChecked.value = hdrUniqChecked.value.filter(x => x !== v)
-  else hdrUniqChecked.value = [...hdrUniqChecked.value, v]
-  uniqAll.value = hdrUniqChecked.value.length === hdrUniqVals.value.length
-}
-function applyHdrUniq() {
-  const fk = hdrCtx.value._fk; if (!fk) return
-  if (!hdrUniqChecked.value.length) { clearUniqFilter(); return }
-  colFilter.value = null
-  colFilterSet.value = { key: fk.key, type: fk.type, ui: fk.ui, values: hdrUniqChecked.value.slice() }
-  closeHdrCtx(); toast('已按唯一值筛选', 'ok')
-}
-function clearUniqFilter() { colFilterSet.value = null; if (hdrCtx.value.mode === 'uniq') hdrCtx.value.mode = 'menu' }
+// H. 唯一值筛选（表头入口）—— v666：并入 Excel 面板（值清单就是原「唯一值多选」+ 搜索 + 空白项），
+//    旧的两个入口/两套状态（hdrUniqVals / hdrUniqChecked / uniqAll）已删，避免第三套筛选并存。
 // I. 分组小计（表头入口）
 function hdrGroupBy() { const { key } = hdrCtx.value; groupBy.value = key; closeHdrCtx(); toast('已按「' + colLabel(key, 'master', -1) + '」分组', 'ok') }
 // J. 复制列名（表头入口）
@@ -6899,6 +7571,9 @@ function sortByCol(dir) {
   closeHdrCtx()
 }
 function hdrHideCol() {
+  /* v666：把列藏起来就必须把它的筛选一起撤 —— 否则会出现「表里看不到这一列、行却被它筛着」，
+     而漏斗也跟着消失（没有入口可点）= 用户永远找不到原因，只能全部清筛选。 */
+  cfDrop(hdrCtx.value.key, 'master')
   toggleCol(hdrCtx.value.key)
   closeHdrCtx()
 }
@@ -7066,28 +7741,89 @@ function applyHdrRename() {
   }
   closeHdrCtx()
 }
-// 增加列：进入内联新增（主档列 → 插入自定义字段列；报单单元列 → 新增客户列）
-function startHdrAdd() {
+/* ===== v654：表头悬停「＋」快捷插入列 =====
+   为什么加：插入列原本只有两条路 —— 列头右键菜单（得先想到去右键）、或单元格右键（得先想到点格子）。
+   用户反复问「怎么插一列」，缺的不是能力而是**看得见的入口**：鼠标划过列头就出现。
+   ⚠️ 只读态点它会先 `enterEdit()`（自带「定稿期次 / 无进行中期次 / 无写权限」三条拦截与提示），
+     被拦住就停在那里并说明原因 —— 不做「点了没反应」的假按钮。 */
+function qaTitle(label, key) {
+  /* 冻结列区由 visibleCols 在渲染期强制归位（见 addCustomMasterCol 注释）⇒ 插入点实际落在
+     冻结区之后。菜单里对冻结列的措辞本来就是「新增列（冻结列之后）」，这里保持同一口径，
+     不承诺插不到的位置。 */
+  if (FROZEN_COLS.includes(key)) return '新增列（冻结列之后）'
+  return editMode.value
+    ? `在「${label || '这一列'}」右侧插入一列`
+    : `在「${label || '这一列'}」右侧插入一列（会先进入改单）`
+}
+async function quickAddCol(e, key, type) {
+  // 先快照坐标：下面可能 await 一整轮 editGrid 加载，事件对象届时的坐标已不代表「刚才点在哪」
+  const x = e.clientX, y = e.clientY
+  if (!editMode.value) {
+    await enterEdit()
+    if (!editMode.value) return            // 被拦住了，enterEdit 已 toast 原因
+    await nextTick()
+  }
+  openHdrCtx({ clientX: x, clientY: y }, key, type,
+    type === 'qty' ? cross.value.units.findIndex(u => u.name === key) : -1)
+  startHdrAdd('right')
+}
+/* 插入完成后把光标落到**新列第一格**（沿用当前行；该行被筛选隐藏/不存在时退回第一条可见行）。
+   为什么必须有：新列可能落在视口右侧几百像素外 —— 不跟过去，用户只看到「表头多了个东西」，
+   既不知道插在哪、也接不上手填。只读态不涉及（能插入时必然已在改单态）。 */
+function focusNewCol(c) {
+  if (!editMode.value || c < 0) return
+  const n = cross.value.rows.length
+  if (!n) return
+  let r = selected.value.r
+  if (!(r >= 0 && r < n && rowBaseShown(r))) {
+    r = -1
+    for (let i = 0; i < n; i++) { if (rowBaseShown(i)) { r = i; break } }
+  }
+  if (r < 0) return
+  focusCell(r, c)
+}
+// 插入列：进入内联新增（主档列 → 插入自定义字段列；报单单元列 → 插入客户列）
+// v653：side = 'left' | 'right'，决定插入到**当前列**的左侧还是右侧（用户诉求：在当前列前插入）。
+function startHdrAdd(side = 'right') {
   hdrAddName.value = ''
   hdrAddType.value = 'text'
+  hdrAddSide.value = side === 'left' ? 'left' : 'right'
   hdrCtx.value.mode = 'add'
   nextTick(() => { if (hdrAddInput.value) hdrAddInput.value.focus() })
 }
 async function applyHdrAdd() {
   const v = (hdrAddName.value || '').trim()
-  const { type } = hdrCtx.value
+  const { type, ui } = hdrCtx.value
+  let focusC = -1
   if (v) {
     // v170：客户列统一走 addUnit()（唯一实现，含重名提示）。
     //   原先此处自带一份 push 逻辑、重名时静默不提示，与表头输入框那份已经漂移。
-    if (type === 'qty') addUnit(v)
-    else await addCustomMasterCol(v, hdrAddType.value)
+    if (type === 'qty') {
+      // 客户列：left → 插到当前列之前；right → 之后。ui 越界（-1）退回追加。
+      const at = ui < 0 ? -1 : (hdrAddSide.value === 'left' ? ui : ui + 1)
+      if (addUnit(v, at)) {
+        const i = cross.value.units.findIndex(u => u.name === v)
+        if (i >= 0) focusC = visibleCols.value.length + i
+      }
+    } else {
+      const newKey = await addCustomMasterCol(v, hdrAddType.value, hdrAddSide.value)
+      if (newKey) {
+        const ci = visibleCols.value.findIndex(c => c.key === newKey)
+        if (ci >= 0) focusC = ci
+      }
+    }
   }
+  /* ⚠️ 必须在 addCustomMasterCol 之后才关闭菜单 —— 它要读 `hdrCtx.value.key` 定位插入点
+     （closeHdrCtx 只清 show/mode，不碰 key，但依赖这一点太脆，顺序写明）。 */
   closeHdrCtx()
+  if (focusC < 0) return
+  await nextTick()   // 等新列真正渲染进 DOM（列宽、可见性都要重算）
+  focusNewCol(focusC)
 }
 // 自定义列：**先在服务端登记拿稳定 key**，再插进列顺序。
 // 为什么不能像以前那样本地造 key：本地随机 key（cust_xxx）只活在这台浏览器，
 // 服务端引用不到，换设备后这一列连同它上面的数据都会消失（2026-09-15 前的实际行为）。
-async function addCustomMasterCol(name, editType) {
+async function addCustomMasterCol(name, editType, side = 'right') {
   if (!registryOk.value) { toast('列配置未从服务器加载，暂时不能新增列', 'warn'); return }
   let col = null
   try {
@@ -7101,14 +7837,18 @@ async function addCustomMasterCol(name, editType) {
   snapshot()
   const key = col.key
   const newCol = { key, label: col.label || name, cls: editType === 'num' ? 'fc-num' : 'fc-text', edit: editType, deletable: true, custom: true }
+  /* v653：按 side 决定插到目标列的**左侧或右侧**（此前固定 idx+1 = 只能插在右侧）。
+     ⚠️ 冻结列区（FROZEN_COLS）由 visibleCols 渲染期强制归位 ⇒ 若目标是冻结列，
+        新列最终落在冻结区之后（UI 上目标冻结列只给「新增列（冻结列之后）」一项，不误导）。 */
   const idx = colOrder.value.findIndex(c => c.key === hdrCtx.value.key)
-  if (idx >= 0) colOrder.value.splice(idx + 1, 0, newCol)
+  if (idx >= 0) colOrder.value.splice(side === 'left' ? idx : idx + 1, 0, newCol)
   else colOrder.value.push(newCol)
   colVis.value[key] = true
   registryColumns.value = [...registryColumns.value, { key, label: newCol.label, type: col.type || 'text' }]
   const def = editType === 'num' ? 0 : ''
   cross.value.rows.forEach(r => { if (!(key in r)) r[key] = def })
   _persistCols()
+  return key   // v654：交给调用方定位新列（插入后把光标落到新列第一格）
 }
 // 删除列
 async function hdrDeleteCol() {
@@ -7132,6 +7872,7 @@ async function hdrDeleteCol() {
     }
     deleteMasterCol(key)
   }
+  cfDrop(key, type)   // v666：列没了 ⇒ 它的筛选也要撤（残留 = 指向不存在列的筛选，整表被筛空）
   closeHdrCtx()
 }
 // 数据健康分颜色
@@ -7746,6 +8487,7 @@ function copyRows() {
 /* 复制回执里报出「按什么筛的」—— 用户粘完才发现数量对不上时，这是唯一的自查线索 */
 function copyScopeText() {
   const parts = []
+  if (todayOnly.value) parts.push('今日下单：' + todayText.value)
   if (brandSel.value.length) parts.push('品牌：' + brandSel.value.join('、'))
   if (cycleSel.value.length) parts.push('到货周期：' + cycleSelText.value)
   return parts.length ? `（${parts.join('；')}）` : ''
@@ -7754,7 +8496,7 @@ function copyScopeText() {
 function copyCodes() {
   const rows = copyRows()
   if (!rows.length) {
-    toast((brandSel.value.length || cycleSel.value.length) ? '当前筛选下没有可复制的厂家编码' : '本期没有可复制的厂家编码（最终下单为空）', 'warn')
+    toast((brandSel.value.length || cycleSel.value.length || todayOnly.value) ? '当前筛选下没有可复制的厂家编码' : '本期没有可复制的厂家编码（最终下单为空）', 'warn')
     return
   }
   _copyText(rows.map(r => _rowCode(r)).join('\n'), 'codes', `已复制 ${rows.length} 个厂家编码${copyScopeText()}`)
@@ -7763,7 +8505,7 @@ function copyCodes() {
 function copyQty() {
   const rows = copyRows()
   if (!rows.length) {
-    toast((brandSel.value.length || cycleSel.value.length) ? '当前筛选下没有可复制的下单数量' : '本期没有可复制的下单数量（最终下单为空）', 'warn')
+    toast((brandSel.value.length || cycleSel.value.length || todayOnly.value) ? '当前筛选下没有可复制的下单数量' : '本期没有可复制的下单数量（最终下单为空）', 'warn')
     return
   }
   _copyText(rows.map(r => String(rowFinalQty(r))).join('\n'), 'qty', `已复制 ${rows.length} 条下单数量${copyScopeText()}`)
@@ -8012,6 +8754,200 @@ async function applyRowCyc() {
     toast(e.message || '设置失败', 'err')
   } finally {
     rowCycSaving.value = false
+  }
+}
+
+/* ===================== v673：按勾选的行批量设置「下单日」 =====================
+   与 v618「批量设置到货周期」逐条同构（同一批勾选、同样改商品档案、同样不产生报单数量），
+   差别只有字段与值域：`order_days` 是一个**节奏**而不是一个天数。
+   🔴 两条值得记住的口径：
+     ① 「每天」与「未设置」在筛行上**等价**（都恒命中），故不提供「清除」这个第 6 个选项 ——
+        少一个选项就少一种误操作；要恢复"每天都下"就选「每天」。
+     ② 「从品名识别」是**批量**动作：勾中的行各自按自己的品名得到不同规则，故按规则分组、
+        逐组调接口（组数 = 本批出现的规则种类，实测最多 4~5 组），不是一次全设成一个值。 */
+const rowOrdOpen = ref(false)
+const rowOrdSaving = ref(false)
+const ordMode = ref('')          // '' | 'd' | 'p:odd' | 'p:even' | 'w' | 'm'
+const ordWeek = ref([])          // number[]（1=周一 … 7=周日）
+const ordMonthText = ref('')
+
+const ORD_MODES = [
+  { v: 'd', t: '每天' },
+  { v: 'p:odd', t: '单号' },
+  { v: 'p:even', t: '双号' },
+  { v: 'w', t: '每周几' },
+  { v: 'm', t: '每月几号' },
+]
+const WEEK_OPTS = [
+  { v: 1, t: '周一' }, { v: 2, t: '周二' }, { v: 3, t: '周三' }, { v: 4, t: '周四' },
+  { v: 5, t: '周五' }, { v: 6, t: '周六' }, { v: 7, t: '周日' },
+]
+
+/* 主语与 v618 完全同一批（product_id>0 的勾选行）—— 两个弹窗永远面对同一批商品。 */
+const rowOrdRows = computed(() => rowCycRows.value)
+const rowOrdBrandText = computed(() => rowCycBrandText.value)
+const rowOrdHidden = computed(() => rowOrdRows.value.filter(r => !rowFilterPass(r)).length)
+const rowOrdDist = computed(() => {
+  const m = new Map()
+  rowOrdRows.value.forEach(r => {
+    const k = String(r.order_days || '')
+    m.set(k, (m.get(k) || 0) + 1)
+  })
+  return [...m.entries()].map(([rule, n]) => ({ rule, n, label: orderRuleText(rule) }))
+})
+
+const ordMonthParsed = computed(() => {
+  const nums = []
+  let bad = false
+  String(ordMonthText.value || '').split(/[^\d]+/).forEach(x => {
+    if (!x) return
+    const n = Number(x)
+    if (!(n >= 1 && n <= 31)) { bad = true; return }
+    if (nums.indexOf(n) < 0) nums.push(n)
+  })
+  nums.sort((a, b) => a - b)
+  return { nums, bad }
+})
+
+const ordRule = computed(() => {
+  const m = ordMode.value
+  if (!m) return { ok: false, empty: true, rule: '' }
+  if (m === 'd' || m === 'p:odd' || m === 'p:even') return { ok: true, empty: false, rule: m }
+  if (m === 'w') {
+    const v = (ordWeek.value || []).slice().sort((a, b) => a - b)
+    if (!v.length) return { ok: false, empty: true, rule: '' }
+    return { ok: true, empty: false, rule: 'w:' + v.join(',') }
+  }
+  if (m === 'm') {
+    const p = ordMonthParsed.value
+    if (p.bad || !p.nums.length) return { ok: false, empty: !p.nums.length, rule: '' }
+    return { ok: true, empty: false, rule: 'm:' + p.nums.join(',') }
+  }
+  return { ok: false, empty: true, rule: '' }
+})
+const ordBad = computed(() => ordRule.value.ok === false && !ordRule.value.empty)
+const ordRuleText = computed(() => (ordRule.value.ok ? orderRuleText(ordRule.value.rule) : '—'))
+const rowOrdCount = computed(() => {
+  const rr = ordRule.value
+  if (!rr.ok) return 0
+  return rowOrdRows.value.filter(r => String(r.order_days || '') !== rr.rule).length
+})
+const rowOrdSummary = computed(() => {
+  const rr = ordRule.value
+  if (rr.empty) return '先选一个下单日规则（每天 / 单号 / 双号 / 每周几 / 每月几号）'
+  if (!rr.ok) return '每月几号请填 1~31（用 、或 , 分隔，如 3、7、11）'
+  if (!rowOrdCount.value) return '所选商品已经是这个下单日，无需修改'
+  const ow = rowOrdRows.value.filter(r => String(r.order_days || '').trim() && String(r.order_days || '') !== rr.rule).length
+  return '将修改 ' + rowOrdCount.value + ' 个商品' + (ow ? '，其中 ' + ow + ' 个原本已设了别的下单日' : '')
+})
+
+/* 从品名识别：只为"给出建议 + 一键应用"，不自动改值（改错比不改危险）。
+   两个名字都看：先档案名，认不出再看**报单快照名**（20 行的节奏只写在快照名里）。 */
+function guessOfRow (r) {
+  const g = guessOrderRuleFromName(r && r.name)
+  if (g) return g
+  const alt = importNameByPid.value[Number(r && r.product_id)]
+  if (alt && alt !== (r && r.name)) return guessOrderRuleFromName(alt)
+  return null
+}
+const ordGuesses = computed(() => {
+  const out = []
+  rowOrdRows.value.forEach(r => {
+    const g = guessOfRow(r)
+    if (g && g.rule) out.push({ pid: Number(r.product_id), rule: g.rule })
+  })
+  return out
+})
+const ordGuessCount = computed(() => ordGuesses.value.length)
+const ordGuessGroups = computed(() => {
+  const m = new Map()
+  ordGuesses.value.forEach(x => {
+    if (!m.has(x.rule)) m.set(x.rule, [])
+    m.get(x.rule).push(x.pid)
+  })
+  return [...m.entries()].map(([rule, ids]) => ({ rule, ids }))
+})
+const ordGuessText = computed(() => {
+  if (!rowOrdRows.value.length) return '先在表格里勾选商品'
+  if (!ordGuessCount.value) return '所勾商品的名字里没有可识别的节奏，请手动选下面的规则'
+  return ordGuessGroups.value.map(g => orderRuleText(g.rule) + ' ' + g.ids.length + ' 个').join(' / ')
+})
+
+function openRowOrd () {
+  if (!rowOrdRows.value.length || savingEdit.value) return
+  batchMenuOpen.value = false
+  ordMode.value = ''
+  ordWeek.value = []
+  ordMonthText.value = ''
+  rowOrdOpen.value = true
+}
+function closeRowOrd () {
+  rowOrdOpen.value = false
+  rowOrdSaving.value = false
+}
+
+/* 应用后**本地同步** `order_days`（不重拉，重拉会丢改单草稿）——
+   与 v618 对 arrival_lead_days 的处理同一理由：不同步 = 用户得刷新才看得到，会以为没生效。 */
+function syncOrderDays (rule, ids) {
+  const want = new Set(ids)
+  ;(cross.value.rows || []).forEach(row => {
+    if (want.has(Number(row.product_id))) row.order_days = rule
+  })
+}
+
+async function applyRowOrd () {
+  const rr = ordRule.value
+  if (!rr.ok || !rowOrdCount.value || rowOrdSaving.value) return
+  const pids = rowOrdRows.value.map(r => Number(r.product_id)).filter(n => n > 0)
+  if (!pids.length) return
+  rowOrdSaving.value = true
+  try {
+    const res = await api('/api/products/batch-order-days', {
+      method: 'POST',
+      body: { product_ids: pids, rule: rr.rule },
+    })
+    syncOrderDays(rr.rule, pids)
+    const n = Number(res && res.changed) || 0
+    toast(n > 0
+      ? '已把 ' + n + ' 个商品的下单日设为「' + orderRuleText(rr.rule) + '」'
+      : '所选商品已经是这个下单日，无改动',
+      n > 0 ? 'success' : 'warn')
+    rowOrdOpen.value = false
+  } catch (e) {
+    toast(e.message || '设置失败', 'err')
+  } finally {
+    rowOrdSaving.value = false
+  }
+}
+
+async function applyOrdGuess () {
+  if (!ordGuessCount.value || rowOrdSaving.value) return
+  rowOrdSaving.value = true
+  let changed = 0
+  let failed = 0
+  const applied = []
+  try {
+    for (const g of ordGuessGroups.value) {
+      try {
+        const res = await api('/api/products/batch-order-days', {
+          method: 'POST',
+          body: { product_ids: g.ids, rule: g.rule },
+        })
+        changed += Number(res && res.changed) || 0
+        syncOrderDays(g.rule, g.ids)
+        applied.push(orderRuleText(g.rule) + ' ' + g.ids.length + ' 个')
+      } catch (e) {
+        failed++
+      }
+    }
+    const skipped = rowOrdRows.value.length - ordGuessCount.value
+    toast('已按品名识别设置 ' + changed + ' 个商品（' + applied.join(' / ') + '）'
+      + (skipped ? '；另有 ' + skipped + ' 个品名认不出节奏，未改动' : '')
+      + (failed ? '；' + failed + ' 组失败，可重试' : ''),
+      failed ? 'warn' : 'success')
+    if (!failed) rowOrdOpen.value = false
+  } finally {
+    rowOrdSaving.value = false
   }
 }
 
@@ -8908,18 +9844,13 @@ function exportXlsx() {
   const pname = (cross.value.period && cross.value.period.name) || '预报单'
   buildXlsx(rows, pname)
 }
-// 导出用行（受筛选影响，但不受排序重排影响——导出始终全量）
+// 导出/打印用行（与屏幕、复制报单**同一把尺子**：rowFilterPass；不受排序重排影响）
 function filteredRowsForExport() {
-  const f = (filterText.value || findText.value || '').trim().toLowerCase()
-  let rows = cross.value.rows
-  if (f) rows = rows.filter(r => rowMatchText(r, f))
-  if (colFilter.value && colFilter.value.val) {
-    const cf = colFilter.value
-    const fv = cf.val.trim().toLowerCase()
-    rows = rows.filter(r => String(cellValOf(r, cf.key, cf.type)).toLowerCase().includes(fv))
-  }
-  if (hideZeroReport.value) rows = rows.filter(r => rowSum(r) > 0)
-  return rows
+  /* v666：原实现自带一份「搜索 + 单列包含 + 只看有数」的判据拷贝 —— 漏了品牌、到货周期、
+     唯一值多选（以及现在的多列筛选）⇒ 屏幕上筛剩 3 行，导出的却是 40 行。
+     这正是本项目反复踩的「第二份拷贝 = 静默漂移」，故直接收敛到唯一实现。
+     ⚠️ 不重排、不分组：导出/打印要的是「筛出来哪些行」，不是「屏幕上摆成什么样」。 */
+  return cross.value.rows.filter(r => rowFilterPass(r))
 }
 
 /* ===== P3-P4 增强 ===== */
@@ -9436,7 +10367,12 @@ function printGrid() {
      只列**生效的筛选名**，不复述条件、不枚举明细（hergent-ui-copy-guard）。 */
   const filt = []
   if ((filterText.value || findText.value || '').trim()) filt.push('搜索')
-  if (colFilter.value && colFilter.value.val) filt.push('列筛选')
+  // v666：列筛选可多列并存 ⇒ 说「哪几列」而不是笼统一句「列筛选」（老板拿打印件对账时要能复现）
+  if (cfCount()) filt.push('列筛选（' + Object.keys(colFilters.value).map(k => colLabel(colFilters.value[k].key, colFilters.value[k].type, -1)).join('、') + '）')
+  if (brandSel.value.length) filt.push('品牌')
+  if (cycleSel.value.length) filt.push('到货周期')
+  // v673：打印件同样要自证「今日下单」—— 一张看着像全部、其实只是今天该下的单子，拿去对账就出事
+  if (todayOnly.value) filt.push('今日下单（' + todayText.value + '）')
   if (hideZeroReport.value) filt.push('仅显示有报单')
   openPrintable({
     title: pname + ' · 预报订单汇总表',
@@ -9599,14 +10535,27 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onFsKey) })
       这里返回 0 = 不写内联 max-height，把控制权交回 CSS。
    ⚠️ 下限 180px：极矮窗口算出来可能只剩一百出头，那样表体只有两三行、比溢出更糟，故兜个底。 */
 const editMaxH = ref(0)
-function _applyEditHeight(wrap) {
+
+/* ── v633：两态共用的高度算术（唯一源） ────────────────────────────────────────
+   🔴 问题（真机实测，1600 宽）：查看态 `.cross-viewport` 写死 `max-height: calc(72vh + 119px)`
+      （119 是 v628 撤冲刺激卡省下的补偿），而编辑态是按视口精确算的「恰好填满」。
+      数学上「不溢出」要满足 `上方 + (0.72H + 119) + 下方 <= H` ⇒ **H >= 1539px**，
+      也就是**任何真实视口都溢出**：850 高溢出 193、954 溢出 154、1080 溢出 129。
+      后果两条：
+        ① 看表必须滚动才看得到合计栏/页脚（而此表自己 overflow:auto，滚轮滚的是表格，像"滚不动"）；
+        ② 进出编辑态表体从 731/897 掉到 480/580 —— 用户说的"跳来跳去"就是这个（实测差 251px）。
+      ⇒ 查看态改用与编辑态**同一套**算法后，差值只剩编辑控制组那一行（约 36~58px）。
+   ⚠️ 为什么查看态原来不能照抄这套：查看态页面**会滚动**，而 `max-height` 反过来影响内容总高
+      ⇒ 有「滚一点 → 表格长高 → 页面变高」的循环风险。本实现的 off 用**文档流位置**
+      （`wrap.top + scrollTop - 容器顶`，与滚动位置无关）换算，且**只在 resize / 布局变化时重算**、
+      不挂 scroll ⇒ 不会抖。同理 `.cross-viewport` 的 CSS 兜底值保留，首帧 JS 未跑到时仍有条。
+   ⚠️ 全屏时两者都返回 0 = 不写内联，控制权交回 CSS（`max-height:none`）。 */
+const viewMaxH = ref(0)
+
+/** 表体**下方**的真实占位：其后每个兄弟的高度 + flex gap + 该兄弟自己的 margin-top。
+ *  （合计栏用 margin-top:-10 与表体接合 ⇒ 必须带 margin，不能只加高度。v606 教训） */
+function _belowSpan(wrap) {
   const area = wrap.closest('.grid-area')
-  const vw = wrap.closest('.view-wrap')
-  const vwTop = vw ? vw.getBoundingClientRect().top : 0
-  const scrolled = vw ? vw.scrollTop : window.scrollY
-  const off = wrap.getBoundingClientRect().top + scrolled - vwTop
-  /* v606：表体下方真实占位 = 其后每一个兄弟的高度 + flex gap + 该兄弟自己的 margin-top。
-     （合计栏用 margin-top:-10 与表体接合成一条线 ⇒ 这一步必须带上 margin，不能用高度相加） */
   let below = 0
   if (area) {
     const kids = [...area.children]
@@ -9616,32 +10565,79 @@ function _applyEditHeight(wrap) {
       below += gap + (parseFloat(cs.marginTop) || 0) + el.getBoundingClientRect().height
     }
   }
-  if (!below) below = 32          // 兜底：拿不到 .grid-area 时退回旧口径
-  const stat = document.querySelector('.sel-stat')
-  const statH = stat ? stat.getBoundingClientRect().height + 6 : 0
-  editMaxH.value = Math.max(180, Math.floor(window.innerHeight - vwTop - off - below - statH - 2))
+  return below || 32          // 兜底：拿不到 .grid-area 时退回旧口径
 }
+
+/** 表体顶距滚动容器**内容顶**的偏移（与滚动位置无关）＋ 容器顶的视口坐标 */
+function _offsetInScrollHost(wrap) {
+  const vw = wrap.closest('.view-wrap')
+  if (!vw) return { off: wrap.getBoundingClientRect().top, vwTop: 0 }
+  return { off: wrap.getBoundingClientRect().top + vw.scrollTop - vw.getBoundingClientRect().top,
+    vwTop: vw.getBoundingClientRect().top }
+}
+
+/** 公共算式：视口高 - 容器顶 - 表体偏移 - 下方占位 - 选区状态条 - 2px 余量 */
+function _availHeight(wrap, min = 180) {
+  const { off, vwTop } = _offsetInScrollHost(wrap)
+  /* 选区状态条只存在于编辑态（查看态没有这元素）。判据用「编辑网格在不在」而不是外层类名 ——
+     `.is-editing` 这个类在本页并不存在，写它等于恒 false（静默失效）。 */
+  const stat = document.querySelector('.edit-grid-wrap') ? document.querySelector('.sel-stat') : null
+  const statH = stat ? stat.getBoundingClientRect().height + 6 : 0
+  return Math.max(min, Math.floor(window.innerHeight - vwTop - off - _belowSpan(wrap) - statH - 2))
+}
+
+function _applyEditHeight(wrap) {
+  editMaxH.value = _availHeight(wrap)
+}
+
+function _applyViewHeight(wrap) {
+  viewMaxH.value = _availHeight(wrap, 200)
+}
+
 function recalcEditHeight() {
   if (gridFullscreen.value) { editMaxH.value = 0; return }
   const wrap = document.querySelector('.edit-grid-wrap')
   if (!wrap) { editMaxH.value = 0; return }
   _applyEditHeight(wrap)
 }
+
+function recalcViewHeight() {
+  if (gridFullscreen.value) { viewMaxH.value = 0; return }
+  /* 🔴 找不到 `.cross-viewport`（＝此刻在编辑态，它被 v-if 卸载）时**保留上次的值**，不要清零：
+     清零 ⇒ 退出编辑态那一帧先用 CSS 兜底的 `72vh+119`（≈ 897），下一帧再跳到真值（≈ 580）
+     ⇒ 用户每次「取消/保存」回来都会看到表格先撑高再塌一下，正是要消灭的跳变。
+     保留上个值等于「用进入编辑前的高度」—— 布局没变，那就是对的。 */
+  const wrap = document.querySelector('.cross-viewport')
+  if (!wrap) return
+  _applyViewHeight(wrap)
+}
+
+/** 两态的**唯一重算入口** —— 任何调用点都调它，别只调其中一个
+ *  （只重算一态 ⇒ 切态时另一半用旧值，跳变反而更明显） */
+function recalcHeights() { recalcViewHeight(); recalcEditHeight() }
 onMounted(() => {
-  window.addEventListener('resize', recalcEditHeight)
-  nextTick(() => recalcEditHeight())
+  window.addEventListener('resize', recalcHeights)
+  nextTick(() => recalcHeights())
 })
-onBeforeUnmount(() => window.removeEventListener('resize', recalcEditHeight))
-watch(editMode, (v) => { if (v) nextTick(() => recalcEditHeight()) })
-watch(gridFullscreen, () => nextTick(() => recalcEditHeight()))
+onBeforeUnmount(() => window.removeEventListener('resize', recalcHeights))
+/* 切态后重算**两态**：进编辑态时 `.cross-viewport` 被卸载（viewMaxH 归 0 无害），
+   退回来时它重新挂载、需要立刻拿到正确上限 —— 否则回来那一帧先用 CSS 兜底的 72vh+119，
+   下一帧再跳小，用户看到的正是「进出编辑态表格跳一下」。 */
+watch(editMode, (v) => { nextTick(() => { recalcHeights(); requestAnimationFrame(recalcHeights) }) })
+watch(gridFullscreen, () => nextTick(() => recalcHeights()))
 /* 三个筛选开关会让工具行的徽标出现/消失 ⇒ `.grid-ctl-row` 可能 flex-wrap 折成两行 ⇒
    表格整体下移 32px。`nextTick` 时 flex 还没重排完，必须再等一帧 rAF 才是最终几何。 */
 watch([hideZeroReport, showAllProducts, showEmptyCols], () => {
-  nextTick(() => requestAnimationFrame(recalcEditHeight))
+  nextTick(() => requestAnimationFrame(recalcHeights))
 })
+/* 审批状态徽标（「已确认 · 审批人」/「待审核」）是接口回来的，晚到 ⇒ 主工具栏可能从单行变两行
+   （62 → 100）⇒ 表体上方多 38px。不重算就会多露一截到屏幕外。 */
+watch(confirmInfo, () => { nextTick(() => requestAnimationFrame(recalcHeights)) })
+/* 期次/数据到达后表体上方才会出现「状态条」一类的行；行数变化是它落地的信号 */
+watch(() => cross.value.rows.length, () => { nextTick(() => requestAnimationFrame(recalcHeights)) })
 /* 选区统计条的出现/消失改变底部占位。只在「有↔无」翻转时重算 ——
    挂到 selRange 本身会在拖选过程中每帧改 max-height，抖得没法看。 */
-watch(() => !!selRange.value, () => { nextTick(() => recalcEditHeight()) })
+watch(() => !!selRange.value, () => { nextTick(() => recalcHeights()) })
 
 /* P2-⑬ 键盘可达性快捷键（与 Esc 退出全屏一起构成键盘操作层）：
    · Ctrl/Cmd+S → 保存（编辑态下；即使用户焦点在输入框也允许，避免「点了没存」焦虑）；
@@ -9896,7 +10892,10 @@ const openGroup = ref(null)
 const advToolsOpen = ref(false)   // 高级工具抽屉（编辑模式下收起/展开 4 个分组 + 审批/推送/打印）
 const exportMenuOpen = ref(false)  // ★导出统一菜单：全部/选中行/差异 收进一个下拉，主栏只留一个「导出」
 // 主工具栏弹层（高级）改为 Teleport+fixed，脱离 .toolbar{overflow:auto} 裁切；用触发按钮坐标定位
-const popStyle = reactive({ top: '0px', left: '0px' })
+/* v678：多一个 maxHeight —— 视野装不下面板时，positionTbPop 把它钳到可用空间（超出内部滚动），
+   否则矮视口下面板会盖住自己的触发按钮（面板层级已在按钮之上）。空串 ⇒ Vue 移除该属性 ⇒
+   .brand-pop 的 62vh / .batch-pop 的 70vh 等 CSS 限制照旧生效，不会互相打架。 */
+const popStyle = reactive({ top: '0px', left: '0px', maxHeight: '' })
 const advBtn = ref(null)
 const exportBtn = ref(null)
 // 品牌筛选下拉
@@ -9922,7 +10921,7 @@ const batchMenuOpen = ref(false)
 const addColName = ref('')
 const addColInput = ref(null)
 // 主工具栏各下拉互斥：只允许同时开一个（共享 popStyle 定位 + 一个透明遮罩）。
-// 触发按钮已提层(z1120 > overlay z1100)，弹层开着时可直接点其它触发按钮做互斥切换，
+// 触发按钮已提层(z1101 > overlay z1100，v678 起；此前 1120)，弹层开着时可直接点其它触发按钮做互斥切换，
 // 避免用户“先选品牌、再点复制报单”时第一次点击被遮罩吃掉（只关面板不开新面板）。
 function _closePopPanes(except) {
   if (except !== 'adv') advToolsOpen.value = false
@@ -9992,13 +10991,35 @@ function doCopyQty() { copyMenuOpen.value = false; copyQty() }
 function positionTbPop(btnEl) {
   if (!btnEl) return
   const r = btnEl.getBoundingClientRect()
-  const w = 240
+  /* v678：宽高一律**实测**，不再估。
+     旧实现写死 w=240 / estH=320，而导出面板实测 242×356：
+       ① 宽差 2px ⇒ 面板右缘比按钮多出 2px；
+       ② 高差 36px 更要命 —— 下方空间不足时翻到按钮上方，`r.top - estH - 6` 会让面板底部
+          侵入按钮约 30px。**面板层级已被提到触发按钮之上**（见 .tb-pop 注释），于是翻转后面板
+          盖住自己的触发器：看不到"正开着"的反馈，也点不到它来关闭（只剩点遮罩一条路）。
+     调用点在 nextTick 里，面板此时已挂载，直接量即可；量不到（理论上不会）才退回保守估值。 */
+  const panel = document.querySelector('.tb-pop-panel')
+  const pw = panel ? Math.ceil(panel.getBoundingClientRect().width) : 0
+  const ph = panel ? Math.ceil(panel.getBoundingClientRect().height) : 0
+  const w = pw > 0 ? pw : 240
+  const estH = ph > 0 ? ph : 360
   let left = r.right - w
   if (left < 8) left = 8
-  // 防止底部超出视口：若下方空间不足则翻到按钮上方
-  const estH = 320
-  let top = r.bottom + 6
-  if (top + estH > window.innerHeight - 8) top = Math.max(8, r.top - estH - 6)
+  /* v678：方向改成「**选空间更大的一侧**」，并把面板高度钳制在那一侧的空间内。
+     旧逻辑是「下方放不下就翻上去」，在矮视口（实测高 420）会翻车：
+       上方空间只有 r.top-8 ≈ 110，而面板 356 ⇒ 强制 top=8 后，面板底部 364 **盖住按钮**
+       （按钮 top 118）。面板层级已被提到按钮之上 ⇒ 面板把自己的触发器吃掉了：
+       看不见"正开着"，也点不到它关闭，只剩点遮罩一条路。
+     现在：哪边空间大就放哪边；面板 max-height 钳到该侧空间（超出则内部滚动，见 .tb-pop-panel）。
+     ⇒ 恒等式：面板的矩形永远不与触发按钮重叠（这是判据，探针在 640 / 420 两档视口各验一次）。 */
+  const GAP = 6, PAD = 8
+  const spaceBelow = window.innerHeight - r.bottom - GAP - PAD
+  const spaceAbove = r.top - GAP - PAD
+  const putBelow = spaceBelow >= estH || spaceBelow >= spaceAbove   // 放得下就放下方；放不下则挑空间大的那侧
+  const space = putBelow ? spaceBelow : spaceAbove
+  const top = putBelow ? r.bottom + GAP : Math.max(PAD, r.top - Math.min(estH, space) - GAP)
+  // 只在**装不下**时才写 max-height（空串 ⇒ Vue 移除该声明，CSS 里的 62vh 等仍然生效）
+  popStyle.maxHeight = estH > space ? Math.max(80, space) + 'px' : ''
   popStyle.top = top + 'px'
   popStyle.left = left + 'px'
 }
@@ -11273,6 +12294,7 @@ async function loadCross() {
        只喂一处 ⇒ 某些期次进编辑态后候选空着，而用户看不出「为什么这次没提示」。 */
     masterNameOptions.value = buildNameOptions(allProds)
     const importedProducts = d.imported_products || []
+    setImportNames(importedProducts)          // v673：快照名映射（从品名识别用）
     const importedSet = new Set(importedProducts.map(p => Number(p.id)))
     listPidSet.value = importedSet          // v613：查看态赋值点（两处缺一不可，见 listPidSet 声明）
     // 第三参传 summary 的**原始 rows**（不是聚合后的 sumById）：要拿它的 name/spec/unit
@@ -11310,6 +12332,8 @@ async function loadCross() {
         // v240：报单默认单位随行带上（同 loadEditGrid —— 两条加载路径缺一不可）。
         order_unit: pd.order_unit || '',
         barcode: pd.barcode || '', product_code: pd.product_code || '', dist_price: pd.dist_price || 0,
+        // v670：永辉编码随行带上（与 loadEditGrid 同一纪律：两条加载路径缺一不可）。
+        yonghui_code: pd.yonghui_code || '',
         sale_price: pd.sale_price || 0, purchase_price: pd.purchase_price || 0,
         // v190：进价随行带上（同 loadEditGrid —— 两条加载路径都必须带，漏一处该态就算错）。
         //   本行是**查看态（只读汇总表）**的数据源：不带上它，汇总表的「单价(进价/箱)」与
@@ -11320,6 +12344,10 @@ async function loadCross() {
         // v184：到货周期（同 loadCross —— 本处的 pd 同样来自 productsApi.grid）。
         //   ⚠️ 两条加载路径都要带：漏一处会让「本期」显示 +3天 而「往期」全变「—」。
         arrival_lead_days: Number(pd.arrival_lead_days) || 0,
+        // v673：下单日节奏随行带上。本处是**查看态（只读汇总表）**的数据源，
+        //   而 `pd` 来自 productsApi.grid ⇒ 在同一期里，查看态与改单态必须同值，
+        //   否则「列里写着双号、今日下单却筛不出」＝ 两态口径打架。
+        order_days: pd.order_days || '',
         qtyByUnit, total, boxes, price, amount,
         ai, aiMethod, people, stores, final_qty, decided, extra_qty,
         /* v190：本期手工单价（元/箱）—— 只读汇总表的**金额列要靠它**。
@@ -12167,6 +13195,28 @@ onMounted(async () => {
    表头内的齿轮/输入框一并压到 20px 内容盒 ⇒ 表头 = 合计 = 22px。
    ⚠️ 表头里的任何子元素高过 20px 都会重新把整行撑高（见下面 .col-cfg.gear / .cell-input 两条）。 */
 .cross-tbl thead th{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd);font-weight:500;color:var(--t2);padding:1px 7px 0;line-height:var(--fc-cell,20px);white-space:nowrap}
+/* v666：表头两枚 14px 小按钮 —— 右：漏斗（筛选）；左：＋（插入列）。
+   ⚠️ 尺寸纪律同 v654：表头行高 20px，**流内**子元素一高就撑整行 ⇒ 一律绝对定位、不参与行盒。
+   `right:8px` 让开右边缘的 `.col-resizer`（right:-3px / width:9px）。
+   v667：漏斗改为**常显**（淡到 30% 不抢眼，悬停/已筛选才实心高亮）——
+         Excel 的筛选入口是常驻的，藏在 hover 里等于让人猜「这表能不能筛」。
+         「＋」是结构编辑、不是高频动作，仍只在悬停时露出。 */
+.cross-tbl thead th .th-qa,.cross-tbl thead th .th-funnel{position:absolute;top:1px;z-index:6;
+  align-items:center;justify-content:center;width:14px;height:14px;padding:0;
+  border:1px solid transparent;border-radius:3px;background:transparent;color:var(--t2);
+  cursor:pointer;line-height:1}
+.cross-tbl thead th .th-funnel{right:8px;display:inline-flex;opacity:.3}   /* 常显 = Excel 习惯 */
+.cross-tbl thead th .th-qa{right:26px;display:none}
+.cross-tbl thead th:hover .th-qa{display:inline-flex}
+.cross-tbl thead th:hover .th-funnel,.cross-tbl thead th .th-funnel:focus-visible{opacity:1}
+.cross-tbl thead th:hover .th-funnel{border-color:var(--bd);background:var(--bg3)}
+/* 🔴 已筛选的列：漏斗**实心 + 主题色 + 常显**。靠悬停才看得见 = 用户不知道哪列在筛，
+   而 Excel 的第一可读性就是「哪个漏斗是亮的」。 */
+.cross-tbl thead th .th-funnel.on{display:inline-flex;opacity:1;color:var(--p);border-color:var(--p);background:var(--p-bg)}
+.cross-tbl thead th .th-qa:hover{color:var(--p);border-color:var(--p);background:var(--p-bg)}
+.cross-tbl thead th .th-funnel:hover{color:var(--p);border-color:var(--p);background:var(--p-bg);opacity:1}
+/* 全局 `.ico{16px}` 会盖掉 svg 的 width 属性 ⇒ 尺寸只能在这里定，Icon.vue 的 size 参数不管用 */
+.cross-tbl thead th .th-qa .ico,.cross-tbl thead th .th-funnel .ico{width:10px;height:10px}
 /* v579：排序箭头的 svg 是 inline-block + `vertical-align:middle` ⇒ 它按基线对齐会给行盒
    额外顶出 2px（实测 .th-in 从 20 → 22、整行 24）。改成 12px 高的 inline-flex「盒子」后
    svg 不再参与基线计算 ⇒ 行盒回到 20px、整行 **22px = 合计行**，且箭头视觉上更居中。
@@ -12418,8 +13468,18 @@ th.sortable:hover{color:var(--p-dark)}
    ✅ 实测（1366×768 / 1600×913）：表体 553→672 / 657→776，**底边 1014 / 1078 分毫不动**，
       页脚位置与整页高度同样不变 ⇒ 表格只长高、不位移。
    ⚠️ 以后改顶部卡片高度（或恢复它）时这个数必须同步；现值 = 卡片高 115 + 4。
-   ⚠️ 全屏态 `.grid-area.is-fs` 下 max-height:none，本值不参与，不用改。 */
-.cross-viewport{flex:1 1 auto;min-height:0;min-width:0;max-height:calc(72vh + 119px);overflow:auto;position:relative}
+   ⚠️ 全屏态 `.grid-area.is-fs` 下 max-height:none，本值不参与，不用改。
+   🔴 v633：本规则**已降级为「首帧兜底」** —— 真值由 JS 的 `viewMaxH` 以行内 max-height 覆盖。
+      原因：`72vh + 119` 在数学上要求视口高 ≥ 1539px 才不溢出，
+      而实测 850/954/1080 三档分别溢出 193/154/129 ⇒ 看表必须滚动才见得到合计栏与页脚；
+      同时编辑态是按视口精确算的「恰好填满」⇒ 进出编辑态表体从 897 掉到 580，
+      这才是用户说的「跳来跳去」。现在两态共用 `_availHeight()`，差值只剩编辑控制组那一行。
+      留着这个值只是为了「JS 还没跑到」的那一帧表体不至于先塌成一条。 */
+.cross-viewport{flex:1 1 auto;min-height:0;min-width:0;
+  /* v633 首帧兜底：`72vh + 119` 与「视口内可用」取小 —— 后者用实测的「上方 278 + 下方 34 ≈ 300」
+     做近似（窄屏工具栏折行会多 34，JS 会在下一帧按真实几何修正）。
+     这样 JS 算出的真值与首帧值几乎相等，用户看不到"先撑高再塌"。 */
+  max-height:min(calc(72vh + 119px), calc(100vh - 300px));overflow:auto;position:relative}
 /* v454：交叉表横向滚动条加粗 + 显眼，方便鼠标点中拖动（特别是横向滚动） */
 .cross-viewport::-webkit-scrollbar,
 .edit-grid-wrap::-webkit-scrollbar{height:18px;width:14px}
@@ -12487,7 +13547,8 @@ th.sortable:hover{color:var(--p-dark)}
    没有图标可收，再 slim 就是空框。现在三个徽标全屏也显示完整文案（与 v570 的取向一致），
    行宽不足由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切，故这里不再需要任何徽标专属规则。 */
 /* v129 修复：全屏时把主工具栏弹层容器降回普通层级。
-   .tb-pop 常态 z-index:var(--z-page-bar)（要高于 .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”），
+   .tb-pop 常态 z-index:var(--z-page-trigger) 1101（v678 前是 --z-page-bar 1120；要高于
+   .pop-overlay 1100 才能“弹层开着直接点别的触发按钮”，1101 已满足，见下方 .tb-pop 规则），
    但全屏层 .grid-area.is-fs 只有 1000 → 仍在工具栏的「导出」「工具箱」触发器会盖在全屏层上，
    脱离工具栏悬浮在表体中间、遮挡表头与数据行。全屏时置为 auto（< 1000）即可随工具栏一起被覆盖。
    不动 .tb-pop 常态值，退出全屏后普通模式的互斥点击行为完全不变。
@@ -12500,10 +13561,13 @@ th.sortable:hover{color:var(--p-dark)}
 .grid-area.is-fs .grid-ctl-row>.tb-edit-group{gap:6px}
 .grid-area.is-fs .grid-ctl-row>.tb-edit-group>.btn{padding-left:9px;padding-right:9px}
 /* v135 修复：AI 副驾全局抽屉（.copilot z-index:950）打开时，主工具栏 .tb-pop 的常态
-   z-index:var(--z-page-bar) 会浮在抽屉之上——触发按钮（工具栏内「导出 / 期次 / 高级工具」，表体工具行内
-   「品牌 / 复制报单」）脱离页面悬浮在副驾抽屉上。与全屏层 .grid-fs-on 同构：副驾打开时统一
-   降为 auto（< 950），随页面一起被抽屉遮罩（.cp-overlay 940）覆盖。弹层面板/遮罩一并降级，
-   避免抽屉开着时旧弹层仍浮在上层。不动 .tb-pop 常态值，关闭副驾后互斥点击行为完全不变。 */
+   z-index（v678 起是 --z-page-trigger 1101，此前 --z-page-bar 1120）仍高于抽屉，会浮在抽屉之上——
+   触发按钮（工具栏内「导出 / 期次 / 高级工具」，表体工具行内「品牌 / 复制报单」）脱离页面悬浮在副驾抽屉上。
+   与全屏层 .grid-fs-on 同构：副驾打开时统一降为 auto（< 950），随页面一起被抽屉遮罩（.cp-overlay 940）覆盖。
+   不动 .tb-pop 常态值，关闭副驾后互斥点击行为完全不变。
+   ⚠️ 已知缺口（**非 v678 引入，未改**）：`.tb-pop-panel` 是 `Teleport to="body"` ⇒ 选择器
+   `.page.copilot-on .tb-pop-panel` **永不匹配**，弹层面板在副驾打开时仍浮在抽屉之上。
+   要真修得把 copilot-on 挂到 body 上再写 body 级规则，属另一件事，不夹带在这里。 */
 .page.copilot-on .tb-pop,
 .page.copilot-on .tb-pop-panel,
 .page.copilot-on .pop-overlay{z-index:auto}
@@ -12521,8 +13585,17 @@ th.sortable:hover{color:var(--p-dark)}
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
 .tb-search .fld:focus{box-shadow:none}
 .tb-search .fld::placeholder{color:var(--t3)}
-.tb-pop{position:relative;display:inline-flex;z-index:var(--z-page-bar)}/* z 高于 .pop-overlay(1100)：弹层开着时仍可直接点触发按钮做互斥切换 */
-.tb-pop-panel{position:fixed;z-index:var(--z-page-menu);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:220px}
+/* 🔴 v678：触发按钮 1120 → 1101（`--z-page-trigger`），面板 1101 → 1116（`--z-page-pop`）。
+   原因（真机取证）：面板从「导出」向下展开时罩住表体工具行的「品牌/到货周期/复制报单」，
+   而那三个按钮当时是 1120 > 面板 1101 ⇒ 浮在面板上并劫走点击（点面板中部会打开到货周期筛选），
+   界面上看起来只是"多了一条带边框的遮挡带"。
+   1120 那档原意只是「高于 .pop-overlay(1100) ⇒ 弹层开着仍可直接点别的触发按钮做互斥切换」，
+   1101 就满足，多出来的 19 档纯属误伤。面板则必须**压过**触发按钮，否则遮挡永不可修。
+   层级全序：遮罩 1100 < 触发按钮 1101 < 面板 1116 < 天气浮层 1121 < 模态 1125。
+   🔴 这条在 v704 修过一次却复发了（源码线被整体回退）⇒ 已配静态护栏
+   `tests/zorder-trigger-below-panel.guard.mjs`，改这两个值前先跑它。 */
+.tb-pop{position:relative;display:inline-flex;z-index:var(--z-page-trigger)}/* > .pop-overlay(1100)：弹层开着时仍可直接点触发按钮做互斥切换；< 面板本体 */
+.tb-pop-panel{position:fixed;z-index:var(--z-page-pop);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:220px;max-height:calc(100vh - 16px);overflow-y:auto}/* max-height/overflow：兜底，矮视口下宁可内部滚动，也不许溢出视口到点不到 */
 .zp-sep{height:1px;background:var(--bd);margin:2px 0}
 .zp-hd{font-size:12px;font-weight:600;color:var(--t3);margin-top:2px}
 .zp-hd-sub{font-weight:400;color:var(--t3);margin-left:5px}
@@ -12567,16 +13640,13 @@ th.sortable:hover{color:var(--p-dark)}
 .vs-spacer td{border:none;padding:0;height:0;line-height:0;background:transparent;font-size:0}
 .qty-num{display:inline-block;min-width:18px}
 .tbl-state{padding:40px 16px;text-align:center}
-/* v267：无报单汇总权限的常驻说明 —— 用琥珀（--warn-amber）而**不是**红（--dan）：
-   这不是错误，是「你的角色看不到这一块」。用红会让人以为系统坏了 —— 那正是本轮修掉的误读。
-   明/暗两套主题下 --warn-amber / --warn-amber-bg 都由 variables.css 成对给出，不写死 rgba。 */
+/* v267→v651：无汇总权限时的中性空态头部 —— 用琥珀（--warn-amber）而**不是**红（--dan）：
+   这不是错误。用红会让人以为系统坏了。明/暗两套主题下 --warn-amber / --warn-amber-bg
+   都由 variables.css 成对给出，不写死 rgba。（v651 删去 .denied-body 的角色说明文案，只留中性头部。） */
 .tbl-state.denied-state{padding:48px 24px}
 .denied-state .denied-hd{display:inline-flex;align-items:center;gap:6px;
   padding:4px 12px;border-radius:var(--radius-sm);background:var(--warn-amber-bg);color:var(--warn-amber);
   font-weight:600;font-size:14px;line-height:1.9}
-.denied-state .denied-body{max-width:520px;margin:10px auto 0;color:var(--t2);
-  font-size:13px;line-height:1.95;text-align:left}
-.denied-state .denied-body b{color:var(--t1)}
 .tbl-skeleton .sk-row{display:flex;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border-subtle)}
 .tbl-skeleton .sk-bar{flex:1;height:14px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 37%,var(--bg2) 63%);background-size:400% 100%;animation:sk 1.2s ease-in-out infinite}
 @keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
@@ -12663,6 +13733,17 @@ th.sortable:hover{color:var(--p-dark)}
 .pin .big b{color:var(--p-dark)}
 .pin .mini{font-size:12px;color:var(--t2)}
 .pin .mini b{color:var(--t1)}
+/* v666：「筛选后 N / 共 M 行」用主题色（这是本轮新增的口径说明），
+   「全期」对照用 t3 弱化 —— 两者都在解释左边那三个数，不能抢主数字的视觉权重。 */
+.pin .pin-filtered{color:var(--p)}
+/* v672：筛选**来源**（品牌 2/3 个 · 到货周期 +3天…）—— 比主题色再弱一档，
+   它解释「为什么只有 N 行」，不该和「筛选后 177」抢读。 */
+.pin .pin-src{color:var(--t3);font-size:11.5px;font-weight:400}
+.pin .pin-clr{margin-left:5px;padding:0 4px;height:16px;line-height:16px;font-size:11.5px;
+  color:var(--p);background:none;border:1px solid color-mix(in srgb,var(--p) 35%,transparent);
+  border-radius:4px;cursor:pointer}
+.pin .pin-clr:hover{background:color-mix(in srgb,var(--p) 12%,transparent)}
+.pin .pin-all{color:var(--t3);font-size:11.5px}
 /* v585：冲刺胶囊靠页脚最右。align-self:center 抵消 .pin 的 baseline 对齐 ——
    胶囊是定高 20px 的 inline-flex，按文字基线对齐会被 Icon 的基线带偏 1~2px。
    🔴 v620：这条 v585 的规则**从来没生效过**（真机量：胶囊 margin-left 恒 0px，
@@ -12850,11 +13931,37 @@ th.sortable:hover{color:var(--p-dark)}
 .ctx-menu button.ctx-on{background:color-mix(in srgb,var(--p) 14%,var(--bg));color:var(--p)}
 /* 表头右键：唯一值筛选列表 */
 .ctx-uniq-hd{padding:7px 10px 4px;font-size:12px;color:var(--t1);display:flex;align-items:center;justify-content:space-between;gap:8px}
+/* v666：Excel 式筛选面板（比普通菜单宽 —— 值清单要能读全；高度由内容决定，超出则菜单自身滚动）
+   v667：改成「勾选即生效」的下拉：贴列头掉下来、勾完就关，不再有「应用筛选」。 */
+.ctx-fx-menu{width:268px;min-width:268px;padding:0}
+.ctx-fx-hd{display:flex;align-items:center;gap:6px;padding:8px 8px 3px 10px;font-size:12px;font-weight:600;color:var(--t1)}
+.ctx-fx-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ⚠️ 必须覆盖 `.ctx-menu button`（width:100%/display:flex）—— 关闭钮要的是 22px 小方块，不是整行 */
+.ctx-menu .ctx-fx-x{flex:0 0 auto;width:22px;height:22px;padding:0;display:inline-flex;
+  align-items:center;justify-content:center;border-radius:var(--radius-sm);color:var(--t3)}
+.ctx-menu .ctx-fx-x:hover{background:var(--bg3);color:var(--t1)}
+.ctx-fx-x .ico{width:12px;height:12px}
+.ctx-fx-tools{display:flex;align-items:center;gap:10px;padding:2px 10px 4px}
+.ctx-fx-cnt{margin-left:auto;color:var(--t3);font-size:11px;font-variant-numeric:tabular-nums}
+/* 「清空选择」是同排里的小号文字钮：不能长成整行按钮，否则和「全选」抢视线 */
+.ctx-menu .ctx-fx-link{width:auto;display:inline-flex;padding:0;background:none;border:none;
+  color:var(--p);font-size:11px;line-height:1;cursor:pointer}
+.ctx-menu .ctx-fx-link:hover{background:none;text-decoration:underline}
 .ctx-uniq-all{display:flex;align-items:center;gap:4px;color:var(--t2);font-size:var(--fs-sm);cursor:pointer}
 .ctx-uniq-list{max-height:200px;overflow:auto;padding:2px 6px}
+.ctx-fx-list{max-height:240px}
 .ctx-uniq-item{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:var(--radius-sm);cursor:pointer}
 .ctx-uniq-item:hover{background:var(--bg3)}
 .ctx-uniq-val{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 「一个值都不勾」的告警条：必须点明「表现在是空的」，否则会被当成数据丢了 */
+.ctx-fx-warn{margin:4px 10px 6px;padding:5px 8px;border-radius:var(--radius-sm);
+  background:var(--warn-amber-bg);color:var(--warn-amber);font-size:11px;line-height:1.6}
+/* 条件筛选：二级折叠，默认收起，只留一行入口（Excel 的「数字筛选」同理） */
+.ctx-fx-cond{margin-top:4px;border-top:1px solid var(--border-subtle);padding-top:2px}
+.ctx-menu .ctx-fx-cond-hd{width:100%;padding:6px 10px;color:var(--t2);font-size:11px;gap:6px;align-items:center}
+.ctx-fx-cond-hd .ico{margin-left:auto;width:12px;height:12px;color:var(--t3)}
+.ctx-fx-cond-on{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--p-bg);color:var(--p);font-size:10px;line-height:16px}
+.ctx-fx-foot{border-top:1px solid var(--border-subtle);padding-top:7px}
 .ctx-ipt-unit{color:var(--t2)}
 /* 条件格式：库存<安全库存 整行高亮 */
 .edit-tbl tr.cond-warn > td,
@@ -12879,7 +13986,7 @@ th.sortable:hover{color:var(--p-dark)}
 /* v136 修复：模态层必须高于「页面内所有浮层」，原先的 980/990 排在工具栏下拉之下。
    成因：本弹窗与遮罩都 Teleport 到 body，而 .page/.card/.toolbar/.grid-ctl-row 祖先链
    无 position+transform/filter/backdrop-filter，均不创建 stacking context ——
-   于是工具栏 .tb-pop 的常态 1120 直接在根层与这里的 990 比较，1120 > 990，
+   于是工具栏 .tb-pop 的常态（v678 起 1101，此前 1120）直接在根层与这里的 990 比较，仍 > 990，
    只要两者矩形重叠（实测视口高 >= 1040px 时品牌按钮即落入弹窗矩形），
    品牌/导出/复制报单三个按钮就浮在弹窗之上；遮罩 980 同样失效（品牌按钮仍可点穿）。
    取值：页面内浮层天花板 = 天气面板 .wx-pop 1121（注释「高于页面内所有下拉浮层」），
@@ -13032,7 +14139,7 @@ th.sortable:hover{color:var(--p-dark)}
 .sd-main{flex:1;min-width:0}
 .sd-alias{flex-shrink:0}
 /* v136 修复：别名弹窗同属模态层，与 .imp-* 同因（Teleport 到 body、祖先无 stacking context）
-   → 一并提到 1125/1130，否则商品别名弹窗同样会被工具栏 .tb-pop 1120 遮挡。 */
+   → 一并提到 1125/1130，否则商品别名弹窗同样会被工具栏 .tb-pop（v678 起 1101，此前 1120）遮挡。 */
 .al-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-page-modal-overlay)}
 .al-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(400px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-page-modal);box-shadow:var(--shadow-lg)}
 .al-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle)}
@@ -13134,6 +14241,8 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
    `v-if="show"`（无冲刺数据时不渲染）⇒ 推手会整块消失、整行退化成左对齐（真机实测右侧空 211px）。 */
 .edit-summary>.es-right{margin-left:auto;align-self:center;display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
 .edit-summary b{color:var(--p-dark);font-size:15px}
+/* v666：改单态合计恒为全量 —— 筛选生效时把这句话明写出来（避免"保存只存筛出来的"的误解） */
+.edit-summary>.es-note{font-size:11.5px;color:var(--t3)}
 .link-btn{border:none;background:none;color:var(--warn-amber);text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
 
 /* ---- P3-P4 增强样式 ---- */
@@ -13417,6 +14526,22 @@ td.flash, .qty-cell.flash{animation:cellFlash .45s ease-out 2}
 .rc-lb{font-size:13px;color:var(--t2)}
 .rc-hint{font-size:12px;color:var(--t3);line-height:1.4}
 .rc-hint b{color:var(--t2);font-weight:600}
+/* v673：批量设置下单日 —— 「统一设为」规则组 + 两个子输入（每周几 / 每月几号）。
+   几何与同行基准同构（32 高 / 13 字 / 1px 边 / radius-sm），不另立一套外观（v599 纪律）。 */
+.rc-set-col{flex-direction:column;align-items:stretch;gap:8px}
+.ord-modes{display:flex;flex-wrap:wrap;gap:10px}
+.ord-mode{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--t1);
+  cursor:pointer;user-select:none;height:32px;padding:0 12px;border:1px solid var(--bd);
+  border-radius:var(--radius-sm);background:transparent}
+.ord-mode:hover{background:var(--bg2)}
+.ord-mode input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
+.ord-sub{display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%}
+.ord-wd{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap}
+.ord-wd input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
+/* 每月几号是**文字输入**（3、7、11…），故覆盖 .cb-input 的 74px 右对齐 —— 那是给「天数」用的 */
+.ord-sub input.cb-input{width:100%;max-width:380px;text-align:left;padding:0 10px;height:32px}
+.ord-preview{margin:2px 0 0;font-size:12.5px;color:var(--t2)}
+.ord-preview b{color:var(--p);font-weight:600}
 .cb-in-wrap{position:relative;display:inline-block}
 /* 单位「天」常驻在框内右侧（不是 placeholder）—— 填了数字也还看得见单位；
    补 20px 右内边距给这俩字腾位置，否则值会压在它上面。 */

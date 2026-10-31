@@ -745,6 +745,13 @@ const NAV = [
   {
     key: 'reports', name: '数据报表', icon: 'bar-chart', path: '/reports/sales-order',
     groups: [
+      /* v720（2026-10-28 阶段1/M5）：数据质量组置于数据报表区**首位**。
+         理由：这一页是后续所有账务/库存改动的「报警器」——每次改完先看它，
+         所以入口要比「看哪张表」更早出现，而不是埋在「通用报表」里。
+         icon `shield` 已核实在 components/Icon.vue ICONS 表（写错会静默变齿轮，v453 教训）。 */
+      { label: '数据质量', items: [
+        { path: '/reports/data-health', name: '数据健康自检', icon: 'shield' }
+      ] },
       { label: '业财报表', items: [
         { path: '/reports/sales-order',  name: '销售订单汇总表',   icon: 'list' },
         { path: '/reports/purchase',     name: '采购汇总表',       icon: 'list' },
@@ -801,7 +808,10 @@ const NAV = [
         { path: '/reports/customer-rank',            name: '客户销额排名', icon: 'sort' }
       ] },
       { label: '通用报表', items: [
-        { path: '/reports/personal', name: '个性化报表', icon: 'edit' }
+        { path: '/reports/personal', name: '个性化报表', icon: 'edit' },
+        /* v725：改报表口径的工具。只给老板 —— PAGE_RULES 里 roles=BOSS_ROLES，
+           非老板即使直达链接也会被路由守卫挡住，后端 _require_boss 是第三道。 */
+        { path: '/reports/builder',  name: '报表设计器', icon: 'settings' }
       ] }
     ]
   },
@@ -1392,6 +1402,17 @@ function onKeydown(e) {
     if (e.shiftKey) cmdOpen.value = true
     else store.ui.copilotOpen = !store.ui.copilotOpen
   }
+  /* v649：⌘⇧O / Ctrl+Shift+O = 另起一段新对话（对齐 ChatGPT 的肌肉记忆）。
+     🔴 与 ⌘K 相反，这里**不豁免输入框** ——「打字打到一半想换个话题」正是高频场景，
+        豁免会让用户在输入框里按了毫无反应，还以为快捷键坏了。
+        ⌘⇧O 不是浏览器保留组合，误触成本可忽略。
+     🔴 `preventDefault()` 仍在判据**之后**（同 ① 的理由）：无 AI 权限时不吃掉这个键。 */
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'o' || e.key === 'O')) {
+    if (!store.canUseAi()) return
+    e.preventDefault()
+    store.ui.copilotOpen = true
+    store.ui.copilotNewTick++   // 抽屉 watch 到信号后执行 newSession（见 CopilotDrawer）
+  }
 }
 
 onMounted(() => {
@@ -1575,7 +1596,8 @@ function stopResize() {
 
 .mnav{display:none}
 /* v136 全局模态层基准：遮罩 1125 / 内容 1130。
-   必须高于页面内浮层上限（.tb-pop 1120、.wx-pop 1121），否则在预报页这类带工具栏
+   必须高于页面内浮层上限（.tb-pop 触发按钮 1101 / .tb-pop-panel 面板 1116 —— v678 起；
+   此前 .tb-pop 是 1120、.wx-pop 是 1121），否则在预报页这类带工具栏
    下拉的页面里，触发按钮会浮在模态之上、可点穿（实测 3/3 按钮遮挡）。
    仍低于系统级：空闲超时 9998 / toast 9999 / ErrorBoundary 99999。 */
 .md-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1125}
@@ -1613,7 +1635,7 @@ function stopResize() {
 .tb-menu-item:hover{background:var(--bg2)}
 .tb-menu-item.danger{color:var(--dan)}
 
-/* v136：全局模态层基准 1130（同 .md-sheet）。原 1000 低于预报页 .tb-pop(1120)，
+/* v136：全局模态层基准 1130（同 .md-sheet）。原 1000 低于预报页 .tb-pop（1120，v678 起 1101），
    于是「修改资料」打开时工具栏的导出/复制报单/品牌三个按钮浮在遮罩之上、可点穿。
    本元素非 Teleport（在 .shell 内），而 .shell 无 stacking context，改值即生效。 */
 .pf-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:1130;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}

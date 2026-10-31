@@ -429,7 +429,7 @@
               @dragstart="onColDragStart(ci)" @dragover.prevent @drop="onColDrop(ci)">
             <span class="drag">⠿</span>
             <label><input type="checkbox" :checked="colVis[k] !== false" :disabled="k === FIXED_FROZEN"
-                          @click.prevent="toggleCol(k)"> {{ colMap[k].label }}</label>
+                          @change="onColCheck(k, $event)"> {{ colMap[k].label }}</label>
             <!-- v415：自定义字段的改名 / 删除，长在**它自己那一行**里 ——
                  本页没有表头右键菜单，面板是列管理唯一的家（§2.6.1 也不许往工具栏加按钮）。 -->
             <template v-if="colMap[k].custom">
@@ -469,7 +469,6 @@
           <button class="btn btn-xs btn-ghost" @click="cancelAddField">取消</button>
         </template>
         <button v-else-if="canAddCol" class="btn btn-xs btn-ghost" @click="startAddField">新增字段</button>
-        <span v-else class="ipl-cm-err">当前账号没有新增字段的权限</span>
       </div>
       <div class="col-menu-reset">
         <button class="btn btn-ghost btn-xs" @click="resetCols">恢复默认</button>
@@ -870,6 +869,17 @@ function toggleCol (k) {
   if (k === FIXED_FROZEN) return                 // 固定列不参与显隐（勾选框已 disabled）
   colVis.value = { ...colVis.value, [k]: !(colVis.value[k] !== false) }
   persistCols()
+}
+/* 🔴 v677：列设置复选框的唯一入口 —— **不许写回 `@click.prevent="toggleCol(...)"`**
+   （全站第二次复发，v669 修过一次）。Chrome 的 pre-click activation 先翻转 checked 再派发 click，
+   `preventDefault()` 之后浏览器把翻转还原；Vue 只在 vnode prop 变化时写 DOM ⇒ 不再 patch
+   ⇒ 勾选态与列显隐永久相反。真实鼠标必现，JS `el.click()` 不打这儿，所以探针必须用真鼠标。
+   正解：`@change`（不 prevent）+ nextTick 按状态回写。详见 Forecast.vue::onColCheck。 */
+function onColCheck (k, e) {
+  toggleCol(k)
+  const el = e && e.target
+  if (!el) return
+  nextTick(() => { el.checked = colVis.value[k] !== false })
 }
 function onColDragStart (ci) { colDragFrom.value = ci }
 function onColDrop (ci) {
