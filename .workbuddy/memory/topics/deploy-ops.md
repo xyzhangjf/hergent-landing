@@ -2728,24 +2728,8 @@ CDN / 浏览器可能命中**上一次部署的** `index.html` ⇒ 探针实际�
 
 
 
-<!-- ===== 自 MEMORY.md 索引归并 2026-10-25（原文逐字保留，勿删）===== -->
+## §MEM-ARCHIVE-v633b（2026-10-20 从 MEMORY.md 迁入，原文）
 
-### 🔴 部署 / 构建
+### 起号 / 并行分叉 / pages.js
 
-- 构建 `node ./node_modules/vite/bin/vite.js build --emptyOutDir false`（PATH 无 `.bin`）；旧 chunk 留在 dist ⇒ 查符号必须 grep **新** chunk 名。
-- 发布 `rsync -av --no-owner --no-group dist/assets/`（**绝不 `--delete`**）→ 最后 scp `index.html` → 双侧 md5。macOS rsync 不支持 `--chown`。
-- 🔴 只传改动 chunk 会白屏（新 entry 闭包线上可能全无）⇒ 传整个 `dist/assets/`。
-- 🔴 「改了但用户说没变」第一步查构建号：打包后是**双引号** `__HG_BUILD__="v683"`（源头在 `src/main.js`，**发版前先升版本号**）；懒加载 chunk **不出现**在 index.html 的 script 标签（据此判「没部署」必误判）；SPA 老标签页永不重拉 index.html。
-- 🔴 生产热修不进 git ⇒ 下次整包同步必回退。**「以前修过现在又坏了」：数 `/opt/hergent-cn-v2/assets/*.js` 里关键字出现次数（`grep -o … | wc -l` + `ls -t`），次数多的那版就是修好的，从产物复刻，修完必须进 git + 契约护栏。**
-- 🔴 站点归属：`hergent.cn`/`www` → `/opt/hergent-cn-v2`；`erp.hergent.cn` → `/opt/static`（旧 admin）。**发版核验只认 hergent.cn**。样式常在懒加载 chunk 的 css。
-- 🔴🔴 **后端 `/opt/hergent-erp/*.py` 同样会漂移，且已实测发生**（2026-10-26 v692）：线上 `erp_db.py` **23,046 行**，本仓 git `HEAD` 只有 **22,956 行** ⇒ 生产比仓库**多 90 行热修**。当时 `scp` 整文件覆盖，**差点把 90 行生产补丁抹掉**（靠发现文件字节数少 8,203 才发现）。
-  ⇒ **推后端单文件前的强制动作**：① 线上先 `cp -p` 备份；② 比 `wc -l` **和** md5（`git show HEAD:path | md5` vs 线上 `md5sum`）；③ **不一致就绝不整文件覆盖**，改为在线上版本上做精确插入（锚点唯一性校验 + 幂等 + 拒绝瞎改），改完 `py_compile`。行数相同也不代表内容相同，必须比 md5。
-  ⚠️ 同次踩到：**`ssh` 里用 heredoc 写中文会破坏编码**（`真` 字变成 `\ufffd` 乱码，功能无碍但留脏）。带中文的脚本**先在本地写好再 scp**，必须在远端生成的用 `\uXXXX` 转义。
-
-### 🔴 测试基线
-
-- 入口：后端 `tests/run_all_tests.py`｜前端 `tests/run-all.mjs`（**18 组**：万元往返 / SFC 符号 / 跨组件·漏 import·双重解包 / 返利 HTTP 契约 / 副驾入口 / ⑫顶栏 ⑬侧栏 ⑭标签栏 ⑮行内更多菜单 ⑯页头密度 ⑰建单页密度 ⑱单位×价格联动）。
-- 🔴 「有测试文件」≠「有测试」：17/23 后端文件是脚本式（顶层 `sys.exit`）混在 pytest 里 ⇒ 收集 `INTERNALERROR`、零覆盖却看着健全。
-- 🔴 转绿前先自证判别力（注回已知缺陷看能否抓红）；假阴性比假红危险。自证框架本身也会错（v683 `bodyOf` 把默认参数 `{}` 当函数体 ⇒ 坏样本全漏抓）。
-- 🔴 正则前导要零宽断言 `(?<![\w.$'"])`；扫模板别扫全文，扫前剥 HTML 注释；已知缺陷进 `KNOWN_ISSUES`。
-- 🔴 后端无 CI、回滚只靠手工 `.bak-*`（生产后端不在 git）。
+- 起号必读 `version-history.md` + 实搜两仓 `git log --all` + `git worktree list`。并行分叉：scoped 提交→merge origin/main→合并 HEAD 重建→部署→验「双方标记都在」。改 `pages.js` 先分清单"路由"还是"门禁"（本项目=门禁唯一源，`ruleFor` 未登记 path 一律放行⇒删占位登记=放宽门禁）v499。前端 `roles` 窄名单非真保险⇒敏感页必须后端 `_admin` 双保险(v531)。

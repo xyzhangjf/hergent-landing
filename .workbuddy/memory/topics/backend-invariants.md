@@ -831,107 +831,177 @@ PY
   🔴 **教训**：「数据缺陷被恒 0 掩盖」与「恒 0 本身就是缺陷」是两回事 ——
   补数的**同一轮**必须重跑依赖该数的下游判据/图表，否则旧缺陷换一身皮继续骗人。
 
+
+## §MEM-ARCHIVE-v634（2026-10-20 从 MEMORY.md 迁入）
+
+### 副驾权限边界 + 文档上下文注渲染
+
+- 🔴 **「副驾能改生产代码」是 OS 身份问题，不是开关**（v634）：web 端副驾=**单一实例**（`copilot_proxy` 上游只写 `127.0.0.1:18765`，属主 `hergent`，可写 `/opt/hergent-erp`、不可写前端 dist）；企微端才是真隔离（`hergent_t1`，**无 sudo**、只能写自己 home）。`hermes_tenants.py` 只用来取 `home_for()` 存文件、**不用于选网关**⇒ web 端所有租户共用超管身份。**卖 SaaS 前必须做：web 端按租户路由到各自实例。** 全文 `topics/backend-invariants.md` §MEM-ARCHIVE-v634。
+- 🔴 **给模型看的上下文注，不进人的气泡**（v634）：Hermes `_build_document_context_note` 生成 `[The user sent a document: …]` 落在 user 回合正文 ⇒ 老板看到「像乱码」。渲染层抽成附件条、**不动落盘数据**；文件名优先解 `agent_path` 的 basename（URL 编码），兜底才解 display_name（`_E6_9C_88` 字节 hex）；**只吃英文注**，前端自己拼的 `【附件：…】` 是给人看的、必须原样留。§MEM-ARCHIVE-v634。
+
+
+## §MEM-ARCHIVE-v635（2026-10-20 从 MEMORY.md 迁入）
+
+### 副驾按租户路由（实施细节 + 五个必踩的坑）
+
+**定式**：`hermes_tenants.gateway_api(tenant_id)` → `{url,key,tenant,isolated}` 或 `None`。
+- tenant 1（平台自有）→ `HERMES_API_URL`（默认 18765 根实例），`isolated=False`
+- 其它 → 读 `home/config.yaml` 的 `platforms.api_server.extra.{port,key}`，端口 `API_PORT_BASE(18800)+tid`
+- `None` ⇒ 代理 `raise HTTPException(503)`，**绝不为其它租户回落根实例**（回落=洞还在且静默）
+
+**五个坑（都实测踩过）**
+1. `gateway_start` 原先要求「至少一个渠道凭证」⇒ 只服务网页端的租户起不来。放宽为 `enabled_channels() or _has_api_server()`（`ensure_running` 同改）。
+2. `_spawn` 创建的 `logs/gateway.log` 属主是**后端**（hergent）、0644 ⇒ 租户账号写自己的日志 `PermissionError`，网关秒退且报「30 秒内未启动」。必须在 `open()` 后 `_try_chmod(0o660)`。
+3. **全仓没有任何地方调 `ensure_home`**（旧实现靠人工/渠道配置触发）⇒ 新租户永远拿不到 api_server。已挂到 `erp_db.tenant_create()`（软失败），网关由保活 60 秒内拉起。
+4. `ensure_api_server` **不能 `yaml.safe_dump` 整份重写**（会抹掉种子 config 的大段中文安全基线注释）。改为文本块替换 `^  api_server:`；写前用 `yaml.safe_load` 双校验「别的平台没丢 + 目标值确实写进去」。
+5. 每租户实例常驻 **~250MB RSS**（实测），服务器 3.5G 已用 2.2G ⇒ 卖 SaaS 的容量规划要按租户数×250MB 算。
+
+**验收（实测）**
+- `t10 → 18810 isolated=True`，真实对话返回；`t1 → 18765 isolated=False`，同样通。
+- `t10` 身份：写 `/opt/hergent-erp` DENIED、读 `.env` DENIED、读 `tenant_1.db` DENIED、`sudo -n true` DENIED。
+- `kill -9` 租户实例 → 95 秒内保活自动拉起（端口复原）。
+- 未登记租户 `99` → `gateway_api` 返回 None（且 `set_tenant_context` 本身也拒绝建库）。
+- nginx `/hermes/` = `return 403`，前端已无 `hergent_copilot_proxy` 直连开关 ⇒ 代理是唯一通道。
+
+**遗留**：① 隔离实例重启窗口内降级到 `hermes_core`（本仓 LLM + ERP 业务工具，无 shell 权限，可接受但文案说「备用模型」不准）；
+② 演示租户 `readonly=1` 会让 POST 副驾被 RBAC 中间件拦死 ⇒ **demo 根本体验不到 AI**（产品问题，待定）；
+③ 根实例 `/root/.hermes` 里躺着 demo 时期的历史会话与记忆沉淀，与老板自己的混在一起，未清理。
+
+
+## §MEM-ARCHIVE-v636（2026-10-20 从 MEMORY.md 迁入）
+
+### 副驾消息时间「有的有有的没有」的四类成因
+
+| 类 | 现象 | 根因 | 处置 |
+|---|---|---|---|
+| ① 企微/IM 会话 | 整条会话 171/171 条全无时间（含用户今早刚聊的） | 后端 `_sync_im_sessions` 只 `SELECT role, content`，把 Hermes `messages.timestamp`（REAL 秒）丢了 | 已修：带上 `created_at = int(ts*1000)`；upsert 全量覆盖 ⇒ 打开历史面板自动补齐 |
+| ② 旧 web 会话 | 10-16 之前的会话一条时间都没有 | 前端 v521（2026-10-16 10:27）才加 `created_at`，之前落盘就没有 | 无法还原（实测 32 条缺，按 role+content 在 Hermes 库唯一匹配仅 5 条）⇒ 不造假值 |
+| ③ 首次使用演示 | 「先看一下我能怎么帮你」3 条无时间 | `showDemo()` 三处 push 漏写 | 已修：共用一个 `demoAt` |
+| ④ 已切换角色 | 分隔线无时间 | 模板走 `cp-switch-line` 分支，不是消息 | 设计如此，不改 |
+
+**顺带修**：
+- `_sync_im_sessions` 的 `updated_at` 原写 `datetime.now()` ⇒ 每次 GET 列表都刷新成"刚刚"，一条 9-11 的会话永远排最前。改用最后一条消息时间。
+- `fmtTime`（历史列表）直接 `new Date('YYYY-MM-DD HH:MM:SS')` —— 该非 ISO 串在 Safari/WebKit 是 Invalid Date（Chrome 宽松才过）⇒ 统一走 `toTs()` 归一。
+
+**验收**
+- 后端：`im:wecom:20260911_153316_f57750b7` 172/172 条有 `created_at`，时间点与 Hermes 一致（09-11 15:33 → 10-20 13:31），`updated_at` = 最后消息时间。
+- 单测 19/19（从 SFC 抽真实函数）：`toTs` 数字/SQL 串/ISO/空/垃圾串；`fmtMsgTime` 今天→时分、今年往日→月日时分、去年→年月日；`fmtTime` 不含 Invalid；`showDemo` 3/3 带时间；全文件只剩 isSwitch 一处无时间。
+- 真机 14/14（demo 登录 → 注入真实企微消息 → DOM 断言）：4 条有时间且文本正确、2 条缺时间不渲染标签、时间标签数=4、零 Invalid、零报错。
+
+### 部署链的一个认知纠正
+`https://hergent.cn/` = ERP 前端（nginx `root /opt/hergent-cn-v2`）；`/admin/` = **平台运营控制台**（`alias /opt/hergent-admin/`，只有一个 index-*.js + css，最后更新 10-13）。
+本次误把探针入口写成 `/admin/` ⇒ 拿到的是控制台登录页（`__HG_BUILD__` 为空、无 `.tb-copilot`），差点误判整条部署链失效。
+另外顺手验了两件事，都正常：闭包脚本校验的 `https://hergent.cn/assets/<name>` 是真 200（假文件名 `nope.js` 返回 **404**，不会回落 index.html 骗过校验）；`/admin/assets/<新文件>` 才会回落 HTML（因为 `^~ /admin/` 里 `try_files` 兜底）。
+
 ---
 
-## v683 单位三档 + 价格折算（后端唯一实现）
+# 🔴 v646：入口合并后「读运行态」的地方必须用 `_host_home(tid)`（2026-10-20 22:40）
 
-**新增 `db/queries/product_pricing.py`**（生产 `/opt/hergent-erp`，快照归档 `hergent-cn-v2/tests/perf/v683/product_pricing.py`）：
-- 导出 `resolve_pricing(product_id, kind, customer_id, supplier_id)` / `default_unit_of` / `price_of_unit` / `KINDS`。
-- 价格链 5 档：`last_owner`（同客户/供应商 + 同单位）→ `last`（全局 + 同单位）→ `last_legacy`（旧单无 unit，元/小单位，只在小档生效）→ `archive`（**档案价 × 该档 ratio**）→ `none`。
-- 默认档：`default_purchase_unit` → `order_unit` → 最大档；`_FALLBACK_LARGE = {"purchase": True}`（只有采购回大包装，其余回最小档）。
+## 报障现象
+老板在企微发消息、副驾正常回复，但 **Web 端副驾历史里看不到**。他说「以前可以」。
+——「以前可以」是铁证：合并前企微对话写 `home_for(1)`（= t1 目录），同步也读那里 ⇒ 能对上。
 
-🔴 **量纲**：`purchase_price`/`sale_price` 是**元/小单位**；`factory_price` 才是元/大单位（生产 321 个双价商品，`factory ≈ purchase × large_ratio` 命中 263，完全相等 0）。把前者当大单位价 = 差 ratio 倍（采购页 v409 起 7.22 元/板算成 0.72）。
+## 根因
+v642 把企微搬进根实例 `/root/.hermes` 后，只改了凭证/state/日志/pid 相关的几个函数。
+**`_sync_im_sessions` 仍 `home_for(tid) / "state.db"`** ⇒ 永远读合并前的老库。
+实测：新消息在 `/root/.hermes/state.db`（`20261020_214705_472cb39e`，21:47），
+同步读的是 t1 老库（最新只有 9-27 的 cli 会话）⇒ Web 历史永久缺新消息，老历史还在（所以像"以前可以"）。
 
-**端点**：`GET /api/psi/product-pricing?product_id&kind&customer_id&supplier_id`，`_auth` 守卫；kind 非法回落 `sale`。
+## 定式（同族 8 处，一次改完）
+| 位置 | 语义 | 改法 |
+|---|---|---|
+| `routers/ai_assist._sync_im_sessions` | 读 Hermes `state.db` | **扫两个库**：`_host_home` + `home_for`（老库留着，合并前历史只在它里面） |
+| `routers/ai_assist./media` | 副驾产出文件下载白名单根 | `_host_home` |
+| `recipe_sync.tenant_skills_dir` | 配方写回技能目录 | `_host_home`（否则写进没人读的老目录＝静默失效） |
+| `hermes_tenants._run` | 跑 hermes CLI（`pairing approve`/`send`） | `_host_home` |
+| `hermes_tenants._env_head` | 给 CLI 注入租户 `.env` | `_host_home` |
+| `_read_pairing_json` / `_pairing_channels` | 配对状态 | `_host_home` |
+| `gateway_status` 返回的 `home` | 展示真实生效的 home | `_host_home` |
 
-**落库三件套**：`unit` / `base_ratio` / `base_qty` 写入 `sale_order_items`、`return_order_items`、`transfer_order_items`（采购 `purchase_order_items` v409 已有）。迁移两处同写：主库 `_safe_migrate` 9 条 + `_ensure_tenant_module_tables` 租户列清单 9 条。已是 `_cols/_vals` 动态 INSERT。
+已带平台分支、**不要动**：`_proc_pid_for_home`(995)、`config_drift`(1221)、`ensure_running`(1609)、`_spawn`(1381)、`ensure_home`(747 建目录)。
 
-**扣减/回增口径**：`_qty_to_base(row)` = `base_qty>0 ? base_qty : quantity`；发货 FEFO、退单回增、调拨过账全走它 ⇒ 历史 14.28 万条销售明细行为零变化。
+## 🔴 反向坑：改了 home 就不能再切身份
+`_identity_kwargs(1)` 仍返回 `sudo -n -u hergent_t1 --preserve-env`，
+而 `/root/.hermes` 属 `hergent`（= 后端自身）、权限 0700 ⇒ **hergent_t1 进不去**，
+`hermes` 一 import 就崩。实测 2026-10-20 22:44:38 库存预警推送全失败
+（`send 失败 tenant=1 tgt=wecom`，sudo 日志里 `USER=hergent_t1 PWD=/root/.hermes`）。
+⇒ **`_identity_kwargs` 对平台租户必须 `return []`**（沿用后端身份）。非平台租户不变。
 
-**隔离租户 e2e**：`hergent-cn-v2/tests/perf/v683/v683-e2e.py`（prepare/run/teardown，40 断言，见该文件头部的两条重启纪律）。
+## 验证（生产真机）
+- 单测 5/5：新会话落库 + 老会话 212 条不丢 + 非平台租户不炸 + upsert 幂等 + `updated_at` 不是 now
+- 真机：历史列表出现「[wecom] 企微消息接收确认 21:47」，点进去提问/回复都在，零 JS 异常
+- 回归：`gateway_status(1)`=running/connected、`_run(pairing list)` rc=0、t10 仍走 sudo
+
+## ⚠️ 顺手发现、**未修**
+1. **主动推送（`hermes_tenants.send`）不可靠**：`send_message_tool` 靠
+   `gateway.run._gateway_runner_ref()` 拿 adapter，独立进程里是 None ⇒ wecom 需 live gateway
+   ⇒ 我实测 120s 超时。**不是 v646 引入**：16:16/16:17（合并前、t1 home）就有同样失败。
+   修法方向：后端改走根实例 HTTP 接口发，而不是 fork CLI。
+2. **t1 的 cron/告警没搬**：`scripts/llm_health_monitor.py`（root cron，每 5 分钟）
+   `ALERT_HOME=/opt/hermes-tenants/hergent_t1`，仍往死掉的 t1 写；且它把告警写进
+   **老板的企微会话**（同 `session_key`），污染历史。改默认值前要先确认根 home 发得出去。
+
+## 合并必须搬的清单（v642 漏了 2 项，v646 又补 1 项）
+`config.yaml`、`.env`、`skills/`、`SOUL.md`、**`platforms/pairing/*.json`**、
+**`state.db`（历史是否迁移要单独决定）**、**所有 `home_for` 的运行态调用点**、**cron/告警任务**。
 
 ---
 
-## v684 「商品在该伙伴那儿有没有历史」唯一实现
+# 🔴 v647：推送链路两处真因 + Web 历史滤推送（2026-10-20 23:00-23:40）
 
-**新增 `db/queries/partner_history.py`**（生产 `/opt/hergent-erp`，快照 `hergent-cn-v2/tests/perf/v684/partner_history.py`，
-三处 md5 一致 `c099f04b…`）：
-- `missing_products(kind, partner_id, product_ids)` → `{kind, partner_id, checked, matched, missing, skipped}`。
-  purchase 按 `purchase_orders.supplier_id`、sale 按 `sale_orders.customer_id`；两类各一条 SQL，不共用。
-- 🔴 状态口径 `_SKIP_STATUS = (draft, cancelled, void, rejected)`：**草稿不算「有历史」**
-  （没真进货，凑不出事实），`confirmed`（在途）与 `signed` 算数。生产实测 PO：received 79 / draft 2 / confirmed 1 / cancelled 1。
-- 🔴 `partner_id<=0` 或 `product_ids` 空 ⇒ `skipped=True` 且 `missing=[]`；
-  **读库异常向上抛（端点 500），不许降级成"全部缺失"**。
-- `_BATCH = 400`（SQLite 变量上限 999）。
+用户一句「修」，对象是我在 v646 结尾提的两件事：① 主动推送不可靠 ② 企微会话混进运维告警。
 
-**端点** `GET /api/psi/partner-product-history?kind&partner_id&product_ids`，`_auth` 守卫；
-`kind` 非法（含 `zzz`）归一到 purchase；非法商品 id 直接丢弃。`/api/psi` 前缀**已在 `_PATH_MODULE_MAP`**，
-不需要新登记（新增别的顶层前缀才要）。
+## ① 「推送卡住不返回」的真因不是企微，是 stdin
+`hermes_tenants._run` 用 `subprocess.run(input=None)` ⇒ **stdin 继承调用方**。
+而 `hermes send` 的 CLI 在 `not sys.stdin.isatty()` 时会 `sys.stdin.read()` 读到 EOF 才肯干活
+（`send_cmd._read_message_body`）⇒ 调用方 stdin 是**常开管道**时整个 CLI 挂死到超时。
+- 我 22:44 实测卡 120s，一度以为是「企微独立连接与网关互踢」——**误判**，那是我 ssh 探针的管道。
+- 生产后端 stdin 是 /dev/null（systemd 默认）所以没暴露；cron 也是 /dev/null。
+- 修法：`input_text is None` 时显式 `stdin=subprocess.DEVNULL`（有 input 时不能同时设 stdin）。
+- 🔴 **判「CLI 挂住」先看调用方 stdin**，别先怪平台。
 
-**验收**：`tests/perf/v684/verify_history.py`（16 条，与直连 SQL ground truth 对照 + 「换伙伴结论必须变化」反假阳性）；
-`v684-e2e.py` J/K 组（tenant_98 隔离租户，51 断言）；`neginject_v684.py` 注入「无历史则拒绝」⇒ K 组 5 条全红。
+## ② 「独立推送会不会踢掉网关的连接」——实测不会
+`_standalone_send` 确实另开一条 WeCom 短连接（官方同一 bot 只允许一条有效长连接，v642 踩过 846609）。
+但 23:26 用根实例凭证真发一条：**网关日志零新增**（无 closed/Reconnected）。
+当日 3 次偶发断连（21:25/22:42/22:52）与推送**无因果**（20 次推送只对应 3 次断连，且时间对不上）。
+⇒ 保留 CLI 独立短连接这条路，不改成「经网关代理发送」。
 
+## ③ 巡检告警的 home 必须跟着入口合并一起搬
+`llm_health_monitor.ALERT_HOME` 默认还指向已停用的 t1 ⇒ 老板在能力中心改密钥后，
+巡检静默用过期的 .env。改 `/root/.hermes` + 同口径设 HOME + stdin DEVNULL。
+⇒ **「入口合并」清单再加一项：所有 cron 脚本里硬编码的 HERMES_HOME 默认值。**
 
-<!-- ===== 自 MEMORY.md 索引归并 2026-10-25（原文逐字保留，勿删）===== -->
+## ④ Web 历史滤「机器推送」（`ai_assist._is_machine_push`）
+告警与老板的企微 DM 共用同一 session_key（`hermes send` 无 session-key 参数）⇒ 全混进一个会话。
+实测 t1 老会话 212 条活跃消息里推送约占一半：巡检 191 / 库存 24 / 备份 5 / 报单 3 / 简报 2 / 自检 2。
+- 判据：**首行标题白名单（12 类）+ 只作用于 role=assistant**。
+  🔴 不能按「token_count/finish_reason 为 NULL」判——实测 345 条无计数里 103 条是真实回复。
+  🔴 不能滤首行「经营副驾」——那是 agent 真实回复的签名（41 条），不是推送标题。
+- 新增推送类型时往 `_PUSH_TITLE_RES` 加一行。推送本身仍留在企微 App 与站内通知中心，不丢信息。
+- 效果：老会话 212→83 条（27 user + 56 assistant），接口实测首「你好」尾「工资模块」回复。
 
-### 🔴 后端新增路由必须登记「三张表」
+## ⑤ 顺带修掉挂了一天的 crit：`/opt/hergent-erp/{backups,var}` 755→700
+跨租户数据面检查报「2 处过宽」= 租户账号能穿透读别家库备份。属主 hergent、引用方全是
+hergent/root ⇒ chmod 700 后后端读写不变、`hergent_t1` 实测被挡。
+🔴 `normalize_tenant_perms.py` 只管 hermes-tenants//tmp，**不管后端自己这两个目录**——它们要手工收口。
 
-① `_TENANT_MASTER_PREFIXES`/`_TENANT_REQUIRED_PREFIXES`（`server.py` 顶部）② **`_PATH_MODULE_MAP`**（不是 `_PATH_MODULES`）＝模块门禁，**fail-closed**：未登记返回 **403 `MODULE_NOT_CONFIGURED`，连 boss 都打不开** ③ 前端 `pages.js`+`permView.js`。
-只登记①不登记②＝接口上线即死（`/api/monitor/health` 躺了一个月）⇒ **「页面能开」不能证明「接口能调」**。纯管理员路由惯用 `"hr"`。
+## ⑥ 库存预警「每 30 分钟一条」是重启假象
+`_push_alert_throttled` 的节流字典在**进程内存**里 ⇒ 每次重启后端首次检测补推一次（代码注释自认「可接受」）。
+22:49/23:18/23:25 三条间隔都对应我的重启，不是刷屏 bug。正常态是一天一条。
 
-### 🔴 隔离租户 e2e（会动业务数据的验收，唯一安全做法）
-
-- 建 `tenant_99.db`：**只从 `tenant_1.db` 的 `sqlite_master` 复制结构**（不读行）→ 主库 `tenants` 插行 + `user_tenants` 给 boss 加 (2,99) → `X-Tenant-Id: 99` 打真机 HTTP。跑完删库+删两行+删探针 session，并自证 `tenants` 回到 1/10、`tenant_1` 里 `like '%E2E%'` 命中 0。
-- 🔴 **prepare 建完库必须 `chown hergent:hergent`**（root 建的库 ⇒ 全线 `attempt to write a readonly database`，含定价接口 500）。改完属主仍 readonly ⇒ 重启进程（`db/connection.py` 的 `_sqlite_cache` 缓存旧 handle，`SELECT 1` 探活照样通过）。
-- 🔴 **teardown 删库后必须重启服务再 prepare**：进程持有已删 inode，后续写入落进「幽灵文件」⇒ 现象是「建单 200、详情回显全对，但直连 SQL 查不到明细行」。
-- 探针落 `tests/perf/vXXX/`（v681 模板 / v683 含 40 断言）。
-
-### 🔴 后端写库 / 建表 / 格式化
-
-- `db.get_db()` **不 commit** ⇒ 写库必须 `db.get_db_tx()`，否则「接口 200、库里 0 行」。
-- `conn.executescript()` 会隐式 commit 之前的写 ⇒ 建表语句放事务块首条。
-- 新增表两处同写 DDL：`_safe_migrate_script`（新库）+ 使用侧 lazy `CREATE TABLE IF NOT EXISTS`（老库），逐字一致；租户列清单 `_ensure_tenant_module_tables` 也要同步写，否则当次启动有「建单 500」窗口。
-- `sqlite3.Row` 缺列抛 `IndexError` ⇒ 用 `_row_get()` 安全取名，别让「少一个字段」变成「开不了单」。
-- 🔴 `erp_db.py` 的 CREATE TABLE 模板曾与真实库 schema 漂移 ⇒ 改表/查询前以 `tenant_1.db` 真实 schema 为准。
-- 🔴 `"…%（…" % x` 运行时崩 500（v682）：`%` 后紧跟全角字符被当格式符 ⇒ 用 `100%%（` 或改 f-string。**凡 %-format 里出现 `%（），。、；：` 一律复查**。
-- 🔴 **平台表只存在于主库**（v706）。`users/sessions/tenants/user_tenants/invite_codes/invite_uses` 已在
-  `migrations/platform_tables.txt` 白名单里；租户库里**没有它们是正确形态**，再出现即报警
-  （`legacy_platform_copies.txt` 现在是回归探测器）。`tenant_db_init()` 用 `iterdump()` 复制主库
-  CREATE 语句时**必须跳过这 6 张表**，否则每个新租户天生带一张空 `users` —— 危险在于它静默：
-  误用 `get_db()` 去读时得到"空表/旧快照"而不是"表不存在"，界面只是悄悄变空。
-- 🔴 **`_connect()` 也跟随租户上下文，不是主库连接**。`db.connection._connect()` → `_sqlite_connect()`
-  用 `_tenant_db.get() or DB_PATH`。判断「某函数读的是哪台库」不能看它调了哪个 helper，要看
-  **连接类型 × 路由前缀** 两段证据：`/api/users`、`/api/tenants`、`/api/force-logout` 在
-  `_TENANT_MASTER_PREFIXES` 里 ⇒ 上下文为 `None` ⇒ 同一函数回落主库。工具：
-  `tools/hergent/v706/scan_legacy_reads.py`（75 个引用函数分类，含 7 处 comment-only 假阳性教训）。
-- 🔴 **判定"这台库是不是主库"必须用 `realpath`**。macOS `/var` 是 `/private/var` 的符号链接，
-  `PRAGMA database_list` 给 `/private/var/...` 而 `ERP_DB_PATH` 常写 `/var/...` ⇒ `abspath` 比较不相等
-  ⇒ patch 会把**主库**当租户库删表。取不到路径时必须 fail-closed 拒绝执行，不许猜。
-- **新 DDL 只能写成 `migrations/patches/00NN_*.py`**。`_safe_migrate` 存量 389 处已冻结成
-  `migrations/legacy_baseline.txt`（387 条名字+指纹），`inventory_safe_migrate.py --check` 拦
-  "改历史迁移内容"与"新增裸 DDL"两类静默病（退出码 2）。**账外裸 DDL 仍有 341 处**未收编。
-- **借贷平衡按整数分判**（v706）：`money_balanced` = `abs(to_cents(dr)-to_cents(cr)) <= MONEY_EPS_CENTS(1)`。
-  老写法 `abs(dr-cr)<=0.01` 下「差 1 分」的结论取决于二进制表示（100.00/99.99 拒、1234.56/1234.55 过）。
-  改这类口径**必须先双算**（`tools/hergent/v706/dualcheck_money_balanced.py`，按凭证分组比新老判定）。
-- 🔴 **doctor 只覆盖一个方向**（v706）：它的对账是「租户库 vs 主库」，能发现"主库有、租户库没有"，
-  **发现不了"代码里有、哪个库都没有"**（`no such table` 的真正来源）。反方向要用
-  `tools/hergent/v706/extract_ddl_schema.py` + `check_ddl_parity.py`（AST 抽声明 → 与三库快照对账）。
-  抽取时建表语句必须**交给 sqlite 解析列**（丢进 `:memory:` 跑一遍读 `PRAGMA table_info`），
-  自己拆逗号会被 `DEFAULT (...)` / `CHECK(...)` 里的小括号和逗号静默带偏。
-- 🔴 **主库不是 schema 超集**（v706 实测 9 列）：`rebate_target_rules.target_year/target_unit/monthly_tiers`、
-  `rebate_accruals.tier_version_id/tiers_snapshot`、`rebate_contracts.brand_id`、`ai_advice_log.override_json/param_key`、
-  `entity_change_logs.ref` **只有租户库有** —— 因为 ALTER 写在只遍历 `tenant_*.db` 的 `_patch_tenant_*` 循环里。
-  新租户靠 `_ensure_tenant_module_tables()` 补。⇒ 判"应该有哪一列"要看代码，不能只看主库。
-- 🔴 **懒建表（DDL 在 `_init_*_tables()` 里）的读路径必须先 ensure**。写路径历来都调了，
-  读/改路径漏 9 处会 500（v706 已修，`tools/hergent/patch_v706_lazy_init.py`）：
-  `ncr_disposition`/`ncr_close`/`inspection_with_aql`→`_init_qms_tables`、
-  `job_close`/`application_advance`→`_init_recruitment_tables`、
-  `pick_wave_list`/`pick_wave_detail`/`wave_complete`→`_init_wms_tables`、
-  `period_close_checklist`→`init_deferred_tables`。修法照抄 `inspection_plan_create()`（首行 ensure），
-  **DDL 不许复制第二份**。新增同类函数时照这个模式。
-- **哪些表不归 erp.db 管**：`migrations/other_db_modules.txt`（`memory.py`→`dami_memory.db`、
-  `bid_radar_collect.py`→`$BID_RADAR_DB`、`kingdee_connector.py` 用 `sqlite3.connect($ERP_DB_PATH)` 直连主库、
-  不随租户上下文）。对账时排除，否则会报成"哪个库都没有这张表"的假故障。
-- **改代码的补丁脚本：幂等判据必须限制在本函数体**。写成 `lines[i:insert_at+8]` 会跨过函数边界、
-  看到**下一个函数**的同名调用 ⇒ 把没改的函数判成"已有"而静默跳过（v706 dry-run 报「7 处/目标 9 个」暴露）。
-  正确做法：扫到下一个 `^def`/`^class`/`^@` 为止；再用 `--strict` 断言目标数全部命中。
+## ⑦ v648：企微推送会踢掉网关长连接（推翻当晚「不踢网关」的中间结论）
+**判据链**（全部实测，2026-10-20 23:39-23:45）：
+- 机制：后端 `send_message` → `hermes send` CLI → `tools/send_message_tool`（in-process runner 弱参只有网关进程自己有）→
+  `plugins/platforms/wecom/adapter.py::_standalone_send` ⇒ **临时开一条企微 WS（aibot_subscribe）发完即断**。
+  企微规则「同一 bot 只允许一条有效订阅」⇒ 网关的长连接被服务端关闭 ⇒ 适配器 ~2.2s 后重连成功。
+  日志形态：`WebSocket error: WeCom websocket closed` → `Reconnected` 成对，**无 846609**、无 CPU 空转。
+- 对时：close 22:42/22:52/23:22/23:27/46/23:32/23:37:56 与推送一一对应（cron */5 + 自检推送）；
+  **23:40 cron 无告警 ⇒ 23:43 网格点无 close** ⇒ 「5 分钟一次 closed」是推送驱动，**不是服务端轮换**。
+- 🔴 排除项：心跳 30s（`HEARTBEAT_INTERVAL_SECONDS=30`，ws heartbeat=60）⇒ 不是客户端空闲被踢。
+- 🔴 **aibot 协议纯 WS**（subscribe/callback/send_msg/upload 全在 WS 上），**没有 HTTP 发送 API**；
+  网关 api_server 路由表只有 sessions/chat/jobs/runs，**无代发端点** ⇒ 进程外推送踢连接架构上免不了。
+- 🔴 **判网关/企微通道状态只认 `/root/.hermes/gateway_state.json`**（$HERMES_HOME 下，含 platforms.wecom.state+updated_at）。
+  `/root/.hermes/logs/gateway_state.json` 是**无任何代码引用的历史遗留**（全 venv grep 只有一个写处），曾误导判读成 disconnected，现已消失。
+- 影响面：每次推送 = 网关入站断 2.2s（老板恰在瞬间发消息可能投递失败，WS 无离线队列）；正常态频率低（告警 24h 节流+仅状态跳变才推），今晚高频是重启补推假象。
+- 方案：**接受（推荐）**；彻底方案 P1 = 把库存预警/巡检推送改成网关内 hermes cron（deliver=wecom 走 live adapter）或给网关加代发端点；可选缓解 = `_ALERT_PUSH_AT` 节流落盘防重启补推。
+- CLOSE-WAIT 陈旧 fd 无害（适配器注释自证 tighter keepalive 会 drained），重启网关即清。

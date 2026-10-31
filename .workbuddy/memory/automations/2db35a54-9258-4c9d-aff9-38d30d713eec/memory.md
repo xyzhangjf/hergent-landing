@@ -127,6 +127,155 @@
 - 正向：v497 P0 毛利报表口径修复已部署（备份 backups/erp_db.py.before-v497-20261014-001812.py），收口 v493 暴露的「毛利在生产无数据基础」根因。
 - 报告落盘：docs/code-review/2026-10-14.md（目录 22 份 ≤30，无需清理）。
 
+## 最近执行：2026-10-17
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-16 02:00→10-17 02:00。前端 hergent-cn-v2/src 9 文件（v515–v524：侧栏去重/P1-1 岗位分权/v518 回读校验/副驾消息体验）；后端 hergent-erp/server 10 .py（v525–v532：P1-2 多级审批流引擎 + P1-1 第二期销售员行级隔离 + 对账工作台取数 + 批次追溯修复 + 销售/调拨批量操作 + sale_order_reject 三宗罪修复）。
+- 结果：高 1 / 中 0 / 低 3（新增）。
+  - **高-new**：审批流 schema（`approval_flows` 表 + 四表 `approval_node`/`approval_chain`/`reject_reason` 列）仅由一次性工具 `tools/v525-approval-schema.py` 落地，**未进 `init_db` 的 `_safe_migrate` 自修复路径**；且 `auditor_id`/`audit_time` 在 sale/transfer/return 三表全仓无迁移（工具 COLS 也漏）→ 现有/新建租户库审批流必 500。判据：`grep _safe_migrate|approval*` 零命中。修复=折叠进 `init_db` 的 `_safe_migrate`（建表+四表补 5 列+种默认链）。
+  - 低-new-1：EmployeeArchive.vue:366-410 回读校验对用户「清空字段」误报「保存未生效」（后端 `d[k]!=''` 语义，memory 已记遗留）。
+  - 低-new-2：CopilotDrawer.vue:46-49/231/239 新增内联 `<svg>` + token 兜底 hex（与文件既有内联 svg 同族）。
+  - 低-new-3：routers/approvals.py 审批端点仅 `_auth` 未挂 `inventory` 能力闸门（与 /api/psi 守卫不同源）。
+- 历史遗留未修 8 项（中 1 / 低 7）：中-2、L6、H1、H2、H3、H4、L5、L7。本轮闭环 0 项；但主动修 v530/v531/v532b 既有真实缺陷（非闭环统计项，已在报告第三节注明）。
+- 未提交：前端/后端产品源码全已提交（后端本地领先 origin 17 未推送）；工作树无未提交 tracked 改动；未跟踪 53 项均为 tools/tests（排除）。
+- UI 规范：新增件合规；仅 L-new-2 轻微偏离。
+- 报告落盘：docs/code-review/2026-10-17.md（目录 25 份 ≤30，无需清理）。
+
+## 最近执行：2026-10-18
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-17 02:00→10-18 02:00。前端 hergent-cn-v2/src 27 提交（v533–v559：Forecast 拆分 F0–F5 + 对话框收敛 v539/v540 + Skeleton/EmptyState/死文件/CSS变量/图标收敛 v541–v545 + 促销ROI新页 v536/v537）；后端 hergent-erp/server 9 提交（v532c–v537：BI口径修复 soi.amount + 库存周转端点补注册 + 促销ROI重建 + 预警外发 + 副驾指标）。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。逐项静态复核：抽离子组件均 import Icon（v557 未复发）、AllocPanel 自带 scoped 样式且 emit 回写（v558/v559 未复发）、Forecast.vue 零孤儿样式；17 个「未定义 CSS 变量」全为 fallback/JS注入/注释，无真幽灵变量；死文件 InvPurchaseSettle 零悬空引用；promotion-impact/inventory-turnover 均参数化薄转发；PromoRoi.vue 有 try/catch、无 v-html；窗口 .vue 零新增硬编码 #hex。
+- 本轮闭环 6 项：① 促销ROI恒500→v536重建 ② 库存周转恒404→v534补注册 ③ 对账 s.head.map 漏await→v533 ④ BI虚增1241.8%→v534 ⑤ 抽离漏import Icon→v557 ⑥ 样式作用域回归→v558。
+- 历史遗留未修 12 项（1高/1中/10低）：审批schema未进 _safe_migrate(高·第2轮)、同商品多行重复扣减(中·多轮)、L6原生confirm扩张(H1/H2/H3/H4/L5/L7 多轮)、EmployeeArchive回读误报/CopilotDrawer内联svg/approvals未挂inventory闸门(低·第2轮)。本轮均未触动。
+- 未提交：前端/后端产品源码 tracked 工作树均干净（窗口提交完整）；未跟踪仅 tools/tests/prompts（排除）。
+- UI 规范：新增件合规，零新增硬编码色/内联svg/v-html 偏离；仅历史遗留 CopilotDrawer/BidRadar/WeatherWidget。
+- 报告落盘：docs/code-review/2026-10-18.md（目录 26 份 ≤30，无需清理）。
+
+## 最近执行：2026-10-19
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-18 02:00→10-19 02:00。前端 hergent-cn-v2/src 16 文件 +2749/−707（v560–v607：报单页抽离 KbdHelp/PeriodOps/SprintChip + 6 个 composable + Forecast.vue 大改 + 品牌筛选修复 v607 + Excel化/拖动填充/密度·分页·全屏 + main.js 注册 v-focus 指令与构建号）；后端窗口内仅 erp_db.py 被触碰但内容 == HEAD，无实质改动。
+- 结果：高 0 / 中 0 / 低 1（新增）。低-新-1 = main.js:71 `window.__HG_BUILD__='v607'` 硬编码构建号（注释自承每次发版须手动改，漏改致版本核对失效；建议 Vite define/CI 注入）。全量 diff 风险扫描（v-html/内联svg/硬编码色/window.confirm/裸except/.catch吞错/JSON.parse无try/print）零命中；v607 品牌筛选修复正确（rowVisible+rowBaseShown 共用 brandSelSet）；新组件/ composable 均 try/catch+本地兜底；全部 CSS 变量/图标名/api 符号经核验存在。
+- 本轮闭环 0 项（v560–v607 为功能批次，未修往期项）。历史遗留未修 12 项（1高/1中/10低），本轮均未触碰、轮次 +1（高·第3轮 / 中·多轮 / 3 个低·第3轮 / 其余低·多轮）。
+- 未提交：前端 src 干净、后端 tracked 干净且本地领先 origin 已归零（10-17 时 17 未推送已同步）；仅未跟踪 tools/tests/prompts（排除）。
+- UI 规范：新增件合规，零新增硬编码色/内联svg/v-html 偏离；forecast-modal.css 壳层类全局化且依赖 CSS 变量全部已定义。
+- 报告落盘：docs/code-review/2026-10-19.md（目录 27 份 ≤30，无需清理）。
+
+## 最近执行：2026-10-20
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-19 02:00→10-20 02:00。前端 hergent-cn-v2/src 9 文件（+1482/−331，v608–v628：副驾卡协议对齐 v622–v627 / 报单页批量操作 v615–v618 / 周期筛选 v616 / Modal z-index·SprintChip attrs·ViewSeg·侧栏备案号）；后端 hergent-erp/server 4 文件（+505/−4，v612–v627：本期清单同步 _sync_period_product_list / 品牌&勾选行批量设到货周期 / bulk-upsert 回 id）。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。跨窗口全量风险扫描（window.confirm / 内联 svg / 硬编码 #hex / 裸 except / print / eval / SQL 注入 / 新 v-html / fire-and-forget .catch / 未定义符号）零命中；后端新增接口均参数化 + _auth + 显式 400；符号 normalize_arrival_days / log_product_changes / forecast_period_scope_sql / fr.normalize_qty / rowCycle / parseArrivalDays / getRoleMeta 接线全部核验存在。
+- 本轮闭环 0 项（功能批次，未修往期项）。随功能批次修掉的潜在缺陷（非往期清单项，不计入闭环）：v616 rowFilterPass 统一筛选口径消除 v607 根因；v625/v626/v627 修首问丢卡/冒充角色/关键词硬补卡；v622 滚动还原；v624 :deep；Modal z-index token。
+- 历史遗留未修 13 项（1 高 / 1 中 / 11 低）：高=审批 schema 未进 _safe_migrate(第4轮)；中=同商品多行重复扣减(sales.py:578-589)；低=L6/H1/H2/H3/H4/L5/L7/EmployeeArchive回读/CopilotDrawer内联svg/approvals未挂inventory闸门(各多轮) + main.js:71 构建号硬编码(第2轮)。本轮均未触动。
+- 未提交产品源码：无（前后端 tracked 工作树均干净，改动已随 v608–v628 / v612–v627 全部提交）；仅未跟踪 tools/tests/docs/static（排除）。
+- UI 规范：新增件合规（<Icon> 线性图标、主题令牌、v-html 仅走已转义 renderMd、无新增硬编码色/内联svg/原生confirm）。
+- 报告落盘：docs/code-review/2026-10-20.md（目录 28 份 ≤30，无需清理）。
+
+## 最近执行：2026-10-21
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-20 02:00→10-21 02:00。已提交 v629-v632+v623b（冲刺看板按钮/改单态渲染/缩放条并入行尾/主管改单误报/ICP备案footer）；未提交在途 4 文件（CopilotDrawer.vue+349 v634/v636/v637/v639、Forecast.vue v633、store/index.js v637、main.js v639 构建号）；后端 tracked 干净。
+- 结果：高 1 / 中 0 / 低 1（新增）。高=v639「消息级搜索」前后端契约不匹配（前端 CopilotDrawer.vue:1554 读 `d.msgs`、后端 ai_assist.py:506-537 只回 `d.hits`，模板要的 idx/pre/hit/post/created_at/role 后端一律无 ⇒ 搜索恒空、无法跳气泡；同文件 onHistSearch:1505 正确读 `d.hits` 证明写错）。低=CopilotDrawer .cp-doc-chip 硬编码 rgba(255,255,255,*) + 本轮 +3 内联 svg（user 气泡内可接受 / 历史同族）。
+- 本轮闭环 0 项；历史遗留未修 13 项（1高/1中/11低）轮次+1（高·第5轮、构建号·第3轮），均未触。
+- 未提交：前端 4 文件在途（v633-v639）；后端 tracked 干净，仅未跟踪 tools/tests/docs。
+- 报告落盘：docs/code-review/2026-10-21.md（目录 29 份 ≤30，无需清理）。
+
+## 最近执行：2026-10-22
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-21 02:00→10-22 02:00。前端 hergent-cn-v2/src 13 文件（+568/−109，v633/v651/v652：消息搜索重写 + 撤权限横幅 + 视口高度 + 工作台/仓库微调），全部未提交；后端 hergent-erp/server 零改动（仅未跟踪 tools/tests）。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。风险正则扫描（v-html/window.confirm/JSON.parse/<svg/d.msgs/d.hits/rgba/#hex/.catch）命中均属历史项：d.msgs 仍在 CopilotDrawer.vue:1570（H-B 第6轮）、.cp-doc-chip rgba 本轮 diff 新增（L12 第2轮）。router.replace().catch 为 Vue 推荐守卫写法，不计。
+- 历史遗留未修 15 项（2 高 / 1 中 / 12 低）：H-A 审批 schema 未进 _safe_migrate（第6轮，grep 复核 db/erp_db.py 零命中）、H-B 消息搜索 d.msgs↔d.hits（第6轮，10-21 v639 转历史）、M-A 同商品多行重复扣减、L1–L12（H1/H2/H3/H4/L5/L6/L7/L8/L9/L10/L11-build号 v652/L12-cp-doc-chip）。本轮闭环 0 项。
+- 未提交：前端 13 src 全在途（仅比赛 BP 转 PDF 提交 6490a01 落地，非产品码）；后端 tracked 干净。
+- UI 规范：新增件合规（<Icon>/主题令牌/无新 v-html/confirm），仅 L12 白底 rgba 回潮。
+- 报告落盘：docs/code-review/2026-10-22.md（目录 30 份 = 上限，无需删除）。
+
+## 最近执行：2026-10-23
+- 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-22 02:00→10-23 02:00。前端 hergent-cn-v2/src 窗口内 **0 文件** mtime 变动；后端 hergent-erp/server 窗口内 **0 个 .py** 改动（git log 该窗口为空、tracked 干净）。属「无新增代码改动」日。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。风险正则扫描命中全落历史清单，无新命中；13 个在途前端文件字节级与 10-22 持平。
+- 历史遗留未修 15 项（2 高 / 1 中 / 12 低），轮次整体 +1：H-A 审批 schema 未进 _safe_migrate（第7轮，grep 复核 erp_db.py 仍零命中 approval_flows/approval_node/approval_chain/reject_reason）、H-B 消息搜索 d.msgs↔d.hits（第3轮，CopilotDrawer.vue:1570 仍读 d.msgs）、M-A 同商品多行重复扣减（sales.py:589-591 / purchases.py:1499-1500）。本轮闭环 0 项。
+- 未提交：前端 13 src 全在途（与 10-22 同集，字节未变）；后端 tracked 干净、仅未跟踪 tools/tests。
+- UI 规范：无新增代码故状态持平；仅历史偏离 L4/L9/L11/L12。
+- 报告落盘：docs/code-review/2026-10-23.md（目录 30 份，已删最旧 2026-09-22.md）。
+
+## 最近执行：2026-10-24
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告留 30 份），未部署/重启，无 git 写操作（git status/log/find 仅读）。
+- 范围：窗口 10-23 02:00→10-24 02:00。前端 hergent-cn-v2/src **0 文件** mtime 变动；后端 hergent-erp/server **0 个 .py** 改动（git log 窗口空、tracked 干净）；根目录 erp/ 与脚本无变动。属「无新增代码改动」日。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。风险正则扫描命中全落历史清单，无新命中；13 个在途前端文件 mtime 全为 2026-10-21（字节级与 10-23 持平）。
+- 关键复核：H-A 路径校正为 `server/erp_db.py`（非 `server/db/`），四审批表 grep 零命中 ⇒ 第8轮仍成立；H-B `CopilotDrawer.vue:1570` 仍读 `d.msgs`、`:1521` 读 `d.hits` ⇒ 第4轮仍成立；M-A `sales.py:589-591`/`purchases.py:1499-1500` 仍重复扣减 ⇒ 多轮仍成立。
+- 历史遗留未修 15 项（2 高 / 1 中 / 12 低），轮次整体 +1（H-A 第8轮 / H-B 第4轮 / L8-L10 第8轮 / L11 第6轮 / L12 第4轮 / L1-L7·M-A 多轮）。本轮闭环 0 项。
+- 未提交：前端 13 src 全在途（均 10-21 mtime）；后端 tracked 干净、仅未跟踪 tools/tests/prompts/static。
+- UI 规范：无新增代码故状态持平；仅历史偏离 L4/L9/L11/L12。
+- 报告落盘：docs/code-review/2026-10-24.md（目录 30 份，删最旧 2026-09-22-fix-result.md）。
+
+## 最近执行：2026-10-26
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告留 30 份：删 2026-09-24.md），未部署/重启，无 git 写操作（git status/log/show/diff 仅读）。
+- 范围：窗口 10-25 02:00→10-26 02:00。前端 hergent-cn-v2/src **0 文件** mtime 改动（13 在途 src 文件 mtime 仍 2026-10-21）；后端 hergent-erp/server 4 提交（4079054 fix(prompt) reply_protocol.py 剔除被禁写法引用 / 6ab22a8 fix(ops) check_backup_alive.py 恢复 --test/--dry-run + hermes 兜底 / a2ac191 + 942b160 chore(sync) 回灌 45 工具 + 36 业务文件，+4148/−603）。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。风险正则扫描命中全落历史清单，无新命中；2 个实质修复逐行复核无新引入缺陷（check_backup_alive.py n_oss 已初始化；reply_protocol.py 纯注释搬迁）。
+- 本轮闭环 1 项（已知运营缺口，非往期清单项）：check_backup_alive.py 在 10-21 重写时丢失的 --test/--dry-run + 告警兜底，于 6ab22a8 恢复（v666 工作记忆记录的缺口）。
+- 关键复核：H-A server/erp_db.py grep 四审批表仍零命中（第10轮）；H-B CopilotDrawer.vue:1570 d.msgs / :1521 d.hits（第6轮）；M-A sales.py:589-591/purchases.py:1499-1500 仍重复扣减；L5 位置迁 routers/rebate_settlement.py:155-156（原 domain/，缺键3 仍存）；L10 approvals.py:25 仅 _auth；L11 main.js:69 v652。
+- 历史遗留未修 15 项（2 高 / 1 中 / 12 低），轮次整体 +1。本轮闭环 0 项（往期清单项未触）。
+- 未提交：前端 13 src 全在途（均 10-21 mtime）；后端 tracked 干净、仅未跟踪 tools/tests/docs/static。
+- UI 规范：无新增代码故状态持平；仅历史偏离 L2/L3/L4/L12。
+- 回灌入库属「生产已部署但 git 里没有」类别，已在 docs/prod-inspection/2026-10-25.md(07:53) 覆盖，本任务不重复展开。
+- 报告落盘：docs/code-review/2026-10-26.md（目录 31→30，删最旧 2026-09-24.md）。
+
+## 最近执行：2026-10-28
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告留 30 份：删 2026-09-26-fix.md），未部署/重启，无 git 写操作（git status/log/find 仅读）。
+- 范围：窗口 10-27 02:00→10-28 02:00。前端 hergent-cn-v2/src **0 文件** mtime 变动；后端 hergent-erp/server **0 个 .py** 改动（git log 窗口空、tracked 干净）；根目录 erp/ 与脚本 0 改动。属「无新增代码改动」日。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。风险正则扫描命中全落历史清单，无新命中；13 个在途前端文件 mtime 全为 2026-10-21（字节级与 10-27 持平）。
+- 关键复核（grep 确认仍存活）：H-A server/erp_db.py 四审批表仍 0 命中（第12轮）；H-B CopilotDrawer.vue:1570 d.msgs / :1521 d.hits（第8轮）；M-A db/queries/sales.py:589-591 / purchases.py:1498-1500 仍行级 delivered−商品级 returned 错配；L5 rebate_settlement.py:47/155 缺键3；L10 approvals.py:25 仅 _auth；L11 main.js:69 v652；L12 CopilotDrawer.vue:3899 cp-doc-chip rgba；H3:203 v-html；H4 BidRadar.vue:5/:66 内联 svg；L6/L7 同族。
+- 历史遗留未修 11 项（2 高 / 1 中 / 8 低），轮次整体 +1。本轮闭环 0 项（无代码变更无从修起）。
+- 未提交：前端 13 src 全在途（均 10-21 mtime）；后端 tracked 干净、仅未跟踪 tools/static/prompts（前端 HEAD 868b2bc 为 competitions PDF、非产品码）。
+- UI 规范：无新增 UI 代码故状态持平；仅历史偏离 H4/L12（气泡内可接受）/H3。
+- 报告落盘：docs/code-review/2026-10-28.md（目录 31→30，删最旧 2026-09-26-fix.md）。
+
+## 最近执行：2026-10-29
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告留 30 份：删 2026-09-26.md），未部署/重启，无 git 写操作（git status/diff/log/find 仅读）。
+- 范围：窗口 10-28 02:00→10-29 02:00。大批次：报表平台化（v720 数据健康 / v723 报表执行器 / v725 设计器 / v726 图表化）+ 资金账户 CRUD 硬化（v721）；前端 11 src 窗口内 mtime 变动（含 3 个新报表页）+ 后端 3 跟踪 M（funds_db/funds/server）+ 一批未跟踪新文件（report_engine/data_health/migrations 0001-0010）+ 7 个回写提交（finance/sales/inventory/erp_db/voucher 同步 + v716/v717/v719）。
+- 结果：高 0 / 中 0 / 低 1（新增，无害）。低-新-1 = GenericReport.vue:598-602 路由守卫 `if (route.meta.reportName !== name.value) return` 恒为假（name 是 computed 已反映新路由），「同报表不重载」意图从未生效，但实际每次路由变动都重载、符合预期、无功能影响。
+- 关键复核：报表执行器六层防护齐备（只读连接/单语句/关键字黑名单/敏感表禁访/参数绑定/行数上限+超时），写接口再叠 _require_boss+试跑+审计；v721 资金账户重名/改名/删除引用闸均参数化 fail-closed；finance.py/sales.py 的 f-string SQL 的 `{w}`/`{group_by}` 均白名单/硬编码（group_by 由 trend_days 推导为三种固定表达式），无注入。DataHealth/GenericReport/ReportBuilder 全部边界（未配置≠没数据/截断须明示/合计来自后端）处理到位。
+- 历史遗留未修 11 项（2 高 / 1 中 / 8 低），轮次整体 +1：H-A 审批 schema 未进 _safe_migrate（第13轮，db/queries/approvals.py 仍无 CREATE TABLE）、H-B CopilotDrawer.vue:1570 d.msgs/:1521 d.hits（第9轮）、M-A sales.py:729-731 同商品多行重复扣减（多轮）、H3/H4/L5/L6/L7/L10/L11/L12（L6 已大幅收窄至 Settings.vue 5 处原生 confirm 未 import 全局 wrapper；L11 构建号值已维护为 v663）。本轮闭环 0 项（窗口为功能批次，未修往期项）。
+- 未提交：前端 22 src M（11 本窗口报表/资金/图表批次 + 约 11 更早会话遗留：Forecast/CopilotDrawer/AiHub/Dashboard/EmployeeArchive/Rebate/WarehouseArchive/Workbench/InvFlowConfig 等）；后端 3 跟踪 M（funds 三件）+ 未跟踪产品码（report_engine/data_health/migrations/patches/0001-0010/voucher_engine 等）须纳入版本控制；tools/docs/static 排除。
+- UI 规范：本窗口新增件全合规（主题令牌/<Icon>/无新 v-html/confirm）；仅历史偏离 H4/L12/L11。
+- 报告落盘：docs/code-review/2026-10-29.md（目录 31→30，删最旧 2026-09-26.md）。
+
+## 最近执行：2026-10-30
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告留 30 份：删 2026-09-27.md），未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-29 02:00→10-30 02:00。前端 9 文件 mtime+提交（4 提交：仓配闭环前端/往来核销页/数据健康卡/库存金额列）；后端 22 文件（8 提交：库存内核余额表/往来账本/数据健康 S3 卡/拣货波次写操作/部署修复）。核心新增：party_ledger.py/reserve.py/stock_ledger.py/data_health.py/locations.py + patches 0011-0014（inventory_balance/party_ledger/stock_reservations/wh_locations）。
+- 结果：高 0 / 中 0 / 低 1（新增，无害）。低-新-1 = FundsPartyReconcile.vue:183/232/235/257/260 原生 `alert()` ×5（原生对话框 L6 同族，新文件孤岛；兄弟新页面零 alert；全仓 alert( 仅 9 处分布于 printable.js/ReportBuilder.vue/本文件）。
+- 关键核验（避免误报）：party_ledger 在签收/入库/收款/核销/预收 5 路径**全部**带符号写入（finance.py:381/433/1028/1035 + sales.py:457 + purchases.py:825），运行余额闭环——初判「核销/收款未入账本」为误报已排除；data_health.py 用只读连接+硬编码 SQL 无注入；patches 0011-0014 经 runner glob 自动发现且幂等（不导入真实数据）；新 router 全 `_auth`、server.py 已 include 三新路由（1267/1300/1301）。
+- 历史遗留未修 11 项（2 高 / 1 中 / 8 低），轮次整体 +1：H-A 审批 schema 未进 _safe_migrate（第14轮，approval_flows 在 erp_db.py 仍零命中）、H-B CopilotDrawer.vue:1570 d.msgs/:1521 d.hits（第10轮）、M-A sales.py:751 ret_map.get 商品级（多轮）、H3/H4/L5/L6/L7/L10/L11/L12（多轮）。本轮闭环 0 项（WMS/账本批次为增量，未触遗留点）。
+- 未提交：前端 9 窗口文件已随 4 提交入库；工作树仍约 32 tracked M（更早会话在途：CopilotDrawer/Shell/Forecast/AiHub/Dashboard/Rebate/Workbench 等）；后端 3 tracked M（sales.py/funds_db.py/funds.py = 10-29 资金批次）+ 未跟踪 tools/tests/docs/patches。
+- UI 规范：新增件合规（<Icon>/主题令牌/无新 v-html/confirm）；仅低-新-1 alert 偏离（L6 同族）。
+- 报告落盘：docs/code-review/2026-10-30.md（目录 31→30，删最旧 2026-09-27.md）。
+
+## 最近执行：2026-10-31
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告留 30 份：删 2026-09-28.md），未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-30 02:00→10-31 02:00。前端 hergent-cn-v2/src 仅 2 文件 mtime 变动（main.js 22:07 构建号 v632→v670、Forecast.vue 22:06 重新保存）；后端 hergent-erp/server 窗内 0 个 .py/.js 改动（git log 窗口空、tracked 干净）；根目录 erp/ 0 改动。属轻量本地打磨日，无新提交/无新功能落库。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。窗内 diff 全量风险正则扫描（v-html 非 renderMd 路径 / window.confirm|alert( / JSON.parse 无 try / innerHTML / console / print / 硬编码 #hex / 内联 svg / 裸 except）零命中；Forecast.vue 新增列筛选(668-708)+表尾合计(483-503, 均 ||0 兜底)+COL_DEFAULTS(512)+footMissing(503) 全主题令牌、无新硬编码色/svg/吞错。
+- 历史遗留未修 11 项（2 高 / 1 中 / 8 低），轮次整体 +1：H-A 审批 schema 未进 _safe_migrate（第15轮，erp_db.py 四审批表仍 0 命中）、H-B CopilotDrawer.vue:1570 d.msgs/:1521 d.hits（第11轮）、M-A sales.py:751 ret_map.get 商品级（多轮）、H3/H4/L5/L6/L7/L10/L11/L12（多轮；L7 文件已迁 src/components/rebate/ 但 :274 静默 catch 仍在、L11 值已手动维护为 v670）。本轮闭环 0 项（窗内仅构建号+重存，未触遗留点）。
+- 未提交：前端 32 tracked M（含窗内 2 文件，均为更早会话累积在途）；后端 3 tracked M（sales.py/funds_db.py/funds.py = 10-29 资金批次）+ 未跟踪（report_engine/ migrations 0004-0010/ tools/）须纳入版本控制。
+- UI 规范：窗内新增件合规（主题令牌/<Icon>/renderMd 转义）；仅历史偏离 H4/L12 持续。
+- 报告落盘：docs/code-review/2026-10-31.md（目录 31→30，删最旧 2026-09-28.md）。
+
+## 最近执行：2026-10-27
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告留 30 份：删 2026-09-25.md），未部署/重启，无 git 写操作。
+- 范围：窗口 10-26 02:00→10-27 02:00。前端 hergent-cn-v2/src 0 文件 mtime 变动（13 在途 src 仍 2026-10-21）；根目录 erp/ 与脚本 0 改动；后端 hergent-erp/server 唯一提交 2f5ccac（v692 真实 token 计量，已提交）。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。v692 逐行复核无新引入缺陷（主库专属表已登记 _TENANT_TABLE_SYNC_SKIP、用量单次落行不累加、配额裸查改容错）。
+- 关键复核（重新定位校正）：M-A 旧引用 routers/sales.py:589 / routers/purchases.py:1499 已随生产回灌重构搬迁至 db/queries/sales.py:589-591 与 db/queries/purchases.py:1498-1500，行级 delivered/received − 商品级 returned 错配仍在（多行同品可退量低估），漏洞未修。H-A erp_db.py grep 四审批表仍 0 命中（第11轮）；H-B CopilotDrawer.vue:1570 d.msgs / :1521 d.hits（第7轮）；L11 main.js:69 v652；L12 CopilotDrawer.vue:3899 cp-doc-chip rgba；H4 BidRadar.vue:5/:66 内联 svg；H3 :203 v-html；L5 rebate_settlement.py:47/155；L6/L7 同族。
+- 历史遗留未修 11 项（2 高 / 1 中 / 8 低），轮次整体 +1。本轮闭环 0 项（v692 为新增功能批次，未修往期项）。
+- 未提交：前端 13 src 全在途（均 10-21 mtime，窗口无新改动）；后端 tracked 干净、仅未跟踪 tools/docs/static。
+- UI 规范：无新增 UI 代码故状态持平；仅历史偏离 L12/L11/H3/H4/L6/L7。
+- 报告落盘：docs/code-review/2026-10-27.md（目录 30 份，删最旧 2026-09-25.md）。
+
+## 最近执行：2026-10-25
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告留 30 份），未部署/重启，无 git 写操作（git status/log/show 仅读）。
+- 范围：窗口 10-24 02:00→10-25 02:00。前端 hergent-cn-v2/src **0 文件** mtime 变动；后端 /Users/zhangjunfeng/Documents/hergent-erp/server **0 个 .py** 改动（git 无新提交、tracked 干净、仅未跟踪 tests/tools）；根目录 erp/ 与脚本无变动。本仓唯一新提交 `868b2bc` 仅改 competitions/ 商业计划 PDF（非产品码，不计入）。属「无新增代码改动」日，报告压缩。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。风险正则扫描命中全落历史清单，无新命中；13 个在途前端文件 mtime 仍 2026-10-21、字节级与 10-24 持平。
+- 关键复核：H-A `server/erp_db.py` grep 四审批表仍零命中（第9轮）；H-B `CopilotDrawer.vue:1570` 仍读 `d.msgs`、`:1521` 读 `d.hits`（第5轮）；M-A `sales.py:589-591`/`purchases.py:1499-1500` 仍重复扣减（多轮）。
+- 历史遗留未修 15 项（2 高 / 1 中 / 12 低），轮次整体 +1（H-A 第9轮 / H-B 第5轮 / L8-L10 第9轮 / L11 第7轮 / L12 第5轮 / L1-L7·M-A 多轮）。本轮闭环 0 项（无代码变更无从修起）。
+- 未提交：前端 13 src 全在途（均 10-21 mtime，无变化）；后端 tracked 干净、仅未跟踪 tests/tools。
+- UI 规范：无新增代码故状态持平；仅历史偏离 L4/L9/L11/L12。
+- 报告落盘：docs/code-review/2026-10-25.md（目录 30 份，删最旧 2026-09-23.md）。
+
 ## 最近执行：2026-10-16
 - 模式：严格只读，未改/删/重命名任何代码配置，未部署/重启，无 git 写操作（git status/diff/log 仅读）。
 - 范围：窗口 10-15 02:00→10-16 02:00。前端 `hergent-cn-v2/src` 47 文件（38 .vue/8 .js/1 .css）变动，对应 **v509–v514** 大批次：v509 七列表页统一布局、v510 动作组抽离 `PsiListActions`、v511 表头冻结+紧凑密度+本页合计、v512 档案+资金 13 页冻结/合计行、v513 修进销存三列表页冻结失效、v514 全站 14 主列表「表头冻结+本页合计」全覆盖。后端 `hergent-erp/server` 0 .py 改动；根目录 `erp/` 0 改动。

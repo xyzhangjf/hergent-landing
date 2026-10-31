@@ -4375,416 +4375,139 @@ AI 的结论也是"系统自动算的"（v625c 探针守着这条）。
   `SyntaxError: Unexpected identifier`，一晚踩三次）。
 - demo 租户**调不通真模型**（3 问各等 180s 全超时）⇒ 测前端逻辑就用桩，别赌真链路。
 
-## 勾选列盒模型：左右内边距必须为 0（v672）
+## §MEM-ARCHIVE-v631 · 前端实现细则全文（v620-v627，2026-10-20 逐字迁出 MEMORY.md）
+> 迁出原因：MEMORY.md 超注入上限（21.9k 字符）被截断。下面是最初的完整原文；
+> MEMORY.md 只保留判据首句 + 本锚点。
 
-**症状**：列表每行（连表头）复选框右侧多一个「…」。
+- 🔴 **多根组件（Fragment）会静默丢掉父级传的 `class`**（v620）：SprintChip = `.sprint-chip` + `<Teleport>`
+  ⇒ `class="pin-sprint"` 从未出现在 DOM，`.pin>.pin-sprint{margin-left:auto}` 是空选择器、5 版零报错。
+  修法：子组件 `defineOptions({inheritAttrs:false})` + 根节点 `v-bind="$attrs"`；父级 `:deep()`。
+  **判据：写「按 class 选子组件根」的 CSS 前，先真机读一次 `el.className`，别 grep 模板就断定类存在。**
+- 🔴 浮层定式：`Teleport + fixed + z-index 1250`；有自定义浮层就删触发器 `title`。
+- 🔴 **异步补内容判「归属变没变」，比 `messages` 数组引用，不比 `currentId`**（v626）：新对话首次提问时 `currentId` 还是 `''`，`saveCurrentSession()` 在卡/回复飞回来时才写 id ⇒ 比 id 会把**第一张卡静默丢掉**（生产实测 3 问只落 2 张）。store 里切会话/新建对话都是 `chat.messages = …` 换引用，首次提问不换 ⇒ 引用一个判据同时满足「首问保留」「切走丢弃」。
+- 🔴 **副驾探针第一个动作必须 `freshChat()`**（`tools/lib/cp-fresh.mjs`，走 UI「＋ 新对话」）：demo 账号打开副驾会**自动恢复上次那段对话**，前几轮探针自己造的卡全在里面 ⇒ 基线污染、v625 三探针复跑全假红。
+- 🔴 **产物区只折叠「系统自动补的数」，不折叠 AI 的结论**（v626）：自动经营卡同类留最新一张（产物区语义=现在有什么可用，历次在对话流里）；AI 主回复自出的 ```card / 副驾产出文件每次结论可能不同，折叠等于藏结论。
+- 🔴 **协议里的「沉默」也是表态，前端不许把「没有控制标记」当成「AI 没表态」**（v627，这条最贵）：
+  副驾出卡协议是「不需要卡就**不输出**围栏」，而前端曾把它读成"AI 没表态"，再用 4 条正则扫
+  **用户原话**补一张卡 ⇒ **AI 越守协议，前端越要硬插一条**「顺手把本月工资提成核算拉出来了：」，
+  老板的感受是"我没问，它自己冒出来"。同一批正则还反向吞掉了 AI 的正确意图（`makeFetcher` 的
+  `if (!re.test(q)) return`：问「这个月发多少」不含"工资"，AI 说要卡也拉不到）。
+  判据：**同一个语义不许在两处各定义一份**（本仓 `SOUL.md` 与 `reply_protocol.py` 就曾给出相反结论）；
+  前端只执行 AI 的判断，不用正则猜。
+- 🔴 **卡不是人说的话，就别用人的口吻**（v627）：卡消息正文留空，模板对「有卡无正文」整个不渲染
+  `.msg-bubble`（否则是一个灰气泡包着卡）；历史消息的旧文案用 `bubbleText()` 在渲染层隐掉，不动落盘数据。
+- 🔴 **探针识别卡片不许靠文案**（v627）：文案一改，四个探针全假红。用 DOM 事实 `.rc` 存在 +
+  `.msg` 的 `m.role`（`user`/`assistant`）——**不是** `is-user` / `res-card`。桩也要跟着改：
+  前端不再兜底后，桩若不输出 `cards` 围栏就根本不出卡，探针前置直接不成立。
+- 🔴 **异步补出来的东西必须「发起时快照归属」，回来归属变了就丢弃；系统自动产出的内容不许署角色名**（v625）：
+  副驾兜底经营卡（`useCardTrigger`）两处叠加 ⇒ 用户报「我没问，大秘主动出来答」。① 卡消息写入不带 `roleMeta`，
+  模板署名 `m.roleMeta?.name || currentRole.name` 回落到**当前角色** ⇒ 在「会计」下问工资、切到「大秘」，那张卡就改署「大秘」；
+  ② 卡是 `triggerCards` 不 await 补的，请求在路上时切角色/切会话，回来无脑 `messages.push` ⇒ 落进切换后的上下文。
+  **判据：任何「用户没直接触发、异步写进对话流」的内容（卡/提醒/推送），写入前必须比对发起时的 `{sessionId, roleId}`。**
+  另：这类纯数值聚合卡（无口径披露）一律中性署名「📊 经营数据」，**别用「无 roleMeta 就算自动卡」**——会把 v319 之前的
+  AI 主回复一起误判；正确判据是「显式 `cardAuto` ∪ 正文逐字等于 4 句固定开场白（`AUTO_CARD_LEADS` 单一源）」。
+- 🔴 **`v-html` 注入的 DOM 拿不到 scoped 的 `data-v-xxx` ⇒ `<style scoped>` 里写 `.md p{...}` 是死代码**（v624，
+  副驾 40+ 条 Markdown 排版规则自上线起**一条都没生效**，编译结果是 `.md p[data-v-xxx]`）：
+  只剩 UA 默认 + 全局 `*{margin:0;padding:0}` ⇒ `<ol>` 的 padding 被清零、序号「1./2./3.」挂到盒子左侧
+  钻进气泡内边距（用户报的「数字序号从容器溢出」）；表格没边框、代码块没标题栏、标题回到 UA 的 2em。
+  修法：`.md :deep(p)`（本仓 v487 就已有这个写法，只是其余没跟上）。**判据：样式改了没效果，先量 computed，
+  `margin/padding` 全是 0 就是规则没匹配上；grep 源码里有这条规则 ≠ 浏览器用上了。**
+- 🔴 **`v-if` 挂载的抽屉/面板，DOM 销毁会连 `scrollTop` 一起带走**（v622 副驾）：重开时浏览器给 0
+  ⇒ 用户看到的是**这段对话的第一条**，刚落的那条回复在 3000px 外（用户原话「显示的是历史信息的第一条」）。
+  **判据：任何 `v-if` 的滚动容器，打开后必须主动还原位置**，不能指望"消息 watch 会滚"——`messages.length` 没变就不触发。
+  定式：绑 `@scroll.passive` 记 `{top, atBottom}`（贴底阈值 40px），重开时「贴底→回底（关闭期间新到的回复也看得见）、中段→还原 top」；
+  `nextTick` 只保证元素在、不保证内容撑开 ⇒ 再补 `requestAnimationFrame` + 180ms（仅贴底，且这期间用户自己上翻就取消）。
+  守卫：`el.isConnected && copilotOpen` 才记录，否则卸载/动画期的 scroll 会把记录冲成 0。
+- 🔴 **flex 行里「可能超长的文本」必须写 `min-width:0`，否则不可压缩、直接冲出容器**（v623 副驾工具行）：
+  `.cp-tool-name` 没写 min-width ⇒ 默认 `min-width:auto`（＝内容最小宽度）；对**无空格长串**
+  （MCP 工具名 `mcp__hermes_spreadsheet__...`、长文件路径、URL、长 ID）最小宽度就是整串宽 ⇒ 压不动、overflow。
+  实测 1440 下 120 字符串：行 `scrollWidth 1052 / clientWidth 857` **溢出 195px**，文字压过卡片边界贴到抽屉边、
+  **整页被撑出横向滚动条**；而外层 `overflow` 又会把这部分裁掉（用户看到的是"字被切了/冲出去了"）。
+  定式：文本项 `flex:1 1 auto; min-width:0; overflow-wrap:anywhere; word-break:break-word`；
+  容器链（`.msg-tools` / `.cp-tools-body`）一路 `min-width:0`。
+  **判据：量每行 `scrollWidth-clientWidth` 与滚动容器的横向滚动量，不要肉眼看**（1440 用中文 label 测完全正常，只有无空格串才炸）。
+  折行后 `align-items` 要从 center 改 **flex-start**（图标/状态标签贴首行）。
 
-**根因是三条各自合理的规则叠加**，不是伪元素、不是图标字体、不是省略的文本：
-1. `.psi-tbl th, .psi-tbl td { overflow:hidden; text-overflow:ellipsis }` ⇒ 这一格**会画省略号**；
-2. `table.tbl td { padding:10px 14px }` + 勾选列 36px（`CHK_W`）⇒ 内容盒 **8px**；
-3. 复选框 13px ⇒ 溢出 5px ⇒ Chrome 在右侧补画「…」。
+## §MEM-ARCHIVE-v632 · 前端实现细则 + 行筛选/批量写全文（v607-v631，2026-10-20 逐字迁出）
+> 迁出原因：MEMORY.md 逼近注入上限被截断。以下为原文；MEMORY.md 只留判据首句 + 本锚点。
 
-**只有默认密度看得见**：紧凑档 `padding:2px 8px` ⇒ 内容盒 20px 不溢出。三页共用 `.psi-chk`
-⇒ 采购 / 销售 / 调拨**同时中招**，只是只报了采购。
+## 前端实现细则 —— 全文见 `topics/frontend-ui.md`
+> **组件抽离五条必检 / 表格密度与行高 / 拖动填充与框选 / 页脚胶囊与浮层 / Excel 化网格**
+> 已逐字迁到 `§MEM-ARCHIVE-v614`（同日迁入，含 v557-v614 全部原文）。改前端前先 grep 那一节。
+- 🔴 `rm -rf dist-vNNN`/emptyDir 被 safe-delete 拦（>50 文件）⇒ `--emptyOutDir false` 或 `mv`。**报失败先排除 safe-delete。**
+- 🔴 行高真凶通常是**子元素 display** 不是 padding（v606）；改前先查用户在哪一档（`ui_col_prefs`）。
+- 🔴 拖动/框选：`onCellOver` 主动 `blur()` ⇒ 表格 `@keydown` 快捷键静默失效，先查 `document.activeElement`。
+- 🔴 `margin-left:auto` 的推手不能挂在带 `v-if` 的组件上（v604）⇒ 靠右组必须包**常显容器**。
+- 🔴 **多根组件（Fragment）会静默丢掉父级传的 `class`**（v620）：SprintChip = `.sprint-chip` + `<Teleport>` ⇒ `class="pin-sprint"` 从未进 DOM，`.pin>.pin-sprint{margin-left:auto}` 是空选择器、5 版零报错。修法 `inheritAttrs:false` + `v-bind="$attrs"`。**写「按 class 选子组件根」的 CSS 前，先真机读一次 `el.className`。**
+- 🔴 浮层定式：`Teleport + fixed + z-index 1250`；有自定义浮层就删触发器 `title`。
+- 🔴 **异步补内容判「归属变没变」，比 `messages` 数组引用，不比 `currentId`**（v626）：新对话首问时 id 还是 `''`，比 id 会静默丢掉第一张卡。
+- 🔴 **副驾探针第一个动作必须 `freshChat()`**（`tools/lib/cp-fresh.mjs`）：demo 账号打开副驾会自动恢复上次那段对话 ⇒ 基线污染、连跑全假红。
+- 🔴 **产物区只折叠「系统自动补的数」，不折叠 AI 的结论**（v626）：自动经营卡同类留最新一张；AI 主回复自出的卡/产出文件每次结论不同，折了等于藏结论。
+- 🔴 **协议里的「沉默」也是表态**（v627，这条最贵）：SOUL.md 说「不需要卡就不输出围栏」，前端把它读成「AI 没表态」，再用 4 条正则扫**用户原话**补卡 ⇒ AI 越守协议越被硬插一条。判据：**同一语义不许在两处各定义一份**；前端只执行 AI 的判断，不用正则猜。
+- 🔴 **卡不是人说的话，就别用人的口吻**（v627）：卡消息正文留空，模板对「有卡无正文」整个不渲染 `.msg-bubble`；历史旧文案用 `bubbleText()` 在渲染层隐掉。
+- 🔴 **探针识别卡片不许靠文案**（v627）：文案一改全假红。用 `.rc` 存在 + `.msg` 的 `m.role`（`user`/`assistant`），**不是** `is-user`/`res-card`；桩必须自己输出 `cards` 围栏。
+- 🔴 **异步补出来的内容必须「发起时快照归属」，回来归属变了就丢弃；系统自动产出的不许署角色名**（v625）：写入前比对发起时 `{sessionId, roleId}`；纯数值聚合卡中性署名「📊 经营数据」，判据 = 显式 `cardAuto` ∪ 正文逐字等于 `AUTO_CARD_LEADS`（别用「无 roleMeta 就算自动卡」）。
+- 🔴 **`v-html` 注入的 DOM 拿不到 scoped 的 `data-v-xxx`**（v624）：`.md p{}` 编译成 `.md p[data-v-x]` ⇒ 40+ 条 Markdown 排版规则**自上线起一条都没生效**。定式 `.md :deep(p)`。**样式改了没效果先量 computed，margin/padding 全 0 就是没匹配上。**
+- 🔴 **`v-if` 挂载的抽屉/面板，DOM 销毁会连 `scrollTop` 一起带走**（v622）：重开给 0 ⇒ 用户看到的是这段对话第一条。打开后必须主动还原（贴底→回底 / 中段→还原 top），不能指望 message watch（长度没变就不触发）。
+- 🔴 **flex 行里「可能超长的文本」必须写 `min-width:0`**（v623）：MCP 工具名/长路径/URL 这类**无空格长串**默认 `min-width:auto`＝整串宽 ⇒ 压不动、撑出横向滚动条、整页横滚。定式 `flex:1 1 auto;min-width:0;overflow-wrap:anywhere`；判据量 `scrollWidth-clientWidth`，别肉眼看。
+- 🔴 **改工具栏控件宽度只能实测「是否折行」，不能读注释里的余量数字**（v619）：判据 = `.card.toolbar` 高（单行 62 / 两行 100 / 多折 138），**查看态与编辑态必须分开量**（编辑态第一行多「工具箱」89px）。
+- 🔴 **折行不能只看容器 `height`**（v631）：固定高度容器（全屏层 column flex）里工具行默认 `flex:0 1 auto` 会被压到 min-height，折出的第二行**溢出后被下一个兄弟盖住** ⇒ 控件消失且零报错。定式 `flex:0 0 auto`；判据 = 子元素 `top` 去重数，或 `尾元素 bottom vs 表体 top`。
+> 上面各条的**实测数字 / 定式代码 / 根因叙述**全文见 `topics/frontend-ui.md` → `§MEM-ARCHIVE-v631`（v620-v627，2026-10-20 逐字迁出）。
 
-**判据/写法**
-- 修复 = `padding-left/right: 0`（纵向不动，行高不变），内容盒 36px、13px 居中 11.5px。
-- 🔴 选择器必须 `table.tbl.psi-tbl …` **并把 `[data-density="compact"]` 变体列进同一组**：
-  compact 那条 `padding:2px 8px` 是 (0,3,2) 且**在本文件更靠后**，`.psi-tbl td.psi-chk`（(0,2,1)）
-  会被整块压掉 ⇒ 紧凑档静默不生效（真机注入实测 padding 仍是 8px）。
-  **同文件内的密度档覆盖，先算权重再下笔，别默认"后写就赢"。**
-- ⛔ 别用 `text-overflow:clip` 遮（溢出还在）；⛔ 别加宽列（36 是冻结列 sticky 偏移 0/36/82 的基准）。
-- 页面 scoped 里不许再写勾选列样式（`.ipl-c-chk` 那种只写 `text-align:center` 的副本 = 第二真相源）。
-- 契约 `tests/chk-col-padding.contract.mjs`（run-all 第 ⑨ 组）；规范 UI-SPEC §2.6.2 F。
+## 🔴 行筛选 / 只读 / 批量写（v607-v614｜全文 `§MEM-ARCHIVE-v611`）
+- 🔴 行显隐**两份实现**：查看态 `rowVisible(r)`、编辑态 `rowBaseShown(ri)`。**新增筛选必须两处同改**。定式：共用 `brandSelSet`（computed Set）。
+- 🔴 **同一状态已由触发控件显示就别复述**（品牌按钮自带角标⇒再出 chip 是噪音 v608）；无角标的筛选必须留 chip。删控件要 grep 它的中文引导词。
+- 🔴 **判「能否编辑」不看有没有 input，看有没有保存路径**（v610/v611 查看态只读）：无保存按钮/无 PUT ⇒ 改动只脏内存却污染合计与「复制报单→下单数量」。
+- 🔴 **「撤下」与「删行」是两件事**（v614）：删行=从 payload 剔除 ⇒ 整期重建把该行**数量一起清**；撤下=行留在 payload + `list_del` 旗标 ⇒ 只退清单（小程序搜不到），数量/加单/手工单价不动。后端 `rem = ①不在 keep ②在 keep 但 list_del`。
+- 🔴 **撤下候选必须排除「行内有数量」的行**：后端 eligible 含 `qty>0` ⇒ 撤下后下次保存**自动加回**（"自己回来了"、零报错）。qty 恒 0 才撤得干净。
+- 🔴 **任何筛选/批量按钮先问「没有筛选时它意味着什么」**（v613/v614）：清空筛选后候选=全表差额 ⇒ 必须有筛选闸门（`hasActiveRowFilter`）+ 数量≥20 二次提示。
+- 🔴 死 import 的隐形性（v607）：被形参遮蔽 ⇒ Rollup 只 warning、线上正常，**dev 整页加载失败** ⇒ `router.push()` 取真实错误。
+- 🔴 **算「这一行放不放得下」必须把 margin/gap 全算进去，只加 `getBoundingClientRect().width` 会算漏**（v621g）：1366 实测 need 与 1440 **完全相同（1022）**，但可用少 74px，叠加 `.tb-sep` 的**外边距不计入元素宽度**（1px 宽+ 上下 margin + 2 个 gap ≈ 22px）才刚好溢出 3px。**判据 = 量容器 `height`（单行 62 / 两行 100），不是比宽度。**
+- 🔴 **响应式断点必须逐档实测，注释里的数字一律作废**（v621g）：审批人姓名降级那条挂进 `@media(max-width:1459)` 会**漏掉 1512**（它 > 1459 不吃那档）⇒ 实测仍 102；必须独立开 `@media(max-width:1539)`。收紧档 1359→**1369** 才覆盖 1366。**每加一档就重跑五档量测。**
+- 🔴 **工具栏最宽的常常不是按钮，是状态/信息类文本**（v621g）：`.confirm-badge`「已确认 · 微信审核-主管」整条 **164.8px**，姓名部分 88.8px，比任何按钮都宽。收窄优先级：**状态常显 + 姓名降级 title**（不是砍按钮、不是砍状态）。
 
-**探针**：注入实测取 `checkbox.right − (cellWidth − paddingRight)`，> 0 即会画省略号。
-`getComputedStyle(cell).textOverflow` 只证明"能画"，不能证明"画了"，两者要一起看。
 
-## 副驾抽屉打开时页面浮层必须让位（v673）
+## §MEM-ARCHIVE-v633c（2026-10-20 从 MEMORY.md 迁入，原文）
 
-**症状**：侧栏（AI 副驾抽屉 `.copilot`，z **950**）打开时，预报页「品牌 / 到货周期 / 复制报单」
-的**弹层**整块浮在抽屉之上。
+### 前端判权限：角色名白名单 vs canDo
 
-**根因是两层，缺一不可**：
-1. `.tb-pop-panel` 是 `Teleport to="body"` ⇒ 早已不在 `.page` 后代里 ⇒ v135 写的
-   `.page.copilot-on .tb-pop-panel` **选择器写对了、祖先没了**，永不匹配 ⇒ 面板恒 1101 > 950。
-   （v135 当年只治住了**按钮容器** `.tb-pop`，弹层本体从没被管住。）
-2. `.col-menu`(1101) / `.col-menu-overlay`(1100) 根本不在那份名单里。
+- 🔴 **前端按「角色名白名单」判权限 = 与权限页配置脱钩**（v632，用户报「给主管配了改单权限仍提示没权限」）：`ENTRY_ROLES=['admin','boss','accountant','sales']` 不含 `supervisor` ⇒ 怎么配都误拦。判据一律用 `canDo(接口模块, 动作)`（动作由 HTTP 方法定：POST=create），且**与保存按钮同一条**；真实门槛查后端 `_PATH_MODULE_MAP` + 生产 `role_permissions`，别凭角色名猜。
 
-**修法**：`CopilotDrawer` 的 `watch(copilotOpen)` 切 `body.classList.toggle('copilot-on')`
-（+ `onBeforeUnmount` 摘除），规则唯一源 `src/styles/app-layers.css`（main.js 入口引入）：
-`.tb-pop` / `.tb-pop-panel` / `.pop-overlay` / `.col-menu` / `.col-menu-overlay` /
-`.grid-area.is-fs` ⇒ `z-index:auto`。页面里不许再写 `.page.copilot-on`（第二真相源）。
+## 页面真身速查（标题近似、极易改错文件）—— 自 MEMORY.md v642 迁入
+- 「预报订单管理 → 商品目标 → 新建商品目标」= `src/pages/ProductTarget.vue`（`/forecast?tab=target` 第 4 页签 ⇒ 无独立 chunk，样式合进 `Forecast-*.css`）。
+- 「目标与返利政策 → 创建商品目标」= `src/components/rebate/TargetFormModal.vue`（+`ProductTargetForm.vue`）。
+- 探针相关补充（v589/v590/v614）：`v-focus` 未注册 = 全程静默无效，修完必须运行时量 `selectionStart/End`+`activeElement`（产物 grep `resolveDirective` 是假阴性）；「点击即全选」只挂 click/mouseup 不能 mousedown，用户说「点击」就是单击；`fill-search` 的 limit 硬 cap 200 ⇒ offset 分页拉全，toast 3-4s 自灭 ⇒ 轮询「一出现就收」，保存成功自动退出编辑态（v208）⇒ 断言前必须重进改单并轮询网格重建；产物验证正则必须带 `[data-v-xxx]`，不能 grep 函数名（minify 改短 ⇒ 假阴性）。
 
-⛔ **只降非模态**：模态（`--z-page-modal-overlay` 1125 / `--z-page-modal` 1130）、`--z-sug-pop` 1150、
-toast 一律不动。**抬抽屉到 1105 是错的** —— 会盖掉 `--z-modal`(990) 的 5 处页面模态
-（WhDialog / CustomerArchive / SupplierArchive / InvPurchaseList / ProductArchive）。
+## 结构判据（自 MEMORY.md v642 迁入）
+- **scopeId 由文件内容派生**（v570）：改注释也变 ⇒ 动过任何 SFC 就必须重构建重部署。
+- **全屏层之外的元素全屏一律看不见**（v584）：`.grid-area.is-fs{position:fixed;inset:0}` 盖满视口且无报错 ⇒ 必须放 `.grid-area` 内部；间距 `4px` 抵回 gap、贴合 `-10px`。
+- **挂点优先选本来就存在的行**（v603）：页脚 `.pin`/`.edit-summary` 已在 grid-area 内 ⇒ 零新增行。
+- 🔴 **Modal 一律 `--z-page-modal-overlay/-modal`（1125/1130）**，不许写 1000/1001（v617 复发 v136）：工具栏 `.tb-pop` 常态 1120，Teleport 到 body 后与根层直接比较 ⇒ 触发按钮盖掉弹窗正文。
+- 🔴 **与视口相关的尺寸不许在 CSS 里写死 vh**（v633）：`calc(72vh+119px)` 要视口 ≥1539 才不溢出；两态各算一套 ⇒ 进/出编辑态表体跳 251px。定式：两态共用一个 `_availHeight()`，只在 resize/布局变化重算、**不挂 scroll**，全屏返回 0 交回 CSS（✅ 251→16px）。
+- 🔴 **判「折行」只认行高（34/68/74），不认子元素 top 去重**；定元凶必须 A/B 隐藏（隐藏 188px 的 `.row-more` 后 1440 仍 68 ⇒「收窄徽标就能回单行」是错判）。
+- 🔴 **打开即输入的弹窗：给元素标 `data-autofocus`**（v618）：Modal 的 watch 也在 nextTick 后无条件 focus 第一个可聚焦元素（=关闭按钮）⇒ 赛跑被覆盖。
 
-🔴 **通用判据**：判断一个浮层"该由谁让位"，先问**它渲染在 DOM 的哪个位置**。
-`Teleport to="body"` 的元素不在页面子树里，任何 `.page.xxx` 后代选择器对它都是死代码。
-新增页面级非模态浮层 ⇒ 登记进 `app-layers.css` + 跑 `tests/overlay-layers.contract.mjs`（run-all ⑩）。
+## §MEM-ARCHIVE-v668 两套列对象：visibleCols 没有 type（2026-10-30）
 
-**探针**：判"有没有被盖"用 `elementFromPoint(浮层中心)` 看命中谁，别只看 `getComputedStyle().zIndex`
-（auto 也可能被祖先层级顶上去）；往返验证必须**关闭后复测**（防 body 类残留让浮层永久停在 auto）。
-⚠️ ⌘K 在副驾输入框里被豁免（`onKeydown` 对 INPUT 直接 return）⇒ 关抽屉用点遮罩，别用第二次 ⌘K。
+**症状**：Forecast 列头筛选面板，某列值清单只有一项「（空白）」，计数 1 / 1，勾选无反应。
 
-## 外壳浮层档 `--z-shell-pop`（v674）
+**根因**：`colByKey`（筛选取值用的 key→列 索引）用 `visibleCols` 建 Map，而 `visibleCols`
+的 map 只搬 `key/label/cls/fixed/edit/deletable/fmt/options/custom` —— **没有 `type`**。
+`cellText(r, col)` 的第一个分支就是 `col.type === 'master'`，undefined 时一路漏到末尾 `return ''`
+⇒ 整列取值皆为 ''，去重后只有一个空值。主档列（厂家编码/条码/规格/单位/品牌/分销价）与
+计算列（合计/箱/加单/最终下单/单价/金额，**只在 colOrderList 里**）全中；客户列走 `type==='qty'`
+的专用分支、计算列走 `cellValOf` 兜底，故先前测的那两类都正常 ⇒ 迟迟没暴露。
 
-**症状**：左侧导航悬停/点开「进销存」「仓配管理」等，本期预报页的「品牌 / 到货周期 /
-复制报单」**按钮整块浮在导航弹窗上面**，弹窗里的条目被盖住、点不到。
-
-**根因**：`.sb-pop` 是 `Teleport to="body"` + `position:fixed`，写死 `z-index:30`
-（早年页面里没有高 z 浮层时够用）；后来 §1.7.1 把工具栏弹层容器 `.tb-pop` 定到
-`--z-page-bar:1120` ⇒ 两套层级体系没对齐，位置一重叠按钮必然在上。
-
-**档位规则（唯一源 `variables.css`）**：
+**定式**：
+```js
+const colByKey = computed(() => {
+  const m = new Map()
+  visibleCols.value.forEach(c => m.set(c.key, c.type ? c : { ...c, type: 'master' }))
+  colOrderList.value.forEach(c => { if (!m.has(c.key) && c.type !== 'seq') m.set(c.key, c) })
+  return m
+})
 ```
---z-page-bar:1120         页面级工具条（.tb-pop）
---z-shell-pop:1122        应用外壳浮层（.sb-pop / 顶栏下拉）   ← v674 补
---z-page-modal-overlay:1125  页面级模态遮罩
---z-page-modal:1130       页面级模态本体
-```
-⛔ 三条不能走的路：
-- 给 `.tb-pop` 降级 —— 它的 1120 是**必需**的（要高于 `.pop-overlay` 1100，
-  弹层开着时才能直接点其它触发按钮做互斥切换）。
-- 抬到模态之上 —— 页面确认框会被导航弹窗盖住。
-- 用 `--z-page-bar` 顶替 —— 语义不同，页面浮层会跟着一起被改。
-
-🔴 **判断"两个浮层谁该在上"不看数字大小，看它从哪儿长出来**：
-从应用外壳（侧栏 / 顶栏）长出来的非模态浮层属于**外壳档**；
-从页面内容长出来的属于**页面档**。外壳档恒高于页面档、恒低于页面模态。
-
-🔴 **用户说「侧栏弹窗」时必须区分两个东西**：
-① 左侧导航职能区弹窗 `.sb-pop`（本档）；
-② 右侧 AI 副驾抽屉 `.copilot`（950，靠 `app-layers.css` **让位**而不是抬 z，见 §1.7.2）。
-v673 只测了②就宣布修好，用户回「没有修复」。**两处都要量 `elementFromPoint`。**
-
-**探针**：判"谁在上面"用 `elementFromPoint(按钮中心)` 看命中谁 —— 命中 BUTTON 就是按钮在上、
-命中 `.sb-pop` 才是弹窗在上。⚠️ 几何 rect 重叠**不等于**被遮挡，别把重叠判成缺陷。
-⚠️ `.sb-pop` 的样式在 `Shell-*.css` 懒加载 chunk 里、scoped 后是 `.sb-pop[data-v-xxx]`，
-grep `.sb-pop{` 或只翻 `index-*.css` 都会空手而归。
-契约 `tests/shell-pop-layer.contract.mjs`（run-all 第 ⑪ 组），规范 UI-SPEC §1.7.3。
-
----
-
-# 列表页 / 建单页密度三连（v678 → v679 → v680，2026-10-25）
-
-三次都是老板"看着挤/看着松/行太高"的反馈，共同点：**真凶都不是字号/行距/控件高度**，
-而是「容器留白」与「列宽没按内容倒推」。排查顺序：先量，再 A/B 注入，最后才改源码。
-
-## v678 · 表格行内「⋯更多操作」菜单（采购单列表 关联/操作 两列）
-
-- **现象**：两列内容自动换行 ⇒ 行高过高、信息密度下降。
-- **修法**：常用动作仍直出（`INLINE_MAX=2`，`rowActions()` 按 `rank<=3` 拆 `inline/more`），
-  其余收进「⋯」；关联列的「退货」移入操作列 ⋯，关联列只留入库/货款。
-- **列宽**：`OP_W=128` / `REL_W=96` + `td{white-space:nowrap}` + 行内容器 `flex-wrap:nowrap`。
-- 🔴 **共享件 `components/RowMoreMenu.vue`**：单根 `<span class="row-more">`，
-  `<Teleport to="body">` + `.row-more-pop{position:fixed;z-index:var(--z-page-menu,1101)}`。
-  **必须 Teleport+fixed**——单元格普遍 `overflow:hidden`，绝对定位的下拉会被静默裁掉。
-  关闭时机 = mousedown 空白 + Esc + scroll/resize；触发按钮 `.row-more-btn` 18×18；
-  危险项由**宿主页**排序（组件不管业务语义）。
-- 🔴 **列宽按最不利（最宽松）密度核算**：内容宽 = 列宽 − 28（宽松档 `padding:10px 14px`）。
-  首版按紧凑档(−16)定 124 ⇒ 差 3px，「⋯」被静默裁掉。
-- 契约 `tests/row-more-menu.contract.mjs`（run-all ⑮）：Teleport+fixed / 接入与 inline↔more 拆分 /
-  单行不溢出 / 全站其余 10 个列表页行内单元格无折行。
-- 全站复核：DeliveryOrder / FundsDoc / Promotions / AlertRules / BrandArchive / EmployeeArchive /
-  ReportMapping 的 `flex-wrap:wrap` **都是页面级工具条或卡片级操作区，不是行内单元格** ⇒ 不得误改。
-
-## v679 · 列表页页头控制区密度（筛选工具条 + 状态页签条）
-
-- **红框范围**：`.card.xx-filter`（`.psi-frow` 单行控件条）+ `.psi-tabbar`（`StatusTabs` + `PsiListActions`）。
-- **实测（改前 1920）**：页头 **123px**，其中控件只占 **72px ⇒ 51px（41%）是纯留白**。
-  筛选卡 70px 高而控件行仅 32px（上下各 18px）；`.main-tab` `padding:10px 18px`/14px ⇒ 单条 **40px**，
-  比刚压过的表格行（32.8px）还高；筛选卡底距 12 + 页签行底距 12 再叠一层缝。
-- **修法**：`variables.css` 新增 `.card.{ipl,isl,is,fc,ff,fd,fbk,fs,wob,woi,wsa,win,wvs}-filter{padding:10px 14px}`；
-  `psi-list.css` 的 `.psi-tabbar .main-tab{padding:7px 12px;font-size:13px}`（**只限列表页，不动全局 `.main-tab`**）、
-  `.psi-frow` gap 12→10、`.psi-tabbar` 底距 12→10。**`.card` 基线 18px 不动**（内容卡仍需要呼吸位）。
-- **实测（改后）**：1920 页头 123→**99**（−19.5%）、留白 51→35；1440 页头 211→**141**（−33%）、
-  页签行 85→33（**消掉换行**）、留白 95→35。
-- **A/B 注入法**（定位与验收都靠它）：不改源码，用 `page.addStyleTag()` 把候选规则注入**线上页**，
-  同页前后各量一次 ⇒ 一次拿到确定因果，避免"改了不知道是哪个改动起效"。
-- 契约 `tests/toolbar-density.contract.mjs`（run-all ⑯）含「页面 scoped 不得另写 padding」漂移检查 ——
-  否则哪天有人在单页里补一条 padding，中心规则就静默失效。
-
-## v680 · 六个建单页商品行行高对齐「采购订货单」基准
-
-- **现象**：基准页数据行 **29.8px**，采购退货单/自提订单/自提退单/车销订单/车销退单/调拨单 **56.6px**（≈翻倍）。
-- 🔴 **根因＝操作列固定宽写小了**：行内两个 `.btn-row-ic`（26×26，全局 `variables.css:440`）+ 4px 间距
-  = **56px 净宽**，加 `td` 左右各 8px ⇒ 操作列须 **≥72px**。v449 拆页时新页写成 **`width:64px`**
-  （净宽只剩 48px）⇒ 两个按钮**换行成两行** ⇒ 行高 26+26+4+2 = **56.6px**。
-  **基准页当时不写宽度**（按内容自适应）所以一直单行 —— **「抄列宽」比「抄机制」更危险**：
-  抄的人看到新页有个 `width` 就当它是规范，抄了个更脆的值。
-  同族：§11 #13（删行按钮 30×30→26×26）⇒ **行内图标按钮是行高决定者**。
-- **统一口径（四组件一致）**：`width:76px; min-width:76px` + `white-space:nowrap`
-  （76 = 26×2+4+8×2 = 72，再留 4px 余量）。**基准页也同步定死 76px**（原自适应 119.5px），
-  不然七页操作列宽仍各不相同 —— 一致性要求"两边都钉住"，不能只钉坏的那个。
-- **sticky 操作列配色**：销售/调拨此前**只有 `position:sticky`**，补 `background:var(--bg)`
-  + `box-shadow:inset 1px 0 0 var(--border-subtle)`。不补则横向滚动时右侧列**从操作列底下透出来**、
-  且无左侧分割线（`border-collapse:collapse` 下 sticky 真 `border` 会丢，只能用 inset 阴影当线）。
-- **换算小字改绝对定位浮层**（销售/调拨仍是 v417c **之前**的行内第二行写法 ⇒ 选中多档单位商品时行高再涨）：
-  `display:none;position:absolute;z-index:6`，hover/focus 才 `display:block`，锚点格 `position:relative`。
-- **同名列宽地板值**对齐基准：单位 84 / 数量 86 / 单价 86 / 金额 92 / 库存 78 / 商品 `min-width:240`
-  （原 110·110·110 / 76 / 86 / 280）。
-- **共享件 `ProductCombo.vue`** 的 `.ipn-v` 文本态 20px → **18px**（紧凑 16px，§R.2）：
-  它是**组件自带 scoped 规则**，**页面级 CSS 改不动** ⇒ 拆页时最容易漏抄。
-- **实测（生产 v680，1920 紧凑档，7 页逐页量）**：七页**全部**行高 29.8 / 操作列 76 / 按钮 1 行 /
-  底色 `rgb(255,255,255)` / 分割线 `inset 1px` / 数量 86 / 单位 84 / 库存 78 / 表头 36.5 / 底部条 41。
-- **刻意保留的差异（不是遗漏，别去"凑"）**：销售/调拨 `.<pfx>-save` 多 `gap:8px`（装**两个**下拉/按钮，
-  基准只装一个）｜调拨底部条显示「已录商品 N 项」而非「合计」（小单位不同，加起来没意义）｜
-  车销订单表单头 74px（多一格送货司机，整格换行，§R.3）｜表 `min-width` 1372 vs 720（列数不同）。
-- 契约 `tests/psi-order-form-density.contract.mjs`（run-all ⑰，**74 断言 + 8 判别力自证**）：
-  A 操作列宽 / B sticky 配色 / C 换算浮层 / D 同名列宽 / E 表格内距与控件高 / F 共享件文本态。
-  🔴 已做「注回已知缺陷」自证：销售页操作列改回 64px + 换算小字退回行内 ⇒ 立即判红 4 条并点名页面与实际值。
-
-## 方法论沉淀（三次都复用）
-
-1. **先量再改**：写 `tests/perf/vXXX/*.mjs` 探针，把「页头总高 / 卡内距 / 控件行高 / 列宽 / 按钮行数」
-   逐项打数，算出**纯留白占比**，再决定改哪一层。
-2. **A/B 注入定因果**：`page.addStyleTag()` 注入候选规则 → 同页前后对比 ⇒ 不猜。
-3. **宽度要倒推**：所有「固定宽度」都写成推导式（`按钮数×26 + gap + td 内距 + 余量`）放进注释，
-   下次换按钮尺寸时才知道该改谁。
-4. **一致性＝两边都钉住**：不能只把坏的那个改成"自适应"，也不能只钉住好的那个；
-   基准与副本必须同一份显式值，否则下次又漂。
-5. **契约必须自证判别力**：每条关键断言都要对"真实样本"判过、对"注入的已知坏样本"判红。
-
----
-
-## v683 开单单位可选 + 单位×价格联动（四建单页统一）
-
-**需求原话**：「各类单据开单时的商品单位需支持手动选择，替代当前写死的"箱"」，并要求「优先带出该单位的上次开单价格；首次取档案价；档案无价允许手填」，保存后详情与再次编辑正确回显。
-
-**改造前真实现状（四页四套口径）**：采购三档下拉但换档「价×k、量÷k」；采购退货要勾「按小单位」才放开；销售/调拨单位是只读文字；档案 `default_*_unit` 有控件能存但**全仓零读取**（生产非空 0 条）；销售/退货/调拨三张明细表 DDL **没有 unit 列**。
-
-**唯一入口**：`src/pages/inventory/new/unitPricing.js`
-- `PRICE_SOURCE_LABEL`（last_owner/last/last_legacy/archive/none 五种来源中文）、`unitOptionsOf`、`findUnitOption`、`priceOfUnit`、`defaultUnitName`、`applyPricingToRow`、`applyUnitChange`、`createPricingCache`。
-- `applyUnitChange(row, name, {force})` 只重算**单价**，**不碰 quantity**（老板拍板：数量不动、金额跟着变；与 v455 相反）。
-- 价格由后端 `/api/psi/product-pricing` 下发，前端**只透传与显示，绝不乘 ratio**。
-
-**四页接入**：单位格 `<select :value="row.unit" @change="onUnitChange(row,$event)">`（不用 v-model：它会在 change 派发前改掉 `row.unit`）；`buildBody` 逐行带 `unit`；`watch(customer_id|supplier_id)` 与 `watch(pricingKind)` 都 `pricingCache.clear()`；采购页 `refPriceOf` 改读 `findUnitOption(row,row.unit).price`（修掉 v409 的 10 倍错价）。
-
-**详情回显**：`sale_order_get` 下发 `unit_label`（行单位→报单单位→档案小单位的回退链）、`base_unit`、`base_qty`、`base_unit_price`、`unit_options`；`InvSaleDetail` 单位列用 `it.unit_label || it.unit`，数量列补「= N 瓶」小字。
-
-**档案**：「默认单位」→**「默认开单单位」**，三个字段加 `title` 说明；`staleUnitWarning` 在配了已不存在的单位名时提示；后端 `data.py::_DU_FIELDS` 校验必须属于「将要生效」的三档名，否则 400 并列出可用单位。
-
-**契约**：`tests/unit-pricing.contract.mjs`（组 ⑱，56 条，含坏样本判别力自证）。
-
----
-
-## v684 三个退货渠道统一自由退货 + 「商品不在该伙伴历史里」只提醒不拦截
-
-**需求原话**：「采购退货页不再以『按原单退货』作为主入口，改为默认支持用户自由退货。当用户选择的
-产品不在该供应商的采购记录中时，系统仅给出提醒，但仍允许其继续完成退货。自提退单和车销退单需
-采用相同的自由退货逻辑与提醒机制」。
-
-**改造前真实现状**：采购退货页**已有**两种形态（`?from_po=` ⇒ 挂原单；否则自由退货），但列表行
-「退货」走的正是 `?from_po=`（事实上的主入口）；自提/车销退单 2026-10-11 起就已自由。
-**三个渠道都没有任何「这个商品他从来没经手过」的提示**。
-
-**唯一前端入口**：`src/pages/inventory/new/partnerHistory.js`
-- `createHistoryChecker(fetchFn, onResult)`：300ms 防抖 + seq 防竞态 + `clear()`；返回 `{check, recheck, clear}`。
-- `HISTORY_NOTE.failed`（取不到时的文案）+ `historyWarnText(kind, n)`（业务话术，明写「仍可继续退货/退单」）。
-- 🔴 两条短路必须先写：`partnerId<=0 || !ids.length ⇒ skipped`（否则刚进页面一片⚠）；
-  `catch ⇒ emit(空集, {failed:true})`（**绝不**把失败当"全都没有历史"，那会给每行挂假警告）。
-
-**两页接线**：`histMissing: Set` + `histNote` + watch([伙伴, 商品 id 拼接串])（**不要 watch(items)**：
-改数量/单位会触发，与"有没有历史"无关）+ 切模式清空。
-- 采购退货页 `.ipn-hist-warn` / `.ipn-hist-dot`；`kind='purchase'`。
-- SaleDocForm `.isn-hist-warn` / `.isn-hist-dot`；`kind='sale'`，且**仅 `cfg.isReturn` 生效**
-  （正向销售单挂这个纯噪音）。
-- 角标**绝对定位**（不占行高、不挤列宽）；`td.ipn-c-prod` / `td.isn-c-prod` 补 `position:relative`。
-- 行对象没有 `product_name`（ProductCombo 只写 product_id）⇒ 提示 title 用 `productNameOf(row)` 现查。
-
-**入口改造**：`InvPurchaseList.goReturn(r)` 改跳 `legacyPurchasePath('return') + '?supplier_id=' + r.supplier_id`，
-`canReturnFrom`（原单状态限制）删除 —— 自由退货不看原单状态。挂原单通道仍在详情页「转单为」。
-
-**页面回读**：`PurchaseReturnForm.reinit()` 的独立分支在 `loadRefs()` 后读 `route.query.supplier_id`，
-**必须校验它真的在 suppliers 里**（URL 用户可改；脏 id 会让界面看着有供应商、提交却 400）。
-🔴 同 path 只换 query 不会重跑 `reinit()`（watch 只挂 `from_po`）⇒ 真机探针必须先跳别的页再进来。
-
-**契约**：`tests/free-return.contract.mjs`（组 ⑲，52 条，含坏样本判别力自证）。
-
----
-
-## v685 商品候选「可辨识 + 可用优先」+ refs 拉全量
-
-**老板原话**：「我刚试了一下新建采购订单页面，商品单位还是不能选择」。
-
-**真因不是控件坏了，是两个静默失效叠加**（这点最值得记）：
-1. 四建单页 `psiApi.refs(..., 500)`，而后端 `product_list` 是 `ORDER BY id DESC LIMIT ?`
-   ⇒ 生产在售 1159 条商品里只拿到 **id 最大的 500 条**。老板要搜的老商品**压根不在
-   candidates 里**，命中的全是同名的后导入垃圾档案。同一个 500 也截断了客户（702 条）。
-   接口一路 200、前端零报错、下拉也"能打开"——只有数一下候选条数才发现少了。
-2. 候选只渲染「名称 + 条码」。生产实测 1270 个商品：**800 条「单档且无采购价」**、
-   130 组重名（916 条）、**119 组「同名但一条多档、其余单档」**。名字一模一样 ⇒
-   点错就选到只有「件」1 档的档案，单位下拉只有一项 = 老板看到的「不能选」。
-
-**唯一实现**：`src/pages/inventory/new/productPick.js`
-- `REF_LIMIT = 5000`（建单页是**本地过滤**，拉不全 = 搜不到；留 4 倍余量，破万再换后端搜索）
-- `unitTierNames(p)` 档位名去重保序（小→中→大）
-- `pickBadge(p)` → `{text, muted, warn}`：多档 `杯·组·件` / 单档 `仅件`（灰）/ 无价加红
-- `pickScore(p)`：有价+多档 0 → 有价单档 1 → 无价多档 2 → 无价单档 3
-- `pickMatches(list, kw, limit)`：过滤 + 稳定排序（同分保持后端原序，**不靠 id 猜**）
-- `pickSummary(p)`：title 全貌（规格/单位/有无价格/条码）
-
-**接线**：`ProductCombo.vue`（自提/车销/调拨/采购退货四页共用）与 `PurchaseOrderForm.vue`
-内联组合框的 `matches` 都改为 `pickMatches`（改动前是**两份重复 filter**，各抄一遍）。
-候选行加 `.ipn-prod-tier`（`flex:none` + `white-space:nowrap`，被省略号吃掉就等于没有）。
-
-**单位格解释**：`unitPricing.js::unitCellTitle(row)`（四页共用）
-- `opts.length === 0` ⇒「这个商品档案里没配单位，开单前请先到商品档案补上」
-- `opts.length === 1` ⇒「只配了「件」1 个单位，所以没别的可选；想按中/大包装开单请先补单位」
-- `>= 2` ⇒ 退回 `convText`（换算小字）
-- 采购退货/销售退单的 `unitTitle` 在它基础上再拼「该单位价来自：…」
-
-**判别力教训（本轮最重要一条）**
-- 行高**不能**拿「29.8px」当全局基线：它随 `data-density` 变。演示租户和老板账号
-  密度不同 ⇒ 同一个页面一个 29.8、一个 31.8，差点把「密度差异」记成「徽标撑高行」的回归。
-  正确判据 = **因果对照**：把徽标从 DOM 摘掉再量，`delta≈0` 才说明无关
-  （徽标本来只在下拉浮层里，而浮层是 `position:absolute`）。
-- 探针里"激活态"与"文本态"行高天然差 2px（激活格是 22px 的 select/input，文本态 18px）。
-
-**契约**：`tests/product-pick.contract.mjs`（组 ⑳，45 条，含坏样本自证：
-`REF_LIMIT` 改回 500 ⇒ 立刻判红 2 条；排序退化样本 `4,2,3,1` ⇒ 排序断言有判别力）。
-
-
-<!-- ===== 自 MEMORY.md 索引归并 2026-10-25（原文逐字保留，勿删）===== -->
-
-### 高频硬判据
-
-- prop 到子组件已解包 ⇒ `props.row.value` 恒 undefined，写 `props.row`。
-- 模板裸标识符必须在 setup 声明，否则落 `$attrs` 静默 undefined。
-- `api()` 只解一层（`client.js` 已 `return data.data ?? data`）⇒ 再写 `(d && d.data)` 恒空；仅 `{raw:true}` 才取 `.data`。
-- scopeId 由文件内容派生 ⇒ 动过 SFC 必须重构建重部署。多根组件静默丢父级 `class`。`v-html` 的 DOM 无 scoped ⇒ 要 `:deep()`。
-- `v-if` 面板销毁带走 `scrollTop` ⇒ 重开还原；flex 行长文本必须 `min-width:0`。
-- 改「恒空 getter」前先 grep 布尔/三元用法（`auth.token` 曾让 IdleTimeout 静默失效）。
-- `Teleport to="body"` 的浮层不在页面子树 ⇒ `.page.xxx` 后代选择器对它是死代码。
-
-### 浮层层级（唯一源 `variables.css` v367 阶梯，别自拍 `--z-sticky+N`）
-
-`--z-page-fs`1000 / `--z-page-overlay`1100 / `--z-page-menu`1101 / `--z-page-bar`1120 / Modal 1125·1130 / `--z-sug-pop`1150。
-- 🔴 低于 1000 的浮层在全屏页必被整块盖住；**遮罩与本体必须成对抬升**（只抬本体则「点空白关闭」失效）。
-- 🔴 页面内 Modal 用 1125/1130（写 1000/1001 会被 `.tb-pop`(1120) 盖住）；`Teleport + fixed`；有自定义浮层就删触发器 `title`。
-- 🔴 表格行内下拉必须 `Teleport to="body"` + `fixed`（单元格 `overflow:hidden` 静默裁掉）⇒ 共享件 `RowMoreMenu.vue`。
-
-### 表格 / 控件
-
-- 🔴 **行内图标按钮是行高决定者**：2×`.btn-row-ic`(26)+4 gap=56 净宽，加 td 左右各 8 ⇒ 操作列 ≥72（定 76 + `nowrap`）。抄 `width:64px` ⇒ 换行 ⇒ 行高 29.8→56.6px。**「抄列宽」比「抄机制」更危险**。契约 ⑰。
-- 🔴 sticky 列必须补 `background` + `box-shadow:inset 1px 0 0`（`border-collapse:collapse` 下真 border 会丢）。
-- 🔴 「换算/解释小字」不占行高 ⇒ 绝对定位浮层；写行内第二行会顶高行高。
-- 🔴 列宽按**最不利（宽松）密度**核算：内容宽=列宽−28（`10px 14px`）／紧凑 −16；权威在 `<colgroup>`，td 不写 width。
-- 🔴 `.card` 18px 只是「内容卡」基线，套「单行工具条」必须把类名补进 `variables.css` 的 `.card.xx-filter{padding:10px 14px}` 组（否则静默回落 18px）；状态页签只改 `.psi-tabbar .main-tab`。
-- 🔴 全站「全选」只能用 `SelectAllCheckbox.vue`（`:indeterminate.prop` + `@change`），范围≡所见。有意不纳入：权限矩阵/列显隐/品牌周期筛选/开关。
-- 🔴 `@click.prevent` + 单向 `:checked` 是经典坑（真实鼠标必现，`el.click()` 量不出）⇒ 用 `@change` + `nextTick` 回写；点击切换类控件不许用 `el.click()` 验收。
-- 🔴 `<select>` 单位/档位切换用 `:value` + `@change` 取值，**不用 `v-model`**（v-model 在 change 派发前就改掉 `row.unit`，事件里拿不到旧值）；实在要用则必须 `applyUnitChange(..., {force:true})` 摆脱顺序依赖。
-
-### 「改错了」类排查
-
-- 🔴 「模式开关」判据只能用 setup 快照，不能用会被预览覆盖/后端每轮重算回传的 flags。
-- 🔴 换唯一键/加列：补列 → **回填** → 建索引，缺一即静默失效；`_create_indexes_on` 是 `except: pass`，只能 `PRAGMA index_list` 逐库复核。
-- 🔴 「数字没回填」先分「算错」还是「没量可算」（`0 × 占比 = 0` 与什么都没做同构）。
-- 🔴 「底栏要往下翻才看得见」先查写死的 `72vh` 类相对视口高度；判据=量 `bottom` vs `innerHeight`。
-- 🔴 拆行后仍全表重渲染 ⇒ 查行内 helper 是否摸全表聚合（hook `Dep.prototype.notify` 按 `this.subs`≈行数找 computed）。「打字卡」根因是「每敲一键写一次响应式」，不是 DOM 规模。
-
-### 布局高度三条唯一源
-
-- 🔴 顶栏：唯一源 `--topbar-h`（**48px**），栏内最高控件 34px ⇒ 内容盒 47、呼吸位 6.5px。别改字号/padding/写死 height，别另立 `--header-h`。契约 ⑫。
-- 🔴 侧栏条目：高度 = line-height + 上下 padding，**从来没设 height**，现 **38.8px**（`padding:9px` + 13×1.6）。`line-height` 必须显式写；`.sb-area-btn` 只许 `font-family:inherit`；禁写死 height。契约 ⑬。
-- 🔴 全局标签栏 = 顶栏正下方「[⟳] 采购单 ×」（`TabBar.vue`），现 **35px**。**三件必须同步**：`.tabbar` padding、`.tab-item`/`.tab-more-btn`/`.tab-more-item` height（必须全等，漏改「更多」撑回 37 而肉眼查不出）、`.tab-more-menu` 的 `top`。契约 ⑭。❗造溢出须开 2+ 标签（hash 跳 `#/forecast`）。
-
-### 页面真身速查（标题近似，极易改错文件）
-
-- 「预报订单管理→商品目标→新建」=`pages/ProductTarget.vue`（`/forecast?tab=target` 第 4 页签）｜「目标与返利→创建商品目标」=`components/rebate/TargetFormModal.vue`。
-- 商品档案 = `pages/ProductArchive.vue`，路由 **`/archive/products`**（`/archive` 是员工档案）。
-- 🔴 建单页现行落点（v449 拆分后）：采购订货 `PurchaseOrderForm`｜采购退货 `PurchaseReturnForm`｜自提/车销**订单+退单**共 4 入口走 `SaleDocForm`｜调拨 `TransferDocForm`｜商品格共享件 `ProductCombo`。`InvPurchaseNew.vue`/`InvSaleNew.vue` 是**已死引用**（无路由）；规范文档 §9/§9.1 是拆分前历史对照，现行看 **§9.3 + §R.11**。
-
-### 字号密度现状与「暂不提档」决策（2026-10-26）
-
-老板反馈：笔记本 100% 觉得字小、125% 刚好；台式机 100% 没问题。
-
-**根因 = 物理像素密度，不是 bug。** 同一套 CSS px：
-27" 1920 ppi≈82 → 12px 字物理高 ≈3.7mm；14" 1920 ppi≈157 → ≈1.9mm。
-分辨率相同 ⇒ 视口宽度、CSS 尺寸完全一致，差值纯粹来自屏幕物理尺寸。
-
-**我们的字号确实偏小**（`grep -rho "font-size:\s*[0-9.]*px" src/` 统计）：
-
-| 11px | 11.5px | 12px | 12.5px | 13px | 14px |
-|---|---|---|---|---|---|
-| 193 | 93 | **404** | 165 | 230 | 71 |
-
-主力 11–12.5px；飞书/钉钉/金蝶云正文 13–14px。这是早期对齐舟谱紧凑密度的遗留。
-
-🔴 **全站没有 html/body 基础字号**（`variables.css` / `app-layers.css` 里都没有 font-size），
-每个元素显式写死 px ⇒ **没有「改一个变量」的解法**，只能逐处改或整体 zoom。
-
-**老板决策（2026-10-26）：暂不改，自己用浏览器 125%。** 已评估但未采纳的两条路：
-- 应用内「界面缩放」档位（`zoom` + localStorage）：改动集中、不碰列宽，
-  但 `zoom` 会让 `position:fixed` 浮层/副驾抽屉（v673 `app-layers.css`）相对缩放容器定位，
-  存在错位风险，需逐页真机验证。
-- 正文字号整体提档 12→13px：从根上解决，但 **800+ 处字号 + 所有列表列宽都按当前密度核算过**
-  （见「列宽按最不利密度核算、操作列 ≥72」），必须逐页重算 + 回归，漏一处就溢出换行。
-
-⚠️ **升级触发条件**：一旦开始卖给其他经销商（客户多为笔记本/小屏且不懂浏览器缩放），
-这条必须重开 —— 那时「让客户自己去按 Ctrl+加号」不是可交付的产品体验。
-
-### 🔴 采购建单页表格固定 1372px —— 125% 缩放下会横向滚动（2026-10-26 实测）
-
-`PurchaseOrderForm.vue:1881` `.ipn-tbl { min-width: 1372px }`，注释写「1920 屏侧栏+页边距后可视 ~1670px 放得下 15 列」。
-**设计基准 = 1920 视口**。实测（`tests/perf/v687/viewport-check.mjs`，只读）：
-
-| 视口 | 容器宽 | 表宽 | 差 |
-|---|---|---|---|
-| 1920（台式机 100%） | ~1632 | 1372 | 放得下 ✅ |
-| **1536（1920 屏 125%）** | 1248 | 1372 | **超 124px ⇒ 右列要横拖** 🔴 |
-| 1440（100%） | 1152 | 1372 | 超 220px 🔴 |
-| 1280（100%） | 992 | 1372 | 超 380px 🔴 |
-
-**页面级**不溢出（`documentElement.scrollWidth == clientWidth`，实测三个视口全 0），
-滚动发生在表格容器内部（`overflow-x: auto`）⇒ 表现为「表底横向滚动条」，不是整页左右拖。
-
-对照：销售建单页 `.isn-tbl { min-width: 720px }`（退货 900）⇒ **自适应，1248/1248 刚好**，无滚动。
-⇒ 采购页是唯一没做自适应的建单页。
-
-**修法选项**（未采纳，等老板定）：
-- A. 降 min-width 到 ~1200 + 按百分比重分列宽：风险 = 已按「最不利密度」核算过的列会换行/截断，需列宽逐列复核。
-- B. 保留 1372，只把最右「操作/删除」列做 `position: sticky; right: 0`：横向滚动时操作列恒可见，改一个类，风险最低。
-- C. 不动，接受横拖。
-
-**⚠️ 别照抄这个 1372 到别的页**：它的前提是「1920 视口」。任何按 1920 算出来的固定 min-width，
-在高 dpi 笔记本（125%）都会撞同一堵墙。
-
-#### v688 已修：采购建单表在 1536 视口横滚（2026-10-26）
-
-上面的表已失效，现状：**1536 下采购订货 / 退货单表格均 1248/1248，正好放下**。
-
-🔴 **本轮最重要的技术判据：`table-layout: auto` 下，列宽是被「单元格内容」撑开的，
-改 `width` / `min-width` 声明基本无效。**
-
-实测证据（订货页，1536 视口，容器 1248）：
-| 做法 | 结果 |
-|---|---|
-| 只把 min-width 1372 → 1200 | 空行时 1248 ✅，但**填上 16 字商品名立刻弹回 1304** 🔴 |
-| 加 `.ipn-c-prod { max-width: 200px }` | 商品列仍 240 —— 旧的 `min-width:240` 赢，min-width 同时封住才降 |
-| `min-width+max-width:200` + `.ipn-v{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}` | 降到 200 ✅ |
-
-⇒ **要压窄 auto 布局的列，必须 `max-width` + 内部文本可省略，两者缺一不可。**
-写列宽 CSS 前先确认 table-layout 模型（全局 `table.tbl` 只设了 `width:100%`，**没设 fixed**）。
-
-🔴 **`max-width` 必须包在 `@media (max-width: 1680px)` 里**：它是无条件生效的，
-写全局会把 1920 台式机的商品列从 442px 硬压成 200px、备注 150→100。
-阈值 1680 = 视口 1920 时容器 1632（不触发）／1536 时容器 1248（触发）。
-
-🔴 **只压文本列，数字列一个不能压**：商品名 442→200、行备注 150→100（靠 … 收尾）；
-条码 / 采购价 / 订单数量 / 订单金额 / 库存 / 批次全是数字，压了就是 `¥1,234,56…` 截断，
-**读错金额的代价是钱**。最不利值实测零截断（13 位条码、¥1,234,567.80、9999.99）。
-
-🔴 **采购退货页是独立组件** `PurchaseReturnForm.vue`（不是复用订货页），自带一份
-`.ipn-tbl { min-width: 1372px }` ⇒ **改订货页不会影响它**。第一版只改了订货页，
-真机复测发现退货页仍是 1372/1248 才补上。该页明细只有 7 列，自然宽 ≤1248，降 min-width 即够。
-
-**遗留**：1440 视口（容器 1152）仍横滚 ~67px —— 13 列最不利内容需 1219px，数字列已到底，
-属物理装不下；1280 同理。老板设备是 1536 / 1920，不影响。
-
-**探针**（都在 `tests/perf/`）：`v687/viewport-check.mjs`（三视口 × 7 页面）、
-`v688/col-width.mjs`（各列宽 + 可传路由，第 3 个参数）、
-`v688/col-worst-case.mjs`（注入最不利内容查截断）、`v688/verify-fix.mjs`（注入等价 CSS 先算数值，
-省一次「构建→部署→探针」往返）。
+- 另：主档列在网格里"空"显示为 `—`（`masterVal` / `arrivalCycleText` 的约定），
+  筛选口径要把它归 ''，否则值清单里「（空白）」与「—」并存，用户分不清哪个才是没填的行。
+- 测试写法：从 SFC 原文切 `colByKey`/`cfRowVal`/`cellText`/`masterVal` 执行
+  （`.workbuddy/tools/v668-master-col-filter-test.mjs`），并用「把实现退回旧写法应失败」反向自证。
