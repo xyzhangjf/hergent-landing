@@ -353,10 +353,10 @@ onMounted(async () => {
 .pr-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--border-subtle)}
 .pr-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
 .pr-arrow{color:var(--t3);font-size:12px}
-.pr-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--t1);padding:0}
+.pr-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:14px;font-weight:500;color:var(--t1);padding:0}
 
 .pr-panel{}
-.pr-tip{font-size:12.5px;color:var(--t2);margin:4px 0 16px;line-height:1.6}
+.pr-tip{font-size:12px;color:var(--t2);margin:4px 0 16px;line-height:1.6}
 .pr-form{display:flex;flex-direction:column;gap:18px}
 .pr-field{display:flex;flex-direction:column;gap:8px}
 .pr-label{font-size:13px;font-weight:500;color:var(--t1)}
@@ -374,7 +374,7 @@ onMounted(async () => {
 .pr-kpi-val{font-size:22px;font-weight:600;margin-bottom:4px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 .pr-kpi-val.val-warn{color:var(--war)}
 .pr-kpi-val.val-bad{color:var(--dan)}
-.pr-kpi-sub{font-size:11.5px;color:var(--t3)}
+.pr-kpi-sub{font-size:12px;color:var(--t3)}
 .pr-net{font-weight:600;color:var(--t1)}
 .pr-footnote{font-size:12px;color:var(--t3)}
 .pr-confirm-ok{margin-top:14px;padding:12px 16px;border-radius:10px;background:rgba(var(--suc-rgb),.1);color:var(--suc);font-size:13px;font-weight:500}

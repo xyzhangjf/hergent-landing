@@ -1084,7 +1084,7 @@ async function save() {
 .yh-scope{color:var(--t3);font-size:12px;margin-left:2px}
 /* v125：重复目标预检提示（黄底，与红色硬错误区分：只是提醒，保存仍由后端裁决） */
 .dup-warn{display:flex;gap:8px;align-items:flex-start;margin:2px 0 8px;padding:8px 10px;border-radius:8px;
-  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);font-size:12.5px;color:var(--t2);line-height:1.6}
+  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);font-size:12px;color:var(--t2);line-height:1.6}
 .dup-warn svg,.dup-warn .icon{width:15px;height:15px;flex:none;margin-top:2px;color:#b45309}
 .dup-warn b{color:var(--t1)}
 .dup-warn p{margin:2px 0}
@@ -1094,7 +1094,7 @@ async function save() {
 .year-hit svg,.year-hit .icon{color:#1d4ed8}
 .yh-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .cf-tbl{width:100%;margin-bottom:12px}
-.cf-sol{font-size:12.5px;color:var(--t3);line-height:1.7;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px;margin:0}
+.cf-sol{font-size:12px;color:var(--t3);line-height:1.7;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px;margin:0}
 .cf-sol b{color:var(--t1)}
 .fade-enter-active,.fade-leave-active{transition:opacity .2s}
 .fade-enter-from,.fade-leave-to{opacity:0}

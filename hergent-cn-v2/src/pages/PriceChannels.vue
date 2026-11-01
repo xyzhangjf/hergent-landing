@@ -908,7 +908,7 @@ onMounted(async () => {
 .pc-body{display:flex;flex-direction:column;gap:12px}
 .pc-act{display:flex;gap:8px;flex-wrap:wrap}
 .pc-why{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;margin:0 0 14px;padding:10px 14px;
-  border-radius:8px;background:var(--bg2);border:1px solid var(--bd);font-size:12.5px;line-height:1.65;color:var(--t2)}
+  border-radius:8px;background:var(--bg2);border:1px solid var(--bd);font-size:12px;line-height:1.65;color:var(--t2)}
 .pc-why b{color:var(--t1);white-space:nowrap}
 .pc-why>span b{color:var(--t1)}
 .pc-empty{padding:26px;text-align:center;color:var(--t3);font-size:13px}
@@ -925,37 +925,37 @@ onMounted(async () => {
 .pc-tag.def{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
 .pc-tag.off{background:var(--bg2);color:var(--t3)}
 .pc-card-bd{flex:1;display:flex;flex-direction:column;gap:4px}
-.pc-ln{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;line-height:1.6}
+.pc-ln{display:flex;justify-content:space-between;gap:10px;font-size:12px;line-height:1.6}
 .pc-ln span{color:var(--t3);white-space:nowrap}
 .pc-ln em{font-style:normal;color:var(--t1);text-align:right}
 .pc-ln em.warn{color:var(--war)}
-.pc-note{margin-top:6px;font-size:11.5px;color:var(--t3);line-height:1.55}
+.pc-note{margin-top:6px;font-size:12px;color:var(--t3);line-height:1.55}
 .pc-card-ft{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)}
 .pc-danger{color:var(--dan)}
 .pc-danger:hover{background:var(--dan-bg);color:var(--dan)}
 
 .pc-sec{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
-.pc-sec b{font-size:13.5px;color:var(--t1)}
+.pc-sec b{font-size:14px;color:var(--t1)}
 .pc-try-row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
 .pc-f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--t3);min-width:0;flex:1 1 190px}
 .pc-f input,.pc-f select{height:32px;padding:0 10px;font-size:13px;color:var(--t1);background:var(--bg);
   border:1px solid var(--bd);border-radius:var(--radius-sm)}
 .pc-f input:focus,.pc-f select:focus{outline:none;border-color:var(--p-dark)}
-.pc-tip{font-style:normal;font-size:11.5px;color:var(--t3);line-height:1.5}
+.pc-tip{font-style:normal;font-size:12px;color:var(--t3);line-height:1.5}
 .pc-try-btn{flex:0 0 auto}
 .pc-res{margin-top:14px;padding:12px 14px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd)}
 .pc-res.bad{background:rgba(var(--war-rgb),.10);border-color:rgba(var(--war-rgb),.4)}
 .pc-res-main{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .pc-res-k{font-size:12px;color:var(--t3)}
-.pc-res-main b{font-size:19px;font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums}
+.pc-res-main b{font-size:20px;font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums}
 .pc-res.bad .pc-res-main b{font-size:14px;color:var(--war)}
 .pc-res-from{font-size:12px;color:var(--t2)}
-.pc-res-sub{margin-top:6px;font-size:12.5px;color:var(--t2)}
-.pc-res-warn{margin-top:6px;font-size:12.5px;color:var(--war);line-height:1.6}
-.pc-res-hint{margin-top:12px;font-size:12.5px;color:var(--t3)}
+.pc-res-sub{margin-top:6px;font-size:12px;color:var(--t2)}
+.pc-res-warn{margin-top:6px;font-size:12px;color:var(--war);line-height:1.6}
+.pc-res-hint{margin-top:12px;font-size:12px;color:var(--t3)}
 
-.pc-dirty{margin-right:auto;font-size:12.5px;color:var(--t2)}
-.pc-err{font-size:12.5px;color:var(--dan);line-height:1.6}
+.pc-dirty{margin-right:auto;font-size:12px;color:var(--t2)}
+.pc-err{font-size:12px;color:var(--dan);line-height:1.6}
 
 .pc-mx-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pc-mx-bar input{flex:1 1 220px;height:32px;padding:0 10px;font-size:13px;background:var(--bg);
@@ -964,20 +964,20 @@ onMounted(async () => {
 .pc-mx-note{padding:9px 12px;border-radius:6px;background:var(--bg2);border:1px solid var(--bd);
   font-size:12px;line-height:1.6;color:var(--t2)}
 .pc-mx-note b{color:var(--t1)}
-.pc-tb{width:100%;border-collapse:collapse;font-size:12.5px}
+.pc-tb{width:100%;border-collapse:collapse;font-size:12px}
 .pc-tb th{text-align:left;font-weight:500;color:var(--t3);padding:7px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
 .pc-tb td{padding:5px 8px;border-bottom:1px solid var(--border-subtle);vertical-align:middle}
 .pc-tb tr.dirty td{background:rgba(var(--p-rgb),.07)}
 .pc-tb tr.dirty td:first-child{box-shadow:inset 2px 0 0 var(--p-dark)}
 .pc-name{color:var(--t1)}
-.pc-spec{display:block;font-size:11.5px;color:var(--t3)}
+.pc-spec{display:block;font-size:12px;color:var(--t3)}
 .pc-mono{font-family:var(--font-mono,monospace);color:var(--t2)}
-.pc-in{width:100%;height:28px;padding:0 8px;font-size:12.5px;color:var(--t1);background:var(--bg);
+.pc-in{width:100%;height:28px;padding:0 8px;font-size:12px;color:var(--t1);background:var(--bg);
   border:1px solid var(--bd);border-radius:5px;box-sizing:border-box}
 .pc-in:focus{outline:none;border-color:var(--p-dark)}
 .pc-ok{color:var(--suc);font-size:12px}
 .pc-miss{color:var(--t3);font-size:12px}
-.pc-pager{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--t2)}
+.pc-pager{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2)}
 .pc-pager .btn{margin:0}
 
 /* v228 客户专属价：与「渠道价」互补的独立区块 */
@@ -986,7 +986,7 @@ onMounted(async () => {
 .pc-cust-sum{margin:10px 0 6px;line-height:1.9}
 .pc-cust-sum b{color:var(--t1);font-weight:600}
 .pc-cust-sum b.warn{color:var(--war)}
-.pc-ck{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--t2);
+.pc-ck{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);
   cursor:pointer;user-select:none;white-space:nowrap}
 /* 🔴 必须覆盖上面 `.pc-mx-bar input` 的 `flex:1 1 220px; height:32px`
    —— 否则「只看有价的」复选框会被拉成 220px 宽 32px 高（后代选择器会命中它）。 */
@@ -998,14 +998,14 @@ onMounted(async () => {
 .pc-cust .pc-px{min-width:104px}
 .pc-cust .pc-px-u{display:block;margin-top:2px;font-size:11px;color:var(--t3);
   line-height:1.45;white-space:nowrap}
-.pc-cust .pc-flag{margin-left:4px;font-size:10.5px}
+.pc-cust .pc-flag{margin-left:4px;font-size:11px}
 .pc-cust .pc-flag.hand{color:var(--war);font-weight:600}
 .pc-cust .pc-flag.auto{color:var(--t3);font-weight:400}
 /* 没有这一档单位的商品（实测 263 个两级商品没有中单位）—— 明说「无」，不给假输入框 */
-.pc-cust .pc-na{font-size:11.5px;color:var(--t3)}
+.pc-cust .pc-na{font-size:12px;color:var(--t3)}
 /* 「恢复自动」是个**可点的操作**（清手工价、改回按换算比算），字号比旁边只读的
    单位名/标记略大，否则在真机上小到看不见（v229 实测：10.5px 在整页截图里几乎认不出）。 */
 .pc-cust .pc-clear{display:block;margin-top:2px;padding:0;border:0;background:none;
-  font-size:11.5px;color:var(--p-dark);cursor:pointer;text-decoration:underline}
+  font-size:12px;color:var(--p-dark);cursor:pointer;text-decoration:underline}
 .pc-cust .pc-clear:hover{opacity:.75}
 </style>

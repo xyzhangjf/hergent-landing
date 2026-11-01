@@ -39,8 +39,8 @@ defineProps({
 }
 .ua-ic { color: var(--t3); margin-bottom: 4px; }
 .unavail h3 { margin: 0; font-size: 16px; color: var(--t1); }
-.ua-main { margin: 4px 0 0; font-size: 13.5px; max-width: 560px; line-height: 1.8; }
+.ua-main { margin: 4px 0 0; font-size: 14px; max-width: 560px; line-height: 1.8; }
 .ua-main b { color: var(--t1); }
-.ua-sub { margin: 0; font-size: 12.5px; color: var(--t3); max-width: 560px; line-height: 1.8; }
+.ua-sub { margin: 0; font-size: 12px; color: var(--t3); max-width: 560px; line-height: 1.8; }
 .ua-note { margin: 8px 0 0; font-size: 12px; color: var(--t3); max-width: 560px; line-height: 1.8; }
 </style>

@@ -1890,7 +1890,7 @@ onMounted(() => {
 /* v157 「补进价」入口：仅当有商品未录进价时出现，补完自动消失（不是常驻按钮） */
 .pa-fp-btn{color:var(--war);border-color:rgba(var(--war-rgb),.35);gap:5px}
 .pa-fp-btn:hover{background:rgba(var(--war-rgb),.1);color:var(--war)}
-.pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:rgba(var(--war-rgb),.16);font-size:11.5px;font-weight:600;line-height:16px;text-align:center}
+.pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:rgba(var(--war-rgb),.16);font-size:12px;font-weight:600;line-height:16px;text-align:center}
 
 /* v157 进价列（行内可编） */
 .pa-fp-cell{white-space:nowrap}
@@ -1996,8 +1996,10 @@ onMounted(() => {
 .pa-brand:hover{background:rgba(var(--p-rgb,6,182,212),.14);color:var(--p)}
 .pa-brand-input{height:30px;min-width:120px}
 .pa-status{font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t3)}
-.pa-status.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
-.pa-status.off{background:rgba(var(--t3-rgb,156,163,175),.14);color:var(--t3)}
+/* v717：前景色改用状态胶囊令牌 —— 原 --suc(#34c759) 对本浅绿底仅 2.01:1，
+   商品档案单页 46 个「启用」是浅字印浅纸，老板核对时读不出来。底色不动。 */
+.pa-status.on{background:rgba(var(--suc-rgb),.12);color:var(--st-ok-txt)}
+.pa-status.off{background:rgba(var(--t3-rgb,156,163,175),.14);color:var(--st-off-txt)}
 .pa-ops{white-space:nowrap}
 .pa-ops .btn{margin-left:6px}
 
@@ -2005,7 +2007,7 @@ onMounted(() => {
    否则卡片总高会顶出一屏、页面多出一条整页滚动条（两条滚动条 = 用户分不清该滚哪个）。 */
 .pa-panel .table-wrap.freeze-list{max-height:calc(100vh - 292px)}
 .pa-pager{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
-.pa-pageinfo{font-size:12.5px;color:var(--t2)}
+.pa-pageinfo{font-size:12px;color:var(--t2)}
 .pa-size{height:30px;width:auto}
 
 /* 弹窗 */
@@ -2034,7 +2036,7 @@ onMounted(() => {
 .pa-modal-body>.pa-sec:first-of-type{margin-top:2px}
 .pa-sec-click{cursor:pointer;user-select:none}
 .pa-sec-click:hover{color:var(--p)}
-.pa-caret{margin-left:auto;font-size:11.5px;color:var(--p);font-weight:400}
+.pa-caret{margin-left:auto;font-size:12px;color:var(--p);font-weight:400}
 .pa-f-full{grid-column:1 / -1}
 .pa-ta{height:auto;min-height:66px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
 /* 状态行：徽标 + 说明 + 按钮排一行；说明占满剩余宽度，长句不撑破弹窗。 */
@@ -2048,8 +2050,8 @@ onMounted(() => {
 /* 修改记录：时间 / 人 / 字段 / 改前→改后，前三列不换行、末列自适应。 */
 /* v241：10px 在规范圆角档位（8/12/16/22）里**不存在** ⇒ 改 --radius-md(12px)。 */
 .pa-log{border:1px solid var(--border-subtle);border-radius:var(--radius-md);max-height:210px;overflow-y:auto}
-.pa-log-empty{padding:14px;text-align:center;font-size:12.5px;color:var(--t3)}
-.pa-log-row{display:flex;align-items:baseline;gap:10px;padding:7px 12px;font-size:12.5px;
+.pa-log-empty{padding:14px;text-align:center;font-size:12px;color:var(--t3)}
+.pa-log-row{display:flex;align-items:baseline;gap:10px;padding:7px 12px;font-size:12px;
   border-bottom:1px solid var(--border-subtle)}
 .pa-log-row:last-child{border-bottom:0}
 .pa-log-t{color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -2061,7 +2063,7 @@ onMounted(() => {
 
 /* 新增表单 */
 .pa-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
-.pa-f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--t2)}
+.pa-f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
 .pa-f i{color:var(--dan);font-style:normal}
 /* v241：34px 是全站**独有的第三档**（全局只有 .input=40px 与 .fld=32px 两档）。
    弹窗表单密集 ⇒ 取紧凑档 32px，内距对齐 .fld(0 10px)，消除第三档。 */
@@ -2070,7 +2072,7 @@ onMounted(() => {
 /* 导入 */
 .pa-imp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pa-file-btn{position:relative;overflow:hidden}
-.pa-fname{font-size:12.5px;color:var(--t2)}
+.pa-fname{font-size:12px;color:var(--t2)}
 .pa-imp-result{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc)}
 .pa-imp-result.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
 .pa-errs{display:flex;flex-direction:column;gap:2px;margin-top:6px}
@@ -2084,7 +2086,7 @@ onMounted(() => {
 .pa-fp-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 .pa-fp-filters select{flex:0 0 140px;width:140px;height:30px}
 .pa-fp-wrap{max-height:46vh;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md)}
-.pa-fp-tbl{font-size:12.5px;margin:0}
+.pa-fp-tbl{font-size:12px;margin:0}
 .pa-fp-tbl thead th{position:sticky;top:0;z-index:1;background:var(--bg3)}
 .pa-fp-tbl td,.pa-fp-tbl th{padding:5px 8px}
 .pa-fp-ck{width:34px;text-align:center}
@@ -2092,10 +2094,10 @@ onMounted(() => {
 tr.pa-row-off td{opacity:.5}
 .pa-fp-more{margin:8px 0 0;font-size:12px;color:var(--t2)}
 .pa-fp-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
-.pa-fp-count{font-size:12.5px;color:var(--t2);margin-right:auto}
+.pa-fp-count{font-size:12px;color:var(--t2);margin-right:auto}
 .pa-fp-count b{color:var(--t1)}
 /* v158 进价闸门开关：默认（未开启）走中性底色，开启后转成功色 —— 开关状态一眼可辨 */
-.pa-fp-gate{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd);font-size:12.5px;line-height:1.6}
+.pa-fp-gate{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd);font-size:12px;line-height:1.6}
 .pa-fp-gate.on{background:rgba(var(--suc-rgb),.08);border-color:rgba(var(--suc-rgb),.35)}
 .pa-fp-switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;color:var(--t1);white-space:nowrap;user-select:none}
 .pa-fp-switch input{width:15px;height:15px;margin:0;cursor:pointer;accent-color:var(--suc)}

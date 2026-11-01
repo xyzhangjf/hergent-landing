@@ -334,10 +334,10 @@ onMounted(async () => {
 .lf-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--border-subtle)}
 .lf-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
 .lf-arrow{color:var(--t3);font-size:12px}
-.lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--t1);padding:0}
+.lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:14px;font-weight:500;color:var(--t1);padding:0}
 
 .lf-panel{}
-.lf-tip{font-size:12.5px;color:var(--t2);margin:4px 0 16px;line-height:1.6}
+.lf-tip{font-size:12px;color:var(--t2);margin:4px 0 16px;line-height:1.6}
 .lf-form{display:flex;flex-direction:column;gap:18px}
 
 .lf-field{display:flex;flex-direction:column;gap:8px}
@@ -364,7 +364,7 @@ onMounted(async () => {
 .lf-kpi-val{font-size:22px;font-weight:600;margin-bottom:4px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 .lf-kpi-val.val-warn{color:var(--war)}
 .lf-kpi-val.val-bad{color:var(--dan)}
-.lf-kpi-sub{font-size:11.5px;color:var(--t3)}
+.lf-kpi-sub{font-size:12px;color:var(--t3)}
 
 .lf-groups{display:flex;flex-direction:column;gap:12px}
 .lf-group-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;margin-bottom:6px}

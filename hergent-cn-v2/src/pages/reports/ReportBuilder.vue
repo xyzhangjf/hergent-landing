@@ -629,9 +629,9 @@ onMounted(loadList)
 .rb-list-hd {
   display: flex; justify-content: space-between; align-items: center;
   padding: 10px 12px; border-bottom: 1px solid var(--line, #eef0f3);
-  font-size: 12.5px; font-weight: 600; color: var(--t1);
+  font-size: 12px; font-weight: 600; color: var(--t1);
 }
-.rb-list-cnt { font-size: 11.5px; font-weight: 400; color: var(--t3) }
+.rb-list-cnt { font-size: 12px; font-weight: 400; color: var(--t3) }
 .rb-list-body { overflow-y: auto; padding: 6px }
 .rb-list-empty { padding: 14px; font-size: 12px; color: var(--t3) }
 
@@ -639,12 +639,12 @@ onMounted(loadList)
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
   width: 100%; padding: 7px 9px; margin-bottom: 2px; border: 0; border-radius: 6px;
   background: transparent; cursor: pointer; text-align: left;
-  font-size: 12.5px; color: var(--t1);
+  font-size: 12px; color: var(--t1);
 }
 .rb-item:hover { background: var(--bg2, #f6f7f9) }
 .rb-item.on { background: var(--pri-w, #eaf1fb); color: var(--pri, #2b6cb0); font-weight: 600 }
 .rb-item-t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.rb-item-s { font-size: 10.5px; padding: 1px 5px; border-radius: 999px; flex-shrink: 0 }
+.rb-item-s { font-size: 11px; padding: 1px 5px; border-radius: 999px; flex-shrink: 0 }
 .s-ok { background: #e6f6ec; color: #1f7a3f }
 .s-warn { background: #fdf3e2; color: #a9741a }
 .s-off { background: var(--bg3, #eef0f3); color: var(--t3) }
@@ -655,25 +655,25 @@ onMounted(loadList)
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
   font-size: 13px; font-weight: 600; color: var(--t1); margin-bottom: 10px; flex-wrap: wrap;
 }
-.rb-sec-note { font-size: 11.5px; font-weight: 400; color: var(--t3) }
+.rb-sec-note { font-size: 12px; font-weight: 400; color: var(--t3) }
 .rb-sec-note b { color: var(--war, #b8791a) }
 .rb-sec-note code, .rb-hint code, .rb-params-empty code {
   background: var(--bg2); padding: 1px 4px; border-radius: 3px; font-size: 11px;
 }
 
-.rb-badge { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: var(--bg3, #eef0f3); color: var(--t3) }
+.rb-badge { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--bg3, #eef0f3); color: var(--t3) }
 .rb-badge-manual { background: #fdf3e2; color: #a9741a }
 
 .rb-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
 @media (max-width: 760px) { .rb-grid2 { grid-template-columns: 1fr } }
-.rb-fld { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--t3) }
+.rb-fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t3) }
 .rb-in {
-  padding: 6px 8px; font-size: 12.5px; border-radius: 6px;
+  padding: 6px 8px; font-size: 12px; border-radius: 6px;
   border: 1px solid var(--line, #dcdfe6); background: var(--bg1, #fff); color: var(--t1);
   min-width: 0;
 }
 .rb-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px }
-.rb-hint { margin-top: 8px; font-size: 11.5px; color: var(--t3); line-height: 1.8 }
+.rb-hint { margin-top: 8px; font-size: 12px; color: var(--t3); line-height: 1.8 }
 
 .rb-sql {
   width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px;
@@ -683,8 +683,8 @@ onMounted(loadList)
 }
 
 .rb-params { margin-top: 12px }
-.rb-params-hd { display: block; font-size: 11.5px; color: var(--t3); margin-bottom: 6px }
-.rb-params-empty { font-size: 11.5px; color: var(--t3); padding: 6px 0 10px }
+.rb-params-hd { display: block; font-size: 12px; color: var(--t3); margin-bottom: 6px }
+.rb-params-empty { font-size: 12px; color: var(--t3); padding: 6px 0 10px }
 .rb-param { display: grid; grid-template-columns: 1fr 1fr 92px 1fr 24px; gap: 6px; margin-bottom: 6px }
 
 .rb-cols { display: flex; flex-direction: column; gap: 4px }
@@ -702,39 +702,39 @@ onMounted(loadList)
 .rb-col input[type="checkbox"] { width: 15px; height: 15px }
 
 .rb-cols-ops { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap }
-.rb-hint-inline { font-size: 11.5px; color: var(--t3) }
+.rb-hint-inline { font-size: 12px; color: var(--t3) }
 
 /* 图表配置行：label 固定 60px，右边控件自然对齐 —— 不固定的话每行 label 宽度不同，
    下拉框会错位，看着像没做完。 */
 .rb-chart-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap }
-.rb-chart-row > label:first-child { width: 60px; flex: none; font-size: 11.5px; color: var(--t3) }
+.rb-chart-row > label:first-child { width: 60px; flex: none; font-size: 12px; color: var(--t3) }
 .rb-in-wide { min-width: 260px; flex: 1; max-width: 420px }
 .rb-in-num { width: 68px; flex: none }
-.rb-inline-lab { font-size: 11.5px; color: var(--t3); margin-left: 4px }
+.rb-inline-lab { font-size: 12px; color: var(--t3); margin-left: 4px }
 .rb-chart-checks { display: flex; gap: 12px; flex-wrap: wrap; align-items: center }
 .rb-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--t2); cursor: pointer }
 .rb-chk input { width: 15px; height: 15px }
 .rb-chart-warn {
   display: flex; align-items: center; gap: 6px; margin: 10px 0 0;
-  font-size: 11.5px; color: #a9741a; background: #fdf3e2; padding: 7px 10px; border-radius: 6px;
+  font-size: 12px; color: #a9741a; background: #fdf3e2; padding: 7px 10px; border-radius: 6px;
 }
 .rb-fig-prev { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line, #dcdfe6) }
-.rb-fig-hd { font-size: 11.5px; color: var(--t3); margin-bottom: 8px }
+.rb-fig-hd { font-size: 12px; color: var(--t3); margin-bottom: 8px }
 
 .rb-note {
   width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 8px;
   border: 1px solid var(--line, #dcdfe6); background: var(--bg1, #fff); color: var(--t1);
-  font-size: 12.5px; line-height: 1.9; resize: vertical;
+  font-size: 12px; line-height: 1.9; resize: vertical;
 }
 
 .rb-err { padding: 12px 14px; border-left: 3px solid var(--danger, #d64545); background: var(--bg2) }
-.rb-err-hd { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--danger, #d64545) }
+.rb-err-hd { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--danger, #d64545) }
 .rb-err p { margin: 6px 0 0; font-size: 12px; line-height: 1.8; color: var(--t2); word-break: break-all }
 
 .rb-hollow { padding: 28px 24px; text-align: center }
 .rb-hollow h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--t1) }
-.rb-hollow p { font-size: 12.5px; color: var(--t2); line-height: 1.9 }
+.rb-hollow p { font-size: 12px; color: var(--t2); line-height: 1.9 }
 
-.rb-foot { margin: 14px 2px 0; font-size: 11.5px; line-height: 1.9; color: var(--t3) }
+.rb-foot { margin: 14px 2px 0; font-size: 12px; line-height: 1.9; color: var(--t3) }
 .rb-foot code { background: var(--bg2); padding: 1px 5px; border-radius: 4px }
 </style>

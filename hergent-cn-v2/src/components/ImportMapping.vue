@@ -242,7 +242,7 @@ function confLabel(r) {
 .im-risk-l{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px}
 .im-risk-l li{line-height:1.5}
 /* v346 收起态：一行把话说清，按钮永远在 */
-.im-fold{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ok-green);background:var(--ok-green-bg);border-radius:var(--radius-sm);padding:8px 10px;flex-wrap:wrap}
+.im-fold{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ok-green);background:var(--ok-green-bg);border-radius:var(--radius-sm);padding:8px 10px;flex-wrap:wrap}
 .im-fold-btn{display:inline-flex;align-items:center;gap:3px;border:none;background:none;padding:0;font-size:12px;color:var(--p-dark);text-decoration:underline;cursor:pointer}
 .im-unfold{display:flex;justify-content:flex-end;padding:5px 8px 0}
 .im-wrap{max-height:320px;overflow:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
@@ -254,10 +254,10 @@ function confLabel(r) {
 .im-sel{width:100%;height:30px;padding:0 6px;font-size:13px}
 /* 危险列的下拉框本身也描红 —— 只标「依据」徽章的话，扫一眼很难定位到是哪一行要改 */
 .im-sel-risk{border-color:var(--danger-txt)}
-.im-rdanger{display:flex;align-items:flex-start;gap:4px;margin-top:4px;font-size:11.5px;line-height:1.45;color:var(--danger-txt)}
+.im-rdanger{display:flex;align-items:flex-start;gap:4px;margin-top:4px;font-size:12px;line-height:1.45;color:var(--danger-txt)}
 .im-smp{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--t2);word-break:break-all}
 .im-off .im-hd,.im-off .im-smp{color:var(--t3)}
-.im-cc{display:inline-block;padding:1px 8px;border-radius:8px;font-size:11.5px;white-space:nowrap;background:var(--bg2);color:var(--t3)}
+.im-cc{display:inline-block;padding:1px 8px;border-radius:8px;font-size:12px;white-space:nowrap;background:var(--bg2);color:var(--t3)}
 .im-cc-high{background:var(--ok-green-bg);color:var(--ok-green)}
 .im-cc-ai{background:var(--info-blue-bg);color:var(--info-blue)}
 .im-cc-cross{background:var(--p-bg);color:var(--p-dark)}

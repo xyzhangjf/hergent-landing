@@ -517,7 +517,7 @@ onMounted(() => { load(); loadCatalog() })
 
 .rm-ch{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
 .rm-ch-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t2)}
-.rm-ch-ic{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;font-size:10px;color:#fff}
+.rm-ch-ic{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;font-size:11px;color:#fff}
 .ch-wecom .rm-ch-ic, .rm-ch-ic.ch-wecom{background:var(--p-dark)}
 .ch-feishu .rm-ch-ic, .rm-ch-ic.ch-feishu{background:#1f6eff}
 .ch-dingtalk .rm-ch-ic, .rm-ch-ic.ch-dingtalk{background:#00a0e9}
@@ -552,16 +552,16 @@ onMounted(() => { load(); loadCatalog() })
 .rm-cap{padding:1px 7px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
 .rm-cap.g-advise{color:var(--war)}
 .rm-cap.g-execute{color:var(--suc)}
-.rm-caps-tip{margin:0 0 12px;font-size:12.5px;color:var(--t3);line-height:1.6}
+.rm-caps-tip{margin:0 0 12px;font-size:12px;color:var(--t3);line-height:1.6}
 .rm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.rm-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);font-size:12.5px;color:var(--t2);cursor:pointer;user-select:none}
+.rm-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);font-size:12px;color:var(--t2);cursor:pointer;user-select:none}
 .rm-chip input{display:none}
 .rm-chip.on{border-color:var(--p);color:var(--p);background:var(--p-bg)}
 .rm-radios{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.rm-radio{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);font-size:12.5px;color:var(--t2);cursor:pointer}
+.rm-radio{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);font-size:12px;color:var(--t2);cursor:pointer}
 .rm-radio input{display:none}
 .rm-radio.on{border-color:var(--p);color:var(--p);background:var(--p-bg)}
-.rm-hint{margin-top:6px;font-size:11.5px;color:var(--t3);line-height:1.6}
+.rm-hint{margin-top:6px;font-size:12px;color:var(--t3);line-height:1.6}
 .rm-req{color:var(--dan)}
 .rm-av-in{width:90px}
 .rm-ta{resize:vertical;line-height:1.6;font-family:inherit}

@@ -245,6 +245,6 @@ onBeforeUnmount(() => {
   background:var(--bg2);font-family:var(--mono,ui-monospace,monospace);
   font-size:11px;line-height:16px;color:var(--t1);white-space:nowrap;
 }
-.kp-slash{font-style:normal;color:var(--t3);font-size:10px}
+.kp-slash{font-style:normal;color:var(--t3);font-size:11px}
 .kp-desc{color:var(--t2);min-width:0}
 </style>

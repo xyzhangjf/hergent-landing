@@ -746,8 +746,8 @@ onMounted(loadData)
 .task-row .tag{flex-shrink:0;margin-top:1px;white-space:nowrap}
 .task-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .task-main{flex:1;min-width:0}
-.task-title{font-size:13.5px;font-weight:500;color:var(--t1);margin-bottom:3px;letter-spacing:.1px}
-.task-sub{font-size:12.5px;color:var(--t2);line-height:1.55}
+.task-title{font-size:14px;font-weight:500;color:var(--t1);margin-bottom:3px;letter-spacing:.1px}
+.task-sub{font-size:12px;color:var(--t2);line-height:1.55}
 .task-acts{flex-shrink:0;display:flex;gap:6px;align-items:center}
 .task-acts .btn{height:28px;padding:0 12px;font-size:12px;border-radius:var(--radius-sm)}
 .task-go{font-size:12px;color:var(--p-dark);cursor:pointer;white-space:nowrap}
@@ -789,7 +789,7 @@ onMounted(loadData)
 .ig-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .ig-txt{flex:1;min-width:220px}
 .ig-title{font-size:14px;font-weight:500;color:var(--t1)}
-.ig-sub{font-size:12.5px;color:var(--t3);margin-top:3px;line-height:1.55}
+.ig-sub{font-size:12px;color:var(--t3);margin-top:3px;line-height:1.55}
 .ig-acts{display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
 .ig-pick{display:inline-flex;align-items:center;cursor:pointer}
 .ig-pick.busy{opacity:.7;cursor:default}

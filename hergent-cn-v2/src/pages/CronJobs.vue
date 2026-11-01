@@ -338,7 +338,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .tb-btn:hover{background:var(--bg2);color:var(--dan)}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px}
-.field label.chk-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:var(--t1)}
+.field label.chk-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--t1)}
 .field label.chk-label input{accent-color:var(--p)}
 .field textarea{height:auto;resize:vertical;padding:10px 14px;line-height:1.6}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
@@ -362,7 +362,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 /* ④ cron 执行结果回流 */
 .exec-hd{display:flex;align-items:center;gap:12px}
 .exec-hd .btn{margin-left:auto;flex-shrink:0}
-.exec-empty{margin:10px 0 2px;font-size:12.5px;color:var(--t3);line-height:1.7}
+.exec-empty{margin:10px 0 2px;font-size:12px;color:var(--t3);line-height:1.7}
 .exec-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
 .exec-item{display:flex;gap:10px;align-items:flex-start}
 .exec-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--t3);flex-shrink:0}
@@ -371,8 +371,8 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .exec-body{flex:1;min-width:0}
 .exec-top{display:flex;align-items:baseline;gap:10px}
 .exec-name{font-size:13px;color:var(--t1)}
-.exec-time{font-size:11.5px;color:var(--t3);margin-left:auto;flex-shrink:0}
-.exec-result{margin:3px 0 0;font-size:12.5px;color:var(--t2);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.exec-time{font-size:12px;color:var(--t3);margin-left:auto;flex-shrink:0}
+.exec-result{margin:3px 0 0;font-size:12px;color:var(--t2);line-height:1.6;white-space:pre-wrap;word-break:break-word}
 
 /* 窄屏：栅格降为 6 列 → 两栏各占整行；单列屏全部堆叠 */
 @media(max-width:1200px){

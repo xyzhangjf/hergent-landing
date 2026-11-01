@@ -1650,7 +1650,7 @@ function stopResize() {
 .tb-btn:hover{background:var(--bg2);color:var(--p-dark)}
 /* 通知铃铛：未读数用中文数目直接显示，不用英文缩写 */
 .tb-bell{position:relative}
-.tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--dan);color:#fff;font-size:10px;line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
+.tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--dan);color:#fff;font-size:11px;line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
 .tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;max-width:180px}
 /* v708：名字单行 + 过长省略（hover 有 title 看全）。`min-width:0` 是让 ellipsis 真正生效的前提
    —— flex item 默认 min-width:auto，内容多长就多长，省略号永远不出现。 */

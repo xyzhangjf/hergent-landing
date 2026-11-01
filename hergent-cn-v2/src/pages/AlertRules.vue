@@ -502,13 +502,13 @@ onMounted(loadAll)
 .ar-fld { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px }
 .ar-lab { font-size: 12px; color: var(--t2) }
 .isn-req { color: var(--dan); margin-left: 2px }
-.ar-hint { font-size: 11.5px; color: var(--t3) }
+.ar-hint { font-size: 12px; color: var(--t3) }
 .ar-row { display: flex; gap: 12px }
 .ar-row .ar-fld { flex: 1; min-width: 0 }
 .ar-chips { display: flex; flex-wrap: wrap; gap: 8px }
 .ar-chip { padding: 5px 12px; border: 1px solid var(--bd); border-radius: 16px; background: var(--bg2); color: var(--t2); font-size: 12px; cursor: pointer; transition: all .15s }
 .ar-chip:hover { border-color: var(--p-dark); color: var(--p-dark) }
 .ar-chip.on { background: var(--p-bg); border-color: var(--p-dark); color: var(--p-dark); font-weight: 500 }
-.ar-chk { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12.5px; color: var(--t1) }
+.ar-chk { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--t1) }
 .ar-chk input { accent-color: var(--p) }
 </style>

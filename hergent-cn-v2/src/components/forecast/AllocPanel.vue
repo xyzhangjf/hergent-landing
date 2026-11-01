@@ -1043,17 +1043,17 @@ onMounted(() => { loadAllocSetup() })
 .alloc-conv{font-size:12px;color:var(--t3)}
 .alloc-note{background:var(--warn-amber-bg);border-radius:6px;padding:6px 8px;color:var(--warn-amber)}
 .alloc-tbl-wrap{max-height:290px;overflow:auto;border:1px solid var(--bd);border-radius:4px;background:var(--bg)}
-.alloc-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.alloc-tbl{width:100%;border-collapse:collapse;font-size:12px}
 .alloc-tbl th{position:sticky;top:0;z-index:1;background:var(--bg3);color:var(--t2);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
 .alloc-tbl td{padding:5px 8px;border-bottom:1px solid var(--bd);color:var(--t1)}
 .alloc-tbl .num{text-align:right}
-.alloc-mini{width:74px;text-align:right;padding:2px 5px;font-size:12.5px}
+.alloc-mini{width:74px;text-align:right;padding:2px 5px;font-size:12px}
 /* v657：勾选列（勾选模式才渲染）+ 别名后缀（同一员工多个报单门店时，如「东津/吾悦」） */
 .alloc-tbl .chk{width:34px;text-align:center}
 .alloc-tbl td.chk{text-align:center}
-.alloc-alias{color:var(--t3);font-size:11.5px;margin-left:2px}
+.alloc-alias{color:var(--t3);font-size:12px;margin-left:2px}
 /* v659：名册态里的「未报单」标记（弱化，不抢数字的视线） */
-.alloc-idle{color:var(--t3);font-size:11.5px}
+.alloc-idle{color:var(--t3);font-size:12px}
 /* v336：占比「只读」态 —— 来源是本期报单量推导（客观事实），不是可配置的档案比例。
    视觉上必须一眼看出"这格改不了"，否则用户会反复点进去以为输入框坏了。 */
 .alloc-mini.alloc-ro{background:var(--bg2);color:var(--t2);cursor:not-allowed;border-style:dashed}

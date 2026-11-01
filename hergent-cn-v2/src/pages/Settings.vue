@@ -1527,7 +1527,7 @@ onMounted(() => {
 
 /* 顶部筛选 / 搜索栏：沿用 Forecast 的 toolbar + tb-search */
 .toolbar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:12px}
-.tb-title{font-size:13.5px;font-weight:600;color:var(--t1)}
+.tb-title{font-size:14px;font-weight:600;color:var(--t1)}
 .tb-right{margin-left:auto}
 /* 胶囊 + 内层无边框 input：焦点反馈挂胶囊整体，避免全局 .fld:focus 光晕悬空浮在胶囊内（同 Forecast） */
 .tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);transition:border-color .2s,box-shadow .2s}
@@ -1546,7 +1546,7 @@ onMounted(() => {
 .set-row>.set-desc{flex:1 1 260px;min-width:0}
 .set-lb{display:inline-block;min-width:88px;font-size:13px;color:var(--t2)}
 .set-desc{font-size:12px;color:var(--t3);margin:0;line-height:1.7}
-.set-result{font-size:12.5px}
+.set-result{font-size:12px}
 .set-result.ok{color:var(--suc)}
 .set-result.bad{color:var(--dan)}
 
@@ -1556,10 +1556,10 @@ onMounted(() => {
 
 /* 权限矩阵 */
 /* v326：使用说明默认收起（原先 8 段实现说明常驻在表格上方，见模板里的注释）。 */
-.pm-help-tb{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--t2);background:none;border:0;padding:0;margin:0 0 10px;cursor:pointer}
+.pm-help-tb{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);background:none;border:0;padding:0;margin:0 0 10px;cursor:pointer}
 .pm-help-tb:hover{color:var(--p-dark)}
 /* ---- v479：操作日志（只读弹窗）—— 复用本页表格的视觉语言，不新造一套 ---- */
-.pa-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.pa-table{width:100%;border-collapse:collapse;font-size:12px}
 .pa-table th,.pa-table td{padding:7px 10px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
 .pa-table th{font-weight:600;color:var(--t2);background:var(--bg3)}
 /* 弹窗比对比弹窗略窄：五列里四列是定宽短列，宽的是"变更内容" */
@@ -1590,13 +1590,13 @@ onMounted(() => {
 .plog-detail{min-width:260px;white-space:normal;color:var(--t1);line-height:1.7;word-break:break-all}
 .plog-pager{display:flex;gap:10px;align-items:center;margin-top:10px;font-size:12px}
 .plog-page-info{color:var(--t2)}
-.pm-help{margin:0 0 12px;padding:9px 12px;border-radius:var(--radius-md);background:var(--bg3);font-size:12.5px;color:var(--t2);line-height:1.75}
+.pm-help{margin:0 0 12px;padding:9px 12px;border-radius:var(--radius-md);background:var(--bg3);font-size:12px;color:var(--t2);line-height:1.75}
 .pm-help p{margin:0 0 5px}
 .pm-help p:last-child{margin-bottom:0}
 .pm-mod-col{min-width:120px}
 /* v328：模块名 + 下面一行「勾了会怎样」。
    副文案刻意用小字、次级色 —— 它是**说明**，不能抢了模块名的视觉重量（老板找的是模块名）。 */
-.pm-mod-lb{font-size:12.5px;color:var(--t1);line-height:1.5}
+.pm-mod-lb{font-size:12px;color:var(--t1);line-height:1.5}
 /* v333：模块行下面的「对应页面」—— 让老板按页面名找到开关。
    刻意做得比模块名更淡更小（它是**索引**不是正文），且不加背景/边框，
    否则一整列小色块会把表格又切碎（样式纪律见文件头那段）。 */
@@ -1607,7 +1607,7 @@ onMounted(() => {
      · `pm-fixed-mark` = 勾列里那个「不在此配」占位（替代勾选框，避免空格子被当成"没配"） */
 .pm-mod-fixed{font-size:11px;color:var(--t2);line-height:1.45;margin-top:2px;opacity:.85}
 .pm-mod-nopage{font-style:normal;opacity:.75}
-.pm-fixed-mark{font-size:10.5px;color:var(--t3);opacity:.7;white-space:nowrap}
+.pm-fixed-mark{font-size:11px;color:var(--t3);opacity:.7;white-space:nowrap}
 /* v350：搜索 = **查找**而非筛选 —— 未命中的行「淡化」而不是消失。
    行永远在 DOM 里，「整行全选」的作用范围才 ≡ 用户所见。
    用 `td` 而不是 `tr`（tr 上的 opacity 会影响行背景与边框的表现，各浏览器不一致）。 */
@@ -1656,16 +1656,16 @@ onMounted(() => {
 .pm-new{margin:0 0 10px;padding:10px 12px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
 .pm-new-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .pm-new-name{width:180px}
-.pm-new-tip{font-size:11.5px;color:var(--t3);margin:7px 0 0;line-height:1.6}
+.pm-new-tip{font-size:12px;color:var(--t3);margin:7px 0 0;line-height:1.6}
 .ctr{text-align:center}
-.pm-col-hd{font-size:12.5px;font-weight:600;color:var(--t1);margin-bottom:4px}
+.pm-col-hd{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:4px}
 
 /* v331c（2026-09-29）：分节标题行（v351 起只用于「查看对比」只读弹窗）。
    🔴 分节标题由「整行色带」改成「左侧层级小标题」—— 老板原话：那条铺满表宽的横条
       「把整个界面分成上下两块，非常不美观」。
    ⚠️ 仍用 `td` 而不是 `th`（它在 tbody 里，随内容滚动）；仍要与普通行明确区分，
       否则老板会把「登录端」读成又一个功能模块。 */
-.pm-sec td{background:transparent;border-top:1px solid var(--bd);color:var(--t1);font-size:12.5px;font-weight:600;padding:14px 10px 5px}
+.pm-sec td{background:transparent;border-top:1px solid var(--bd);color:var(--t1);font-size:12px;font-weight:600;padding:14px 10px 5px}
 .pm-sec:first-child td{border-top:0;padding-top:2px}
 .pm-col-sub{font-size:11px;color:var(--t3);margin-bottom:2px}
 /* v328 G4：自定义角色的标记要能被看见（它是"为什么勾了没反应"的答案所在）。 */
@@ -1686,7 +1686,7 @@ onMounted(() => {
 .end-row{display:flex;align-items:center;gap:8px;padding:7px 0;font-size:13px;color:var(--t1);cursor:pointer}
 .end-row input[type="checkbox"]{width:15px;height:15px;cursor:pointer}
 .end-sum{margin-top:8px;padding:8px 12px;border-radius:var(--radius-md);background:var(--bg2);
-         font-size:12.5px;color:var(--t2)}
+         font-size:12px;color:var(--t2)}
 
 /* 域页签（经营 / 核算 / 配置 / 更多）—— 取代"一条长列表 + 默认折叠「更多」"。
    🔴 做成**胶囊**而不是下划线页签：它与页面顶部那个「账号 / 权限 / AI」主标签页**层级不同**
@@ -1712,7 +1712,7 @@ onMounted(() => {
          width:min(1080px,96vw);max-height:86vh;overflow:auto;padding:18px;
          box-shadow:0 18px 48px rgba(0,0,0,.28)}
 .cmp-wrap{overflow:auto;max-height:calc(86vh - 150px)}
-.cmp-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
+.cmp-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px}
 .cmp-table th,.cmp-table td{padding:7px 10px;border-bottom:1px solid var(--bd);text-align:left;white-space:nowrap}
 .cmp-table th{font-weight:600;color:var(--t2);background:var(--bg3);position:sticky;top:0;z-index:1}
 .cmp-table .ctr{text-align:center}
@@ -1729,13 +1729,13 @@ onMounted(() => {
 /* AI 记忆 */
 .mem-block{margin:14px 0}
 .mem-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.mem-tag{font-size:11.5px;padding:2px 8px;border-radius:10px}
+.mem-tag{font-size:12px;padding:2px 8px;border-radius:10px}
 .mem-tag.user{background:var(--p-bg);color:var(--p-dark)}
 .mem-tag.agent{background:var(--bg3);color:var(--t2)}
-.mem-count{font-size:11.5px;color:var(--t3)}
+.mem-count{font-size:12px;color:var(--t3)}
 .mem-empty{font-size:12px;color:var(--t3);padding:8px 0}
 .mem-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--radius-sm);background:var(--bg2);margin-bottom:6px}
-.mem-text{flex:1;min-width:0;font-size:12.5px;color:var(--t1);line-height:1.6;word-break:break-word}
+.mem-text{flex:1;min-width:0;font-size:12px;color:var(--t1);line-height:1.6;word-break:break-word}
 .mem-del{border:none;background:none;color:var(--t3);cursor:pointer;font-size:13px}
 .mem-del:hover{color:var(--dan)}
 .mem-danger{color:var(--dan)}

@@ -486,7 +486,7 @@ async function ackFallback() {
 .audit-user{font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .audit-mod{background:var(--info-blue-bg);color:var(--info-blue);padding:2px 6px;border-radius:4px;text-align:center;font-weight:600}
 .audit-act{color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.audit-hash{color:var(--t2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;text-align:right}
+.audit-hash{color:var(--t2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;text-align:right}
 
 /* 兜底记录 */
 .fb-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto}
@@ -496,7 +496,7 @@ async function ackFallback() {
 .fb-kind.failure{background:var(--st-rejected-bg);color:var(--st-rejected-txt)}
 .fb-kind.low_confidence{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .fb-reason{color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fb-tag{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.fb-tag{padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600}
 .fb-tag.notify{background:var(--info-blue-bg);color:var(--info-blue)}
 .fb-tag.ack{background:var(--ok-green-bg);color:var(--ok-green)}
 </style>

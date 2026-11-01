@@ -178,7 +178,7 @@ onMounted(() => {
 
 <style scoped>
 .df-panel{padding:18px;margin-bottom:14px}
-.df-tip{font-size:12.5px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
+.df-tip{font-size:12px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
 .df-tip code{background:var(--bg2);padding:1px 6px;border-radius:5px;font-size:12px}
 .df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:8px;font-size:12px}
 
@@ -186,7 +186,7 @@ onMounted(() => {
 /* v178 列映射确认步：表格 + 底部「返回/确认导入」 */
 .df-map{margin-top:12px;display:flex;flex-direction:column;gap:10px}
 .df-file-btn{position:relative;overflow:hidden}
-.df-fname{font-size:12.5px;color:var(--t2)}
+.df-fname{font-size:12px;color:var(--t2)}
 /* v303：`.df-result / .df-errs / .df-err` 三条已随模板一起删除 ——
    结果展示改由共用的 `ImportReceipt.vue` 负责（它自带样式）。
    留着就是死 CSS：本页再也不会有 `class="df-result"` 的元素。 */

@@ -317,15 +317,15 @@ onMounted(() => {
 
 <style scoped>
 .ba-panel{padding:18px;margin-bottom:14px}
-.ba-tip{font-size:12.5px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
+.ba-tip{font-size:12px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
 .ba-tip.dim{color:var(--t3);font-size:12px;margin-bottom:0}
-.ba-bullets{margin:0 0 12px;padding-left:18px;font-size:12.5px;line-height:1.85;color:var(--t2)}
+.ba-bullets{margin:0 0 12px;padding-left:18px;font-size:12px;line-height:1.85;color:var(--t2)}
 .ba-bullets li{margin-bottom:6px}
 .ba-bullets .ok-line{color:var(--t2)}
 .ba-bullets .warn-line{color:var(--war)}
 .ba-bullets b{color:var(--t1)}
 .ba-notbrand{color:var(--t3)}
-.tag{font-size:11.5px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.tag{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .tag.info{background:rgba(var(--p-rgb,6,182,212),.12);color:var(--p)}
 .tag.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
@@ -345,7 +345,7 @@ onMounted(() => {
 .ba-pending-info{min-width:0}
 .ba-pending-name{font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:8px}
 .ba-ref{font-size:11px;font-weight:400;color:var(--war);background:rgba(var(--war-rgb),.1);padding:1px 7px;border-radius:7px}
-.ba-pending-meta{font-size:11.5px;color:var(--t3);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap}
+.ba-pending-meta{font-size:12px;color:var(--t3);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap}
 .ba-pending-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ba-canonical{height:30px}
 .ba-merge{height:30px}
@@ -354,7 +354,7 @@ onMounted(() => {
    本页只保留「弹窗里长什么样」的字段布局；这些 class 挂在 slot 内元素上，
    因而带得到本组件的 scope id） */
 .ba-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
-.ba-field{display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:var(--t2)}
+.ba-field{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--t2)}
 .ba-field-wide{grid-column:1 / -1}
 
 .btn.danger{color:var(--dan)}

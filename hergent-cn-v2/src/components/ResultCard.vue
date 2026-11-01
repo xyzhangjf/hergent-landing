@@ -269,7 +269,7 @@ function capOf(ch) {
 
 .rc-head{display:flex;align-items:center;gap:8px}
 .rc-ic{width:28px;height:28px;border-radius:9px;background:var(--p-bg);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
-.rc-title{font-size:13.5px;font-weight:600;color:var(--t1);flex:1;line-height:1.4}
+.rc-title{font-size:14px;font-weight:600;color:var(--t1);flex:1;line-height:1.4}
 .rc-badge{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:10px;font-size:11px;font-weight:500;flex-shrink:0}
 .badge-red{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
 .badge-blue{background:var(--p-bg);color:var(--p-dark)}
@@ -282,14 +282,14 @@ function capOf(ch) {
 .rc-metric{background:var(--bg2);border-radius:var(--radius-md);padding:8px 10px;display:flex;flex-direction:column;gap:2px}
 .rc-m-label{font-size:11px;color:var(--t3)}
 .rc-m-value{font-size:16px;font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums;line-height:1.2}
-.rc-m-hint{font-size:10.5px;color:var(--t3)}
+.rc-m-hint{font-size:11px;color:var(--t3)}
 .tone-good{color:var(--suc)!important}
 .tone-warn{color:var(--war)!important}
 .tone-bad{color:var(--dan)!important}
 .tone-neutral{color:var(--t1)}
 
 .rc-points{list-style:none;display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
-.rc-points li{display:flex;align-items:flex-start;gap:7px;font-size:12.5px;color:var(--t2);line-height:1.5}
+.rc-points li{display:flex;align-items:flex-start;gap:7px;font-size:12px;color:var(--t2);line-height:1.5}
 .rc-dot{width:6px;height:6px;border-radius:50%;margin-top:6px;flex-shrink:0;background:var(--t3)}
 .dot-good .rc-dot{background:var(--suc)}
 .dot-warn .rc-dot{background:var(--war)}
@@ -325,5 +325,5 @@ function capOf(ch) {
 .rc-donut-lg i{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .rc-chart-img{width:100%;border-radius:var(--radius-md);display:block}
 .rc-source{font-size:11px;color:var(--t3);line-height:1.5;border-top:1px dashed var(--border-subtle);padding-top:7px;margin-top:2px}
-.rc.compact .rc-source{font-size:10.5px;padding-top:5px}
+.rc.compact .rc-source{font-size:11px;padding-top:5px}
 </style>

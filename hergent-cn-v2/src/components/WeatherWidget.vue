@@ -554,7 +554,7 @@ onBeforeUnmount(() => {
 .wx-where{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--t2)}
 .wx-where-ic{color:var(--p);flex:0 0 auto}
 .wx-where-city{font-size:13px;font-weight:600;color:var(--t1)}
-.wx-where-tag{flex:0 0 auto;padding:1px 6px;border-radius:6px;background:var(--p-bg);color:var(--p-dark);font-size:10px;line-height:1.6}
+.wx-where-tag{flex:0 0 auto;padding:1px 6px;border-radius:6px;background:var(--p-bg);color:var(--p-dark);font-size:11px;line-height:1.6}
 .wx-where-desc{font-variant-numeric:tabular-nums;white-space:nowrap}
 .wx-where-desc::before{content:'·';margin-right:6px;color:var(--t3)}
 /* 面板由 Teleport 挂在 <body> 上、position:fixed，坐标由 placePop() 写入。
@@ -596,7 +596,7 @@ onBeforeUnmount(() => {
    窄屏改为横向滚动（.wx-days 本就是 overflow-x:auto），信息仍完整可读。 */
 .wx-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;padding:4px 2px;flex:1 0 auto}
 .wx-d-day{font-size:12px;color:var(--t1);font-weight:500}
-.wx-d-date{font-size:10px;color:var(--t2);line-height:15px}
+.wx-d-date{font-size:11px;color:var(--t2);line-height:15px}
 /* 日期 / 节日名 = 徽标的定位锚（inline-block + relative，宽度即文字宽度，
    不随卡片宽度变化；徽标作为其内联子元素绝对定位，绝不影响行内布局与居中）。 */
 .wx-d-dt{display:inline-block;position:relative}
@@ -612,7 +612,7 @@ onBeforeUnmount(() => {
        不裁切、不压到相邻卡片（第一版曾把徽标做成 13px 并挂卡片右上角，
        那会落在「周X」同一行、"周日 班" 会被读成周日的属性，已改掉）。 */
 .wx-hb{position:absolute;top:-6px;right:-10px;min-width:11px;height:11px;box-sizing:border-box;
-  padding:0 1px;border-radius:5.5px;font-size:8px;font-weight:600;line-height:11px;text-align:center;
+  padding:0 1px;border-radius:5.5px;font-size:11px;font-weight:600;line-height:11px;text-align:center;
   color:#fff;font-style:normal;pointer-events:none}
 .wx-hb.off{background:var(--hd-off)}
 .wx-hb.work{background:var(--hd-work)}
@@ -634,7 +634,7 @@ onBeforeUnmount(() => {
   background:var(--bg);border:2px solid currentColor;pointer-events:none}
 .wx-trend-dot.up{color:#f97316}
 .wx-trend-dot.down{color:#0ea5e9}
-.wx-trend-dot em{position:absolute;left:9px;top:-5px;font-size:9px;font-style:normal;font-weight:600;
+.wx-trend-dot em{position:absolute;left:9px;top:-5px;font-size:11px;font-style:normal;font-weight:600;
   line-height:1.3;padding:0 3px;border-radius:4px;background:var(--bg2);color:currentColor;
   box-shadow:0 0 0 1px var(--glass-border)}
 .wx-trend-dot.last em{left:auto;right:9px}

@@ -763,22 +763,22 @@ async function refreshProfile() {
 .insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.7;color:var(--t1);white-space:pre-wrap}
 /* T1-3 缺数据拒答：必须看起来就"不是一条洞察"，否则老板会把说明当结论读 */
 .blocked-box{background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:10px;padding:12px 14px;color:var(--t1)}
-.blocked-box b{display:block;font-size:13.5px;color:var(--warn-amber);margin-bottom:6px}
+.blocked-box b{display:block;font-size:14px;color:var(--warn-amber);margin-bottom:6px}
 .blocked-txt{font-size:13px;line-height:1.7;white-space:pre-wrap}
 /* T1-3 指标级溯源表 */
 .prov{margin-top:12px;border-top:1px dashed var(--border-subtle);padding-top:11px}
-.prov-hd{font-size:12.5px;color:var(--t2);margin-bottom:8px}
-.prov-hd b{color:var(--p-dark);font-size:13.5px}
+.prov-hd{font-size:12px;color:var(--t2);margin-bottom:8px}
+.prov-hd b{color:var(--p-dark);font-size:14px}
 .prov-tb{display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:9px;overflow:hidden}
 .prov-tr{display:grid;grid-template-columns:112px 1fr 52px 108px;gap:8px;padding:7px 10px;font-size:12px;color:var(--t2);border-top:1px solid var(--border-subtle)}
 .prov-tr:first-child{border-top:none}
-.prov-tr.prov-th{background:var(--bg3);color:var(--t3);font-weight:600;font-size:11.5px}
+.prov-tr.prov-th{background:var(--bg3);color:var(--t3);font-weight:600;font-size:12px}
 .prov-tr .num{text-align:right;font-variant-numeric:tabular-nums}
 .prov-tr.pv-error{background:var(--dan-bg)}
-.prov-e{font-style:normal;font-size:10.5px;margin-left:5px;padding:1px 6px;border-radius:7px;background:var(--bg3);color:var(--t3)}
+.prov-e{font-style:normal;font-size:11px;margin-left:5px;padding:1px 6px;border-radius:7px;background:var(--bg3);color:var(--t3)}
 .prov-e.bad{background:var(--dan-bg);color:var(--dan)}
 .prov-warn{margin-top:8px;font-size:12px;color:var(--warn-amber);line-height:1.6}
-.prov-tip{margin-top:7px;font-size:11.5px;color:var(--t3);line-height:1.55}
+.prov-tip{margin-top:7px;font-size:12px;color:var(--t3);line-height:1.55}
 .prof-sec{margin-top:12px}
 .prof-hd{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:6px}
 .prof-item{font-size:13px;color:var(--t2);padding:4px 0;border-bottom:1px dashed var(--border-subtle)}
@@ -800,12 +800,12 @@ async function refreshProfile() {
 .prop-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .prop-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .prop-mod{font-size:11px;padding:1px 8px;border-radius:9px;background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
-.prop-name{font-size:13.5px;font-weight:600;color:var(--t1)}
+.prop-name{font-size:14px;font-weight:600;color:var(--t1)}
 .prop-st{font-size:11px;padding:1px 8px;border-radius:9px;flex-shrink:0}
 .prop-st.st-pending{background:var(--p-bg);color:var(--p-dark)}
 .prop-st.st-accepted{color:var(--suc);background:var(--dan-bg)}
 .prop-st.st-rejected{color:var(--dan);background:var(--dan-bg)}
-.prop-why{font-size:12.5px;color:var(--t2);line-height:1.55}
+.prop-why{font-size:12px;color:var(--t2);line-height:1.55}
 .prop-chg{font-size:12px;color:var(--t1);background:var(--bg2);border-radius:7px;padding:5px 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
 .prop-meta{font-size:11px;color:var(--t3)}
 .prop-fuel{font-size:11px;color:var(--p-dark)}
@@ -816,5 +816,5 @@ async function refreshProfile() {
 .cal-form{background:var(--bg3);border:1px solid var(--border-subtle);border-radius:10px;padding:12px;margin-bottom:12px}
 .cal-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .cal-f1{width:130px}.cal-f2{width:250px}.cal-f3{width:150px}.cal-f4{flex:1;min-width:160px}
-.cal-tip{font-size:11.5px;color:var(--t3);margin-top:7px;line-height:1.55}
+.cal-tip{font-size:12px;color:var(--t3);margin-top:7px;line-height:1.55}
 </style>

@@ -183,7 +183,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 
 .sp-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .sp-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
-  padding: 3px 4px 3px 9px; border-radius: 14px; font-size: 12.5px;
+  padding: 3px 4px 3px 9px; border-radius: 14px; font-size: 12px;
   background: rgba(0, 122, 255, .1); border: 1px solid rgba(0, 122, 255, .28); color: var(--t1); }
 .sp-chip-nm { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-chip-x { flex: none; width: 17px; height: 17px; line-height: 1; border: 0; border-radius: 50%;
@@ -202,7 +202,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 .sp-panel { display: flex; flex-direction: column; gap: 8px; padding: 10px;
   border: 1px solid var(--bd); border-radius: 10px; background: var(--bg2); }
 .sp-hd { display: grid; grid-template-columns: 1fr 170px; gap: 8px; }
-.sp-search, .sp-cat { height: 32px; font-size: 12.5px; }
+.sp-search, .sp-cat { height: 32px; font-size: 12px; }
 
 .sp-list { max-height: 210px; overflow-y: auto; border: 1px solid var(--bd); border-radius: 8px;
   background: var(--bg); }
@@ -213,10 +213,10 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 .sp-item.on { background: rgba(0, 122, 255, .08); }
 .sp-item input { flex: none; width: 14px; height: 14px; accent-color: #007aff; cursor: pointer; }
 .sp-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-code { flex: none; font-size: 11.5px; color: var(--t3); }
+.sp-code { flex: none; font-size: 12px; color: var(--t3); }
 .sp-catb { flex: none; font-size: 11px; color: var(--t3); padding: 1px 6px;
   border-radius: 8px; background: var(--bg2); border: 1px solid var(--bd); }
-.sp-empty { padding: 14px 10px; font-size: 12.5px; color: var(--t3); text-align: center; line-height: 1.6; }
+.sp-empty { padding: 14px 10px; font-size: 12px; color: var(--t3); text-align: center; line-height: 1.6; }
 
 .sp-ft { display: flex; align-items: center; gap: 8px; }
 .sp-cnt { flex: 1; font-size: 12px; color: var(--t2); white-space: nowrap; }

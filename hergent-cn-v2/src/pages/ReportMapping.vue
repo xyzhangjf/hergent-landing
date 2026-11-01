@@ -1078,7 +1078,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .lb-dot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex-shrink:0}
 .lb-toggle{margin-left:auto;color:var(--p);font-size:12px}
 .legacy-detail{margin-bottom:12px;padding:14px 16px}
-.lb-tip{font-size:12.5px;color:var(--t2);line-height:1.8;margin:8px 0 0}
+.lb-tip{font-size:12px;color:var(--t2);line-height:1.8;margin:8px 0 0}
 .legacy-detail ul{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--t2);line-height:1.9}
 /* 每行：员工 → 门店 [已停用] [收回] —— 用 inline-flex + wrap，窄屏时按钮换行不挤压文字 */
 .lb-row{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1118,7 +1118,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .tbl .ops{text-align:right;white-space:nowrap}
 .empty{text-align:center;color:var(--t3);padding:28px}
 
-.tag{font-size:11.5px;padding:2px 9px;border-radius:9px;background:var(--bg2);color:var(--t2)}
+.tag{font-size:12px;padding:2px 9px;border-radius:9px;background:var(--bg2);color:var(--t2)}
 .tag.info{background:var(--p-bg);color:var(--p-dark)}
 .tag.purple{background:rgba(var(--purple-rgb),.14);color:var(--purple)}
 .tag.teal{background:rgba(var(--teal-rgb),.14);color:var(--teal)}
@@ -1140,10 +1140,10 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .df-body{display:flex;flex-direction:column;gap:14px}
 
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:2px}
-.field label{font-size:12.5px;color:var(--t2)}
+.field label{font-size:12px;color:var(--t2)}
 .req{color:var(--dan);font-weight:600;font-style:normal}
 .field input, .field select{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
-.field .hint{font-size:11.5px;color:var(--t3);line-height:1.5}
+.field .hint{font-size:12px;color:var(--t3);line-height:1.5}
 .seg{display:flex;gap:6px}
 .seg-btn{flex:1;height:34px;border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-sm);font-size:13px;color:var(--t2);cursor:pointer}
 .seg-btn.on{background:var(--p);border-color:var(--p);color:#fff}
@@ -1163,7 +1163,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .combo-note{font-size:11px;color:var(--war);flex:none}
 .combo-empty{padding:10px;text-align:center;font-size:12px;color:var(--t3)}
 /* v295：报单简称名册 —— 面板表头（sticky，滚动时仍看得见来源说明）、状态标签、三态提示 */
-.al-hd{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px -4px 4px;padding:6px 10px 7px;font-size:11.5px;color:var(--t3);background:var(--bg);border-bottom:1px solid var(--border-subtle)}
+.al-hd{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px -4px 4px;padding:6px 10px 7px;font-size:12px;color:var(--t3);background:var(--bg);border-bottom:1px solid var(--border-subtle)}
 .al-from{color:var(--p);flex:none}
 .al-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .al-tag{flex:none;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--bg2);color:var(--t3)}
@@ -1172,16 +1172,16 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 /* 输入框下方那行判定：绿=接管既有列 / 黄=会新增一列 / 红=撞名会被拒 */
 /* v317：报单人下拉下方的引导行（「还没有外部客户账号？去员工档案开通」）。
    中性灰而不是告警色 —— 它描述的是"还没有这种数据"，不是配置出错。 */
-.al-note{font-size:11.5px;line-height:1.6;color:var(--t3)}
-.lnk-btn{border:none;background:none;color:var(--p);cursor:pointer;font-size:11.5px;padding:0 2px;font-family:inherit;text-decoration:underline}
+.al-note{font-size:12px;line-height:1.6;color:var(--t3)}
+.lnk-btn{border:none;background:none;color:var(--p);cursor:pointer;font-size:12px;padding:0 2px;font-family:inherit;text-decoration:underline}
 .lnk-btn:hover{color:var(--p-dark)}
-.al-hint{font-size:11.5px;line-height:1.55;padding:6px 9px;border-radius:var(--radius-sm)}
+.al-hint{font-size:12px;line-height:1.55;padding:6px 9px;border-radius:var(--radius-sm)}
 .al-hint.ok{color:var(--suc);background:rgba(var(--suc-rgb),.10)}
 .al-hint.warn{color:var(--war);background:rgba(var(--war-rgb),.10)}
 .al-hint.err{color:var(--dan);background:rgba(var(--dan-rgb),.10)}
 /* v295：相近列头的一键改选（把"会新增一列"的警告变成一个可点的动作，而不是光提示） */
-.al-near{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);line-height:1.8}
-.al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:8px;padding:2px 9px;font-size:11.5px;cursor:pointer}
+.al-near{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--t3);line-height:1.8}
+.al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:8px;padding:2px 9px;font-size:12px;cursor:pointer}
 .al-near-btn:hover{background:var(--p);color:#fff}
 .al-near-tip{color:var(--t3)}
 .upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:14px 18px;font-size:13px;color:var(--p);cursor:pointer;text-align:center}

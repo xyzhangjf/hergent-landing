@@ -210,5 +210,5 @@ watch(q, () => { activeIndex.value = 0 })
 .cmd-hint{font-size:11px;color:var(--t3);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:5px;padding:2px 6px}
 .cmd-empty{font-size:13px;color:var(--t3);text-align:center;padding:24px 0}
 .cmd-foot{display:flex;gap:16px;padding:9px 15px;border-top:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
-.cmd-foot kbd{font-size:10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:4px;padding:1px 5px;margin-right:4px}
+.cmd-foot kbd{font-size:11px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:4px;padding:1px 5px;margin-right:4px}
 </style>

@@ -416,9 +416,9 @@ onBeforeUnmount(() => { clearTimeout(_t) })
    能走全局层的一律走全局层：.page / .page-hd / .card / .btn* / .input / .table-wrap
    / .tbl / .num / .state-empty / .field-err —— 本页**不重定义**任何一个全局件（§6.2）。 */
 .sup-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
-.sup-stat{font-size:12.5px;color:var(--t2)}
+.sup-stat{font-size:12px;color:var(--t2)}
 .sup-stat b{font-size:15px;color:var(--t1)}
-.sup-sync{font-size:11.5px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sup-sync{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sup-sync.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sup-sync.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
@@ -433,7 +433,7 @@ onBeforeUnmount(() => { clearTimeout(_t) })
 .sup-ops{text-align:right;white-space:nowrap}
 
 .sup-pager{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
-.sup-pageinfo{font-size:12.5px;color:var(--t2)}
+.sup-pageinfo{font-size:12px;color:var(--t2)}
 .sup-size{height:30px;width:auto}
 
 /* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画全部由 components/Modal.vue 提供，
@@ -443,7 +443,7 @@ onBeforeUnmount(() => { clearTimeout(_t) })
 
 .sup-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
 .sup-form-more{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-subtle)}
-.sup-f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--t2)}
+.sup-f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
 .sup-f>span{display:flex;align-items:baseline;gap:6px}
 .sup-f i{color:var(--dan);font-style:normal}
 .sup-f em{font-size:11px;color:var(--t3);font-style:normal}
@@ -451,9 +451,9 @@ onBeforeUnmount(() => { clearTimeout(_t) })
 .sup-f-full{grid-column:1 / -1}
 .sup-ta{height:auto;min-height:60px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
 .sup-more{width:100%;margin-top:12px;padding:8px;border:1px dashed var(--border-subtle);border-radius:8px;
-  background:none;color:var(--t2);font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+  background:none;color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .sup-more:hover{color:var(--p);border-color:var(--p)}
-.sup-caret{font-size:10px}
+.sup-caret{font-size:11px}
 
 /* UI-SPEC §3.3：表单型页面**必须**有 640px 断点（四个档案页曾全部为 0 个 @media）。 */
 @media (max-width:640px){

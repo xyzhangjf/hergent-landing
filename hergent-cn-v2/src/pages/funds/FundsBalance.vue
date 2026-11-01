@@ -198,7 +198,7 @@ onMounted(load)
 .fa-row label i { color: var(--dan); font-style: normal; margin-left: 2px }
 .fa-row .input { width: 100% }
 .fa-row .input:disabled { background: var(--bg2); color: var(--t3); cursor: not-allowed }
-.fa-hint { display: block; font-size: 11.5px; color: var(--t3); margin-top: 4px }
+.fa-hint { display: block; font-size: 12px; color: var(--t3); margin-top: 4px }
 .fa-err { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 8px 10px;
   border-radius: var(--radius-sm); background: var(--dan-bg, #fdeaea); color: var(--dan); font-size: var(--fs-sm) }
 </style>

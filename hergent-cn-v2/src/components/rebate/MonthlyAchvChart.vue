@@ -664,7 +664,7 @@ function onHover(mo, i, key) {
    #e2e8f0 是边框色，在白底上淡到"像没画"，用户会以为"有目标却没柱子"。
    #cbd5e1 与图例 .lg-track 的顶端同色 —— 图例与柱体不再是两个灰度。 */
 .track { fill: #cbd5e1; }
-.bar-lb { font-size: 8.5px; font-variant-numeric: tabular-nums; pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 2px; stroke-linejoin: round; }
+.bar-lb { font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 2px; stroke-linejoin: round; }
 /* v164：下行达成率略降透明度 → 上行金额先被读到；两行同色系，整柱归属依然清楚 */
 .bar-lb-rate { opacity: .88; }
 .pace-line { stroke: #d97706; stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }

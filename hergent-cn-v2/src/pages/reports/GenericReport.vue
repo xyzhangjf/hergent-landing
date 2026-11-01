@@ -634,7 +634,7 @@ onMounted(load)
 .gr-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
 .gr-sel { padding: 4px 8px }
 .gr-date {
-  padding: 4px 8px; font-size: 12.5px; border-radius: 6px;
+  padding: 4px 8px; font-size: 12px; border-radius: 6px;
   border: 1px solid var(--line, #dcdfe6); background: var(--bg1, #fff); color: var(--t1);
 }
 .gr-tilde { color: var(--t3); font-size: 12px }
@@ -644,7 +644,7 @@ onMounted(load)
 .gr-fig { margin-top: 14px }
 .gr-sec { display: flex; align-items: center; justify-content: space-between; gap: 12px }
 .gr-cnt { margin-left: 10px; font-size: 12px; font-weight: 400; color: var(--t3) }
-.gr-cost { font-size: 11.5px; color: var(--t3) }
+.gr-cost { font-size: 12px; color: var(--t3) }
 .gr-warn { margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--warn-amber, #d99a2b); background: var(--bg2) }
 .gr-warn-hd { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--war, #b8791a); font-size: 13px }
 .gr-warn p { margin: 6px 0 0; font-size: 12px; line-height: 1.9; color: var(--t2) }

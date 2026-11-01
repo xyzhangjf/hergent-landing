@@ -256,17 +256,17 @@ onMounted(load)
 .vc{display:flex;flex-direction:column;gap:14px}
 .vc-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .vc-kpi{background:var(--bg2);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
-.vc-kpi .num{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+.vc-kpi .num{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
 .vc-kpi .num.ok{color:var(--ok-green)}
 .vc-kpi .num.warn{color:var(--war)}
 .vc-kpi .num.bad{color:var(--err-red, #d9534f)}
 .vc-kpi .lbl{font-size:12px;color:var(--t2)}
 .vc-bar{display:flex;align-items:flex-start;gap:14px}
-.vc-tip{font-size:12.5px;color:var(--t2);line-height:1.75;margin:0;flex:1}
+.vc-tip{font-size:12px;color:var(--t2);line-height:1.75;margin:0;flex:1}
 .vc-bar-acts{display:flex;gap:8px;flex-shrink:0}
 .vc-skel{padding:8px 0}
-.vc-empty-sub{font-size:12.5px;color:var(--t3);max-width:560px;margin:6px auto 0;line-height:1.7}
-.vc-st{display:inline-block;padding:1px 8px;border-radius:8px;font-size:11.5px;white-space:nowrap;background:var(--bg2);color:var(--t2)}
+.vc-empty-sub{font-size:12px;color:var(--t3);max-width:560px;margin:6px auto 0;line-height:1.7}
+.vc-st{display:inline-block;padding:1px 8px;border-radius:8px;font-size:12px;white-space:nowrap;background:var(--bg2);color:var(--t2)}
 .vc-st-overdue{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .vc-st-done{background:var(--ok-green-bg);color:var(--ok-green)}
 .vc-st-void{background:var(--bg2);color:var(--t3)}
@@ -274,13 +274,13 @@ onMounted(load)
 .vc-brand{display:inline-block;margin-left:6px;padding:0 6px;border-radius:6px;font-size:11px;background:var(--bg2);color:var(--t2)}
 .vc-content{max-width:420px}
 .vc-kind{display:inline-block;margin-left:6px;padding:0 6px;border-radius:6px;font-size:11px;background:var(--p-bg);color:var(--p-dark)}
-.vc-caliber{font-size:11.5px;color:var(--t3);margin-top:2px}
-.vc-days{font-size:11.5px;color:var(--t3);margin-top:2px}
+.vc-caliber{font-size:12px;color:var(--t3);margin-top:2px}
+.vc-days{font-size:12px;color:var(--t3);margin-top:2px}
 .vc-acts{white-space:nowrap;text-align:right}
 .tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 
 .vc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.vc-fld{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--t2)}
+.vc-fld{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
 .vc-fld .input{height:34px;font-size:13px}
 .vc-fld .req{color:var(--war);font-style:normal}
 .vc-wide{grid-column:1/-1}

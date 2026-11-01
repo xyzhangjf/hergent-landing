@@ -292,7 +292,7 @@ onBeforeUnmount(() => {
 /* 关闭前确认提示：正文与底栏之间的一条琥珀色横条。
    flex-shrink:0 保证正文再长也不会把它挤没（它出现时正是要拦人的时候）。 */
 .ui-modal-guard{padding:9px 20px;background:var(--warn-amber-bg);color:var(--warn-amber);
-  font-size:12.5px;line-height:1.5;border-top:1px solid var(--border-subtle);flex-shrink:0}
+  font-size:12px;line-height:1.5;border-top:1px solid var(--border-subtle);flex-shrink:0}
 .ui-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;
   border-top:1px solid var(--border-subtle);flex-shrink:0}
 

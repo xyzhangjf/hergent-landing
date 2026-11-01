@@ -551,7 +551,7 @@ html.dark .dsh {
 .dsh-warn {
   margin: 12px 0 0; padding: 10px 14px;
   border-left: 3px solid var(--warn-amber); border-radius: var(--radius-sm);
-  font-size: 12.5px; line-height: 1.65;
+  font-size: 12px; line-height: 1.65;
   color: var(--warn-amber); background: var(--warn-amber-bg);
 }
 
@@ -561,11 +561,11 @@ html.dark .dsh {
 .dsh-kpibox { padding: 6px 8px; }
 .dsh-kpibox .kpi-strip { padding: 0; }
 .dsh-kpibox .kpi { padding: 10px 18px; display: flex; flex-direction: column; gap: 5px; }
-.dsh-kpibox .kpi-val { font-size: 25px; margin-bottom: 0; }
+.dsh-kpibox .kpi-val { font-size: 26px; margin-bottom: 0; }
 .dsh-kpibox .kpi-val u {
   font-size: 12px; font-weight: 400; color: var(--t2); text-decoration: none; margin-left: 4px;
 }
-.dsh-kpibox .kpi-sub { font-size: 11.5px; line-height: 1.55; }
+.dsh-kpibox .kpi-sub { font-size: 12px; line-height: 1.55; }
 .dsh-kpibox .kpi-sub.war { color: var(--warn-amber); }
 /* 数值按指标语义着色 —— 比"每张卡换一个边框色"安静，且颜色直接绑定数据 */
 .dsh-kpibox .val-gross { color: var(--c-gross); }
@@ -589,7 +589,7 @@ html.dark .dsh {
 /* 卡片标题用**全局** `.sec-hd` / `.sec-sub`（styles/variables.css）——
    本页与「按月一览」明细卡共用同一份，别再在这里写第二份。
    左竖条是"分区锚"，替代再加一行分区标题（本页文案不增）。 */
-.lg { display: flex; align-items: center; gap: 14px; margin-left: auto; font-size: 11.5px; color: var(--t2); font-weight: 400; }
+.lg { display: flex; align-items: center; gap: 14px; margin-left: auto; font-size: 12px; color: var(--t2); font-weight: 400; }
 .lg-wrap { margin-left: 0; margin-top: 10px; flex-wrap: wrap; gap: 8px 16px; }
 .lg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .lg i.ln { height: 3px; border-radius: 2px; width: 14px; }
@@ -601,12 +601,12 @@ html.dark .dsh {
 /* 轴刻度弱于正文（--t3）；但「未录入 / 已隐藏」是要读的信息，用 --t2 */
 .ax { font-size: 11px; fill: var(--t3); }
 .ax-rate { fill: var(--c-rate); }
-.ax-u { font-size: 10px; }
+.ax-u { font-size: 11px; }
 .xl { font-size: 11px; fill: var(--t2); }
-.xl-y { font-size: 10px; fill: var(--t3); }
-.xl-open { font-size: 10px; fill: var(--warn-amber); }
+.xl-y { font-size: 11px; fill: var(--t3); }
+.xl-open { font-size: 11px; fill: var(--warn-amber); }
 .ph { font-size: 11px; fill: var(--t2); }
-.ph-s { font-size: 10px; fill: var(--t3); }
+.ph-s { font-size: 11px; fill: var(--t3); }
 .bars { cursor: pointer; }
 .bars rect { transition: opacity .12s ease; }
 .bars:hover rect { opacity: .86; }
@@ -615,7 +615,7 @@ html.dark .dsh {
 .rk { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
 .rk-row {
   display: grid; grid-template-columns: 22px minmax(130px, 240px) 1fr 104px 78px 68px;
-  align-items: center; gap: 10px; font-size: 12.5px;
+  align-items: center; gap: 10px; font-size: 12px;
   padding: 3px 6px; border-radius: var(--radius-sm); transition: background .12s ease;
 }
 .rk-row:hover { background: var(--bg2); }
@@ -629,5 +629,5 @@ html.dark .dsh {
 .rk-v { text-align: right; color: var(--t1); font-variant-numeric: tabular-nums; }
 .rk-v.good { color: var(--suc); }
 .rk-r { text-align: right; color: var(--c-rate); font-variant-numeric: tabular-nums; }
-.rk-m { text-align: right; color: var(--t3); font-size: 11.5px; }
+.rk-m { text-align: right; color: var(--t3); font-size: 12px; }
 </style>

@@ -37,7 +37,7 @@
 .ch-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .ch-area{stroke:none}
 .ch-bar{rx:2}
-.ch-lbl{font-size:10px;font-variant-numeric:tabular-nums;pointer-events:none}
+.ch-lbl{font-size:11px;font-variant-numeric:tabular-nums;pointer-events:none}
 /* 折线数据点：默认不显，hover 时放大（由 .is-on 控制） */
 .ch-dot{pointer-events:none;transition:r .12s ease}
 .ch-hit{fill:transparent}
@@ -113,7 +113,7 @@
 .ch-md-ax{font-size:11px;fill:var(--t3);font-variant-numeric:tabular-nums}
 .ch-md-line{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .ch-md-bar{}
-.ch-md-lbl{font-size:10px;fill:var(--t2);font-variant-numeric:tabular-nums}
+.ch-md-lbl{font-size:11px;fill:var(--t2);font-variant-numeric:tabular-nums}
 .ch-md-track{opacity:.6}
 .ch-md-cv{font-size:15px;font-weight:600;fill:var(--t1)}
 .ch-md-legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:11px;color:var(--t2)}

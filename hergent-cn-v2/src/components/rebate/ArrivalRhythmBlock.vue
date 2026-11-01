@@ -195,9 +195,9 @@ function wkLabel(iso) {
 .input-affix .affix{font-size:12px;color:var(--t3);white-space:nowrap}
 .ro-val{font-size:14px;color:var(--t1);padding:7px 0;font-variant-numeric:tabular-nums}
 .ro-val b{color:var(--p)}
-.ap-sec{display:flex;align-items:center;gap:8px;margin:12px 0 8px;font-size:12.5px;font-weight:600;color:var(--t1)}
+.ap-sec{display:flex;align-items:center;gap:8px;margin:12px 0 8px;font-size:12px;font-weight:600;color:var(--t1)}
 .ap-sec:first-child{margin-top:0}
-.ap-sec-note{font-weight:400;font-size:11.5px;color:var(--t3)}
+.ap-sec-note{font-weight:400;font-size:12px;color:var(--t3)}
 .ap-moved{margin:8px 0 0;font-size:12px;color:var(--t3);line-height:1.6}
 .ap-moved a{color:var(--p-dark);text-decoration:none;border-bottom:1px dashed var(--p)}
 .ap-derive{margin:2px 0 0;font-size:12px;color:var(--p-dark);background:rgba(6,182,212,.08);border-radius:6px;padding:6px 8px}
@@ -209,16 +209,16 @@ function wkLabel(iso) {
    本仓深色模式靠令牌翻转，写死色会在深色下变成白块（v362 踩过）。 */
 .arr-stat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
 .arr-stat-i{display:flex;align-items:baseline;gap:4px;flex-wrap:wrap;background:var(--bg1);border:1px solid var(--bd2);border-radius:8px;padding:8px 10px}
-.arr-stat-k{font-size:11.5px;color:var(--t3);flex-basis:100%}
+.arr-stat-k{font-size:12px;color:var(--t3);flex-basis:100%}
 .arr-stat-i b{font-size:17px;color:var(--t1);font-variant-numeric:tabular-nums;line-height:1.15}
 .arr-stat-i b.on{color:var(--p-dark)}
 .arr-stat-i b.cut{color:var(--t2)}
-.arr-stat-u{font-size:11.5px;color:var(--t3)}
+.arr-stat-u{font-size:12px;color:var(--t3)}
 .arr-days{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
 .arr-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:40px;padding:5px 6px;border:1px solid var(--bd2);border-radius:8px;background:var(--bg1);cursor:pointer;line-height:1.1}
 .arr-day:hover{border-color:var(--p)}
 .arr-day-d{font-size:13px;color:var(--t1);font-variant-numeric:tabular-nums}
-.arr-day-w{font-size:10px;color:var(--t3)}
+.arr-day-w{font-size:11px;color:var(--t3)}
 .arr-day.off{background:var(--bg2);border-style:dashed;opacity:.6}
 .arr-day.off .arr-day-d{text-decoration:line-through;color:var(--t3)}
 .ap-skip-note{margin:2px 0 0;font-size:12px;color:var(--t2);line-height:1.65}

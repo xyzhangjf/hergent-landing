@@ -2156,7 +2156,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
    也不伪装成已可用（点了没反应才是真静默失效）。 */
 .ipn-mi-disabled { color: var(--t3); cursor: default }
 .ipn-mi-tag {
-  margin-left: 4px; padding: 0 4px; font-size: 10px; color: var(--t3);
+  margin-left: 4px; padding: 0 4px; font-size: 11px; color: var(--t3);
   border: 1px solid var(--bd); border-radius: 6px;
 }
 .ipn-caret {

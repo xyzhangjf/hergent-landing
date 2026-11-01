@@ -506,9 +506,9 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 
 <style scoped>
 .cas-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
-.cas-stat{font-size:12.5px;color:var(--t2)}
+.cas-stat{font-size:12px;color:var(--t2)}
 .cas-stat b{font-size:15px;color:var(--t1)}
-.sync-state{font-size:11.5px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sync-state{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
@@ -521,12 +521,12 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 
 .tbl td.cas-name{font-weight:600;color:var(--t1)}
 .cas-miss{color:var(--t3)}
-.cas-phone{display:block;font-size:11.5px;color:var(--t3);font-variant-numeric:tabular-nums}
+.cas-phone{display:block;font-size:12px;color:var(--t3);font-variant-numeric:tabular-nums}
 .cas-ar{color:var(--dan);font-weight:600}
 .cas-ops{text-align:right;white-space:nowrap}
 
 .cas-pager{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
-.cas-pageinfo{font-size:12.5px;color:var(--t2)}
+.cas-pageinfo{font-size:12px;color:var(--t2)}
 .cas-size{height:30px;width:auto}
 
 /* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画统一由 components/Modal.vue 提供，
@@ -535,7 +535,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 
 .cas-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
 .cas-form-more{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-subtle)}
-.cas-f{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--t2)}
+.cas-f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
 .cas-f>span{display:flex;align-items:baseline;gap:6px}
 .cas-f i{color:var(--dan);font-style:normal}
 .cas-f em{font-size:11px;color:var(--t3);font-style:normal}
@@ -543,13 +543,13 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 .cas-f-full{grid-column:1 / -1}
 .cas-ta{height:auto;min-height:60px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
 .cas-more{width:100%;margin-top:12px;padding:8px;border:1px dashed var(--border-subtle);border-radius:8px;
-  background:none;color:var(--t2);font-size:12.5px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+  background:none;color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .cas-more:hover{color:var(--p);border-color:var(--p)}
-.cas-caret{font-size:10px}
+.cas-caret{font-size:11px}
 
 .cas-imp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cas-file-btn{position:relative;overflow:hidden}
-.cas-fname{font-size:12.5px;color:var(--t2)}
+.cas-fname{font-size:12px;color:var(--t2)}
 
 @media (max-width:640px){
   .cas-form{grid-template-columns:1fr}

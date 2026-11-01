@@ -1275,18 +1275,18 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-body{}
 /* ── 口径说明条 ── */
 .pt-caliber{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:9px 12px;
-  border-radius:var(--radius-sm);background:var(--p-bg);color:var(--t2);font-size:12.5px;line-height:1.7}
+  border-radius:var(--radius-sm);background:var(--p-bg);color:var(--t2);font-size:12px;line-height:1.7}
 .pt-caliber b{color:var(--t1)}
 
 /* ── v264c（R9）：报单配置对账告警。复用站内语义色 `--warn-amber*`
       （成例：`ConnectCenter.vue::.cc-pair-lock`），不新造视觉语言。 ── */
 .pt-audit{margin:0 0 12px;padding:10px 14px;border-radius:var(--radius-sm);
-  background:var(--warn-amber-bg);color:var(--warn-amber);font-size:12.5px;line-height:1.7}
+  background:var(--warn-amber-bg);color:var(--warn-amber);font-size:12px;line-height:1.7}
 .pt-audit b{color:var(--t1)}
 /* v265：告警条里的「去报单配置修」按钮 —— 继承告警条的琥珀色，不新造一套按钮视觉。
    用 filter 而不是 rgba 覆写背景：本页要同时适配明/暗主题，写死 rgba 会在暗色下变脏。 */
 .pt-audit-btn{margin-left:8px;padding:2px 10px;border:1px solid currentColor;border-radius:var(--radius-sm);
-  background:transparent;color:inherit;font-size:12.5px;line-height:1.6;cursor:pointer;font-family:inherit}
+  background:transparent;color:inherit;font-size:12px;line-height:1.6;cursor:pointer;font-family:inherit}
 .pt-audit-btn:hover{filter:brightness(.95)}
 .pt-audit-b{margin-top:3px}
 .pt-audit-go{opacity:.9}
@@ -1304,7 +1304,7 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-anchor-warn{color:var(--warn-amber)}
 /* v324：新建弹窗里的「目标建到哪个月」提示。次级文字色 + 收紧上间距 ——
    它是输入框的**旁注**（贴着月份框），不该被读成区段标题。 */
-.pt-md-tip{margin-top:4px;font-size:11.5px;color:var(--t2);line-height:1.55}
+.pt-md-tip{margin-top:4px;font-size:12px;color:var(--t2);line-height:1.55}
 
 /* ── 列表 ── */
 .pt-card{padding:0;overflow:hidden}
@@ -1324,7 +1324,7 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-exp svg{transition:transform .15s}
 .pt-exp:hover{background:var(--bg4);color:var(--t1)}
 .pt-prod-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
-.pt-spec{font-size:11.5px;color:var(--t2)}
+.pt-spec{font-size:12px;color:var(--t2)}
 .pt-brand{color:var(--t2);white-space:nowrap}
 .pt-quiet{margin-right:auto;color:var(--t2)}
 /* v358：列表里「Σ 分解 ≠ 目标」只在**真的差出来**时才红字 —— 正常态零文案。 */
@@ -1336,7 +1336,7 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-detail-row td{background:var(--bg2);padding:0}
 .pt-detail{padding:12px 14px}
 .pt-detail-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:8px;font-size:13px}
-.pt-sub{width:100%;max-width:520px;border-collapse:collapse;font-size:12.5px}
+.pt-sub{width:100%;max-width:520px;border-collapse:collapse;font-size:12px}
 .pt-sub th{background:transparent;border-bottom:1px solid var(--bd);color:var(--t2);padding:5px 8px;
   font-weight:500;text-align:left;position:static}
 .pt-sub td{padding:5px 8px;border-bottom:1px solid var(--bd)}
@@ -1393,25 +1393,25 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-pick-item.dis .pt-pick-meta,
 .pt-pick-item.dis .pt-pick-warn{opacity:.62}
 .pt-pick-nm{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pt-pick-meta{color:var(--t2);font-size:11.5px;white-space:nowrap}
-.pt-pick-warn{color:var(--warn-amber);font-size:11.5px;white-space:nowrap}
+.pt-pick-meta{color:var(--t2);font-size:12px;white-space:nowrap}
+.pt-pick-warn{color:var(--warn-amber);font-size:12px;white-space:nowrap}
 /* ── v277（S3）就地补换算 ── */
 .pt-fix-btn{flex:0 0 auto;height:24px;padding:0 9px;border:1px solid var(--warn-amber);
   background:var(--warn-amber-bg);color:var(--warn-amber);border-radius:var(--radius-sm);
-  font-size:11.5px;cursor:pointer;white-space:nowrap}
+  font-size:12px;cursor:pointer;white-space:nowrap}
 .pt-fix-btn:hover{filter:brightness(.97)}
 /* 展开区独立成条（`.pt-pick-item` 是 flex 横排，塞不下这个表单） */
 .pt-fix-box{padding:9px 12px 11px;background:var(--bg3);border-bottom:1px solid var(--bd)}
-.pt-fix-hint{font-size:11.5px;color:var(--t2);line-height:1.55;margin-bottom:8px}
+.pt-fix-hint{font-size:12px;color:var(--t2);line-height:1.55;margin-bottom:8px}
 .pt-fix-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .pt-fix-eq{font-size:13px;color:var(--t2);white-space:nowrap}
 .pt-fix-u{width:62px;text-align:center}
 .pt-fix-n{width:80px;text-align:center}
 .pt-fix-save{height:28px;padding:0 12px;border:none;border-radius:var(--radius-sm);
-  background:var(--p-dark);color:#fff;font-size:12.5px;cursor:pointer;white-space:nowrap}
+  background:var(--p-dark);color:#fff;font-size:12px;cursor:pointer;white-space:nowrap}
 .pt-fix-save:hover:not(:disabled){background:var(--p-deep)}
 .pt-fix-save:disabled{opacity:.45;cursor:not-allowed}
-.pt-fix-src{margin-top:7px;font-size:11.5px;color:var(--t2);line-height:1.5}
+.pt-fix-src{margin-top:7px;font-size:12px;color:var(--t2);line-height:1.5}
 .pt-fix-msg{margin-top:6px;font-size:12px;color:var(--danger-txt)}
 .pt-pick-empty{padding:10px}
 /* ── v319e（P0-1）已选商品卡片 ──
@@ -1423,9 +1423,9 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-picked-tick{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--p);
   color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
 .pt-picked-txt{flex:1 1 auto;min-width:0}
-.pt-picked-nm{font-size:13.5px;font-weight:600;color:var(--t1);overflow:hidden;
+.pt-picked-nm{font-size:14px;font-weight:600;color:var(--t1);overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
-.pt-picked-cv{font-size:11.5px;color:var(--t2);margin-top:2px}
+.pt-picked-cv{font-size:12px;color:var(--t2);margin-top:2px}
 .pt-picked-change{flex:0 0 auto;height:26px;padding:0 10px;border:1px solid var(--bd);
   background:var(--bg);color:var(--t1);border-radius:var(--radius-sm);font-size:12px;cursor:pointer}
 .pt-picked-change:hover{background:var(--bg2)}
@@ -1442,14 +1442,14 @@ onMounted(() => { load(month.value); loadAudit() })
   border-bottom:1px solid var(--bd);font-size:13px;flex-wrap:wrap}
 .pt-ekw{margin-left:auto;width:110px;height:28px}
 .pt-col-bd{overflow:auto;flex:1 1 auto;padding:6px}
-.pt-col-empty{padding:10px;font-size:12.5px}
+.pt-col-empty{padding:10px;font-size:12px}
 .pt-emp{display:flex;align-items:center;gap:8px;width:100%;padding:7px 9px;border:none;background:none;
   cursor:pointer;text-align:left;font-size:13px;color:var(--t1);border-radius:var(--radius-sm)}
 .pt-emp:hover:not(:disabled){background:var(--bg2)}
 .pt-emp:disabled{opacity:.4;cursor:default}
-.pt-alias{font-size:11.5px;color:var(--t2)}
-.pt-noalias{font-size:11.5px;color:var(--warn-amber)}
-.pt-sigma{font-size:12.5px;font-weight:600}
+.pt-alias{font-size:12px;color:var(--t2)}
+.pt-noalias{font-size:12px;color:var(--warn-amber)}
+.pt-sigma{font-size:12px;font-weight:600}
 .pt-sigma.ok{color:var(--ok-green)}
 .pt-sigma.bad{color:var(--danger-txt)}
 /* v359：自动配平的**文字交代** —— 光有格子变蓝还不够，得有一句话说明发生了什么。 */
@@ -1471,11 +1471,11 @@ onMounted(() => { load(month.value); loadAudit() })
 /* 标红优先于标蓝：一格既坏又被配平过时，要说的是「它坏了」。 */
 .pt-num-bad.pt-num-auto{border-color:var(--danger-txt);background:var(--danger-bg)}
 .pt-save-err{margin-top:12px;padding:9px 11px;border-radius:var(--radius-sm);
-  background:var(--danger-bg);color:var(--danger-txt);font-size:12.5px;line-height:1.6}
+  background:var(--danger-bg);color:var(--danger-txt);font-size:12px;line-height:1.6}
 
 /* ── 删除确认 ── */
 .pt-del-q{font-size:13px;line-height:1.7;margin:0 0 8px}
-.pt-del-warn{font-size:12.5px;color:var(--warn-amber);line-height:1.7;margin:0}
+.pt-del-warn{font-size:12px;color:var(--warn-amber);line-height:1.7;margin:0}
 .btn-danger{background:var(--danger-txt);color:#fff}
 
 /* ── 窄屏：双栏改单栏 ── */

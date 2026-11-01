@@ -3947,12 +3947,12 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-art-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
 /* v486 P1-⑤：产物 / 待办 双分页 */
 .cp-art-tabs{display:inline-flex;gap:2px;padding:2px;background:var(--bg2);border-radius:8px}
-.cp-art-tab{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:none;background:transparent;border-radius:6px;font:inherit;font-size:12.5px;color:var(--t2);cursor:pointer;transition:all .15s}
+.cp-art-tab{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:none;background:transparent;border-radius:6px;font:inherit;font-size:12px;color:var(--t2);cursor:pointer;transition:all .15s}
 .cp-art-tab:hover{color:var(--t1)}
 .cp-art-tab.on{background:var(--bg);color:var(--t1);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
 .cp-todo{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg2)}
 .cp-todo-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.cp-todo-title{font-size:12.5px;color:var(--t1);line-height:1.45;word-break:break-all}
+.cp-todo-title{font-size:12px;color:var(--t1);line-height:1.45;word-break:break-all}
 .cp-todo-time{font-size:11px;color:var(--t3)}
 .cp-todo-ops{display:flex;gap:2px;flex:none}
 .cp-art-title{font-size:13px;font-weight:600;color:var(--t1);display:inline-flex;align-items:center;gap:8px}
@@ -3985,7 +3985,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-art-dl-row:hover{text-decoration:underline}
 /* v483 P0-④：多步计划步骤列表 */
 .cp-plan-steps{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
-.cp-plan-step{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--t1);line-height:1.5}
+.cp-plan-step{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t1);line-height:1.5}
 .cp-step-dot{width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0;background:var(--t3);border:1px solid var(--bd)}
 .cp-plan-step.running .cp-step-dot{background:var(--p);animation:cpStepPulse 1s infinite}
 .cp-plan-step.done .cp-step-dot{background:#1a9e57}
@@ -4009,7 +4009,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* Artifact 切换按钮（移动端可见） */
 .cp-art-toggle{position:relative}
 .cp-art-toggle.on{background:var(--p-bg);color:var(--p-dark)}
-.cp-art-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--dan);color:#fff;font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.cp-art-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--dan);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
 
 /* ===== P1-3 经营一页纸 ===== */
 .cp-pager{flex:1;overflow:auto;padding:16px;background:var(--bg1)}
@@ -4059,7 +4059,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
    ④ 窄屏（≤760px）：头部 8 个图标已接近屏宽，再挂带文字的按钮必挤爆
       ⇒ 收成与图标同尺寸的方形按钮（仍是唯一的实心主操作，只是不写字）。 */
 .cp-new-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;height:30px;padding:0 10px;
-  border:none;border-radius:8px;background:var(--p-dark);color:#fff;font-size:12.5px;font-weight:500;
+  border:none;border-radius:8px;background:var(--p-dark);color:#fff;font-size:12px;font-weight:500;
   cursor:pointer;transition:filter .15s}
 .cp-new-btn:hover{filter:brightness(1.12)}
 .cp-new-ic{flex:0 0 auto}
@@ -4093,12 +4093,12 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-hist-del{position:absolute;top:8px;right:8px;width:22px;height:22px;border:none;background:none;border-radius:6px;color:var(--t3);cursor:pointer;font-size:11px}
 .cp-hist-del:hover{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
 .cp-hist-search{margin:8px 0}
-.cp-hist-q{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);font-size:12.5px;color:var(--t1);outline:none}
+.cp-hist-q{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);font-size:12px;color:var(--t1);outline:none}
 .cp-hist-q:focus{border-color:var(--p)}
 .cp-hist-hits{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
 .cp-hist-hit{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);cursor:pointer;transition:all .15s}
 .cp-hist-hit:hover{border-color:var(--p);background:var(--p-bg)}
-.cp-hist-snippet{font-size:11.5px;color:var(--t3);margin-top:4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cp-hist-snippet{font-size:12px;color:var(--t3);margin-top:4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
 /* v639 搜索历史消息。尺寸取自 WorkBuddy 的会话搜索（输入条 32 高 / 圆角 8 /
    左图标 16 + 6 间距 / 输入 13px / 右侧计数 12px 等宽数字 / 关闭按钮 24），
@@ -4127,9 +4127,9 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-search-item-hd{display:flex;align-items:center;gap:6px;min-width:0}
 .cp-search-who{flex:0 0 auto;padding:0 6px;border-radius:var(--radius-md);background:var(--bg2);
   border:1px solid var(--border-subtle);font-size:11px;line-height:16px;color:var(--t3)}
-.cp-search-item-title{flex:1;min-width:0;font-size:12.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cp-search-time{flex:0 0 auto;font-size:11.5px;color:var(--t3);font-variant-numeric:tabular-nums}
-.cp-search-snip{font-size:12.5px;line-height:1.6;color:var(--t2);word-break:break-word;
+.cp-search-item-title{flex:1;min-width:0;font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-search-time{flex:0 0 auto;font-size:12px;color:var(--t3);font-variant-numeric:tabular-nums}
+.cp-search-snip{font-size:12px;line-height:1.6;color:var(--t2);word-break:break-word;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .cp-search-snip mark{background:transparent;color:var(--p-dark);font-weight:600}
 /* 命中跳转后的短暂描边（1.8s 自动撤）。用 box-shadow 而不是 outline：不吃布局、圆角跟卡片一致。
@@ -4143,7 +4143,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-w-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 .cp-chip{padding:7px 12px;border:1px solid var(--bd);border-radius:16px;background:var(--bg);font-size:12px;color:var(--t2);cursor:pointer;transition:all .15s}
 .cp-chip:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
-.cp-demo{margin-top:14px;padding:8px 18px;border:1px solid var(--p-border);border-radius:20px;background:var(--p-bg);font-size:12.5px;color:var(--p-dark);cursor:pointer;transition:all .15s}
+.cp-demo{margin-top:14px;padding:8px 18px;border:1px solid var(--p-border);border-radius:20px;background:var(--p-bg);font-size:12px;color:var(--p-dark);cursor:pointer;transition:all .15s}
 .cp-demo:hover{background:rgba(6,182,212,.12);border-color:var(--p-dark)}
 
 .msg{display:flex;gap:8px}
@@ -4153,7 +4153,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* v523：助手回复顶部信息区（头像居左 + 角色名紧邻右侧 + 时间）；
    角色名过长自动省略，时间不收缩，保证「谁在答 + 何时答」一眼可见。 */
 .msg-head{display:flex;align-items:center;gap:8px;margin:0 0 6px;min-width:0}
-.msg-role{font-size:12.5px;font-weight:600;color:var(--t2);line-height:1.3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msg-role{font-size:12px;font-weight:600;color:var(--t2);line-height:1.3;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .msg-head .msg-time{margin-left:6px;padding:0;flex-shrink:0}
 .msg-avatar{width:26px;height:26px;border-radius:50%;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;overflow:hidden}
 .msg-av-img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
@@ -4175,7 +4175,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
    🔴 文件名可能很长 ⇒ `min-width:0` + ellipsis，否则 flex 子项默认 min-width:auto 会把气泡撑爆。 */
 .cp-doc-chip{display:flex;align-items:center;gap:7px;max-width:100%;padding:6px 9px;margin:0 0 6px;border-radius:9px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24)}
 .cp-doc-chip>svg{flex:0 0 auto;opacity:.92}
-.cp-doc-chip-name{min-width:0;font-size:12.5px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-doc-chip-name{min-width:0;font-size:12px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cp-doc-chip-tag{flex:0 0 auto;margin-left:auto;font-size:11px;color:rgba(255,255,255,.72);letter-spacing:.2px}
 
 /* 溯源：参考来源 */
@@ -4207,7 +4207,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .mt-n{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums}
 .mt-caret{margin-left:auto;transition:transform .15s}
 .mt-caret.open{transform:rotate(180deg)}
-.mt-body{padding:8px 12px 10px;font-size:12.5px;line-height:1.65;color:var(--t2);white-space:pre-wrap;border-top:1px dashed var(--border-subtle);max-height:280px;overflow:auto}
+.mt-body{padding:8px 12px 10px;font-size:12px;line-height:1.65;color:var(--t2);white-space:pre-wrap;border-top:1px dashed var(--border-subtle);max-height:280px;overflow:auto}
 
 .msg-error{font-size:12px;color:var(--dan);padding:6px 2px;line-height:1.5}
 .err-hint{color:var(--t3);display:block;margin-top:2px}
@@ -4227,7 +4227,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* 切换标记：整条退化为一行居中的细字（其余子节点一律隐藏，避免渲染出空气泡） */
 .msg.is-switch{justify-content:center;padding:2px 0}
 .msg.is-switch > *:not(.cp-switch-line){display:none}
-.cp-switch-line{flex:1;display:flex;align-items:center;gap:10px;color:var(--t3);font-size:11.5px}
+.cp-switch-line{flex:1;display:flex;align-items:center;gap:10px;color:var(--t3);font-size:12px}
 .cp-switch-line::before,.cp-switch-line::after{content:'';flex:1;height:1px;background:var(--border-subtle)}
 .cp-switch-line > span{white-space:nowrap}
 .cp-switch-new{flex:none;padding:1px 8px;border-radius:var(--radius-md);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:11px;cursor:pointer}
@@ -4259,7 +4259,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-role:hover{background:rgba(6,182,212,.16)}
 .cp-role-av{font-size:14px;line-height:1;flex-shrink:0;display:flex;align-items:center}
 .cp-role-av-img{width:18px;height:18px;border-radius:50%;object-fit:cover;display:block}
-.cp-role-name{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-role-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cp-role-caret{flex-shrink:0;opacity:.7}
 /* AI 权限下拉（对齐 WorkBuddy permission chip）：容器定位 + 不可选项的视觉 */
 .cp-guard{position:relative;display:inline-flex;flex-shrink:0}
@@ -4289,13 +4289,13 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-slash{position:absolute;left:0;right:0;bottom:calc(100% + 8px);background:var(--bg);border:1px solid var(--border-subtle);border-radius:12px;box-shadow:0 12px 34px rgba(0,0,0,.20);max-height:44vh;overflow-y:auto;padding:6px;z-index:30}
 .cp-slash-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:600;color:var(--t3);padding:8px 10px 6px;letter-spacing:.4px}
 .cp-slash-kbd{font-weight:400;color:var(--t3)}
-.cp-slash-kbd kbd{font-size:10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:4px;padding:1px 4px;margin:0 1px}
-.cp-slash-group{font-size:10px;font-weight:600;color:var(--t3);padding:8px 10px 3px;letter-spacing:.5px}
+.cp-slash-kbd kbd{font-size:11px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:4px;padding:1px 4px;margin:0 1px}
+.cp-slash-group{font-size:11px;font-weight:600;color:var(--t3);padding:8px 10px 3px;letter-spacing:.5px}
 .cp-slash-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:none;background:none;border-radius:8px;padding:8px 10px;font-size:13px;color:var(--t1);cursor:pointer}
 .cp-slash-item.active{background:var(--p-bg)}
 .cp-slash-ic{color:var(--t2);display:flex;flex-shrink:0}
 .cp-slash-item.active .cp-slash-ic{color:var(--p-dark)}
-.cp-slash-cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--p-dark);flex-shrink:0;min-width:62px}
+.cp-slash-cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--p-dark);flex-shrink:0;min-width:62px}
 .cp-slash-title{flex:1;color:var(--t1)}
 .cp-slash-hint{font-size:11px;color:var(--t3);flex-shrink:0}
 .cp-send{width:32px;height:32px;border:none;border-radius:999px;background:var(--p-dark);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,color .15s,box-shadow .15s;box-shadow:var(--shadow-sm)}
@@ -4316,7 +4316,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
    三处都是**低对比小字**，不抢视线：额度读数贴输入框、本次消耗贴气泡尾、
    执行计划预估贴按钮上方。琥珀色只用于「快用完了」这一种状态。
    字号沿用组件既有口径（11~12px），不单独另立一套。 */
-.cp-quota-warn{display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:6px;padding:5px 10px;border-radius:8px;font-size:11.5px;line-height:1.45;color:var(--warn-amber);background:var(--warn-amber-bg)}
+.cp-quota-warn{display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:6px;padding:5px 10px;border-radius:8px;font-size:12px;line-height:1.45;color:var(--warn-amber);background:var(--warn-amber-bg)}
 /* ── v694 底部信息条（免责 + 额度状态，成对居中）──────────────────────────
    原来是「额度读数」+「免责声明」两行各自居中，每行都短 ⇒ 视觉上像两行碎片。
    改成一行两个件、**整体居中**（不是两端对齐）：
@@ -4337,19 +4337,19 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
    宽度 268：实测 252 会把「大约还能干 N 件这样的活」折在「这样/的活」中间，很难看。
    ⚠️ 窄屏（抽屉 < 300）时右对齐仍不会溢出，因为 `right:0` 是相对胶囊、胶囊在容器内。 */
 .cp-usage-menu{left:auto;right:0;width:268px;cursor:default}
-.cp-um-num{padding:2px 10px 7px;font-size:11.5px;color:var(--t2);font-variant-numeric:tabular-nums}
+.cp-um-num{padding:2px 10px 7px;font-size:12px;color:var(--t2);font-variant-numeric:tabular-nums}
 .cp-um-num b{font-size:16px;font-weight:650;color:var(--t1);letter-spacing:-.01em}
 .cp-um-bar{height:5px;margin:0 10px 9px;border-radius:3px;background:var(--bg4);overflow:hidden}
 .cp-um-bar i{display:block;height:100%;border-radius:3px;background:var(--p);transition:width .3s}
 .cp-um-bar i.warn{background:var(--war)}
 .cp-um-bar i.danger{background:var(--danger-txt)}
-.cp-um-row{padding:0 10px;font-size:11.5px;line-height:1.55;color:var(--t2);font-variant-numeric:tabular-nums}
-.cp-um-sub{padding:3px 10px 4px;font-size:11.5px;line-height:1.55;color:var(--t3)}
+.cp-um-row{padding:0 10px;font-size:12px;line-height:1.55;color:var(--t2);font-variant-numeric:tabular-nums}
+.cp-um-sub{padding:3px 10px 4px;font-size:12px;line-height:1.55;color:var(--t3)}
 .cp-um-sub b{font-weight:650;color:var(--t2)}
 .cp-um-foot{padding:2px 10px 3px;font-size:11px;line-height:1.5;color:var(--t3);opacity:.85}
 .cp-um-peak{margin:7px 10px 2px;padding:5px 8px;border-radius:7px;font-size:11px;line-height:1.5;color:var(--warn-amber);background:var(--warn-amber-bg)}
 .cp-cost{margin-top:7px;font-size:11px;line-height:1.4;color:var(--t3);font-variant-numeric:tabular-nums}
-.cp-prop-cost{display:flex;align-items:flex-start;gap:5px;margin-bottom:9px;font-size:11.5px;line-height:1.5;color:var(--warn-amber)}
+.cp-prop-cost{display:flex;align-items:flex-start;gap:5px;margin-bottom:9px;font-size:12px;line-height:1.5;color:var(--warn-amber)}
 .cp-prop-cost svg{flex:none;margin-top:1.5px}
 .cp-peak-tip{font-style:normal;color:var(--t3)}
 /* 字数内联：绝对定位在文本区**第一行**右侧，不占布局高度（composer 高度不变）。
@@ -4363,8 +4363,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-mode-banner.readonly{background:var(--warn-amber-bg);color:var(--warn-amber)}
 /* v408：AI 生成内容免责提示 —— 输入框正下方，整行居中、低对比灰字，不抢视线。
    用 --t3（次要文字色）而非警示红：这是常驻免责声明，不是报错/危险。 */
-.cp-ai-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;font-size:11.5px;line-height:1.4;color:var(--t3,#94a3b8);user-select:none}
-.cp-queue-hint{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-size:11.5px;line-height:1.4;color:var(--brand,#2563eb);user-select:none;animation:cp-queue-pulse 1.4s ease-in-out infinite}
+.cp-ai-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;font-size:12px;line-height:1.4;color:var(--t3,#94a3b8);user-select:none}
+.cp-queue-hint{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-size:12px;line-height:1.4;color:var(--brand,#2563eb);user-select:none;animation:cp-queue-pulse 1.4s ease-in-out infinite}
 @keyframes cp-queue-pulse{0%,100%{opacity:.55}50%{opacity:1}}
 .cp-ai-note svg{flex-shrink:0;opacity:.85}
 
@@ -4388,7 +4388,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 
 /* M2 渐进式访谈引导 chips */
 .cp-followups{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
-.cp-fubtn{padding:6px 11px;border:1px solid var(--p);border-radius:14px;background:var(--p-bg);font-size:11.5px;color:var(--p-dark);cursor:pointer;transition:all .15s}
+.cp-fubtn{padding:6px 11px;border:1px solid var(--p);border-radius:14px;background:var(--p-bg);font-size:12px;color:var(--p-dark);cursor:pointer;transition:all .15s}
 .cp-fubtn:hover{background:rgba(6,182,212,.16);border-color:var(--p-dark)}
 
 /* P0-① 主动澄清：AI 反问 + 结构化选项 */
@@ -4398,10 +4398,10 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-clarify-qhd{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--t1);margin-bottom:8px}
 .cp-clarify-grp{padding:8px 0;border-top:1px dashed var(--border-subtle)}
 .cp-clarify-grp:first-of-type{border-top:none;padding-top:0}
-.cp-clarify-no{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--p);color:#fff;font-size:10px;font-weight:700;line-height:1}
+.cp-clarify-no{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--p);color:#fff;font-size:11px;font-weight:700;line-height:1}
 .cp-clarify-ask svg{color:var(--p-dark);flex-shrink:0}
 .cp-clarify-opts{display:flex;flex-direction:column;gap:6px}
-.cp-clarify-opt{padding:7px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);font-size:12.5px;color:var(--t1);cursor:pointer;text-align:left;transition:all .15s}
+.cp-clarify-opt{padding:7px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);font-size:12px;color:var(--t1);cursor:pointer;text-align:left;transition:all .15s}
 .cp-clarify-opt:hover{border-color:var(--p-dark);background:var(--p-bg)}
 
 /* P2-⑦ 配方自进化提案卡片 */
@@ -4410,11 +4410,11 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-proposal.rejected{border-left-color:var(--t3);opacity:.8}
 .cp-prop-hd{display:flex;align-items:center;gap:7px;margin-bottom:7px}
 .cp-prop-ic{color:var(--p-dark);flex-shrink:0}
-.cp-prop-title{font-size:12.5px;font-weight:600;color:var(--t1)}
-.cp-prop-module{font-size:10.5px;color:var(--p-dark);background:var(--p-bg);border:1px solid var(--p);border-radius:8px;padding:1px 7px;flex-shrink:0}
+.cp-prop-title{font-size:12px;font-weight:600;color:var(--t1)}
+.cp-prop-module{font-size:11px;color:var(--p-dark);background:var(--p-bg);border:1px solid var(--p);border-radius:8px;padding:1px 7px;flex-shrink:0}
 .cp-prop-changes{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
 .cp-prop-change{font-size:11px;color:var(--t2);background:var(--bg);border:1px solid var(--border-subtle);border-radius:8px;padding:2px 8px}
-.cp-prop-rationale{font-size:11.5px;color:var(--t3);line-height:1.55;margin-bottom:9px}
+.cp-prop-rationale{font-size:12px;color:var(--t3);line-height:1.55;margin-bottom:9px}
 .cp-prop-ops{display:flex;gap:8px;justify-content:flex-end}
 .cp-prop-btn{font-size:12px;padding:6px 14px;border-radius:9px;cursor:pointer;transition:all .15s;border:1px solid transparent}
 .cp-prop-btn:disabled{opacity:.5;cursor:default}
@@ -4422,14 +4422,14 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-prop-btn.ghost:hover:not(:disabled){border-color:var(--t3);color:var(--t1)}
 .cp-prop-btn.primary{background:var(--p-dark);color:#fff;box-shadow:var(--shadow-sm)}
 .cp-prop-btn.primary:hover:not(:disabled){background:var(--p-deep)}
-.cp-prop-done{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--suc)}
+.cp-prop-done{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--suc)}
 .cp-prop-done svg{flex-shrink:0}
 .cp-prop-done.rej{color:var(--t3)}
 
 /* P0-② AI 待办提醒卡片 */
 .cp-reminder{margin-top:8px;padding:11px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);border-left:3px solid var(--p)}
 .cp-reminder.cancelled{opacity:.65}
-.cp-rem-hd{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--t1)}
+.cp-rem-hd{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t1)}
 .cp-rem-ic{color:var(--p-dark);flex-shrink:0}
 .cp-rem-title{font-weight:600}
 .cp-rem-time{margin-left:auto;font-size:11px;color:var(--t3);flex-shrink:0}
@@ -4495,7 +4495,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-fwd-hd{display:flex;align-items:center;justify-content:space-between}
 .cp-fwd-hd b{font-size:14px;font-weight:600;color:var(--t1)}
 .cp-fwd-sub{font-size:12px;color:var(--t3);margin:0;line-height:1.5}
-.cp-fwd-text{width:100%;height:140px;resize:none;border:1px solid var(--bd);border-radius:var(--radius-md);padding:10px 12px;font-size:12.5px;line-height:1.6;color:var(--t1);background:var(--bg2);font-family:inherit;outline:none}
+.cp-fwd-text{width:100%;height:140px;resize:none;border:1px solid var(--bd);border-radius:var(--radius-md);padding:10px 12px;font-size:12px;line-height:1.6;color:var(--t1);background:var(--bg2);font-family:inherit;outline:none}
 .cp-fwd-ops{display:flex;justify-content:flex-end;gap:8px}
 
 /* 智能导入卡（B 路径） */
@@ -4530,7 +4530,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
    `<ol>` 的 padding 被全局 reset 清零，序号「1./2./3.」挂到盒子左侧钻进气泡内边距
    （用户报的「数字序号从容器溢出」）；表格无边框、代码块无标题栏、标题靠 UA 的 2em。
    **以后往 `.md` 下加规则，一律带 `:deep()`。** */
-.md{line-height:1.7;font-size:14.5px;color:var(--t1);overflow-wrap:anywhere}
+.md{line-height:1.7;font-size:14px;color:var(--t1);overflow-wrap:anywhere}
 .md :deep(p){margin:0 0 8px}
 .md :deep(p:last-child){margin-bottom:0}
 .md :deep(h1),.md :deep(h2),.md :deep(h3){margin:12px 0 6px;font-weight:700;line-height:1.3;color:var(--t1)}
@@ -4542,12 +4542,14 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md :deep(ul),.md :deep(ol){margin:6px 0;padding-left:2em}
 .md :deep(li){margin:3px 0}
 /* 表格：长编码/单号/金额在窄气泡里易溢出 ⇒ 单元格允许换行（不撑破布局） */
-.md :deep(table){border-collapse:collapse;margin:8px 0;font-size:.9em;width:100%;table-layout:fixed}
+/* v717：`.9em` 是沿用 markdown 惯例的相对缩小，但正文 12px 时实际只算到 10.8px，
+   中文已到笔画粘连的边缘 —— 用 max() 兜住下限，相对缩放意图不变。 */
+.md :deep(table){border-collapse:collapse;margin:8px 0;font-size:max(11px,.9em);width:100%;table-layout:fixed}
 .md :deep(th),.md :deep(td){border:1px solid var(--b2,#e5e7eb);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}
 .md :deep(th){background:var(--bg2,#f3f4f6);font-weight:600}
 .md :deep(blockquote){margin:6px 0;padding:4px 10px;border-left:3px solid var(--p,#06b6d4);background:rgba(6,182,212,.06);color:var(--t2,#475569);border-radius:0 6px 6px 0}
 .md :deep(hr){border:none;border-top:1px solid var(--b2,#e5e7eb);margin:8px 0}
-.md :deep(code){background:var(--bg2,#f3f4f6);padding:1px 4px;border-radius:4px;font-size:.9em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.md :deep(code){background:var(--bg2,#f3f4f6);padding:1px 4px;border-radius:4px;font-size:max(11px,.9em);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .md :deep(pre){background:var(--bg2,#f3f4f6);padding:8px;border-radius:6px;overflow-x:auto;margin:6px 0}
 .md :deep(pre code){background:none;padding:0}
 /* —— P1-a 代码块：语言标签 + 行号（对标 WorkBuddy 代码块范式） —— */
@@ -4561,7 +4563,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md :deep(.md-codeblock .md-pre){margin:0;border-radius:0;background:transparent;padding:8px 0}
 .md :deep(.md-ln){display:block;white-space:pre}
 .md :deep(.md-ln-no){display:inline-block;width:2.2em;margin-right:10px;text-align:right;color:var(--t3,#94a3b8);user-select:none;-webkit-user-select:none}
-.md :deep(.md-ln-tx){font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.9em}
+.md :deep(.md-ln-tx){font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:max(11px,.9em)}
 /* —— P1-b 长回复目录（TOC），可折叠，点击跳转 —— */
 .md :deep(.md-toc){margin:8px 0;padding:8px 12px;border:1px solid var(--b2,#e5e7eb);border-radius:8px;background:var(--bg3,#eef2f6)}
 .md :deep(.md-toc__title){font-size:12px;font-weight:700;color:var(--t2,#475569);cursor:pointer;user-select:none}

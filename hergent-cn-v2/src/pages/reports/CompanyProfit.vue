@@ -133,7 +133,7 @@ onMounted(load)
 .warn-banner {
   margin-top: 14px; padding: 10px 14px; border-radius: 8px;
   background: var(--warn-bg, #fff7e6); color: var(--warn-t, #ad6800);
-  border: 1px solid var(--warn-bd, #ffd591); font-size: 12.5px; line-height: 1.8;
+  border: 1px solid var(--warn-bd, #ffd591); font-size: 12px; line-height: 1.8;
 }
 .rpt-tot { margin-top: 14px; padding: 12px 14px; }
 .rpt-tot-row { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 8px; }

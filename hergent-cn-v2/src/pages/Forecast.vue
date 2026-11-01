@@ -10636,7 +10636,7 @@ const PRINT_CSS = `
   @page{size:A4 landscape;margin:8mm;}
   @media print{
     .doc{padding:0 4mm;}
-    .doc-body table.pg{font-size:9px;}
+    .doc-body table.pg{font-size:11px;}
     .doc-body thead{display:table-header-group;}
     .doc-body tr{break-inside:avoid;}
   }
@@ -14233,7 +14233,7 @@ provide('sprintSummary', sprintSummary)
      若可点会把「点进这一格输数字」挡住（那是这一列最常用的动作）⇒ 只给视觉，
      悬停的触发面交给**整格**（`.pt-xmtd:hover`），符合「鼠标悬停时展示计算逻辑」。
    · `.tip` 本体是 `white-space:nowrap`（单行 ¥金额 用的）—— 这里要多行算路，必须覆盖。 */
-:deep(.pt-xm-b){font-size:9px;font-weight:600;line-height:1;letter-spacing:-.2px}
+:deep(.pt-xm-b){font-size:11px;font-weight:600;line-height:1;letter-spacing:-.2px}
 :deep(.pt-xm .pt-xm-b){vertical-align:super;margin-left:2px}
 :deep(.pt-xm.has-gap .pt-xm-b){color:var(--warn-amber)}
 :deep(.pt-xm.has-done .pt-xm-b){color:var(--p-dark)}
@@ -14253,7 +14253,7 @@ provide('sprintSummary', sprintSummary)
    · 第四态角标 `has-short`（**分不满** = 经理填的 > 实际分出去的）用危险色：
      它是**要人去处理的告警**，不是"已完成"那种回执，两者必须一眼能分开。 */
 :deep(.pt-alloc-btn){position:absolute;bottom:0;right:1px;z-index:4;
-  font-size:9px;line-height:1;padding:1px 3px;letter-spacing:-.2px;
+  font-size:11px;line-height:1;padding:1px 3px;letter-spacing:-.2px;
   border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--t3);cursor:pointer}
 :deep(.pt-alloc-btn:hover){border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
 .pt-xm-b.has-short{color:var(--danger-txt)}
@@ -14307,12 +14307,12 @@ provide('sprintSummary', sprintSummary)
 .pin .pin-filtered{color:var(--p)}
 /* v672：筛选**来源**（品牌 2/3 个 · 到货周期 +3天…）—— 比主题色再弱一档，
    它解释「为什么只有 N 行」，不该和「筛选后 177」抢读。 */
-.pin .pin-src{color:var(--t3);font-size:11.5px;font-weight:400}
-.pin .pin-clr{margin-left:5px;padding:0 4px;height:16px;line-height:16px;font-size:11.5px;
+.pin .pin-src{color:var(--t3);font-size:12px;font-weight:400}
+.pin .pin-clr{margin-left:5px;padding:0 4px;height:16px;line-height:16px;font-size:12px;
   color:var(--p);background:none;border:1px solid color-mix(in srgb,var(--p) 35%,transparent);
   border-radius:4px;cursor:pointer}
 .pin .pin-clr:hover{background:color-mix(in srgb,var(--p) 12%,transparent)}
-.pin .pin-all{color:var(--t3);font-size:11.5px}
+.pin .pin-all{color:var(--t3);font-size:12px}
 /* v585：冲刺胶囊靠页脚最右。align-self:center 抵消 .pin 的 baseline 对齐 ——
    胶囊是定高 20px 的 inline-flex，按文字基线对齐会被 Icon 的基线带偏 1~2px。
    🔴 v620：这条 v585 的规则**从来没生效过**（真机量：胶囊 margin-left 恒 0px，
@@ -14529,7 +14529,7 @@ provide('sprintSummary', sprintSummary)
 .ctx-fx-cond{margin-top:4px;border-top:1px solid var(--border-subtle);padding-top:2px}
 .ctx-menu .ctx-fx-cond-hd{width:100%;padding:6px 10px;color:var(--t2);font-size:11px;gap:6px;align-items:center}
 .ctx-fx-cond-hd .ico{margin-left:auto;width:12px;height:12px;color:var(--t3)}
-.ctx-fx-cond-on{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--p-bg);color:var(--p);font-size:10px;line-height:16px}
+.ctx-fx-cond-on{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--p-bg);color:var(--p);font-size:11px;line-height:16px}
 .ctx-fx-foot{border-top:1px solid var(--border-subtle);padding-top:7px}
 .ctx-ipt-unit{color:var(--t2)}
 /* 条件格式：库存<安全库存 整行高亮 */
@@ -14809,7 +14809,7 @@ provide('sprintSummary', sprintSummary)
 .edit-summary>.es-right{margin-left:auto;align-self:center;display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
 .edit-summary b{color:var(--p-dark);font-size:15px}
 /* v666：改单态合计恒为全量 —— 筛选生效时把这句话明写出来（避免"保存只存筛出来的"的误解） */
-.edit-summary>.es-note{font-size:11.5px;color:var(--t3)}
+.edit-summary>.es-note{font-size:12px;color:var(--t3)}
 .link-btn{border:none;background:none;color:var(--warn-amber);text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
 
 /* ---- P3-P4 增强样式 ---- */
@@ -14850,16 +14850,16 @@ provide('sprintSummary', sprintSummary)
 .name-badges :deep(>span){margin-left:0;pointer-events:auto}
 /* v613：「待上架」角标。沿用 v606 那条纪律 —— 格内行内控件的尺寸必须自己钉死，
    否则它会按基线/默认行高把 21px 数据行顶高（`.btn-del` 30×30 就是这么把表撑到 31px 的）。 */
-:deep(.listadd-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--p-bg);color:var(--p-dark);font-size:10px;white-space:nowrap;vertical-align:middle}
+:deep(.listadd-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--p-bg);color:var(--p-dark);font-size:11px;white-space:nowrap;vertical-align:middle}
 /* v614：撤下角标 —— 与上架角标同尺寸（14 高 / 10 号字），只换配色，避免行内出现两种高度 */
-:deep(.listdel-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--danger-bg);color:var(--danger-txt);font-size:10px;white-space:nowrap;vertical-align:middle}
+:deep(.listdel-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--danger-bg);color:var(--danger-txt);font-size:11px;white-space:nowrap;vertical-align:middle}
 :deep(.warn-badge){display:inline-block;margin-left:3px;font-size:11px;color:var(--danger-txt);vertical-align:middle}
 :deep(.warn-badge.short){color:var(--warn-amber)}
 :deep(.diff-chg){outline:2px solid var(--p);outline-offset:-2px}
 :deep(.mini-btn){margin-left:4px;font-size:11px;padding:1px 6px;border:1px solid var(--p);color:var(--p-dark);background:transparent;border-radius:var(--radius-sm);cursor:pointer}
 /* v606：编辑表里所有「格内的行内控件」都必须 ≤ `--fc-cell`，否则它们会按基线把行盒顶高
    （同 `.btn-del` 那个坑）。这里把「采纳」压到 16px 内容高并改中线对齐。 */
-:deep(.edit-tbl .mini-btn){height:16px;line-height:14px;padding:0 5px;font-size:10px;vertical-align:middle}
+:deep(.edit-tbl .mini-btn){height:16px;line-height:14px;padding:0 5px;font-size:11px;vertical-align:middle}
 :deep(.mini-btn:disabled){opacity:.4;cursor:default}
 :deep(.suggest){color:var(--p-dark);font-weight:500}
 /* v662：建议为 0 但到货前会断货 —— 显示缺口，别让「0」看着像"不用管" */
@@ -15101,14 +15101,14 @@ provide('sprintSummary', sprintSummary)
 /* 勾选摘要：左标签定宽 62px ⇒ 三行值左边界对齐（不是每行各排各的） */
 .rc-picked{display:flex;flex-direction:column;gap:6px;padding:10px 12px;
   border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--border-subtle)}
-.rc-line{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;line-height:1.5}
+.rc-line{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5}
 .rc-k{flex:none;width:62px;color:var(--t3)}
 .rc-v{flex:1;min-width:0;color:var(--t1)}
 .rc-v b{font-variant-numeric:tabular-nums}
 .rc-dist{display:flex;flex-wrap:wrap}
 .rc-none{color:var(--t3)}
 .cb-chip{display:inline-block;margin:1px 6px 1px 0;padding:1px 6px;border-radius:4px;
-  background:var(--bg3);color:var(--t2);font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  background:var(--bg3);color:var(--t2);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cb-chip.unset{background:var(--warn-amber-bg);color:var(--warn-amber)}
 /* 设置行：标签 + 输入 + 说明同基线；窄屏说明自然折到下一行 */
 .rc-set{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
@@ -15129,7 +15129,7 @@ provide('sprintSummary', sprintSummary)
 .ord-wd input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
 /* 每月几号是**文字输入**（3、7、11…），故覆盖 .cb-input 的 74px 右对齐 —— 那是给「天数」用的 */
 .ord-sub input.cb-input{width:100%;max-width:380px;text-align:left;padding:0 10px;height:32px}
-.ord-preview{margin:2px 0 0;font-size:12.5px;color:var(--t2)}
+.ord-preview{margin:2px 0 0;font-size:12px;color:var(--t2)}
 .ord-preview b{color:var(--p);font-weight:600}
 .cb-in-wrap{position:relative;display:inline-block}
 /* 单位「天」常驻在框内右侧（不是 placeholder）—— 填了数字也还看得见单位；
@@ -15146,7 +15146,7 @@ provide('sprintSummary', sprintSummary)
 .cb-input.bad{border-color:var(--danger-txt);background:color-mix(in srgb,var(--dan) 8%,var(--bg))}
 .cb-in-unit{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-style:normal;
   font-size:11px;line-height:1;color:var(--t3);pointer-events:none}
-.cb-sum{margin-right:auto;align-self:center;font-size:12.5px;color:var(--t3)}
+.cb-sum{margin-right:auto;align-self:center;font-size:12px;color:var(--t3)}
 .cb-sum.warn{color:var(--danger-txt)}
 /* v170：工具行「新增客户」弹层（承接表头撤下的那一格；外壳复用 .tb-pop-panel）
    ⚠️ max-width 必写：.tb-pop-panel 是 flex column 的 shrink-to-fit，缺它时长 tip 的

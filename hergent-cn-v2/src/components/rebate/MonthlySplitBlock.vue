@@ -129,6 +129,6 @@ function toggle(mm) { openMm.value = openMm.value === mm ? '' : mm }
 .mg-tier-txt{font-size:12px;color:var(--t1)}
 .mg-tier-txt.is-empty{color:var(--t3)}
 .mg-tier-cell{background:var(--bg);padding:8px 10px}
-.ap-sec-note{font-weight:400;font-size:11.5px;color:var(--t3);margin-left:4px}
+.ap-sec-note{font-weight:400;font-size:12px;color:var(--t3);margin-left:4px}
 @media(max-width:768px){ .form-grid3{grid-template-columns:1fr} }
 </style>

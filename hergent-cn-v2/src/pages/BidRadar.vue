@@ -378,7 +378,7 @@ onMounted(load)
 /* 「默认地区」chip：只在当前区域 == 已记住的区域时出现，点击取消记住（弱化样式，不与主按钮抢视线） */
 .br-def{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 10px;border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:10px;font-size:12px;cursor:pointer;white-space:nowrap}
 .br-def:hover{filter:brightness(.97)}
-.br-def-tag{font-size:10px;font-weight:600;letter-spacing:.5px;opacity:.7}
+.br-def-tag{font-size:11px;font-weight:600;letter-spacing:.5px;opacity:.7}
 .br-def svg{opacity:.55}
 .br-def:hover svg{opacity:1}
 .br-notice{margin-bottom:12px;padding:9px 12px;border-radius:10px;font-size:12px;color:var(--t2);background:var(--bg3);border:1px solid var(--border-subtle)}
@@ -415,8 +415,8 @@ onMounted(load)
 .c-link{white-space:nowrap}
 .br-link{color:var(--p-dark);text-decoration:none;font-weight:500}
 .br-link:hover{text-decoration:underline}
-.br-new{display:inline-block;margin-right:6px;font-size:10px;font-weight:700;color:#fff;background:#dc2626;padding:1px 6px;border-radius:6px;vertical-align:middle}
-.br-capex{display:inline-block;margin-right:6px;font-size:10px;font-weight:600;color:#b45309;background:rgba(245,158,11,.16);padding:1px 6px;border-radius:6px;vertical-align:middle}
+.br-new{display:inline-block;margin-right:6px;font-size:11px;font-weight:700;color:#fff;background:#dc2626;padding:1px 6px;border-radius:6px;vertical-align:middle}
+.br-capex{display:inline-block;margin-right:6px;font-size:11px;font-weight:600;color:#b45309;background:rgba(245,158,11,.16);padding:1px 6px;border-radius:6px;vertical-align:middle}
 
 .tag{display:inline-block;padding:2px 9px;border-radius:8px;font-size:12px;font-weight:500;white-space:nowrap}
 .tag-active{color:var(--p-dark);background:var(--p-bg)}

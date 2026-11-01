@@ -95,6 +95,6 @@ defineExpose({ load })
 .adv-status.rejected,.adv-status.undone{background:rgba(var(--dan-rgb),.1);color:var(--dan)}
 .adv-time{font-size:11px;color:var(--t3);margin-left:auto}
 .adv-text{font-size:13px;color:var(--t1);line-height:1.6}
-.adv-meta{font-size:11.5px;color:var(--t3);margin-top:4px}
+.adv-meta{font-size:12px;color:var(--t3);margin-top:4px}
 .adv-ops{display:flex;gap:8px;margin-top:10px}
 </style>

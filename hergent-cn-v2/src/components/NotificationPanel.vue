@@ -317,7 +317,7 @@ watch(() => props.open, v => { if (v) { menuKey.value = ''; load() } })
 .nt-s{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border-subtle)}
 .nt-s:last-child{border-bottom:none}
 .nt-s-main{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.nt-s-main b{font-size:12.5px;font-weight:500;color:var(--t1)}
+.nt-s-main b{font-size:12px;font-weight:500;color:var(--t1)}
 .nt-s-st{font-size:11px;color:var(--t3);background:var(--bg2);padding:2px 7px;border-radius:6px}
 .nt-s-pend{font-size:11px;color:var(--warn-amber);background:var(--warn-amber-bg);padding:2px 7px;border-radius:6px}
 .nt-i{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-subtle)}
@@ -330,8 +330,8 @@ watch(() => props.open, v => { if (v) { menuKey.value = ''; load() } })
 .nt-dot.is-info{background:var(--info-blue)}
 .nt-i-main{flex:1;min-width:0}
 .nt-i-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.nt-i-hd b{font-size:12.5px;font-weight:500;color:var(--t1)}
-.nt-i-body{margin:4px 0 0;font-size:11.5px;line-height:1.6;color:var(--t3);word-break:break-all;white-space:normal}
+.nt-i-hd b{font-size:12px;font-weight:500;color:var(--t1)}
+.nt-i-body{margin:4px 0 0;font-size:12px;line-height:1.6;color:var(--t3);word-break:break-all;white-space:normal}
 .nt-i-foot{display:flex;gap:10px;margin-top:3px;font-size:11px;color:var(--t3)}
 @media(max-width:520px){.nt-panel{right:8px;left:8px;width:auto}}
 </style>

@@ -2203,24 +2203,24 @@ onMounted(() => {
 
 <style scoped>
 .sync-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.sync-state{font-size:11.5px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sync-state{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
 .df-panel{padding:18px;margin-bottom:14px}
-.df-tip{font-size:12.5px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
+.df-tip{font-size:12px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
 /* v686：业务员部门表里的下拉 —— 表格行内控件必须矮。
    🔴 用全局 `.input` 的原高（40px）会把整行顶到 40+，表格瞬间变稀疏；
       这里收到 26px（与 .btn-row-ic 同档），行高由它决定，不再被文本撑。 */
-.hd-sel{height:26px;line-height:24px;padding:0 6px;font-size:12.5px;min-width:120px}
+.hd-sel{height:26px;line-height:24px;padding:0 6px;font-size:12px;min-width:120px}
 .df-tip code{background:var(--bg2);padding:1px 6px;border-radius:5px;font-size:12px}
 /* v312：角色默认端的出处说明 / 内联小按钮 / 「与角色配置不一致」提示条 */
 .df-scope-src{margin:0 0 12px}
-.df-mini-lnk{border:none;background:none;color:var(--p);cursor:pointer;font-size:12.5px;padding:0 2px;text-decoration:underline}
+.df-mini-lnk{border:none;background:none;color:var(--p);cursor:pointer;font-size:12px;padding:0 2px;text-decoration:underline}
 .df-mini-lnk:hover{color:var(--p-dark)}
 .df-mismatch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 10px;padding:7px 10px;border-radius:var(--radius-md);background:var(--bg3)}
-.df-mismatch-tag{font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:20px;background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
-.df-mismatch-txt{font-size:12.5px;color:var(--t2);line-height:1.6;min-width:0;flex:1 1 240px}
+.df-mismatch-tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:20px;background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
+.df-mismatch-txt{font-size:12px;color:var(--t2);line-height:1.6;min-width:0;flex:1 1 240px}
 .df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:8px;font-size:12px}
 
 .df-ph{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -2235,7 +2235,7 @@ onMounted(() => {
 /* v178 列映射确认步：表格 + 底部「返回/确认导入」 */
 .df-map{margin-top:12px;display:flex;flex-direction:column;gap:10px}
 .df-file-btn{position:relative;overflow:hidden}
-.df-fname{font-size:12.5px;color:var(--t2)}
+.df-fname{font-size:12px;color:var(--t2)}
 /* v303：`.df-result / .df-errs / .df-err` 已随模板删除（结果展示改由共用的
    `ImportReceipt.vue` 负责，它自带样式）。本页不再有 `class="df-result"` 的元素。 */
 
@@ -2244,30 +2244,33 @@ onMounted(() => {
 /* v294：个人仓（有仓 = 可用色标出，未设 = 弱化 —— 后者是需要老板去补的状态） */
 /* v381：`.df-wh`（个人仓行内标签）已随列表列删除。 */
 /* v706：`.df-muted` 已删 —— 同上，模板零引用的死 CSS。 */
-.df-acc.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
-.df-role{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;margin-left:6px;background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--teal,#0ea5a4);white-space:nowrap}
-.df-role.r-admin{background:rgba(239,68,68,.14);color:#ef4444}
-.df-role.r-boss{background:rgba(234,88,12,.14);color:#ea580c}
-.df-role.r-accountant{background:rgba(59,130,246,.14);color:#3b82f6}
-.df-role.r-sales{background:rgba(16,185,129,.14);color:#10b981}
-.df-role.r-guide{background:rgba(168,85,247,.14);color:#a855f7}
-.df-role.r-driver{background:rgba(245,158,11,.14);color:#f59e0b}
-.df-role.r-staff{background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--teal,#0ea5a4)}
+.df-acc.on{background:rgba(var(--suc-rgb),.12);color:var(--st-ok-txt)}
+/* v717：9 个角色的**前景色**全部改走 --role-txt-* 令牌（浅/深两套已按各自底实测过）。
+   原先写的是 Tailwind 500 系亮色，对各自的 rgba(.14) 浅底只有 1.93~3.75:1，
+   主管（靛）3.75、导购（紫）3.33 —— 评审 P0 §1.2 点名项。底色一律不动。 */
+.df-role{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;margin-left:6px;background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--role-txt-staff);white-space:nowrap}
+.df-role.r-admin{background:rgba(239,68,68,.14);color:var(--role-txt-admin)}
+.df-role.r-boss{background:rgba(234,88,12,.14);color:var(--role-txt-boss)}
+.df-role.r-accountant{background:rgba(59,130,246,.14);color:var(--role-txt-accountant)}
+.df-role.r-sales{background:rgba(16,185,129,.14);color:var(--role-txt-sales)}
+.df-role.r-guide{background:rgba(168,85,247,.14);color:var(--role-txt-guide)}
+.df-role.r-driver{background:rgba(245,158,11,.14);color:var(--role-txt-driver)}
+.df-role.r-staff{background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--role-txt-staff)}
 /* 2026-09-19 补：此前 8 个角色只定义了 7 个色板，r-supervisor 落到基础 .df-role（teal），
    与 r-staff 撞色 —— 主管和其他角色混在一起看不出来。用 indigo 与既有的
    red/orange/blue/emerald/purple/amber 都拉开距离。 */
-.df-role.r-supervisor{background:rgba(99,102,241,.14);color:#6366f1}
+.df-role.r-supervisor{background:rgba(99,102,241,.14);color:var(--role-txt-supervisor)}
 /* v307 分销商：角色表新增的第 9 个角色，**先想好色再上线** —— 不定义就会落回基础
    .df-role（teal）与「员工」撞色，列表里分不出谁是外部客户（2026-09-19 主管踩过同一个坑）。
    用 rose（玫瑰红）与既有 8 色都拉开距离，也暗示"外部 / 需留意"。 */
-.df-role.r-distributor{background:rgba(244,63,94,.14);color:#f43f5e}
+.df-role.r-distributor{background:rgba(244,63,94,.14);color:var(--role-txt-distributor)}
 /* v308 外部客户账号分区：表单单行自适应换行（窄屏自动折行，不横向溢出）。 */
 /* v317：外部客户弹窗宽度 —— 比「停用确认」略宽（要放 2 列字段 + 两行说明），
    比「编辑员工」（680px）窄，因为它没有薪酬那一大块。 */
 .df-role.stopped{background:var(--st-draft-bg) !important;color:var(--st-draft-txt) !important}
 /* v266 兼任角色徽标：用**虚框**而非实底，与主角色实底徽标在视觉上分层
    —— 一眼看出「哪个是这个人的本职、哪个是兼的」。 */
-.df-role-extra{background:transparent !important;border:1px dashed rgba(var(--teal-rgb,14,165,164),.55);color:var(--teal,#0ea5a4)}
+.df-role-extra{background:transparent !important;border:1px dashed rgba(var(--teal-rgb,14,165,164),.55);color:var(--role-txt-staff)}
 /* v290：遮罩 .3 → .45。原值太浅，弹窗右侧还能看清整个员工列表，视觉焦点不集中。
    ⚠️ 这只是**对比度**问题，不是层叠问题 —— overlay 980 / modal 990 的层级本来就是对的，
       截图里露出的那块表格是没遮严的页面内容，不是 bug，别往 z-index 上修。 */
@@ -2309,7 +2312,7 @@ onMounted(() => {
    （原「薪酬与账户」7 项就是这样，旧注释自己都记着「会挤出半行留白」）。
    窄屏单列时 grid-column:1/-1 自然退化成整行，无需在媒体查询里再覆盖一次。 */
 .df-edit-grid .df-field-wide{grid-column:1/-1}
-.df-field{display:flex;flex-direction:column;gap:var(--sp-2);font-size:12.5px;color:var(--t2)}
+.df-field{display:flex;flex-direction:column;gap:var(--sp-2);font-size:12px;color:var(--t2)}
 .df-field .input, .df-field select{width:100%;box-sizing:border-box;height:36px}
 
 /* ---- v706（2026-11-01）：合同到期提示 + 档案附件 ---- */
@@ -2327,8 +2330,8 @@ onMounted(() => {
 .cf-attach{margin-top:var(--sp-3);padding-top:var(--sp-3);
   border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:var(--sp-2)}
 .cf-attach-hd{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.cf-attach-hd b{font-size:12.5px;color:var(--t1)}
-.cf-attach-sub{font-size:11.5px;color:var(--t3)}
+.cf-attach-hd b{font-size:12px;color:var(--t1)}
+.cf-attach-sub{font-size:12px;color:var(--t3)}
 .cf-attach-empty{font-size:12px;color:var(--t3);padding:6px 0}
 .cf-attach-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .cf-attach-list li{display:flex;align-items:center;gap:10px;padding:6px 9px;
@@ -2336,10 +2339,10 @@ onMounted(() => {
 /* 文件名可能很长：`min-width:0` + 省略号，**不能让文件名把"删除"挤出去** ——
    否则长名附件的删除键会被推到可视区外，看起来像"没有删除按钮"。 */
 .cf-attach-name{display:inline-flex;align-items:center;gap:6px;min-width:0;
-  background:none;border:0;padding:0;cursor:pointer;color:var(--p);font-size:12.5px;
+  background:none;border:0;padding:0;cursor:pointer;color:var(--p);font-size:12px;
   text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cf-attach-name:hover{text-decoration:underline}
-.cf-attach-meta{font-size:11.5px;color:var(--t3);margin-left:auto;flex:0 0 auto}
+.cf-attach-meta{font-size:12px;color:var(--t3);margin-left:auto;flex:0 0 auto}
 .cf-attach-del{background:none;border:0;color:var(--dan);font-size:12px;cursor:pointer;
   padding:2px 4px;flex:0 0 auto;border-radius:var(--radius-xs)}
 .cf-attach-del:hover{background:var(--dan-bg)}
@@ -2350,8 +2353,8 @@ onMounted(() => {
 /* 原生 file input 隐藏，由按钮触发 —— 但**不能 display:none**：部分浏览器对
    完全不可见的 input 拒绝 open file dialog，用 0 尺寸 clip 更稳。 */
 .cf-attach-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.cf-attach-hint{font-size:11.5px;color:var(--t3)}
-.df-field span{font-size:12.5px;color:var(--t2)}
+.cf-attach-hint{font-size:12px;color:var(--t3)}
+.df-field span{font-size:12px;color:var(--t2)}
 /* 必填星号：全页唯一一份（原先 `.req` 与 `.df-field .req` 把 color 写了两遍） */
 .req{color:var(--dan);font-style:normal;font-weight:600}
 
@@ -2359,7 +2362,7 @@ onMounted(() => {
 /* v385：`.df-acc-hint`（原「新建态那行提示」的容器，只有 margin-top:-2px）已随
    合并一屏而删除 —— 新建态现在复用 `df-acc-create` 那块表单，类名不再被引用。
    留着就是死 CSS：下次有人想"调一下新建态提示的间距"会改到这里，而它根本不生效。 */
-.df-acc-sum{font-size:12.5px;color:var(--t2);margin:0 0 2px;line-height:1.6}
+.df-acc-sum{font-size:12px;color:var(--t2);margin:0 0 2px;line-height:1.6}
 .df-acc-sum .on{color:var(--suc);font-weight:600}
 .df-acc-sum .off{color:var(--t3)}
 .df-acc-create{display:flex;flex-direction:column;gap:12px}
@@ -2370,9 +2373,9 @@ onMounted(() => {
    **整窗只有一个保存入口**，边框只剩"这块属于登录账号"的分组含义。 */
 .df-acc-card{border:1px solid var(--border-subtle);border-radius:12px;padding:14px 14px 15px;background:var(--bg2);gap:11px}
 .df-acc-card-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.df-acc-card-t{font-size:12.5px;font-weight:600;color:var(--t1)}
+.df-acc-card-t{font-size:12px;font-weight:600;color:var(--t1)}
 /* 文字色跟主题走（浅色=深字 / 深色=浅字），只有底色是黄调 —— 避免深色主题下看不清。 */
-.df-dirty-tag{font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:20px;background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5)}
+.df-dirty-tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:20px;background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5)}
 .df-acc-card-tip{font-size:12px;color:var(--t3);margin:-4px 0 0;line-height:1.6}
 .df-acc-card-tip b{color:var(--t2)}
 /* v290：操作行 + 紧贴其下的展开区（输入框**不再**长在按钮上方、隔着别的区块）。 */
@@ -2380,7 +2383,7 @@ onMounted(() => {
 .df-acc-ops .btn.is-on{border-color:var(--teal);color:var(--teal)}
 .df-acc-right{margin-left:auto}
 .df-acc-expand{display:flex;flex-direction:column;gap:10px;padding:10px 11px;border-radius:9px;background:var(--bg);border:1px dashed var(--border-subtle)}
-.df-acc-exp-label{font-size:12.5px;color:var(--t2);flex-shrink:0;min-width:56px}
+.df-acc-exp-label{font-size:12px;color:var(--t2);flex-shrink:0;min-width:56px}
 .df-acc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .df-acc-row .input, .df-acc-row select{flex:1;min-width:0}
 /* v266 兼任角色选择：独占一行、可点选的 chip（多选）。

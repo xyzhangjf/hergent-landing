@@ -2447,7 +2447,7 @@ tfoot td { font-weight: 600 }
   min-width: 15px; height: 15px; padding: 0 3px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 8px; background: var(--p-dark, #2f6fed); color: #fff;
-  font-size: 10px; line-height: 1; font-variant-numeric: tabular-nums;
+  font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums;
 }
 /* 🔴 全局 `.page-hd.split` 是 `align-items:flex-start` —— 左侧那个 div 里
    `<h2>` 是块级元素，会把副标题（单号 + 状态）挤到第二行。这里把左侧自己
@@ -2473,7 +2473,7 @@ tfoot td { font-weight: 600 }
    但它是**页面内的卡片**而非工具条 ⇒ 用 card 自带底 + 内边距，不另画一条分隔线。 */
 .ipd-inb-act { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 14px; margin-bottom: 10px; flex-wrap: wrap }
 .ipd-inb-act-t { display: flex; flex-direction: column; gap: 3px; min-width: 0 }
-.ipd-inb-act-t b { font-size: 12.5px; font-weight: 600; color: var(--t1) }
+.ipd-inb-act-t b { font-size: 12px; font-weight: 600; color: var(--t1) }
 .ipd-inb-act-t .ipd-note { margin: 0 }
 .ipd-inb-act-b { display: flex; gap: 8px; flex: none }
 .ipd-paybtn { justify-content: center; margin-top: 4px }
