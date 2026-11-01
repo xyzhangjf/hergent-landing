@@ -528,7 +528,7 @@
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
-                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><SelectAllCheckbox :checked="brandAllOn" :indeterminate="brandSomeOn" :disabled="!brandCandidates.length" :count="brandCandidates.length" unit="个品牌" title="全选/取消全选当前列出的品牌（不勾 = 不过滤，显示全部品牌）" @toggle="toggleBrandAll" /><button class="link-btn" @click="brandSel = []">清空</button></div></div>
+                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><label class="bp-selall" :class="{ 'is-off': !brandCandidates.length }"><SelectAllCheckbox :checked="brandAllOn" :indeterminate="brandSomeOn" :disabled="!brandCandidates.length" :count="brandCandidates.length" unit="个品牌" title="全选/取消全选当前列出的品牌（不勾 = 不过滤，显示全部品牌）" @toggle="toggleBrandAll" /><span>{{ brandAllOn ? '取消全选' : '全选' }}</span></label><button class="link-btn" @click="brandSel = []">清空</button></div></div>
                 <div class="bp-list">
                   <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
                   <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
@@ -546,7 +546,7 @@
               <button ref="cycleBtn" class="btn btn-sm btn-ghost" :class="{on:cyclePopOpen}" @click="toggleCyclePop" title="按到货周期（下单后第几天到货）筛选：表格只显示这一档，复制报单也只复制这一档"><Icon name="clock"/> {{ cycleBtnLabel }}<span v-if="cycleSel.length" class="btn-badge">{{ cycleSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="cyclePopOpen" class="tb-pop-panel brand-pop cycle-pop" :style="popStyle" @click.stop>
-                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><SelectAllCheckbox :checked="cycleAllOn" :indeterminate="cycleSomeOn" :disabled="!cycleCandidates.length" :count="cycleCandidates.length" unit="档" title="全选/取消全选当前列出的到货周期（不勾 = 不过滤，显示全部周期）" @toggle="toggleCycleAll" /><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
+                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><label class="bp-selall" :class="{ 'is-off': !cycleCandidates.length }"><SelectAllCheckbox :checked="cycleAllOn" :indeterminate="cycleSomeOn" :disabled="!cycleCandidates.length" :count="cycleCandidates.length" unit="档" title="全选/取消全选当前列出的到货周期（不勾 = 不过滤，显示全部周期）" @toggle="toggleCycleAll" /><span>{{ cycleAllOn ? '取消全选' : '全选' }}</span></label><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
                 <div class="bp-list">
                   <label v-for="c in cycleCandidates" :key="c.days" class="bp-item"><input type="checkbox" :value="c.days" v-model="cycleSel"> {{ c.label }}<span class="bp-n">{{ c.n }}</span></label>
                   <p v-if="!cycleCandidates.length" class="bp-empty">当前表格没有商品行</p>
@@ -990,7 +990,7 @@
               <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
-                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><SelectAllCheckbox :checked="brandAllOn" :indeterminate="brandSomeOn" :disabled="!brandCandidates.length" :count="brandCandidates.length" unit="个品牌" title="全选/取消全选当前列出的品牌（不勾 = 不过滤，显示全部品牌）" @toggle="toggleBrandAll" /><button class="link-btn" @click="brandSel = []">清空</button></div></div>
+                <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><label class="bp-selall" :class="{ 'is-off': !brandCandidates.length }"><SelectAllCheckbox :checked="brandAllOn" :indeterminate="brandSomeOn" :disabled="!brandCandidates.length" :count="brandCandidates.length" unit="个品牌" title="全选/取消全选当前列出的品牌（不勾 = 不过滤，显示全部品牌）" @toggle="toggleBrandAll" /><span>{{ brandAllOn ? '取消全选' : '全选' }}</span></label><button class="link-btn" @click="brandSel = []">清空</button></div></div>
                 <div class="bp-list">
                   <label v-for="b in brandCandidates" :key="b" class="bp-item"><input type="checkbox" :value="b" v-model="brandSel"> {{ b }}</label>
                   <p v-if="!brandCandidates.length" class="bp-empty">当前汇总表无品牌数据</p>
@@ -1008,7 +1008,7 @@
               <button ref="cycleBtn" class="btn btn-sm btn-ghost" :class="{on:cyclePopOpen}" @click="toggleCyclePop" title="按到货周期（下单后第几天到货）筛选：表格只显示这一档，复制报单也只复制这一档"><Icon name="clock"/> {{ cycleBtnLabel }}<span v-if="cycleSel.length" class="btn-badge">{{ cycleSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="cyclePopOpen" class="tb-pop-panel brand-pop cycle-pop" :style="popStyle" @click.stop>
-                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><SelectAllCheckbox :checked="cycleAllOn" :indeterminate="cycleSomeOn" :disabled="!cycleCandidates.length" :count="cycleCandidates.length" unit="档" title="全选/取消全选当前列出的到货周期（不勾 = 不过滤，显示全部周期）" @toggle="toggleCycleAll" /><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
+                <div class="bp-head"><span>按到货周期筛选</span><div class="bp-acts"><label class="bp-selall" :class="{ 'is-off': !cycleCandidates.length }"><SelectAllCheckbox :checked="cycleAllOn" :indeterminate="cycleSomeOn" :disabled="!cycleCandidates.length" :count="cycleCandidates.length" unit="档" title="全选/取消全选当前列出的到货周期（不勾 = 不过滤，显示全部周期）" @toggle="toggleCycleAll" /><span>{{ cycleAllOn ? '取消全选' : '全选' }}</span></label><button class="link-btn" @click="cycleSel = []">清空</button></div></div>
                 <div class="bp-list">
                   <label v-for="c in cycleCandidates" :key="c.days" class="bp-item"><input type="checkbox" :value="c.days" v-model="cycleSel"> {{ c.label }}<span class="bp-n">{{ c.n }}</span></label>
                   <p v-if="!cycleCandidates.length" class="bp-empty">当前表格没有商品行</p>
@@ -15055,6 +15055,20 @@ provide('sprintSummary', sprintSummary)
 /* v671：头部里现在装着「全选三态框 + 清空链接」⇒ 必须 align-items:center，
    否则 13px 的复选框与 12px 的链接文字基线对不齐（看着像错位）。 */
 .brand-pop .bp-acts{display:flex;align-items:center;gap:6px}
+/* v709：「全选」原本是一颗 13px 裸复选框 —— 功能早就有，但夹在 12px 灰字标题和「清空」
+   链接之间完全不成形，用户反馈「现在只有清空按钮」。⇒ 包一层 label 挂文字，让它长得像
+   一个能点的控件（点文字也能勾选，label 原生行为）。
+   ⛔ 不改 components/SelectAllCheckbox.vue —— 那是全站唯一源，加文字会把库存三张单据、
+      商品档案、调拨面板的裸框全部变样，那里横向空间本来就紧。
+   文字随三态切换（全选/取消全选），与右侧「清空」职责区分：全选 = 勾满所有候选，
+   清空 = 一个都不勾（两者在「不勾 = 不过滤」口径下都显示全部行，但按钮角标不同）。 */
+.brand-pop .bp-selall{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;
+  font-size:12px;font-weight:400;color:var(--t2);cursor:pointer;user-select:none;
+  white-space:nowrap;padding:2px 5px;border-radius:5px;transition:background-color .15s,color .15s}
+.brand-pop .bp-selall:hover{background:var(--bg2);color:var(--p)}
+.brand-pop .bp-selall.is-off{cursor:not-allowed;color:var(--t3);opacity:.55}
+.brand-pop .bp-selall.is-off:hover{background:none;color:var(--t3)}
+.brand-pop .bp-selall span{line-height:1}
 .brand-pop .bp-list{display:flex;flex-direction:column;gap:4px;max-height:42vh;overflow:auto;padding:2px 0}
 .brand-pop .bp-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);cursor:pointer;padding:2px 2px}
 .brand-pop .bp-item:hover{background:var(--bg2)}
