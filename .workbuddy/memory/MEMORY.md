@@ -3,7 +3,7 @@
 > 编号已用到 **v708**，下一号 v709。域索引 → `topics/route-index.md`。**动手前按域 grep**。
 > 只有 `main` 一个源（v705 `02a1b28` 合并完两条线）。留档分支 `line-a/v678`、`workbuddy/main-75f152be` 不再开发。
 > ⇒ 判「修过的 bug 又回来了」先 `git merge-base --is-ancestor <修复commit> HEAD`。
-> 🔴 合并/解冲突三教训（全文 `2026-10-31.md`「v705 合并」段）：冲突块**之外**也有假象（重复 `export`／重复对象键／整段模板被覆盖 ⇒ **构建不报错**）；合并后**必须** `npm test` + `npm run build`，缺一不可；同功能两份客户端 API 按**消费方**取舍。
+> 🔴 合并/解冲突三教训（全文 `2026-10-31.md`「v705 合并」段）：冲突块**之外**也有假象（重复 `export`／重复对象键／整段模板被覆盖 ⇒ **构建不报错**）；合并后**必须** `npm test` + `npm run build`；同功能两份客户端 API 按**消费方**取舍。
 > 🔴 「改了但用户说没变」第一步查构建号 `window.__HG_BUILD__`（`main.js` 唯一定义）+ `html[data-build]`；SPA 老标签页不重拉 index.html ⇒ 每版手改这一行。
 > 🔴 判产物不以「dist 存在」为准：`grep -o "v70x" dist/assets/index-*.js`。`mv dist-vNNN dist` 会嵌套 ⇒ 闭包全 200 也能骗过（v637）。
 
