@@ -1089,7 +1089,11 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .lb-revoke{margin-left:4px}
 .chip{font-size:12px;padding:3px 9px;background:var(--bg2);border-radius:8px;color:var(--t2)}
 
-.toolbar{display:flex;gap:10px;align-items:center;margin:16px 0 12px}
+/* v712：加了「显示已停用」开关后，工具栏三件宽度 ≈ 380px —— 375 宽时刚好放下，
+   320 宽的老机型就会横向溢出。`flex-wrap` 在放得下时**完全无副作用**（不换行），
+   只在真的不够时才让开关掉到第二行，比写死 `@media(max-width:400px)` 更稳
+   （将来再加一个控件也不用重新算断点）。 */
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 12px}
 
 /* v712：工具栏右侧「显示已停用」开关。
    🔴 逐属性对齐 `Forecast.vue` 的 `.tb-toggle`（全站工具行基准：高 32 / 13px /
@@ -1103,6 +1107,9 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .tb-toggle.on{background:var(--p-bg);border-color:var(--p);color:var(--p-dark)}
 /* 空态里的就地入口：跟周围 13px 正文同号（.lnk-btn 默认 11.5px，用在工具栏合适，放进空态太小） */
 .empty-lnk{font-size:13px}
+/* 🔴 窄屏换行后，`margin-left:auto` 会把开关推到第二行的**最右边**，孤零零浮在那儿。
+   换行了就说明桌面那套「右对齐」已经失效 ⇒ 改成左对齐，与上面两个按钮左边线对齐。 */
+@media (max-width:480px){ .toolbar .tb-toggle{margin-left:0} }
 
 /* v2026-09-23：弹窗字段分组 + 必填图例 + 内联校验 */
 .form-grp{display:flex;flex-direction:column;gap:12px}
