@@ -940,7 +940,7 @@ onMounted(async () => {
 .pc-f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--t3);min-width:0;flex:1 1 190px}
 .pc-f input,.pc-f select{height:32px;padding:0 10px;font-size:13px;color:var(--t1);background:var(--bg);
   border:1px solid var(--bd);border-radius:var(--radius-sm)}
-.pc-f input:focus,.pc-f select:focus{outline:none;border-color:var(--p-dark)}
+.pc-f input:focus,.pc-f select:focus{border-color:var(--p-dark)}
 .pc-tip{font-style:normal;font-size:12px;color:var(--t3);line-height:1.5}
 .pc-try-btn{flex:0 0 auto}
 .pc-res{margin-top:14px;padding:12px 14px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd)}
@@ -974,7 +974,7 @@ onMounted(async () => {
 .pc-mono{font-family:var(--font-mono,monospace);color:var(--t2)}
 .pc-in{width:100%;height:28px;padding:0 8px;font-size:12px;color:var(--t1);background:var(--bg);
   border:1px solid var(--bd);border-radius:5px;box-sizing:border-box}
-.pc-in:focus{outline:none;border-color:var(--p-dark)}
+.pc-in:focus{border-color:var(--p-dark)}
 .pc-ok{color:var(--suc);font-size:12px}
 .pc-miss{color:var(--t3);font-size:12px}
 .pc-pager{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2)}

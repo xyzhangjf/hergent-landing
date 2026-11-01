@@ -1260,7 +1260,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-row-blank td,.la-blank{color:var(--t3);font-size:12px;text-align:center;padding:14px}
 .la-unit{margin-left:4px;font-size:11px;color:var(--t3)}
 .la-input{width:calc(100% - 34px);padding:4px 6px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
-.la-input:focus{outline:none;border-color:var(--p)}
+.la-input:focus{border-color:var(--p-dark)}
 
 .la-sub td{background:var(--bg2);font-weight:500;color:var(--t1)}
 .la-sub .la-subj{background:var(--bg2);z-index:6}
@@ -1326,7 +1326,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-mini td.num,.la-mini th.num{text-align:right}
 .la-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--t3)}
 .la-input-sm{width:100%;padding:5px 8px;border:1px solid var(--bd);border-radius:7px;background:var(--bg);color:var(--t1);font-size:12px}
-.la-input-sm:focus{outline:none;border-color:var(--p)}
+.la-input-sm:focus{border-color:var(--p-dark)}
 .la-field{display:block;margin-bottom:12px}
 .la-field>span{display:block;font-size:12px;color:var(--t1);margin-bottom:5px}
 .la-field em{font-style:normal;font-size:11px;color:var(--t3);margin-left:6px}

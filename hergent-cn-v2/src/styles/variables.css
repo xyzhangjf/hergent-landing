@@ -510,16 +510,23 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
      （`.tb-btn` 之间 gap 只有 6px，0 offset 时相邻圈的边会重叠）；
    - 用 `--p-dark` 而不是 `--p`：亮青 #06b6d4 在白底只有 2.43:1，
      焦点指示属 UI 组件需 3:1，--p-dark(#0e7490) 是 5.36:1 且深色主题已适配。
-   - 用 `:where()` 包住元素列表 ⇒ 特异性归 0，任何组件自己写的
-     `:focus{outline:none}` 或 `.xxx:focus{box-shadow:…}` 都能正常覆盖
-     （`.fld:focus` 就是这类，它有自己的边框+3px 阴影环，故不冲突）。
+   - 用 `:where()` 包住元素列表 ⇒ 元素名那部分特异性归 0，只剩 `:focus-visible`
+     的 (0,1,0)。本来是想"让组件自己的焦点样式能覆盖"，实测这个想法是错的：
+     `.input{...outline:none}` 这类**基类**也是 (0,1,0)，而后加载者胜 ⇒
+     全站 315 个 `.input` 的焦点环当场被吃掉，还有 `.cp-input` / `.cmd-input` /
+     `.cp-search-input` 这些无边框输入（删掉 outline 就**零指示**）。
+   - 所以再叠一个 `:focus-visible` 把特异性抬到 (0,2,0)：
+       `:where(...):focus-visible:focus-visible`
+     选择器匹配集合完全不变（同一伪类重复两次只提高权重，不改命中），
+     但能压过任何"单类 + 单伪类"的抑制规则。组件若确有更合适的焦点表达，
+     可以写 ≥(0,2,0) 的规则覆盖回来，但**必须给出可见的替代指示**。
    不用 `border-radius:inherit`：outline 本就跟随元素圆角，再写会强制拉平
    胶囊形按钮（如 `.tb-copilot`）的圆角。
 
    🔴 只对 `:focus-visible` 生效，不要扩成 `:focus` —— 鼠标点按钮也出圈
       是老板最反感的那种"多一层框"。
    ============================================================ */
-:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible{
+:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible:focus-visible{
   outline:2px solid var(--p-dark);
   outline-offset:2px;
 }
@@ -627,7 +634,8 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .btn-row-ic.danger{color:var(--danger-txt)}
 .btn-row-ic:disabled{opacity:.35;cursor:default}
 .fld{height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:13px;font-family:inherit}
-.fld:focus{outline:none;border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
+/* P1(v717)：同 .input —— 删 `outline:none`（否则把全局 2px 焦点环挡掉）与看不见的 6% 光晕 */
+.fld:focus{border-color:var(--p-dark)}
 .chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base)}
 .chip:hover{border-color:var(--p)}
 .chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
@@ -789,9 +797,14 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .input{
   width:100%;height:40px;padding:0 14px;
   border:1px solid var(--bd);border-radius:var(--radius-md);
-  background:var(--bg3);outline:none;transition:border-color var(--dur-slow),box-shadow var(--dur-slow);
+  background:var(--bg3);transition:border-color var(--dur-slow),box-shadow var(--dur-slow);
+  /* v717：删掉这里的 outline:none —— 它曾把全局 2px 焦点环压掉（同特异性、后加载者胜），
+     导致 315 个 .input 键盘聚焦时零指示。无需抑制 UA 环，全局规则已接管。 */
 }
-.input:focus{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
+/* P1(v717)：去掉原来 3px `--p-bg`（rgba(6,182,212,.06)）光晕 —— 6% 透明度在白底上
+   基本看不见，等于没有焦点指示。鼠标点进来靠边框变色（#e5e5ea→#0e7490，5.36:1）足够；
+   键盘 Tab 进来另由全局 `:where(...):focus-visible` 的 2px 环兜底。 */
+.input:focus{border-color:var(--p-dark)}
 .input::placeholder{color:var(--t3)}
 
 /* 骨架屏 */

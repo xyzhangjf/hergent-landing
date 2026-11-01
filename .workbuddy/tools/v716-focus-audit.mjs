@@ -16,11 +16,15 @@ const BODY = () => `(() => {
   return { tag: el.tagName.toLowerCase(), cls: (el.className||'').toString().slice(0,26),
            t: (el.innerText||el.value||el.type||'').trim().slice(0,10),
            outline: c.outlineStyle + ' ' + c.outlineWidth + ' ' + c.outlineColor,
+           offset: c.outlineOffset,
            shadow: c.boxShadow.slice(0,40), bd: c.borderColor }
 })()`
 const tab = async () => {
   await page.raw.send('Input.dispatchKeyEvent', { type:'keyDown', key:'Tab', code:'Tab', windowsVirtualKeyCode:9, nativeVirtualKeyCode:9 })
   await page.raw.send('Input.dispatchKeyEvent', { type:'keyUp', key:'Tab', code:'Tab', windowsVirtualKeyCode:9, nativeVirtualKeyCode:9 })
+  // v718：必须等过渡落定再采样。侧栏/顶栏有 `transition:all`，outline 会被一起做动画，
+  // 立刻读会拿到「3px + currentColor」这种中间态，看起来像焦点环没生效。
+  await new Promise(r => setTimeout(r, 260))
   return page.eval(BODY())
 }
 
@@ -28,9 +32,21 @@ console.log('=== A) 现状：真实焦点指示长什么样 ===')
 const real = []
 for (let i = 0; i < 14; i++) { const r = await tab(); if (r) real.push(r) }
 real.slice(0, 8).forEach(r => console.log(`  ${r.tag}.${r.cls.split(' ')[0]} "${r.t}"\n     outline=${r.outline}\n     boxShadow=${r.shadow || '(无)'}  border=${r.bd}`))
+// v718 判据改造：v717 之前焦点全靠浏览器 `outline:auto`，所以旧判据只认 box-shadow 环
+// （当时结论「自定义焦点环 0 个」是对的）。v717 起改由全局 `:focus-visible:focus-visible`
+// 给 2px solid var(--p-dark) + 2px offset —— 是 **outline** 不是 shadow，
+// 沿用旧判据会把新实现也判成「没有」，故改成认 outline 三要素。
+const P_DARK = 'rgb(14, 116, 144)'
+const isSpec = r => /solid 2px/.test(r.outline) && r.outline.includes(P_DARK) && parseFloat(r.offset) >= 1
 const outlineNone = real.filter(r => /none|0px/.test(r.outline)).length
-const hasShadowRing = real.filter(r => r.shadow && r.shadow !== 'none' && !/rgba?\(0, 0, 0, 0\)/.test(r.shadow)).length
-console.log(`\n  统计：${real.length} 个元素中 outline 被抑制 ${outlineNone} 个；有自定义 box-shadow 焦点环 ${hasShadowRing} 个`)
+const uniformRing = real.filter(isSpec).length
+const offSpec = real.filter(r => !isSpec(r) && !/none|0px/.test(r.outline)).length
+console.log(`\n  统计：${real.length} 个元素中`)
+console.log(`    outline 被完全抑制（零指示，不可接受）   ${outlineNone}`)
+console.log(`    符合规范（solid 2px ${P_DARK} + offset≥1px） ${uniformRing}`)
+console.log(`    有指示但不合规（宽度/颜色/offset 不统一）    ${offSpec}`)
+if (offSpec) real.filter(r => !isSpec(r) && !/none|0px/.test(r.outline)).slice(0, 5)
+  .forEach(r => console.log(`      ✗ ${r.tag}.${r.cls.split(' ')[0]} → outline=${r.outline} offset=${r.offset}`))
 
 console.log('\n=== B) 阳性对照：注入 * { outline:none } 应识别为"无指示" ===')
 await page.eval(`(() => { const s=document.createElement('style'); s.textContent='*{outline:none !important;box-shadow:none !important}'; document.head.appendChild(s); return 1 })()`)

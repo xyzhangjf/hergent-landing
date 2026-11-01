@@ -1148,7 +1148,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
    本人仓现在走**仓库下拉**（见模板「对象定义」），不再是只读展示。这四个类是死 CSS，别再加回来。 */
 .combo{position:relative;width:100%}
 .combo-input{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 28px 0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
-.combo-input:focus{outline:none;border-color:var(--p)}
+.combo-input:focus{border-color:var(--p-dark)}
 .combo-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:11px;pointer-events:none}
 .combo-panel{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:4px}
 .combo-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

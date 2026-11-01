@@ -15137,7 +15137,7 @@ provide('sprintSummary', sprintSummary)
 /* 弹窗里只有一个输入框 ⇒ 给到与 btn-sm 同高的 32px（v599：同行控件必须同构，
    不能比旁边的「应用」按钮矮一档）。 */
 .cb-input-lg{width:92px;height:32px;font-size:14px}
-.cb-input:focus{outline:none;border-color:var(--p);box-shadow:0 0 0 2px var(--p-bg)}
+.cb-input:focus{border-color:var(--p-dark)}
 /* 非法输入只改边框 + 底纹（不塞问号）：footer 已用红字说明"哪里不对、该填什么"，
    再挂个 ? 属于同一状态说两遍（v608 教训），还会顶出宽度。 */
 .cb-input.bad{border-color:var(--danger-txt);background:color-mix(in srgb,var(--dan) 8%,var(--bg))}
@@ -15152,7 +15152,7 @@ provide('sprintSummary', sprintSummary)
 .addcol-pop .ac-head{font-weight:600;color:var(--t1);font-size:13px}
 .addcol-pop .ac-row{display:flex;gap:6px;align-items:center}
 .addcol-pop .ac-input{flex:1;min-width:0;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg3);color:var(--t1);font-size:13px;font-family:inherit}
-.addcol-pop .ac-input:focus{outline:none;border-color:var(--p);background:var(--bg)}
+.addcol-pop .ac-input:focus{border-color:var(--p-dark);background:var(--bg)}
 .addcol-pop .ac-tip{font-size:12px;color:var(--t3);margin:0;line-height:1.5}
 .copy-pop{min-width:246px;max-width:320px}
 .copy-pop .cp-title{font-weight:600;color:var(--t1);font-size:13px}

@@ -4613,7 +4613,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-msg-actions{display:flex;align-items:center;gap:8px;margin-top:8px;padding-bottom:8px;border-bottom:1px solid var(--b2,#eef1f5)}
 .cp-act{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:none;background:transparent;border-radius:8px;color:var(--t2,#6e6e73);cursor:pointer;transition:background-color var(--dur-base)}
 .cp-act:hover{background:var(--b2,#ebebeb)}
-.cp-act:focus,.cp-act:focus-visible{outline:none}
+.cp-act:focus-visible{/* v717：不再抑制焦点环，交给全局 2px ring */}
 .cp-act:disabled{opacity:.35;cursor:not-allowed}
 .cp-act.on{color:var(--p,#3b82f6)}          /* 朗读/分享激活态：主色高亮 */
 .cp-act.on:hover{background:transparent}
@@ -4650,7 +4650,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-corr-chip:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
 .cp-corr-chip.on{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg);font-weight:600}
 .cp-corr-text{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);color:var(--t1);font-size:13px;line-height:1.6;resize:vertical;font-family:inherit}
-.cp-corr-text:focus{outline:none;border-color:var(--p-dark)}
+.cp-corr-text:focus{border-color:var(--p-dark)}
 .cp-corr-forever{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--t2);cursor:pointer;user-select:none}
 .cp-corr-forever input{width:14px;height:14px;margin:0;cursor:pointer;accent-color:var(--p-dark)}
 .cp-corr-hint{margin:0;font-size:12px;color:var(--danger)}
