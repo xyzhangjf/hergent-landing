@@ -1657,16 +1657,16 @@ function stopResize() {
 .tb-user-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
 .tb-ai{display:flex;align-items:center;gap:12px;flex-shrink:0}
-.tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all var(--dur-base)}
 .tb-copilot:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .tb-cp-ic{display:flex;align-items:center;justify-content:center}
 
 .body{flex:1;display:flex;overflow:hidden;position:relative}
-.sidebar{width:var(--sidebar-w);flex-shrink:0;display:flex;flex-direction:column;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-right:1px solid var(--glass-border);transition:width .2s}
+.sidebar{width:var(--sidebar-w);flex-shrink:0;display:flex;flex-direction:column;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-right:1px solid var(--glass-border);transition:width var(--dur-slow)}
 /* 拖拽时关闭过渡，保证实时跟手 */
 .shell.resizing .sidebar{transition:none}
 .sb-resizer{position:absolute;top:0;bottom:0;left:var(--sidebar-w);width:8px;margin-left:-4px;cursor:col-resize;z-index:12}
-.sb-resizer::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);background:transparent;transition:background .15s}
+.sb-resizer::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);background:transparent;transition:background var(--dur-base)}
 .sb-resizer:hover::after,.sb-resizer.active::after{background:var(--p)}
 .sb-nav{flex:1;overflow-y:auto;padding:12px 10px}
 /* v623：侧栏底部备案号（阿里云 2026-10 备案核查；说明见模板内 .sb-beian 处）。
@@ -1686,7 +1686,7 @@ function stopResize() {
    🔴 高度**不写死**：加 `height:38px` 会在字号/行高一变时把文字挤出去
       （`.psi-tbl` 就踩过"内容盒 8px < 复选框 13px"的同类坑）。
    🔴 纵向 padding 下限 5px：再小 16px 图标会贴上下边、圆角 10px 会吃到图标。 */
-.sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;color:var(--t2);text-decoration:none;font-size:13px;line-height:1.6;transition:all .15s}
+.sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;color:var(--t2);text-decoration:none;font-size:13px;line-height:1.6;transition:all var(--dur-base)}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
 .sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 /* ⚠️ v390（2026-10-07）：原 `.sb-grp`（分组标题：经营 / 核算 / 配置）**已随分组一起删除**
@@ -1717,7 +1717,7 @@ function stopResize() {
 /* v390：一级项「当前页高亮」（§七 要求）—— 与扁平项的 `.router-link-active`
    **视觉完全一致**，否则同一屏上两种"当前页"长得不一样。判定见 `areaCur()`。 */
 .sb-area.cur>.sb-area-btn{background:var(--p-bg);color:var(--p-dark);font-weight:500}
-.sb-caret{margin-left:auto;opacity:.55;transition:transform .15s}
+.sb-caret{margin-left:auto;opacity:.55;transition:transform var(--dur-base)}
 .sb-area.open .sb-caret{transform:rotate(90deg)}
 
 /* ⚠️ 弹窗是 `<Teleport to="body">` + `position:fixed`：
@@ -1748,7 +1748,7 @@ function stopResize() {
 .sb-pop-row{display:flex;align-items:center;gap:4px}
 .sb-pop-row>.sb-pop-item{flex:1;min-width:0;width:auto}
 .sb-pop-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:8px;
-  color:var(--t2);text-decoration:none;font-size:13px;white-space:nowrap;transition:all .15s}
+  color:var(--t2);text-decoration:none;font-size:13px;white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-item:hover{background:var(--bg);color:var(--t1)}
 /* 🔴 v390：高亮判据由 `.router-link-active` 换成 `.cur`（判定见 `isCur()` 段注释）——
    「历史期次 / 报单配置 / 商品目标」三条的 `to` 是**同一 path、不同 query**，
@@ -1759,13 +1759,13 @@ function stopResize() {
    「创建」不需要学习成本（§七：手机端横向紧才改用 `＋`，那随批次 5 一起做）。 */
 .sb-pop-new{display:flex;align-items:center;gap:3px;flex-shrink:0;padding:6px 9px;border-radius:8px;
   background:var(--p-bg);color:var(--p-dark);text-decoration:none;font-size:12px;
-  white-space:nowrap;transition:all .15s}
+  white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-new:hover{background:var(--p-solid);color:#fff}
 /* v640（2026-10-22）：借鉴舟谱弹窗内「明细」次级入口 + 状态标签。
    两者都 `flex-shrink:0` 右对齐（行内 `.sb-pop-item` 是 `flex:1` 吃掉剩余宽度）；
    与 `.sb-pop-new`（L1 双入口右半区）同一套版式语言。 */
 .sb-pop-drill{font-size:11px;line-height:1;padding:3px 7px;border-radius:6px;
-  background:var(--p-bg);color:var(--p-dark);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all .15s}
+  background:var(--p-bg);color:var(--p-dark);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-drill:hover{background:var(--p-solid);color:#fff}
 .sb-pop-badge{font-size:11px;line-height:1;padding:2px 6px;border-radius:6px;white-space:nowrap;flex-shrink:0}
 .sb-pop-badge.tone-warn{background:#fff4e5;color:#b45309}
@@ -1777,7 +1777,7 @@ function stopResize() {
 .sb-pop-recent-lb{font-size:11px;color:var(--t3);letter-spacing:.5px;flex-shrink:0}
 .sb-pop-recent-chip{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--bg);
   color:var(--t2);text-decoration:none;white-space:nowrap;max-width:160px;overflow:hidden;
-  text-overflow:ellipsis;transition:all .15s}
+  text-overflow:ellipsis;transition:all var(--dur-base)}
 .sb-pop-recent-chip:hover{background:var(--p-bg);color:var(--p-dark)}
 /* 已打开：条目名右侧一个小圆点（不占额外行高，避免改动行节奏）。 */
 .sb-pop-dot{width:5px;height:5px;border-radius:50%;background:var(--p);flex-shrink:0;margin-left:auto}
@@ -1794,7 +1794,7 @@ function stopResize() {
 .content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:visible;background:var(--bg)}
 .view-wrap{flex:1;min-height:0;overflow-y:auto;padding:20px}
 
-.page-enter-active,.page-leave-active{transition:opacity .18s,transform .18s}
+.page-enter-active,.page-leave-active{transition:opacity var(--dur-base),transform var(--dur-base)}
 .page-enter-from{opacity:0;transform:translateY(6px)}
 .page-leave-to{opacity:0}
 
@@ -1827,15 +1827,15 @@ function stopResize() {
    ⚠️ 命中区靠 36×36 撑住，别缩成 16px 图标本身；`margin-right` 与条目右侧留白对齐。 */
 .md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:14px;border-radius:10px;background:var(--p-bg);color:var(--p-dark);text-decoration:none}
 .md-item-new:active{background:var(--p-solid);color:#fff}
-.fade-enter-active,.fade-leave-active{transition:opacity .2s}
+.fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
-.sheet-enter-active,.sheet-leave-active{transition:transform .25s ease}
+.sheet-enter-active,.sheet-leave-active{transition:transform var(--dur-slow) ease}
 .sheet-enter-from,.sheet-leave-to{transform:translateY(100%)}
 
-.tb-user-caret{margin-left:5px;opacity:.7;transition:transform .15s}
+.tb-user-caret{margin-left:5px;opacity:.7;transition:transform var(--dur-base)}
 .tb-menu-mask{position:fixed;inset:0;z-index:40}
 .tb-menu{position:absolute;top:44px;right:18px;background:var(--bg);border:1px solid var(--glass-border);border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.14);padding:6px;min-width:150px;z-index:50}
-.tb-menu-item{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:none;border-radius:8px;color:var(--t1);font-size:13px;cursor:pointer;transition:background .15s}
+.tb-menu-item{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:none;border-radius:8px;color:var(--t1);font-size:13px;cursor:pointer;transition:background var(--dur-base)}
 .tb-menu-item:hover{background:var(--bg2)}
 .tb-menu-item.danger{color:var(--dan)}
 
@@ -1847,14 +1847,14 @@ function stopResize() {
 .pf-hd{padding:16px 20px;font-size:15px;font-weight:600;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
 .pf-bd{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
 .pf-field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--t2)}
-.pf-field input{height:38px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg2);color:var(--t1);font-size:14px;outline:none}
+.pf-field input{height:40px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg2);color:var(--t1);font-size:14px;outline:none}
 .pf-field input:focus{border-color:var(--p)}
 .pf-field small{color:var(--t3);font-size:11px}
 .pf-msg{font-size:12px}
 .pf-msg.ok{color:var(--suc)}
 .pf-msg.err{color:var(--dan)}
 .pf-ft{padding:14px 20px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-subtle)}
-.pf-btn{height:36px;padding:0 18px;border-radius:10px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer;transition:all .15s}
+.pf-btn{height:36px;padding:0 18px;border-radius:10px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .pf-btn:hover{background:var(--bg3)}
 .pf-btn.primary{background:var(--p-solid);border-color:var(--p-solid);color:#fff}
 .pf-btn.primary:hover{opacity:.92}

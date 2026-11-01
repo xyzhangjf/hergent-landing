@@ -41,7 +41,7 @@ function toggle() { emit('update:modelValue', !isOpen.value) }
   margin-bottom:12px;padding:0;overflow:hidden;
   background:var(--bg);border:1px solid var(--border-subtle);
   border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
-  transition:box-shadow .18s ease,border-color .18s ease;
+  transition:box-shadow var(--dur-base) ease,border-color var(--dur-base) ease;
 }
 .cfg-card:hover{box-shadow:var(--shadow-md);border-color:var(--bd)}
 .cfg-hd{

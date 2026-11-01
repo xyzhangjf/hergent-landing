@@ -737,7 +737,7 @@ onMounted(loadData)
    与卡头徽标（taskBadgeCls）同语义 —— 视觉层级：数字(B) > 要务行(C) > 明细(D)。 */
 .wb-tasks{grid-column:span 8;grid-row:span 2;padding:18px;min-height:280px}
 .task-list{display:flex;flex-direction:column;gap:10px}
-.task-row{position:relative;display:flex;align-items:flex-start;gap:12px;padding:14px 16px 14px 18px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.task-row{position:relative;display:flex;align-items:flex-start;gap:12px;padding:14px 16px 14px 18px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);transition:transform var(--dur-base) ease,box-shadow var(--dur-base) ease,border-color var(--dur-base) ease}
 .task-row:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--bd)}
 .task-row::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 2px 2px 0}
 .task-row.prio-red::before{background:var(--dan)}
@@ -755,7 +755,7 @@ onMounted(loadData)
 /* G · AI 洞察 tab 区（v496 P0-3）：三张整行卡收敛为一卡三页签 */
 .ai-insight{grid-column:1/-1}
 .ai-tabs{display:flex;gap:4px;background:var(--bg2);border-radius:var(--radius-sm);padding:3px}
-.ai-tab{height:28px;padding:0 14px;border:none;border-radius:var(--radius-xs);background:transparent;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s;font-family:inherit}
+.ai-tab{height:28px;padding:0 14px;border:none;border-radius:var(--radius-xs);background:transparent;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);font-family:inherit}
 .ai-tab:hover:not(.active){color:var(--t1)}
 .ai-tab.active{background:var(--bg);color:var(--t1);box-shadow:var(--shadow-sm)}
 .ai-pane{margin-top:2px}

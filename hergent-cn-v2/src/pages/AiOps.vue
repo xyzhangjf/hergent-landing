@@ -44,7 +44,7 @@
           </div>
         </div>
       </div>
-      <div v-if="!backups.length" class="state-empty">还没有备份，点「立即备份」开始守护数据</div>
+      <div v-if="!backups.length" class="state-empty sm">还没有备份，点「立即备份」开始守护数据</div>
       <div v-if="lastRestore" class="restore-box">
         <div class="prof-hd">恢复演练结果 · {{ lastRestore.date }}</div>
         <div v-for="p in lastRestore.plan" :key="p.name" class="restore-row">
@@ -98,7 +98,7 @@
           <span class="quota-sub">{{ f.count }} 次</span>
         </div>
       </div>
-      <div v-if="!obs" class="state-empty">还没有 LLM 调用记录（点刷新试试）</div>
+      <div v-if="!obs" class="state-empty sm">还没有 LLM 调用记录（点刷新试试）</div>
     </div>
 
     <!-- ==================== ③ 配方导入导出 ==================== -->
@@ -183,7 +183,7 @@
           <span class="audit-hash" v-if="log.hash">#{{ log.hash }}</span>
         </div>
       </div>
-      <div v-else class="state-empty">暂无审计日志（点「查询」或触发一个写操作试试）</div>
+      <div v-else class="state-empty sm">暂无审计日志（点「查询」或触发一个写操作试试）</div>
     </div>
 
     <!-- ==================== ⑤ AI 兜底记录 ==================== -->
@@ -205,7 +205,7 @@
           <span v-if="f.acked" class="fb-tag ack">已确认</span>
         </div>
       </div>
-      <div v-else class="state-empty">暂无兜底事件（连续失败 / 低置信度 会自动落到这里）</div>
+      <div v-else class="state-empty sm">暂无兜底事件（连续失败 / 低置信度 会自动落到这里）</div>
     </div>
   </div>
 </template>
@@ -453,7 +453,6 @@ async function ackFallback() {
 .aops-tip b{font-size:14px;font-weight:600;color:var(--t1);flex-shrink:0}
 .aops-tip span{font-size:12px;color:var(--t3)}
 
-.state-empty{color:var(--t3);font-size:13px;padding:14px 4px;text-align:center}
 .quota-sub{font-size:12px;color:var(--t3);margin-top:6px}
 .prof-hd{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:6px}
 

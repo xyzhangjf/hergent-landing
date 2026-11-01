@@ -1119,11 +1119,6 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .empty{text-align:center;color:var(--t3);padding:28px}
 
 .tag{font-size:12px;padding:2px 9px;border-radius:9px;background:var(--bg2);color:var(--t2)}
-.tag.info{background:var(--p-bg);color:var(--p-dark)}
-.tag.purple{background:rgba(var(--purple-rgb),.14);color:var(--purple)}
-.tag.teal{background:rgba(var(--teal-rgb),.14);color:var(--teal)}
-.tag.suc{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
-.tag.danger{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
 .num{font-variant-numeric:tabular-nums}
 
 /* C2：按钮对齐全局令牌（.btn/.btn-sm/.btn-primary/.btn-ghost/.btn-danger 为 scoped 复刻，尺寸/圆角与 variables.css 保持一致） */
@@ -1189,8 +1184,8 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .imp-result .suc{color:var(--suc)} .imp-result .dan{color:var(--dan)}
 .imp-result ul{margin:8px 0 0;padding-left:18px;color:var(--t2);font-size:12px;line-height:1.7}
 
-.fade-enter-active,.fade-leave-active{transition:opacity .18s}
+.fade-enter-active,.fade-leave-active{transition:opacity var(--dur-base)}
 .fade-enter-from,.fade-leave-to{opacity:0}
-.pop-enter-active,.pop-leave-active{transition:transform .2s,opacity .2s}
+.pop-enter-active,.pop-leave-active{transition:transform var(--dur-slow),opacity var(--dur-slow)}
 .pop-enter-from,.pop-leave-to{transform:translate(-50%,-46%) scale(.97);opacity:0}
 </style>

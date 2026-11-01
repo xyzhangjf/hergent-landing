@@ -49,8 +49,9 @@
               <td>{{ e.position || '—' }}</td>
               <td class="num">¥{{ fmt(salaryOf(e)) }}</td>
               <td>
-                <span v-if="e.has_account" class="df-acc" :class="{ on: e.account_active }" :title="'账号：' + e.account_username + (e.account_active ? '（启用中）' : '（已禁用，点「编辑」可重新启用）')">已开通 {{ e.account_username }}</span>
-                <span v-else class="df-acc">未开通</span>
+                <StatusBadge v-if="e.has_account" :tone="e.account_active ? 'ok' : 'off'" :label="'已开通 ' + e.account_username"
+                             :title="'账号：' + e.account_username + (e.account_active ? '（启用中）' : '（已禁用，点「编辑」可重新启用）')" />
+                <StatusBadge v-else tone="neutral" label="未开通" />
                 <span v-if="e.account_role" class="df-role" :class="['r-' + e.account_role, { stopped: e.is_active === 0 }]">{{ roleDisplay(e.account_role) }}</span>
                 <span
                   v-for="r in extraRolesOf(e)"
@@ -669,6 +670,7 @@
 import Skeleton from '../components/Skeleton.vue'
 import Modal from '../components/Modal.vue'
 import Icon from '../components/Icon.vue'
+import StatusBadge from '../components/StatusBadge.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
 /* v713：「已停用员工默认收起」的全站统一件（7 个页面共用同一份实现与口径）。 */
@@ -2240,11 +2242,9 @@ onMounted(() => {
    `ImportReceipt.vue` 负责，它自带样式）。本页不再有 `class="df-result"` 的元素。 */
 
 /* 账号/门店 */
-.df-acc{font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 /* v294：个人仓（有仓 = 可用色标出，未设 = 弱化 —— 后者是需要老板去补的状态） */
 /* v381：`.df-wh`（个人仓行内标签）已随列表列删除。 */
 /* v706：`.df-muted` 已删 —— 同上，模板零引用的死 CSS。 */
-.df-acc.on{background:rgba(var(--suc-rgb),.12);color:var(--st-ok-txt)}
 /* v717：9 个角色的**前景色**全部改走 --role-txt-* 令牌（浅/深两套已按各自底实测过）。
    原先写的是 Tailwind 500 系亮色，对各自的 rgba(.14) 浅底只有 1.93~3.75:1，
    主管（靛）3.75、导购（紫）3.33 —— 评审 P0 §1.2 点名项。底色一律不动。 */

@@ -140,7 +140,7 @@
   flex: none; display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; padding: 0; margin-left: auto;
   border: 0; background: transparent; color: var(--t3); cursor: pointer;
-  border-radius: var(--radius-sm); opacity: .55; transition: opacity .12s;
+  border-radius: var(--radius-sm); opacity: .55; transition: opacity var(--dur-fast);
 }
 .col-menu-list li:hover .col-menu-del { opacity: 1 }
 .col-menu-del:hover { background: var(--bg4); color: var(--danger-txt, #d33) }

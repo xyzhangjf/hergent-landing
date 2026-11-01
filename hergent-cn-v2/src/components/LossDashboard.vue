@@ -608,7 +608,7 @@ html.dark .dsh {
 .ph { font-size: 11px; fill: var(--t2); }
 .ph-s { font-size: 11px; fill: var(--t3); }
 .bars { cursor: pointer; }
-.bars rect { transition: opacity .12s ease; }
+.bars rect { transition: opacity var(--dur-fast) ease; }
 .bars:hover rect { opacity: .86; }
 
 /* ── 主体排行：条加粗让"长度差"更好比；行 hover 给回定位反馈 ── */
@@ -616,7 +616,7 @@ html.dark .dsh {
 .rk-row {
   display: grid; grid-template-columns: 22px minmax(130px, 240px) 1fr 104px 78px 68px;
   align-items: center; gap: 10px; font-size: 12px;
-  padding: 3px 6px; border-radius: var(--radius-sm); transition: background .12s ease;
+  padding: 3px 6px; border-radius: var(--radius-sm); transition: background var(--dur-fast) ease;
 }
 .rk-row:hover { background: var(--bg2); }
 .rk-tag { width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 6px;
@@ -625,7 +625,7 @@ html.dark .dsh {
 .rk-tag.k-operator { background: var(--warn-amber-bg); color: var(--warn-amber); }
 .rk-nm { color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rk-bar { height: 14px; background: var(--bg2); border-radius: 7px; overflow: hidden; }
-.rk-bar i { display: block; height: 100%; border-radius: 7px; min-width: 3px; transition: width .2s ease; }
+.rk-bar i { display: block; height: 100%; border-radius: 7px; min-width: 3px; transition: width var(--dur-slow) ease; }
 .rk-v { text-align: right; color: var(--t1); font-variant-numeric: tabular-nums; }
 .rk-v.good { color: var(--suc); }
 .rk-r { text-align: right; color: var(--c-rate); font-variant-numeric: tabular-nums; }

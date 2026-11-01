@@ -286,7 +286,7 @@ onBeforeUnmount(() => {
 .ui-modal-hd b{font-size:16px;font-weight:600;color:var(--t1)}
 .ui-modal-close{border:none;background:none;color:var(--t3);cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
-  border-radius:var(--radius-sm);transition:background .15s,color .15s}
+  border-radius:var(--radius-sm);transition:background var(--dur-base),color var(--dur-base)}
 .ui-modal-close:hover{background:var(--bg2);color:var(--t1)}
 .ui-modal-body{padding:18px 20px;overflow-y:auto}
 /* 关闭前确认提示：正文与底栏之间的一条琥珀色横条。
@@ -303,9 +303,9 @@ onBeforeUnmount(() => {
 .ui-modal-slotted.ui-modal-ft{padding:14px 20px;border-top:1px solid var(--border-subtle);flex-shrink:0}
 
 /* 动画：与各页原有的 `.fade` / `.pop` 同名同参，迁移后观感不变 */
-.ui-fade-enter-active,.ui-fade-leave-active{transition:opacity .16s ease}
+.ui-fade-enter-active,.ui-fade-leave-active{transition:opacity var(--dur-base) ease}
 .ui-fade-enter-from,.ui-fade-leave-to{opacity:0}
-.ui-pop-enter-active{transition:opacity .18s ease,transform .18s cubic-bezier(.2,.8,.3,1)}
-.ui-pop-leave-active{transition:opacity .12s ease,transform .12s ease}
+.ui-pop-enter-active{transition:opacity var(--dur-base) ease,transform var(--dur-base) cubic-bezier(.2,.8,.3,1)}
+.ui-pop-leave-active{transition:opacity var(--dur-fast) ease,transform var(--dur-fast) ease}
 .ui-pop-enter-from,.ui-pop-leave-to{opacity:0;transform:translate(-50%,-46%) scale(.97)}
 </style>

@@ -1729,7 +1729,7 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
 .ipn-hd-box .ipn-f:focus-within { border-color: var(--p-dark); box-shadow: 0 0 0 3px var(--p-bg) }
 .ipn-hd-box .ipn-lb::after { content: '：' }
 .ipn-hd-box .ipn-f .input {
-  width: auto; min-width: 0; height: 30px; padding: 0 2px;
+  width: auto; min-width: 0; height:32px; padding: 0 2px;
   border: 0; border-radius: 0; background: transparent; box-shadow: none;
 }
 .ipn-hd-box .ipn-f .input:focus { border-color: transparent; box-shadow: none }
@@ -1764,7 +1764,7 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
    （没选原单时值是 `—`，整格只有 86px；一选中又被撑宽）⇒ 表头跟着来回跳。
    `max-width` + 省略号：供应商 / 仓名的长度不可控，别让它把这一格撑爆。 */
 .ipn-ro {
-  display: flex; align-items: center; height: 30px; padding: 0 2px;
+  display: flex; align-items: center; height:32px; padding: 0 2px;
   min-width: 112px; max-width: 260px; flex: none;
   font-size: 14px; color: var(--t1); background: transparent; border: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -2002,7 +2002,7 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
       `inset box-shadow`（不占位）⇒ 1 + 3 = 4px，与文本态内距逐像素对齐，点激活时文字左右不动。
       同理左侧（input 有 border、span 没有），右侧（文字右对齐时按 padding-right 算）。
       两态对齐后文字位置完全一致，肉眼零跳动。 */
-.ipn-in { width: 100%; height: 22px; font-size: 13px; padding: 0 3px; border-radius: var(--radius-sm) }
+.ipn-in { width: 100%; height:22px; font-size: 13px; padding: 0 3px; border-radius: var(--radius-sm) }
 /* v417h（对照舟谱·行密度）：**浏览态扁平化** —— 仍铺与表单头「供应商框」一致的底色（var(--bg3)）、只留极淡描边，
    整行看起来像「一排文���」，鼠标指向或键盘聚焦才浮起成可编辑的框。
    🔴 不这么做的代价：15 列全画成带底色的输入框，视觉噪音重、扫读时找不到当前行；
@@ -2160,7 +2160,7 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 .ipn-caret {
   width: 0; height: 0;
   border-left: 4px solid transparent; border-right: 4px solid transparent;
-  border-top: 5px solid currentColor; transition: transform .15s;
+  border-top: 5px solid currentColor; transition: transform var(--dur-base);
 }
 .ipn-caret.up { transform: rotate(180deg) }
 .ipn-menu {

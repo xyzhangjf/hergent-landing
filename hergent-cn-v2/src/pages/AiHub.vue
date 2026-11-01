@@ -55,7 +55,7 @@
         </button>
         <button class="btn btn-sm btn-ghost" @click="loadReports">刷新</button>
       </div>
-      <div v-if="!reports.length" class="state-empty">还没有报告，在副驾里分析完点「存为报告」即可沉淀到这里</div>
+      <div v-if="!reports.length" class="state-empty sm">还没有报告，在副驾里分析完点「存为报告」即可沉淀到这里</div>
       <div v-else class="rep-list">
         <div v-for="r in reports" :key="r.id" class="rep-item">
           <div class="rep-main" @click="openReport(r)">
@@ -137,7 +137,7 @@
         </div>
       </div>
       <div v-if="value" class="quota-sub">{{ value.month }} 月 · 节省金额待「金额回算」接入后展示（下一步）</div>
-      <div v-else class="state-empty">暂无数据，去副驾里采纳/驳回几条建议，这里就会长出你的 AI 价值账单</div>
+      <div v-else class="state-empty sm">暂无数据，去副驾里采纳/驳回几条建议，这里就会长出你的 AI 价值账单</div>
     </div>
 
     <!-- ==================== ②·6 口径提案审核台（M3） ==================== -->
@@ -196,7 +196,7 @@
         </template>
       </div>
 
-      <div v-if="!proposalsDenied && !proposals.length" class="state-empty">
+      <div v-if="!proposalsDenied && !proposals.length" class="state-empty sm">
         暂无待审提案。当同类口径被反复改写（经验闭环判定）或运营手工提交时，提案会出现在这里等你拍板。
       </div>
       <div v-else-if="!proposalsDenied" class="prop-list">
@@ -240,7 +240,7 @@
         <div class="blocked-txt">{{ insight }}</div>
       </div>
       <div v-else-if="insight" class="insight-box">{{ insight }}</div>
-      <div v-else class="state-empty">点「生成经营洞察」，AI 会结合你的销售/应收/临期/返利数据给出建议</div>
+      <div v-else class="state-empty sm">点「生成经营洞察」，AI 会结合你的销售/应收/临期/返利数据给出建议</div>
 
       <!-- T1-3 溯源：读了几张表 / 每项按什么口径 / 由几行算出来的 -->
       <div v-if="provenance.length" class="prov">
@@ -293,7 +293,7 @@
         </div>
         <div v-if="profile.updated_at" class="quota-sub">更新于 {{ profile.updated_at }}</div>
       </div>
-      <div v-else class="state-empty">
+      <div v-else class="state-empty sm">
         画像将在你使用副驾（对话 / 纠正口径）后自动生成，点「刷新画像」立即提炼
       </div>
     </div>
@@ -730,7 +730,6 @@ async function refreshProfile() {
 .kpi-strip{padding:6px 0}
 .panel-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
 .panel-hd b{font-size:15px;font-weight:600;color:var(--t1)}
-.state-empty{color:var(--t3);font-size:13px;padding:14px 4px;text-align:center}
 
 /* 报告列表 */
 .rep-list{display:flex;flex-direction:column;gap:8px}

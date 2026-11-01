@@ -414,15 +414,15 @@ onMounted(() => { loadBrands(); load() })
 
 .rs-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .rs-fld{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
-.rs-fld .input{height:34px;font-size:13px}
+.rs-fld .input{height:32px;font-size:13px}
 .rs-wide{grid-column:1/-1}
 .rs-preview{margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--p-bg);display:flex;flex-direction:column;gap:4px}
 .rs-pv-lbl{font-size:12px;color:var(--t3)}
 .rs-pv-txt{font-size:13px;color:var(--p-dark);line-height:1.7}
 .rs-form-tip{font-size:12px;color:var(--t3);margin:10px 0 0;line-height:1.7}
-.fade-enter-active,.fade-leave-active{transition:opacity .16s ease}
+.fade-enter-active,.fade-leave-active{transition:opacity var(--dur-base) ease}
 .fade-enter-from,.fade-leave-to{opacity:0}
-.pop-enter-active,.pop-leave-active{transition:opacity .16s ease,transform .16s ease}
+.pop-enter-active,.pop-leave-active{transition:opacity var(--dur-base) ease,transform var(--dur-base) ease}
 .pop-enter-from,.pop-leave-to{opacity:0;transform:translate(-50%,-46%) scale(.97)}
 @media (max-width:900px){
   .rs-grid{grid-template-columns:1fr}

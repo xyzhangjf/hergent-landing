@@ -3511,9 +3511,9 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .sr-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
 .sr-val{font-size:18px;color:var(--p-dark)}
 .sr-note{font-size:12px;color:var(--t3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle)}
-.fade-enter-active,.fade-leave-active{transition:opacity .2s}
+.fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
-.modal-enter-active,.modal-leave-active{transition:all .25s ease}
+.modal-enter-active,.modal-leave-active{transition:all var(--dur-slow) ease}
 .modal-enter-from,.modal-leave-to{opacity:0;transform:translate(-50%,-46%)}
 
 /* P0-1 维度入口卡片 */
@@ -3523,7 +3523,6 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .entry-card p{font-size:12px;color:var(--t3);line-height:1.55;margin:0;flex:1}
 .entry-card .btn{margin-top:4px;align-self:flex-start}
 /* P0-3 状态标签（v112 R21：琥珀色统一用 --war 变量，适配暗黑主题） */
-.tag.warn{background:rgba(var(--war-rgb),.12);color:var(--war);border:1px solid rgba(var(--war-rgb),.3)}
 
 /* P0-4 详情弹层 */
 .dt-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
@@ -3613,7 +3612,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .da-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
 .da-item{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t1);line-height:1.5}
 /* v132：异常条目可点击 —— 由只读警告升级为可闭环处理 */
-.da-clickable{cursor:pointer;border-radius:var(--radius-sm);padding:5px 7px;margin:-5px -7px;transition:background .15s}
+.da-clickable{cursor:pointer;border-radius:var(--radius-sm);padding:5px 7px;margin:-5px -7px;transition:background var(--dur-base)}
 .da-clickable:hover{background:rgba(var(--dan-rgb),.07)}
 .da-clickable:focus-visible{outline:2px solid var(--p);outline-offset:1px}
 .da-act{margin-left:auto;flex:0 0 auto;font-size:12px;color:var(--p-dark);white-space:nowrap}
@@ -3661,7 +3660,6 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .rr-next{color:var(--t3)}
 /* v154 G2/G3：risk 行的预判并入指标行尾的小 chip（原 38px 红底横幅已删，红色梯度归还标签与进度条） */
 .rr-riskchip{display:inline-flex;align-items:center;font-size:12px;color:var(--dan)}
-.tag.risk{background:rgba(var(--dan-rgb),.12);color:var(--dan);border:1px solid rgba(var(--dan-rgb),.3)}
 
 /* 年度合同返利（并入目标与返利） */
 .contract-list{display:flex;flex-direction:column;gap:12px}
@@ -3684,7 +3682,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 /* v111: 月度构成 */
 .cc-mo{margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle)}
 .cc-mo-toggle{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:var(--p-dark);font-size:12px;font-weight:600;cursor:pointer;padding:4px 0}
-.cc-mo-toggle svg{transition:transform .15s}
+.cc-mo-toggle svg{transition:transform var(--dur-base)}
 .cc-months{margin-top:10px}
 .cc-months-save{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .cc-ms-tip{font-size:12px;color:var(--t3)}

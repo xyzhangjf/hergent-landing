@@ -46,7 +46,7 @@ function pick(m) {
   padding:8px 10px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);
   box-shadow:var(--shadow-md);font-size:12px;line-height:1.6;color:var(--t2);
   opacity:0;visibility:hidden;pointer-events:none;
-  transition:opacity .12s ease .16s,visibility 0s linear .28s}
+  transition:opacity var(--dur-fast) ease var(--dur-base),visibility 0s linear .28s}
 .seg-tip .st-row{display:block}
 .seg-tip .st-row+.st-row{margin-top:4px}
 .seg-tip b{color:var(--t1);font-weight:600;margin-right:6px}

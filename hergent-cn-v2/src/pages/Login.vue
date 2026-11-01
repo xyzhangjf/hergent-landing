@@ -441,7 +441,7 @@ form{display:flex;flex-direction:column;gap:12px;flex:1}
 .login-agree a:hover{text-decoration:underline}
 .lg-tabs{display:flex;gap:8px;margin-bottom:18px;background:var(--bg2);border-radius:10px;padding:4px}
 .demo-btn{color:var(--p-dark);border-color:rgba(6,182,212,.35);margin-top:2px}
-.lg-tab{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-size:13px;color:var(--t3);cursor:pointer;transition:all .15s}
+.lg-tab{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-size:13px;color:var(--t3);cursor:pointer;transition:all var(--dur-base)}
 .lg-tab.on{background:var(--bg);color:var(--p-dark);font-weight:500;box-shadow:var(--shadow-sm)}
 /* 激活引导弹窗 */
 .act-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:980}
@@ -452,7 +452,7 @@ form{display:flex;flex-direction:column;gap:12px;flex:1}
 .act-body{padding:20px}
 .act-step{font-size:14px;font-weight:500;color:var(--t1);margin:0 0 8px}
 .act-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 14px}
-.act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:12px;padding:26px 16px;font-size:13px;color:var(--p-dark);cursor:pointer;text-align:center;transition:all .15s}
+.act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:12px;padding:26px 16px;font-size:13px;color:var(--p-dark);cursor:pointer;text-align:center;transition:all var(--dur-base)}
 .act-drop:hover{background:var(--p-bg)}
 .act-drop.busy{opacity:.6}
 .act-done{margin-top:14px;font-size:13px;color:#2f9e44;font-weight:500}

@@ -137,7 +137,7 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 [data-density="compact"] table.tbl.psi-tbl td.seq-cell { padding: 2px 4px }
 [data-density="compact"] table.tbl.psi-tbl .input,
 [data-density="compact"] table.tbl.psi-tbl input,
-[data-density="compact"] table.tbl.psi-tbl select { height: 22px }
+[data-density="compact"] table.tbl.psi-tbl select { height:22px }
 
 /* ---- 快捷时间档（规范 §3.3；五枚 chip 的 label + 排列外壳） ---- */
 /* v501：改**横排** —— 竖排时「快捷」标签独占一行，筛选区凭空多出约 20px 纵向空间，
@@ -213,7 +213,7 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 .psi-caret {
   width: 0; height: 0; margin-left: 2px;
   border-left: 4px solid transparent; border-right: 4px solid transparent;
-  border-top: 5px solid currentColor; transition: transform .15s;
+  border-top: 5px solid currentColor; transition: transform var(--dur-base);
 }
 .psi-caret.up { transform: rotate(180deg) }
 

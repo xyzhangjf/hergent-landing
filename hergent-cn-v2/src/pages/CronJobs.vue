@@ -342,10 +342,10 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .field label.chk-label input{accent-color:var(--p)}
 .field textarea{height:auto;resize:vertical;padding:10px 14px;line-height:1.6}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
-.chip{padding:6px 12px;border:1px solid var(--bd);border-radius:16px;background:var(--bg3);color:var(--t2);font-size:12px;cursor:pointer;transition:all .15s}
+.chip{padding:6px 12px;border:1px solid var(--bd);border-radius:16px;background:var(--bg3);color:var(--t2);font-size:12px;cursor:pointer;transition:all var(--dur-base)}
 .chip:hover{border-color:var(--p-dark);color:var(--p-dark)}
 .chip.on{background:var(--p-bg);border-color:var(--p-dark);color:var(--p-dark);font-weight:500}
-.fade-enter-active,.fade-leave-active{transition:opacity .2s}
+.fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
 /* 推送状态卡（占宽已在顶部声明；grid 里由 gap 控距，不再用 margin） */
 .push-card.on{border-color:rgba(52,199,89,.35)}
@@ -356,7 +356,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .push-help{margin-top:12px;background:var(--bg2);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8}
 .push-help ol{margin:4px 0 0;padding-left:18px}
 .push-set{display:flex;gap:8px;margin-top:12px}
-.push-set .input{flex:1;height:34px;padding:0 12px;font-size:13px}
+.push-set .input{flex:1;height:32px;padding:0 12px;font-size:13px}
 .push-test{margin-top:10px;font-size:12px;color:#2f9e44;font-weight:500}
 .push-test.err{color:#d0342c}
 /* ④ cron 执行结果回流 */

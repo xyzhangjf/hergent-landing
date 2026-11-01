@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
 .toast.ok,.toast.success{border-left:3px solid var(--suc)}
 .toast.warn{border-left:3px solid var(--war)}
 
-.toast-enter-active,.toast-leave-active{transition:all .25s}
+.toast-enter-active,.toast-leave-active{transition:all var(--dur-slow)}
 .toast-enter-from,.toast-leave-to{opacity:0;transform:translateY(8px)}
 
 /* v306c：部署自检提示（坞内的小胶囊，不再自己绝对定位） */

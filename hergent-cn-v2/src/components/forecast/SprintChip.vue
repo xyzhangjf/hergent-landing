@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
   background:var(--bg2);color:var(--t2);
   font-size:12px;line-height:18px;white-space:nowrap;
   cursor:pointer;user-select:none;
-  transition:background .15s ease,border-color .15s ease,color .15s ease;
+  transition:background var(--dur-base) ease,border-color var(--dur-base) ease,color var(--dur-base) ease;
 }
 .sprint-chip:hover,
 .sprint-chip.on{border-color:var(--p);background:var(--p-bg);color:var(--t1)}
@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
   width:0;height:0;margin-left:1px;
   border-left:3.5px solid transparent;border-right:3.5px solid transparent;
   border-bottom:4px solid currentColor;opacity:.5;
-  transition:transform .15s ease,opacity .15s ease;
+  transition:transform var(--dur-base) ease,opacity var(--dur-base) ease;
 }
 .sprint-chip:hover .sc-caret{opacity:.85}
 .sprint-chip.on .sc-caret{transform:rotate(180deg)}

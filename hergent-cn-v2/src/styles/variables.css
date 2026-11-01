@@ -115,6 +115,7 @@
   --st-info-txt:#4338CA;  /* 6.64:1，原 #6366f1 仅 3.75 */
   --st-cust-txt:#7E22CE;  /* 5.88:1，原 #a855f7 仅 3.33 */
   --st-off-txt:#C62828;   /* 白底 5.62:1、灰底 5.03:1，原 #ff3b30 仅 3.55 */
+  --st-teal-txt:#0F766E;  /* P1(v717)：原 --teal #1d9e75 当文字仅 3.39，本底 4.69 */
 
   /* 角色标签前景色（员工档案 .df-role，9 个角色）：原先全是 Tailwind 500 系亮色当文字，
      对各自 rgba(.14) 浅底只有 1.93~3.75:1 —— 同屏十几个标签，谁是主管谁是导购靠猜。
@@ -172,6 +173,41 @@
   --radius-md:12px;
   --radius-lg:16px;
   --radius-xl:22px;
+
+  /* 过渡时长（P1/v717）：原先散落 6 档（.15s ×119、.2s ×31、.18s ×21、
+     .12s ×13、.16s ×8、.25s ×6），肉眼分不出 150ms 和 180ms 的差别，
+     只是历史随手写 ⇒ 收敛成三档。**新增交互一律取自这里**，
+     别再手写毫秒数（CI 会拦，见 tools/check-tokens.py）。
+     - fast：只改颜色/边框/阴影这类「不位移」的属性，或 hover 的微反馈
+     - base：常规位移/尺寸过渡（展开、滑入、宽度变化）
+     - slow：整体浮层进出、骨架屏淡出这类需要被「看见」的动作
+     无障碍：prefers-reduced-motion 下三档一律归零，见文件末尾「动效降级」段。 */
+  --dur-fast:120ms;
+  --dur-base:150ms;
+  --dur-slow:200ms;
+
+  /* 控件高度档位（P1/v717 建立）—— **只给输入类/按钮类用，装饰性高度别套**。
+     收敛依据：改前输入框在 7 个高度上散着（28/30/32/34/36/38/40），
+     同一类控件换个页面就换一档 ⇒ 用户跨页觉得"不是同一个产品"。
+     收敛后按语义分 6 档：
+       xs 22  建单页**行内控件**（`<td>` 里的商品/数量输入）—— 由
+              `tests/psi-order-form-density.contract.mjs` 锁死，别"顺手收成整齐数"
+       xs 24  紧凑档表格内控件（`data-density="compact"` 下的 select/input）
+       sm 28  分页按钮 `.psi-pg` / 行内小图标按钮
+       md 32  工具栏筛选与开关 —— `.fld` / `.btn-sm` / `.tb-toggle` 当前基准
+       lg 36  主按钮 `.btn`
+       xl 40  大表单输入 `.input`（全局 315 处，是表单页的主档）
+     ⚠️ 顶栏 `.tb-btn` / `.tb-copilot` / `.wx-now` 的 **34px 不在本表内**：
+        顶栏高 `--topbar-h:48px` 是按 (47−34)/2 = 6.5px 呼吸位定的，
+        并跑 `tests/shell-topbar-h.contract.mjs` 契约 —— 别顺手把它"收敛"掉。
+     🔴 v717 教训：曾把 22 当"越界值"统一改成 24，建单页契约当场挂 4 条。
+        改高度前先 `npm test`，契约文件里写死的高度都是量过的。 */
+  --h-xs:22px;
+  --h-compact:24px;
+  --h-sm:28px;
+  --h-md:32px;
+  --h-lg:36px;
+  --h-xl:40px;
 
   /* 布局 */
   --sidebar-w:248px;
@@ -388,6 +424,7 @@
   --st-info-txt:#aab6e2;  /* 7.37:1，原 #6366f1 仅 3.30 */
   --st-cust-txt:#d9b0f5;  /* 7.95:1，原 #a855f7 仅 3.68 */
   --st-off-txt:#f0908a;   /* 5.92:1 */
+  --st-teal-txt:#2bbf8f;  /* P1(v717)：深色下与 --teal 同值，本底约 6:1 */
 
   /* 角色标签前景色（深色）：浅色的 700 系在深底上只有 1.86~2.81:1，必须整套提亮。 */
   --role-txt-admin:#f0908a;        /* 6.32:1 */
@@ -456,6 +493,36 @@ body{
 }
 button{font-family:inherit;cursor:pointer}
 input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
+
+/* ============================================================
+   键盘焦点环（P1/v717 建立）
+   ------------------------------------------------------------
+   改前实测（销售单页 Tab 遍历 14 个可聚焦元素）：outline 被抑制的 0 个
+   （好事），但**自定义焦点环也是 0 个** —— 焦点全靠浏览器 `outline:auto`
+   自己算：宽度 1/2/3px 三种、颜色三种（品牌青 rgb(8,145,178)、
+   浏览器默认蓝 rgb(0,95,204)、灰 rgb(98,108,125)、另一种灰 rgb(110,110,115)）、
+   无 offset。同屏四种样子，且 auto 会按背景反推对比色 ⇒
+   在品牌底色上根本保证不了可见。
+
+   定 2px + 2px offset 的依据：
+   - 2px 是全站最粗处的观感上限，再粗就喧宾夺主；
+   - `outline-offset` 必须写 —— 密集工具栏里贴边的焦点圈会被相邻元素「吞掉」
+     （`.tb-btn` 之间 gap 只有 6px，0 offset 时相邻圈的边会重叠）；
+   - 用 `--p-dark` 而不是 `--p`：亮青 #06b6d4 在白底只有 2.43:1，
+     焦点指示属 UI 组件需 3:1，--p-dark(#0e7490) 是 5.36:1 且深色主题已适配。
+   - 用 `:where()` 包住元素列表 ⇒ 特异性归 0，任何组件自己写的
+     `:focus{outline:none}` 或 `.xxx:focus{box-shadow:…}` 都能正常覆盖
+     （`.fld:focus` 就是这类，它有自己的边框+3px 阴影环，故不冲突）。
+   不用 `border-radius:inherit`：outline 本就跟随元素圆角，再写会强制拉平
+   胶囊形按钮（如 `.tb-copilot`）的圆角。
+
+   🔴 只对 `:focus-visible` 生效，不要扩成 `:focus` —— 鼠标点按钮也出圈
+      是老板最反感的那种"多一层框"。
+   ============================================================ */
+:where(button,a,input,select,textarea,summary,[tabindex]):focus-visible{
+  outline:2px solid var(--p-dark);
+  outline-offset:2px;
+}
 /* 滚动条：加粗放粗，方便鼠标点击/拖动（v454） */
 ::-webkit-scrollbar{width:14px;height:14px}
 ::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:7px}
@@ -474,7 +541,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .hd-box .ipn-f:focus-within,.hd-box .isn-f:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
 .hd-box .ipn-lb::after,.hd-box .isn-lb::after{content:'：'}
 .hd-box .ipn-f .input,.hd-box .isn-f .input{
-  width:auto;min-width:0;height:30px;padding:0 2px;
+  width:auto;min-width:0;height:32px;padding:0 2px;
   border:0;border-radius:0;background:transparent;box-shadow:none;
 }
 .hd-box .ipn-f .input:focus,.hd-box .isn-f .input:focus{border-color:transparent;box-shadow:none}
@@ -483,7 +550,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:6px;
   height:36px;padding:0 16px;border:none;border-radius:var(--radius-md);
-  font-size:14px;font-weight:500;transition:all .15s;
+  font-size:14px;font-weight:500;transition:all var(--dur-base);
 }
 /* 文字链接式按钮（v713 补）：嵌在一句话中间的可点词，如空态里的
    「当前没有在职员工（6 人已停用已收起）——**显示已停用**」。
@@ -537,7 +604,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    .confirm-badge 同源；高度写死使它在 32px 按钮内不参与撑高。 */
 .btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--p-bg);color:var(--p-deep);font-size:11px;font-weight:600;line-height:1;white-space:nowrap}
 .btn-badge.err{background:var(--danger-bg);color:var(--danger-txt)}
-.btn-icon{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
+.btn-icon{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background var(--dur-base),color var(--dur-base)}
 .btn-icon svg{width:16px;height:16px}
 .btn-icon:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .btn-icon:disabled{opacity:.35;cursor:default}
@@ -553,7 +620,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
   display:inline-flex;align-items:center;justify-content:center;
   width:26px;height:26px;padding:0;cursor:pointer;
   border:1px solid var(--bd);border-radius:var(--radius-sm);
-  background:var(--bg2);color:var(--t2);transition:color .15s,border-color .15s;
+  background:var(--bg2);color:var(--t2);transition:color var(--dur-base),border-color var(--dur-base);
 }
 .btn-row-ic + .btn-row-ic{margin-left:4px}
 .btn-row-ic:hover:not(:disabled){color:var(--t1);border-color:var(--t3)}
@@ -561,7 +628,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .btn-row-ic:disabled{opacity:.35;cursor:default}
 .fld{height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:13px;font-family:inherit}
 .fld:focus{outline:none;border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
-.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base)}
 .chip:hover{border-color:var(--p)}
 .chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 .ico{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
@@ -626,7 +693,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
   border:1px solid var(--border-subtle);
   border-radius:var(--radius-lg);
   box-shadow:var(--shadow-sm);
-  transition:box-shadow .18s ease,border-color .18s ease;
+  transition:box-shadow var(--dur-base) ease,border-color var(--dur-base) ease;
 }
 .card:hover{box-shadow:var(--shadow-md);border-color:var(--bd)}
 
@@ -667,7 +734,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .kpi-strip.cols-3{--kpi-cols:3}
 .kpi-strip.cols-4{--kpi-cols:4}
 .kpi-strip.cols-6{--kpi-cols:6}
-.kpi-strip .kpi{padding:8px 18px;border-right:1px solid var(--border-subtle);transition:background .15s}
+.kpi-strip .kpi{padding:8px 18px;border-right:1px solid var(--border-subtle);transition:background var(--dur-base)}
 .kpi-strip .kpi:first-child{padding-left:20px}
 .kpi-strip .kpi:last-child{border-right:none}
 .kpi-strip .kpi:hover{background:var(--bg2)}
@@ -722,7 +789,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .input{
   width:100%;height:40px;padding:0 14px;
   border:1px solid var(--bd);border-radius:var(--radius-md);
-  background:var(--bg3);outline:none;transition:border-color .2s,box-shadow .2s;
+  background:var(--bg3);outline:none;transition:border-color var(--dur-slow),box-shadow var(--dur-slow);
 }
 .input:focus{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
 .input::placeholder{color:var(--t3)}
@@ -750,8 +817,16 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .progress.green>i{background:var(--suc)}
 .progress.amber>i{background:var(--war)}
 
-/* 空/错态 */
+/* 空态
+   P1(v717)：原 `.state-empty` 在本文件里**定义了两次**（「空/错态」段与「空态」段各一份，
+   值完全相同），而 5 个页面又各自改了一版 padding —— 14px / 22px / 48px 三档并存，
+   同一个「暂无数据」在商品档案占 22px、在客户档案占 48px。现收成两档：
+     默认（整页/整表空态）      48px 20px
+     `.sm`（面板内小空态）      12px 4px   —— AI 面板/浮层里用，整页那种留白会撑破容器
+   新写空态请直接用 components/EmptyState.vue，别在页面里再写一遍 .state-empty。 */
 .state-empty,.state-error{padding:48px 20px;text-align:center;color:var(--t3);font-size:13px}
+.state-empty.sm,.state-error.sm{padding:12px 4px;font-size:12px}
+.state-empty .se-ic{width:48px;height:48px;border-radius:14px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
 
 /* 表格 */
 .table-wrap{overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-subtle)}
@@ -812,10 +887,17 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
   display:inline-flex;align-items:center;height:22px;padding:0 8px;
   border-radius:6px;font-size:12px;font-weight:500;background:var(--bg4);color:var(--t2);
 }
-.tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
-.tag.warn{background:rgba(var(--war-rgb),.15);color:var(--war)}
-.tag.bad{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
+.tag.ok,.tag.suc{background:rgba(var(--suc-rgb),.12);color:var(--st-ok-txt)}
+.tag.warn{background:rgba(var(--war-rgb),.15);color:var(--st-warn-txt)}
+.tag.bad,.tag.danger,.tag.risk{background:rgba(var(--dan-rgb),.12);color:var(--st-off-txt)}
 .tag.info{background:var(--p-bg);color:var(--p-dark)}
+.tag.purple{background:rgba(var(--purple-rgb),.14);color:var(--st-cust-txt)}
+.tag.teal{background:rgba(var(--teal-rgb),.14);color:var(--st-teal-txt)}
+.tag.hot{background:var(--dan-bg);color:var(--st-off-txt);font-weight:600}
+/* `off` = 停用/已关闭：灰底 + 红字（灰底说明"不是当前状态"，红字说明"这是被关掉的"）。
+   不要用 neutral 表示停用 —— 纯灰会被误读成"没设置"。 */
+.tag.off{background:rgba(var(--t3-rgb),.14);color:var(--st-off-txt)}
+.tag.neutral{background:var(--bg4);color:var(--t2)}
 
 /* 面板标题行 */
 .panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
@@ -825,9 +907,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
    与 .btn 用同一套写法（inline-flex + align-items:center + gap:6px），保持同构。 */
 .panel-hd b{font-size:var(--fs-h4);font-weight:600;display:inline-flex;align-items:center;gap:6px}
 
-/* 空态 */
-.state-empty{padding:48px 20px;text-align:center;color:var(--t3);font-size:13px}
-.state-empty .se-ic{width:48px;height:48px;border-radius:14px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+/* 空态样式已上移到「空/错态」段，此处不再重复定义（v717 去重）。 */
 
 /* 加载骨架 */
 .skel-line{height:14px;border-radius:4px;background:var(--bg4);animation:pulse 1.4s ease-in-out infinite}
@@ -892,7 +972,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 
 /* 价格矩阵表格：单元格里塞输入框 ⇒ 收紧内距、输入右对齐等宽数字 */
 .pm-wrap{overflow-x:auto;margin-bottom:var(--sp-3)}
-.pm-input{height:30px;padding:0 8px;text-align:right;font-variant-numeric:tabular-nums}
+.pm-input{height:32px;padding:0 8px;text-align:right;font-variant-numeric:tabular-nums}
 .pm-c{text-align:center}
 
 /* 表格单元格的细粒度对齐（此前 pa-brand-cell / pa-lu-cell / pa-ou-cell 等同样零定义） */
@@ -911,4 +991,31 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 /* 移动端基础 */
 @media(max-width:768px){
   body{font-size:15px}
+}
+
+/* ============================================================
+   动效降级（P1/v717 建立）
+   ------------------------------------------------------------
+   改前：全站 235 处 transition / 数十处 animation，只有 3 个文件
+   写了 `prefers-reduced-motion` 降级（ThinkingDots / Skeleton / 预报跑马灯）。
+   即：开了系统「减少动态效果」的用户，其余 100+ 个动效照旧在动。
+
+   为什么用 `*` 而不是逐个类名：动画散布在 169 个页面组件里，逐个点名
+   必然漏；而 `transition-duration:.01ms` 的写法是通行做法（不是 `0s` ——
+   有些组件靠 `transitionend` 回调推进状态，0s 时事件可能不触发，
+   留 0.01ms 保证事件仍会派发）。
+
+   ⚠️ 不能连带关掉 `animation` 的**全部**用法：骨架屏 Pulse、ThinkingDots
+   这类「动效本身即语义」的除外 —— 它们在各自的 scoped 里已经声明了降级，
+   这里的 `animation-duration` 覆盖不到 scoped 里的显式 `animation:none`，
+   两者不打架。
+   ============================================================ */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    transition-duration:.01ms !important;
+    transition-delay:0s !important;
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    scroll-behavior:auto !important;
+  }
 }

@@ -952,7 +952,7 @@ onMounted(() => { reset(); loadRefs() })
    （没选原单时值是 `—`，整格只有 74px；一选中又被撑宽）⇒ 表头跟着来回跳。
    `max-width` + 省略号：客户 / 仓名长度不可控，别让它把这一格撑爆。 */
 .isn-ro {
-  display: flex; align-items: center; height: 30px; padding: 0 2px;
+  display: flex; align-items: center; height:32px; padding: 0 2px;
   min-width: 112px; max-width: 260px; flex: none;
   font-size: 14px; color: var(--t1); background: transparent; border: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1082,7 +1082,7 @@ table.isn-tbl tbody tr:hover td.isn-c-op { background: var(--bg2) }
    （基准 31.8），同屏少放 6 行。字号 / 内距 / 圆角三项同采购页：
    不写就继承全局 `.input`（14px / `0 14px` / radius-md=12），本页 CSS 里看不到这些数。
    `padding` 取 3px 与采购页同值（1px 真边框 + 3px = 4px 内容内距，与 `.ipn-v` 的 4px 对齐）。 */
-.isn-in { width: 100%; height: 22px; font-size: 13px; padding: 0 3px; border-radius: var(--radius-sm) }
+.isn-in { width: 100%; height:22px; font-size: 13px; padding: 0 3px; border-radius: var(--radius-sm) }
 /* v444：**撤掉**明细表输入框的底色 —— 全局 `.input{background:var(--bg3)}` 在 15 行 × 7 列
    铺下来是满屏灰底方块，压过了数据本身（老板原话：「全屏输入框给人感觉确实有点压抑」）。
    🔴 必须**显式写 transparent** 而不是把规则删掉：删了会让输入框退回全局 `.input` 的
@@ -1160,7 +1160,7 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 .ipn-caret {
   width: 0; height: 0;
   border-left: 4px solid transparent; border-right: 4px solid transparent;
-  border-top: 5px solid currentColor; transition: transform .15s;
+  border-top: 5px solid currentColor; transition: transform var(--dur-base);
 }
 .ipn-caret.up { transform: rotate(180deg) }
 .ipn-menu {

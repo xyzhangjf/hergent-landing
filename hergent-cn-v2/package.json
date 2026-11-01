@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "node scripts/check-tokens.mjs",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node tests/run-all.mjs"
+    "test": "node tests/run-all.mjs",
+    "tokens:check": "node scripts/check-tokens.mjs",
+    "tokens:list": "node scripts/check-tokens.mjs --list",
+    "tokens:update": "node scripts/check-tokens.mjs --update"
   },
   "dependencies": {
     "pinia": "^4.0.3",

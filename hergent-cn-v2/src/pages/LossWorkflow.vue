@@ -346,7 +346,7 @@ onMounted(async () => {
 
 .lf-radios{display:flex;flex-wrap:wrap;gap:8px}
 .lf-radios.inline{gap:12px}
-.lf-radio{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--bd);border-radius:10px;font-size:13px;color:var(--t2);cursor:pointer;transition:all .15s;background:var(--bg)}
+.lf-radio{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--bd);border-radius:10px;font-size:13px;color:var(--t2);cursor:pointer;transition:all var(--dur-base);background:var(--bg)}
 .lf-radio input{display:none}
 .lf-radio.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark);font-weight:500}
 

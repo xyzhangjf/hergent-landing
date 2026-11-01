@@ -1321,7 +1321,7 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-prod{display:flex;align-items:flex-start;gap:6px}
 .pt-exp{border:none;background:none;padding:2px;cursor:pointer;color:var(--t2);line-height:0;
   border-radius:4px;flex:0 0 auto}
-.pt-exp svg{transition:transform .15s}
+.pt-exp svg{transition:transform var(--dur-base)}
 .pt-exp:hover{background:var(--bg4);color:var(--t1)}
 .pt-prod-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
 .pt-spec{font-size:12px;color:var(--t2)}

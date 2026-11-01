@@ -260,7 +260,7 @@ function capOf(ch) {
   box-shadow:var(--shadow-sm);
   padding:12px 14px;
   display:flex;flex-direction:column;gap:10px;
-  transition:box-shadow .18s ease,border-color .18s ease;
+  transition:box-shadow var(--dur-base) ease,border-color var(--dur-base) ease;
 }
 .rc:hover{box-shadow:var(--shadow-md);border-color:var(--bd)}
 .rc.compact{padding:10px 12px;gap:7px}

@@ -599,7 +599,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
   background:none;
   border:none;
   cursor:pointer;user-select:none;
-  transition:opacity .15s ease,transform .15s ease;
+  transition:opacity var(--dur-base) ease,transform var(--dur-base) ease;
 }
 .sprint-card .panel-hd .sprint-toggle:hover{ opacity:1 }
 /* 展开态：同一个 chevron-right 顺时针转 90° ⇒ 朝下（与侧边栏 .sb-caret 完全一致） */
@@ -609,7 +609,6 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-card{}
 .sprint-card.is-pinned{margin:14px 0 4px;border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
 .sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:10px;margin-bottom:0}
-.tag.hot{background:var(--dan-bg);color:var(--dan);font-weight:600}
 /* 决策横幅（A2）：一行承载「未达标数 / 总缺口 / 剩余到货机会 / 均单需报」，折叠与展开都常显 */
 .sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:9px 16px;font-size:var(--fs-sm);line-height:1.5;color:var(--t2)}
 .sprint-banner b{color:var(--t1);font-variant-numeric:tabular-nums}

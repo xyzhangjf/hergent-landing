@@ -2165,7 +2165,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   display: block; width: 0; height: 0;
   border-left: 4px solid transparent; border-right: 4px solid transparent;
   border-top: 5px solid currentColor;
-  transition: transform .15s;
+  transition: transform var(--dur-base);
 }
 .ipd-pm-tri.up { transform: rotate(180deg) }
 
@@ -2247,7 +2247,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   max-width: 100%; height: 26px; padding: 0 4px; font-size: 13px;
   border: 0; border-bottom: 1px solid var(--bd); border-radius: 0;
   background: transparent; color: var(--t1); outline: none;
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color var(--dur-base), box-shadow var(--dur-base);
 }
 /* 聚焦：底线转主色并"加粗"到 2px 观感（用 box-shadow 而不是改 border，免得元素高度跳动）。 */
 .ipd-edit-in:focus, .ipd-edit-sel:focus {

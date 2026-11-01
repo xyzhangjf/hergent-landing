@@ -161,7 +161,7 @@
               </td>
               <td v-if="isVisible('safety')" class="num">{{ p.safety_stock != null ? p.safety_stock : '—' }}</td>
               <td>
-                <span class="pa-status" :class="p.is_active === 0 ? 'off' : 'on'">{{ p.is_active === 0 ? '停用' : '启用' }}</span>
+                <StatusBadge :active="p.is_active !== 0" :label="p.is_active === 0 ? '停用' : '启用'" />
               </td>
               <td class="pa-ops">
                 <!-- v335 按钮级门禁：编辑=PUT /api/products/{id} ⇒ data/update
@@ -420,7 +420,7 @@
             <template v-if="!isAdd">
             <div class="pa-sec">状态</div>
             <div class="pa-active">
-              <span class="pa-status" :class="detailTarget?.is_active === 0 ? 'off' : 'on'">{{ detailTarget?.is_active === 0 ? '已停用' : '启用中' }}</span>
+              <StatusBadge :active="detailTarget?.is_active !== 0" :label="detailTarget?.is_active === 0 ? '已停用' : '启用中'" />
               <span class="pa-hint">停用后该商品不再出现在报单与小程序的可选列表里</span>
               <!-- 二次确认做成**内联**的（不叠第二层弹窗）：第一次点变成「确认停用」，点「取消」撤销。
                    停用是有业务后果的动作（商品从报单/小程序可选列表消失），故不给一键直通。 -->
@@ -675,6 +675,7 @@
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
 import Icon from '../components/Icon.vue'
+import StatusBadge from '../components/StatusBadge.vue'
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import ImportMapping from '../components/ImportMapping.vue'
@@ -1900,7 +1901,7 @@ onMounted(() => {
 .pa-fp-from:hover{border-bottom-color:var(--p);color:var(--p-ink)}
 .pa-fp-miss{display:inline-block;padding:1px 8px;border-radius:8px;background:rgba(var(--war-rgb),.14);color:var(--war);font-size:12px;cursor:pointer}
 .pa-fp-miss:hover{background:rgba(var(--war-rgb),.24)}
-.pa-fp-input{width:92px;height:30px;text-align:right;padding:0 8px}
+.pa-fp-input{width:92px;height:32px;text-align:right;padding:0 8px}
 /* v241：11px + --t3 的实测对比度只有 **2.5:1**（WCAG AA 正文要求 4.5:1，11px 不属
    「大字」无豁免）⇒ 说明性文字对弱视用户基本不可读。字号提到 --fs-sm(12px)、
    颜色换 --t2(#6e6e73 ≈ 5.0:1 达标)。--t3 今后只用于**装饰性/非说明性**文字。 */
@@ -1925,7 +1926,7 @@ onMounted(() => {
    破折号说不清「这是有意的跟随」还是「这格没数据」（同 .pa-cyc-none 的三态道理）。 */
 .pa-ou-val{font-variant-numeric:tabular-nums}
 .pa-ou-follow{color:var(--t3);font-size:12px}
-.pa-cyc-input{width:74px;height:30px;text-align:center;padding:0 6px}
+.pa-cyc-input{width:74px;height:32px;text-align:center;padding:0 6px}
 
 /* ---- v674 下单日列 + 编辑弹层 ----
    视觉语言与左邻「到货周期」逐条同构（虚线下划 + hover 变品牌色、未设用灰不警示），
@@ -1992,14 +1993,11 @@ onMounted(() => {
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
 .pa-name{font-weight:600;color:var(--t1)}
 .pa-mono{font-size:12px;color:var(--t3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.pa-brand{display:inline-block;min-width:48px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t1);cursor:pointer;transition:.15s}
+.pa-brand{display:inline-block;min-width:48px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t1);cursor:pointer;transition:var(--dur-base)}
 .pa-brand:hover{background:rgba(var(--p-rgb,6,182,212),.14);color:var(--p-ink)}
-.pa-brand-input{height:30px;min-width:120px}
-.pa-status{font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t3)}
+.pa-brand-input{height:32px;min-width:120px}
 /* v717：前景色改用状态胶囊令牌 —— 原 --suc(#34c759) 对本浅绿底仅 2.01:1，
    商品档案单页 46 个「启用」是浅字印浅纸，老板核对时读不出来。底色不动。 */
-.pa-status.on{background:rgba(var(--suc-rgb),.12);color:var(--st-ok-txt)}
-.pa-status.off{background:rgba(var(--t3-rgb,156,163,175),.14);color:var(--st-off-txt)}
 .pa-ops{white-space:nowrap}
 .pa-ops .btn{margin-left:6px}
 
@@ -2084,7 +2082,7 @@ onMounted(() => {
 .pa-modal.pa-map{width:min(880px,96vw);max-height:88vh;display:flex;flex-direction:column}
 .pa-modal.pa-map .pa-modal-body{overflow-y:auto}
 .pa-fp-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-.pa-fp-filters select{flex:0 0 140px;width:140px;height:30px}
+.pa-fp-filters select{flex:0 0 140px;width:140px;height:32px}
 .pa-fp-wrap{max-height:46vh;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md)}
 .pa-fp-tbl{font-size:12px;margin:0}
 .pa-fp-tbl thead th{position:sticky;top:0;z-index:1;background:var(--bg3)}
@@ -2132,5 +2130,4 @@ tr.pa-row-off td{opacity:.5}
   .pa-modal-ft{flex-wrap:wrap}
 }
 
-.state-empty{font-size:13px;color:var(--t3);text-align:center;padding:22px 0}
 </style>

@@ -183,14 +183,14 @@ function close(t) {
 .tab-item{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:26px;
   padding:0 7px 0 5px;border:1px solid transparent;border-radius:8px;background:transparent;
   color:var(--t2);font-size:12px;cursor:pointer;max-width:200px;
-  transition:background .15s,color .15s,border-color .15s}
+  transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base)}
 .tab-item:hover{background:var(--bg3);color:var(--t1)}
 .tab-item.on{background:var(--bg);color:var(--t1);border-color:var(--border-subtle);
   box-shadow:var(--shadow-sm);font-weight:600}
 .tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .tab-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
-  border-radius:5px;color:var(--t3);flex-shrink:0;cursor:pointer;transition:background .15s,color .15s}
+  border-radius:5px;color:var(--t3);flex-shrink:0;cursor:pointer;transition:background var(--dur-base),color var(--dur-base)}
 .tab-ic:hover{background:var(--p-bg);color:var(--p-dark)}
 .tab-item.on .tab-refresh{color:var(--p-dark)}
 .tab-item.on .tab-close{color:var(--t3)}
@@ -198,7 +198,7 @@ function close(t) {
 .tab-more{flex:0 0 auto;position:relative}
 .tab-more-btn{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;
   border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg);color:var(--t2);
-  font-size:12px;cursor:pointer;transition:background .15s,color .15s}
+  font-size:12px;cursor:pointer;transition:background var(--dur-base),color var(--dur-base)}
 .tab-more-btn:hover{background:var(--bg3);color:var(--t1)}
 .tab-more-n{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;
   padding:0 4px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);font-size:11px;font-weight:600}

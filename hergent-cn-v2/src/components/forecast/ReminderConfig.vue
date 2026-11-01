@@ -183,8 +183,8 @@ loadReminder()
 /* iOS 风格开关（沿用主题色变量） */
 .switch{position:relative;display:inline-block;width:42px;height:24px;flex:none}
 .switch input{opacity:0;width:0;height:0}
-.slider{position:absolute;cursor:pointer;inset:0;background:var(--bd);border-radius:999px;transition:.2s}
-.slider::before{content:'';position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--bd);border-radius:999px;transition:var(--dur-slow)}
+.slider::before{content:'';position:absolute;height:18px;width:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:var(--dur-slow)}
 .switch input:checked + .slider{background:var(--p)}
 .switch input:checked + .slider::before{transform:translateX(18px)}
 </style>

@@ -39,7 +39,7 @@
 .ch-bar{rx:2}
 .ch-lbl{font-size:11px;font-variant-numeric:tabular-nums;pointer-events:none}
 /* 折线数据点：默认不显，hover 时放大（由 .is-on 控制） */
-.ch-dot{pointer-events:none;transition:r .12s ease}
+.ch-dot{pointer-events:none;transition:r var(--dur-fast) ease}
 .ch-hit{fill:transparent}
 .ch-ref{stroke-dasharray:4 3;stroke-width:1}
 

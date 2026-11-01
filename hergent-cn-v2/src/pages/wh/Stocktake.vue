@@ -540,7 +540,7 @@ defineExpose({ load: loadList })
   flex: 1; height: 8px; border-radius: 999px; overflow: hidden;
   background: var(--bg2); border: 1px solid var(--border-subtle);
 }
-.wst-prog-bar i { display: block; height: 100%; background: var(--p); transition: width .2s }
+.wst-prog-bar i { display: block; height: 100%; background: var(--p); transition: width var(--dur-slow) }
 .wst-prog-txt { font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums; white-space: nowrap }
 
 .wst-lock, .wst-tip {

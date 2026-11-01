@@ -3941,13 +3941,13 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-artifacts.art-full{flex:1 1 100%;border-left:none}
 /* 可拖拽分割线：细线 + 放大命中区，触摸更易抓；touch-action:none 防止拖拽时页面滚动 */
 .cp-divider{flex:0 0 7px;position:relative;cursor:col-resize;background:transparent;touch-action:none;z-index:6}
-.cp-divider::before{content:'';position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);background:var(--bd);transition:background .15s,width .15s}
+.cp-divider::before{content:'';position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);background:var(--bd);transition:background var(--dur-base),width var(--dur-base)}
 .cp-divider:hover::before,.cp-divider.dragging::before{background:var(--p);width:3px}
 .cp-divider::after{content:'';position:absolute;top:0;bottom:0;left:-5px;right:-5px}
 .cp-art-hd{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
 /* v486 P1-⑤：产物 / 待办 双分页 */
 .cp-art-tabs{display:inline-flex;gap:2px;padding:2px;background:var(--bg2);border-radius:8px}
-.cp-art-tab{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:none;background:transparent;border-radius:6px;font:inherit;font-size:12px;color:var(--t2);cursor:pointer;transition:all .15s}
+.cp-art-tab{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:none;background:transparent;border-radius:6px;font:inherit;font-size:12px;color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
 .cp-art-tab:hover{color:var(--t1)}
 .cp-art-tab.on{background:var(--bg);color:var(--t1);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.06)}
 .cp-todo{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg2)}
@@ -3961,11 +3961,11 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-art-ops .cp-icon-btn{width:28px;height:28px;padding:0}
 .cp-art-ops .cp-icon-btn:hover{background:rgba(127,127,127,.16);color:var(--t1)}
 .cp-art-body{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:12px}
-.cp-art-item{cursor:pointer;transition:transform .12s ease}
+.cp-art-item{cursor:pointer;transition:transform var(--dur-fast) ease}
 .cp-art-item:hover{transform:translateY(-1px)}
 .cp-art-item .rc{border-color:var(--bd)}
 /* P1-④ 产物栏文件卡片 */
-.cp-art-file{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2);text-decoration:none;transition:border-color .15s}
+.cp-art-file{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2);text-decoration:none;transition:border-color var(--dur-base)}
 .cp-art-file:hover{border-color:var(--p-dark)}
 .cp-art-file-ic{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
 .cp-art-file-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
@@ -4019,7 +4019,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-pager-back{margin-left:auto;border:1px solid var(--bd1);background:var(--bg2);color:var(--t2);border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer}
 .cp-pager-back:hover{background:var(--bg3)}
 .cp-pager-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-.cp-pg-card{background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:14px;cursor:pointer;transition:transform .12s,border-color .12s;display:flex;flex-direction:column;gap:6px}
+.cp-pg-card{background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:14px;cursor:pointer;transition:transform var(--dur-fast),border-color var(--dur-fast);display:flex;flex-direction:column;gap:6px}
 .cp-pg-card:hover{transform:translateY(-2px);border-color:var(--p)}
 .cp-pg-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center}
 .cp-pg-t{font-size:13px;color:var(--t2);font-weight:600}
@@ -4060,7 +4060,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
       ⇒ 收成与图标同尺寸的方形按钮（仍是唯一的实心主操作，只是不写字）。 */
 .cp-new-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;height:30px;padding:0 10px;
   border:none;border-radius:8px;background:var(--p-dark);color:#fff;font-size:12px;font-weight:500;
-  cursor:pointer;transition:filter .15s}
+  cursor:pointer;transition:filter var(--dur-base)}
 .cp-new-btn:hover{filter:brightness(1.12)}
 .cp-new-ic{flex:0 0 auto}
 .cp-new-tx{white-space:nowrap}
@@ -4085,7 +4085,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-hist-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .cp-hist-hd b{font-size:14px;font-weight:600;color:var(--t1)}
 .cp-hist-list{display:flex;flex-direction:column;gap:8px}
-.cp-hist-item{position:relative;padding:12px 32px 12px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);cursor:pointer;transition:all .15s}
+.cp-hist-item{position:relative;padding:12px 32px 12px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);cursor:pointer;transition:all var(--dur-base)}
 .cp-hist-item:hover{border-color:var(--p);background:var(--p-bg)}
 .cp-hist-item.on{border-color:var(--p);background:var(--p-bg)}
 .cp-hist-title{font-size:13px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -4096,7 +4096,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-hist-q{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);font-size:12px;color:var(--t1);outline:none}
 .cp-hist-q:focus{border-color:var(--p)}
 .cp-hist-hits{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
-.cp-hist-hit{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);cursor:pointer;transition:all .15s}
+.cp-hist-hit{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);cursor:pointer;transition:all var(--dur-base)}
 .cp-hist-hit:hover{border-color:var(--p);background:var(--p-bg)}
 .cp-hist-snippet{font-size:12px;color:var(--t3);margin-top:4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
@@ -4105,7 +4105,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
    配色换成我们自己的 token，深浅主题都跟着走。 */
 .cp-search-pane{flex:1;min-height:0;display:flex;flex-direction:column}
 .cp-search-bar{display:flex;align-items:center;height:32px;margin:12px 16px 8px;padding:0 4px 0 8px;border-radius:8px;
-  background:var(--bg2);border:1px solid transparent;transition:border-color .12s,background .12s;flex-shrink:0}
+  background:var(--bg2);border:1px solid transparent;transition:border-color var(--dur-fast),background var(--dur-fast);flex-shrink:0}
 .cp-search-bar:focus-within{border-color:var(--p);background:var(--bg)}
 .cp-search-ico{display:flex;align-items:center;justify-content:center;width:16px;height:16px;flex:0 0 16px;margin-right:6px;color:var(--t3)}
 .cp-search-ico svg{display:block}
@@ -4122,7 +4122,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-search-tip-ic{color:var(--t3);opacity:.55}
 .cp-search-list{flex:1;min-height:0;overflow-y:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:2px}
 .cp-search-item{display:flex;flex-direction:column;gap:4px;width:100%;padding:8px 10px;border:none;border-radius:8px;
-  background:none;cursor:pointer;text-align:left;color:inherit;transition:background .12s}
+  background:none;cursor:pointer;text-align:left;color:inherit;transition:background var(--dur-fast)}
 .cp-search-item:hover,.cp-search-item.active{background:var(--p-bg)}
 .cp-search-item-hd{display:flex;align-items:center;gap:6px;min-width:0}
 .cp-search-who{flex:0 0 auto;padding:0 6px;border-radius:var(--radius-md);background:var(--bg2);
@@ -4135,15 +4135,15 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* 命中跳转后的短暂描边（1.8s 自动撤）。用 box-shadow 而不是 outline：不吃布局、圆角跟卡片一致。
    🔴 挂在 `data-hit` 上而不是 class：`.msg` 的动态 `:class` 每次 patch 会整份重写 className，
    手写 class 会被擦掉（实测一次都抓不到）；data 属性 Vue 不接管，重渲染不会掉。 */
-.msg[data-hit]{box-shadow:0 0 0 2px var(--p), 0 0 0 6px var(--p-bg);border-radius:10px;transition:box-shadow .25s ease-out}
+.msg[data-hit]{box-shadow:0 0 0 2px var(--p), 0 0 0 6px var(--p-bg);border-radius:10px;transition:box-shadow var(--dur-slow) ease-out}
 .cp-welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
 .cp-w-ic{width:56px;height:56px;border-radius:18px;background:var(--p-bg);display:flex;align-items:center;justify-content:center;margin-bottom:14px}
 .cp-w-title{font-size:15px;font-weight:500;color:var(--t1);margin:0 0 4px}
 .cp-w-sub{font-size:12px;color:var(--t3);margin:0 0 16px}
 .cp-w-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.cp-chip{padding:7px 12px;border:1px solid var(--bd);border-radius:16px;background:var(--bg);font-size:12px;color:var(--t2);cursor:pointer;transition:all .15s}
+.cp-chip{padding:7px 12px;border:1px solid var(--bd);border-radius:16px;background:var(--bg);font-size:12px;color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
 .cp-chip:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
-.cp-demo{margin-top:14px;padding:8px 18px;border:1px solid var(--p-border);border-radius:20px;background:var(--p-bg);font-size:12px;color:var(--p-dark);cursor:pointer;transition:all .15s}
+.cp-demo{margin-top:14px;padding:8px 18px;border:1px solid var(--p-border);border-radius:20px;background:var(--p-bg);font-size:12px;color:var(--p-dark);cursor:pointer;transition:all var(--dur-base)}
 .cp-demo:hover{background:rgba(6,182,212,.12);border-color:var(--p-dark)}
 
 .msg{display:flex;gap:8px}
@@ -4179,7 +4179,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-doc-chip-tag{flex:0 0 auto;margin-left:auto;font-size:11px;color:rgba(255,255,255,.72);letter-spacing:.2px}
 
 /* 溯源：参考来源 */
-.src-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:none;background:none;border-radius:8px;font-size:11px;color:var(--t3);cursor:pointer;transition:all .15s}
+.src-tag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:none;background:none;border-radius:8px;font-size:11px;color:var(--t3);cursor:pointer;transition:all var(--dur-base)}
 .src-tag:hover{background:var(--p-bg);color:var(--p-dark)}
 .src-panel{width:100%;background:var(--bg);border:1px solid var(--border-subtle);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:10px}
 .src-sec{display:flex;flex-direction:column;gap:5px}
@@ -4195,7 +4195,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-tools-hd svg{flex-shrink:0}
 .cp-tools-n,.cp-tools-t{font-variant-numeric:tabular-nums;flex-shrink:0}
 .cp-tools-t{margin-left:auto;color:var(--t3)}
-.cp-tools-caret{transition:transform .15s}
+.cp-tools-caret{transition:transform var(--dur-base)}
 .cp-tools-caret.open{transform:rotate(180deg)}
 .cp-tools-body{display:flex;flex-direction:column;gap:4px;min-width:0;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border-subtle)}
 .cp-tool-st{font-size:11px;color:var(--t3);flex-shrink:0;margin-left:auto;white-space:nowrap}
@@ -4205,7 +4205,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .mt-hd:hover{color:var(--t1)}
 .mt-hd svg{flex-shrink:0;color:var(--t3)}
 .mt-n{font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums}
-.mt-caret{margin-left:auto;transition:transform .15s}
+.mt-caret{margin-left:auto;transition:transform var(--dur-base)}
 .mt-caret.open{transform:rotate(180deg)}
 .mt-body{padding:8px 12px 10px;font-size:12px;line-height:1.65;color:var(--t2);white-space:pre-wrap;border-top:1px dashed var(--border-subtle);max-height:280px;overflow:auto}
 
@@ -4245,17 +4245,17 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-att-meta{font-size:11px;color:var(--p-dark);opacity:.7}
 .cp-att-x{border:none;background:none;color:var(--p-dark);cursor:pointer;font-size:12px;padding:0 2px;opacity:.6}
 .cp-att-x:hover{opacity:1}
-.cp-plus{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0}
+.cp-plus{display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:999px;color:var(--t2);cursor:pointer;transition:all var(--dur-base);flex-shrink:0}
 .cp-plus:hover{background:var(--bg4);color:var(--t1)}
 .cp-att-loading{background:var(--bg2);border-color:var(--border-subtle);color:var(--t2)}
 .cp-att-spin{display:inline-flex;animation:cp-spin 1s linear infinite}
 @keyframes cp-spin{to{transform:rotate(360deg)}}
-.cp-composer{position:relative;display:flex;flex-direction:column;gap:8px;padding-top:8px;border:1px solid var(--bd);border-radius:24px;background:var(--bg3);transition:border-color .2s,box-shadow .2s}
+.cp-composer{position:relative;display:flex;flex-direction:column;gap:8px;padding-top:8px;border:1px solid var(--bd);border-radius:24px;background:var(--bg3);transition:border-color var(--dur-slow),box-shadow var(--dur-slow)}
 .cp-composer:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 4px var(--p-bg)}
 .cp-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:0 10px 10px}
 .cp-tools{display:flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0}
 .cp-trailing{display:flex;align-items:center;gap:12px;flex:none;margin-left:auto}
-.cp-role{position:relative;display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);cursor:pointer;flex-shrink:1;min-width:0;transition:background .15s;max-width:220px}
+.cp-role{position:relative;display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);cursor:pointer;flex-shrink:1;min-width:0;transition:background var(--dur-base);max-width:220px}
 .cp-role:hover{background:rgba(6,182,212,.16)}
 .cp-role-av{font-size:14px;line-height:1;flex-shrink:0;display:flex;align-items:center}
 .cp-role-av-img{width:18px;height:18px;border-radius:50%;object-fit:cover;display:block}
@@ -4275,7 +4275,7 @@ button.cp-plus{border:none;background:transparent;padding:0}
 button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-role-menu{position:absolute;bottom:calc(100% + 8px);left:0;width:248px;max-height:300px;overflow-y:auto;background:var(--bg);border:1px solid var(--bd);border-radius:14px;box-shadow:var(--shadow-lg);padding:8px;z-index:20}
 .cp-role-menu-hd{font-size:11px;color:var(--t3);padding:4px 8px 8px}
-.cp-role-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;transition:all .15s}
+.cp-role-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;transition:all var(--dur-base)}
 .cp-role-item:hover{background:var(--p-bg)}
 .cp-role-item.on{background:var(--p-bg);box-shadow:inset 0 0 0 1px var(--p)}
 .cp-role-item-av{font-size:18px;flex-shrink:0;width:24px;text-align:center;display:flex;align-items:center}
@@ -4298,7 +4298,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-slash-cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--p-dark);flex-shrink:0;min-width:62px}
 .cp-slash-title{flex:1;color:var(--t1)}
 .cp-slash-hint{font-size:11px;color:var(--t3);flex-shrink:0}
-.cp-send{width:32px;height:32px;border:none;border-radius:999px;background:var(--p-dark);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s,color .15s,box-shadow .15s;box-shadow:var(--shadow-sm)}
+.cp-send{width:32px;height:32px;border:none;border-radius:999px;background:var(--p-dark);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background var(--dur-base),color var(--dur-base),box-shadow var(--dur-base);box-shadow:var(--shadow-sm)}
 .cp-send:not(:disabled):hover{background:var(--p-deep)}
 .cp-send:disabled{background:transparent;color:var(--t3);box-shadow:inset 0 0 0 1px var(--bd);cursor:default}
 /* v309：停止态 —— **与发送态同色**（对齐 WorkBuddy：--cr-send-button-fill-stop 与
@@ -4328,7 +4328,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* 额度状态胶囊：比工具条按钮更轻 —— 无边框、无背景，只在 hover 时才有一层浅底。
    它是**信息**，不是控件；一旦做得像按钮，用户就会以为能点出个设置页。 */
 .cp-usage{position:relative;flex:none}
-.cp-usage-btn{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid transparent;border-radius:10px;background:transparent;font-size:11px;line-height:1;color:var(--t3);cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;transition:background .15s,color .15s}
+.cp-usage-btn{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid transparent;border-radius:10px;background:transparent;font-size:11px;line-height:1;color:var(--t3);cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;transition:background var(--dur-base),color var(--dur-base)}
 .cp-usage-btn:hover{background:var(--bg4);color:var(--t1)}
 .cp-usage-btn .cp-usage-ring{flex:none;opacity:.9}
 .cp-usage-btn.warn{color:var(--war)}
@@ -4369,14 +4369,14 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-ai-note svg{flex-shrink:0;opacity:.85}
 
 /* P0-③ AI 权限护栏开关 */
-.cp-guard-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s}
+.cp-guard-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base)}
 .cp-guard-btn svg{color:var(--suc);flex-shrink:0}
 .cp-guard-btn:hover{background:var(--bg4);color:var(--t1)}
 .cp-guard-btn.on{border-color:rgba(var(--war-rgb),.5);background:rgba(var(--war-rgb),.14);color:var(--war)}
 .cp-guard-btn.on svg{color:var(--war)}
 /* ---- v461：朗读声音选择（胶囊几何照抄上面 .cp-guard-btn，配色走主色以示"偏好类设置"）---- */
 .cp-ttsv{position:relative;display:inline-flex;flex-shrink:0;min-width:0}
-.cp-ttsv-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s;max-width:150px;min-width:0}
+.cp-ttsv-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base);max-width:150px;min-width:0}
 .cp-ttsv-btn svg.ico{color:var(--p-ink);flex-shrink:0;width:12px;height:12px}
 .cp-ttsv-btn:hover{background:var(--bg4);color:var(--t1)}
 .cp-ttsv-btn.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark)}
@@ -4388,7 +4388,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 
 /* M2 渐进式访谈引导 chips */
 .cp-followups{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
-.cp-fubtn{padding:6px 11px;border:1px solid var(--p);border-radius:14px;background:var(--p-bg);font-size:12px;color:var(--p-dark);cursor:pointer;transition:all .15s}
+.cp-fubtn{padding:6px 11px;border:1px solid var(--p);border-radius:14px;background:var(--p-bg);font-size:12px;color:var(--p-dark);cursor:pointer;transition:all var(--dur-base)}
 .cp-fubtn:hover{background:rgba(6,182,212,.16);border-color:var(--p-dark)}
 
 /* P0-① 主动澄清：AI 反问 + 结构化选项 */
@@ -4401,7 +4401,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-clarify-no{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--p-solid);color:#fff;font-size:11px;font-weight:700;line-height:1}
 .cp-clarify-ask svg{color:var(--p-dark);flex-shrink:0}
 .cp-clarify-opts{display:flex;flex-direction:column;gap:6px}
-.cp-clarify-opt{padding:7px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);font-size:12px;color:var(--t1);cursor:pointer;text-align:left;transition:all .15s}
+.cp-clarify-opt{padding:7px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);font-size:12px;color:var(--t1);cursor:pointer;text-align:left;transition:all var(--dur-base)}
 .cp-clarify-opt:hover{border-color:var(--p-dark);background:var(--p-bg)}
 
 /* P2-⑦ 配方自进化提案卡片 */
@@ -4416,7 +4416,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-prop-change{font-size:11px;color:var(--t2);background:var(--bg);border:1px solid var(--border-subtle);border-radius:8px;padding:2px 8px}
 .cp-prop-rationale{font-size:12px;color:var(--t3);line-height:1.55;margin-bottom:9px}
 .cp-prop-ops{display:flex;gap:8px;justify-content:flex-end}
-.cp-prop-btn{font-size:12px;padding:6px 14px;border-radius:9px;cursor:pointer;transition:all .15s;border:1px solid transparent}
+.cp-prop-btn{font-size:12px;padding:6px 14px;border-radius:9px;cursor:pointer;transition:all var(--dur-base);border:1px solid transparent}
 .cp-prop-btn:disabled{opacity:.5;cursor:default}
 .cp-prop-btn.ghost{background:var(--bg);border-color:var(--border-subtle);color:var(--t2)}
 .cp-prop-btn.ghost:hover:not(:disabled){border-color:var(--t3);color:var(--t1)}
@@ -4436,7 +4436,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 
 /* P0-① 反馈纠错（对/错） */
 .cp-feedback{display:flex;align-items:center;gap:4px;margin-top:6px}
-.cp-fb-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border-subtle);border-radius:8px;background:transparent;color:var(--t3);cursor:pointer;transition:all .15s}
+.cp-fb-btn{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid var(--border-subtle);border-radius:8px;background:transparent;color:var(--t3);cursor:pointer;transition:all var(--dur-base)}
 .cp-fb-btn:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
 .cp-fb-done{font-size:11px;color:var(--t3)}
 
@@ -4455,7 +4455,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
      · 再加 `overflow-wrap:anywhere` 允许在任意字符处断行（比 ellipsis 好：信息完整可见，
        工具进度本来就是短列表，多一行不影响；截断反而看不出跑的是哪个表/哪个文件）。
    对齐方式同时由 center 改 flex-start：折成两行时图标与状态标签要贴首行，不能吊在中间。 */
-.msg-tools{display:flex;flex-direction:column;min-width:0;max-width:100%;margin-top:8px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);transition:padding .15s}
+.msg-tools{display:flex;flex-direction:column;min-width:0;max-width:100%;margin-top:8px;padding:6px 10px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);transition:padding var(--dur-base)}
 .msg-tools.folded{padding:5px 10px}
 .msg-tools.live{border-color:var(--p-border)}
 .cp-tool{display:flex;align-items:flex-start;gap:7px;min-width:0;font-size:12px;color:var(--t2);line-height:1.5}
@@ -4468,12 +4468,12 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 @keyframes cp-spin{to{transform:rotate(360deg)}}
 
 /* M5 语音输入按钮 */
-.cp-voice{width:32px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0;border:none;background:none}
+.cp-voice{width:32px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all var(--dur-base);flex-shrink:0;border:none;background:none}
 .cp-voice:hover{background:var(--bg4);color:var(--t1)}
 .cp-voice.on{background:var(--p-dark);color:#fff;animation:cp-voice-pulse 1.2s infinite}
 @keyframes cp-voice-pulse{0%,100%{box-shadow:0 0 0 0 rgba(6,182,212,.4)}50%{box-shadow:0 0 0 5px rgba(6,182,212,0)}}
 /* M7 截图（剪刀）按钮：与 .cp-voice 同款几何（32px 圆形、currentColor 线性图标），对齐 UI 规范 */
-.cp-snap{width:32px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all .15s;flex-shrink:0;border:none;background:none}
+.cp-snap{width:32px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all var(--dur-base);flex-shrink:0;border:none;background:none}
 .cp-snap:hover{background:var(--bg4);color:var(--t1)}
 .cp-snap.busy{opacity:.6;cursor:progress}
 .cp-snap svg{width:14px;height:14px}
@@ -4511,9 +4511,9 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-smart-result.err{color:#d0342c}
 
 /* 过渡 */
-.fade-enter-active,.fade-leave-active{transition:opacity .2s}
+.fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
-.slide-enter-active,.slide-leave-active{transition:transform .25s ease}
+.slide-enter-active,.slide-leave-active{transition:transform var(--dur-slow) ease}
 .slide-enter-from,.slide-leave-to{transform:translateX(100%)}
 
 @media(max-width:768px){
@@ -4557,7 +4557,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md :deep(.md-codeblock__bar){display:flex;align-items:center;padding:4px 10px;background:var(--bg3,#e9eef3);border-bottom:1px solid var(--b2,#e5e7eb)}
 .md :deep(.md-codeblock__lang){font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--t3,#94a3b8);text-transform:uppercase}
 /* v486 P1-② 代码块一键复制：靠右、低对比，hover 才提亮，不抢代码正文视线 */
-.md :deep(.md-code-copy){margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.md :deep(.md-code-copy){margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;cursor:pointer;transition:color var(--dur-base),border-color var(--dur-base),background var(--dur-base)}
 .md :deep(.md-code-copy:hover){color:var(--p,#06b6d4);border-color:var(--p,#06b6d4);background:var(--bg2,#f3f4f6)}
 .md :deep(.md-code-copy.copied){color:#16a34a;border-color:#16a34a}
 .md :deep(.md-codeblock .md-pre){margin:0;border-radius:0;background:transparent;padding:8px 0}
@@ -4582,7 +4582,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md :deep(th){position:sticky;top:0;z-index:1}
 /* —— v487 P2-③ 表格→图表开关（:deep 因 v-html 注入的 DOM 无 scoped 属性） —— */
 .md :deep(.md-table-bar){display:flex;justify-content:flex-end;margin:2px 0 4px}
-.md :deep(.md-table-chart-toggle){font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;padding:2px 8px;cursor:pointer;transition:color .15s,border-color .15s}
+.md :deep(.md-table-chart-toggle){font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;padding:2px 8px;cursor:pointer;transition:color var(--dur-base),border-color var(--dur-base)}
 .md :deep(.md-table-chart-toggle:hover){color:var(--p,#06b6d4);border-color:var(--p,#06b6d4)}
 .md :deep(.md-table-chart){margin:4px 0 2px}
 .md :deep(.md-chart-svg){width:100%;height:96px;display:block}
@@ -4594,8 +4594,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md :deep(.md-control-lbl){font-size:12px;color:var(--t2,#475569);white-space:nowrap}
 .md :deep(.md-control-range){width:120px;accent-color:var(--p,#06b6d4)}
 .md :deep(.md-control-val){font-size:12px;font-weight:600;color:var(--t1,#0f172a);font-variant-numeric:tabular-nums;min-width:2.5em;text-align:right}
-.md :deep(.md-switch){width:38px;height:22px;border-radius:11px;border:none;background:var(--b2,#e5e7eb);position:relative;cursor:pointer;padding:0;transition:background .15s}
-.md :deep(.md-switch)::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.md :deep(.md-switch){width:38px;height:22px;border-radius:11px;border:none;background:var(--b2,#e5e7eb);position:relative;cursor:pointer;padding:0;transition:background var(--dur-base)}
+.md :deep(.md-switch)::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left var(--dur-base);box-shadow:0 1px 2px rgba(0,0,0,.2)}
 .md :deep(.md-switch.on){background:var(--p,#06b6d4)}
 .md :deep(.md-switch.on)::after{left:18px}
 /* —— v487 P2-⑨ 产物元数据 —— */
@@ -4611,7 +4611,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* v524：分割线由「按钮上方」移至「按钮下方」—— 让复制/点赞等操作条归到本条消息，
    线作为消息与消息之间的分隔；保留顶部 8px 间距，底部 8px 内边距后落线。 */
 .cp-msg-actions{display:flex;align-items:center;gap:8px;margin-top:8px;padding-bottom:8px;border-bottom:1px solid var(--b2,#eef1f5)}
-.cp-act{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:none;background:transparent;border-radius:8px;color:var(--t2,#6e6e73);cursor:pointer;transition:background-color .15s}
+.cp-act{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:none;background:transparent;border-radius:8px;color:var(--t2,#6e6e73);cursor:pointer;transition:background-color var(--dur-base)}
 .cp-act:hover{background:var(--b2,#ebebeb)}
 .cp-act:focus,.cp-act:focus-visible{outline:none}
 .cp-act:disabled{opacity:.35;cursor:not-allowed}
@@ -4646,7 +4646,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-corr-hd b{font-size:14px;font-weight:600;color:var(--t1)}
 .cp-corr-sub{margin:0;font-size:12px;line-height:1.6;color:var(--t3)}
 .cp-corr-chips{display:flex;flex-wrap:wrap;gap:6px}
-.cp-corr-chip{padding:5px 11px;border:1px solid var(--bd);border-radius:16px;background:var(--bg);font-size:12px;color:var(--t2);cursor:pointer;transition:all .15s}
+.cp-corr-chip{padding:5px 11px;border:1px solid var(--bd);border-radius:16px;background:var(--bg);font-size:12px;color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
 .cp-corr-chip:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
 .cp-corr-chip.on{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg);font-weight:600}
 .cp-corr-text{width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);color:var(--t1);font-size:13px;line-height:1.6;resize:vertical;font-family:inherit}

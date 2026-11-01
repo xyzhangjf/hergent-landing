@@ -1335,7 +1335,6 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-health .lv-warn{background:color-mix(in srgb,var(--war) 9%,transparent)}
 .la-health-lv{flex:0 0 auto;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--bg4);color:var(--t2)}
 .la-health .lv-warn .la-health-lv{background:var(--war);color:#fff}
-.state-empty{padding:22px;text-align:center;color:var(--t3);font-size:12px}
 
 @media(max-width:1100px){
   .la-co-kpis{grid-template-columns:repeat(2,1fr)}

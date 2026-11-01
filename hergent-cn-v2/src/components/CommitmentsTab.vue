@@ -281,13 +281,13 @@ onMounted(load)
 
 .vc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .vc-fld{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
-.vc-fld .input{height:34px;font-size:13px}
+.vc-fld .input{height:32px;font-size:13px}
 .vc-fld .req{color:var(--war);font-style:normal}
 .vc-wide{grid-column:1/-1}
 .vc-form-tip{font-size:12px;color:var(--t3);margin:12px 0 0}
-.fade-enter-active,.fade-leave-active{transition:opacity .16s ease}
+.fade-enter-active,.fade-leave-active{transition:opacity var(--dur-base) ease}
 .fade-enter-from,.fade-leave-to{opacity:0}
-.pop-enter-active,.pop-leave-active{transition:opacity .16s ease,transform .16s ease}
+.pop-enter-active,.pop-leave-active{transition:opacity var(--dur-base) ease,transform var(--dur-base) ease}
 .pop-enter-from,.pop-leave-to{opacity:0;transform:translate(-50%,-46%) scale(.97)}
 @media (max-width:900px){
   .vc-kpis{grid-template-columns:repeat(2,1fr)}

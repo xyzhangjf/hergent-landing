@@ -915,7 +915,7 @@ onMounted(async () => {
 
 .pc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:12px;margin-bottom:16px}
 .pc-card{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:10px;background:var(--bg);
-  padding:12px 14px;transition:border-color .15s,box-shadow .15s}
+  padding:12px 14px;transition:border-color var(--dur-base),box-shadow var(--dur-base)}
 .pc-card:hover{box-shadow:var(--shadow-sm)}
 .pc-card.is-def{border-color:rgba(var(--p-rgb),.45);background:var(--p-bg)}
 .pc-card.is-off{opacity:.6}

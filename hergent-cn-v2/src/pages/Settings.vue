@@ -1530,7 +1530,7 @@ onMounted(() => {
 .tb-title{font-size:14px;font-weight:600;color:var(--t1)}
 .tb-right{margin-left:auto}
 /* 胶囊 + 内层无边框 input：焦点反馈挂胶囊整体，避免全局 .fld:focus 光晕悬空浮在胶囊内（同 Forecast） */
-.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);transition:border-color .2s,box-shadow .2s}
+.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);transition:border-color var(--dur-slow),box-shadow var(--dur-slow)}
 .tb-search:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
 .tb-search .fld:focus{box-shadow:none}
@@ -1695,7 +1695,7 @@ onMounted(() => {
       再叠一层展开/收起就是多余的两次点击。 */
 .domtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
 .domtabs button{border:1px solid var(--bd);background:var(--bg);color:var(--t2);
-  border-radius:999px;padding:5px 14px;font-size:13px;cursor:pointer;transition:all .15s}
+  border-radius:999px;padding:5px 14px;font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .domtabs button:hover{border-color:var(--p);color:var(--p-dark)}
 .domtabs button.on{background:var(--p-bg);border-color:var(--p);color:var(--p-dark);font-weight:600}
 /* 页签上的数字：没搜索时 = 该域有几行；搜索时 = 命中几个。

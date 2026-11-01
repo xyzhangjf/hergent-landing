@@ -540,7 +540,7 @@ onBeforeUnmount(() => {
    320px 级机型再隐藏品牌文字（`.tb-brand b`），见 Shell.vue 的 360 断点。 */
 @media(max-width:768px){ .wx{display:none} }
 .wx-now{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:18px;
-  background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
+  background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all var(--dur-base);white-space:nowrap}
 .wx-now:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .wx-now.dim{opacity:.6}
 .wx-ic{font-size:16px;line-height:1}
@@ -571,7 +571,7 @@ onBeforeUnmount(() => {
 /* 首帧未定位前隐藏：避免先出现在静态位置、再跳到按钮下方 */
 .wx-pop.pre{visibility:hidden}
 .wx-search{display:flex;gap:6px;align-items:center;width:260px}
-.wx-input{flex:1;min-width:0;height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--glass-border);
+.wx-input{flex:1;min-width:0;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--glass-border);
   background:var(--bg);color:var(--t1);font-size:13px;outline:none}
 .wx-input:focus{border-color:var(--p)}
 .wx-loc{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--p);background:transparent;

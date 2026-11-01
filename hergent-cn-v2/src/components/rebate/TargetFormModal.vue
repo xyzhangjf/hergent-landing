@@ -1096,9 +1096,9 @@ async function save() {
 .cf-tbl{width:100%;margin-bottom:12px}
 .cf-sol{font-size:12px;color:var(--t3);line-height:1.7;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px;margin:0}
 .cf-sol b{color:var(--t1)}
-.fade-enter-active,.fade-leave-active{transition:opacity .2s}
+.fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
-.modal-enter-active,.modal-leave-active{transition:all .25s ease}
+.modal-enter-active,.modal-leave-active{transition:all var(--dur-slow) ease}
 .modal-enter-from,.modal-leave-to{opacity:0;transform:translate(-50%,-46%)}
 @media(max-width:768px){ .form-grid2{grid-template-columns:1fr} }
 </style>

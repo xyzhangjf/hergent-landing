@@ -204,7 +204,7 @@ onBeforeUnmount(() => {
   background:var(--bg2);color:var(--t2);
   font-size:12px;line-height:18px;white-space:nowrap;
   cursor:pointer;user-select:none;align-self:center;
-  transition:background .15s ease,border-color .15s ease,color .15s ease;
+  transition:background var(--dur-base) ease,border-color var(--dur-base) ease,color var(--dur-base) ease;
 }
 .kbd-chip:hover,
 .kbd-chip.on{border-color:var(--p);background:var(--p-bg);color:var(--t1)}

@@ -370,7 +370,7 @@ onMounted(load)
 .br-fresh{display:block;margin-top:4px;font-size:11px;color:var(--t3)}
 
 .br-presets{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-.br-chip{height:32px;padding:0 14px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);border-radius:999px;font-size:12px;cursor:pointer;transition:all .15s}
+.br-chip{height:32px;padding:0 14px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);border-radius:999px;font-size:12px;cursor:pointer;transition:all var(--dur-base)}
 .br-chip:hover{border-color:var(--p)}
 .br-chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 
@@ -387,7 +387,7 @@ onMounted(load)
 .br-filters input[type=date]{width:150px}
 .br-tilde{color:var(--t3)}
 .br-chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--t2);cursor:pointer;user-select:none}
-.br-btn{height:38px;padding:0 18px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);border-radius:10px;font-size:13px;cursor:pointer;transition:all .15s}
+.br-btn{height:38px;padding:0 18px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);border-radius:10px;font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .br-btn:hover:not(:disabled){border-color:var(--p);color:var(--p-dark)}
 .br-btn:disabled{opacity:.5;cursor:default}
 

@@ -491,11 +491,11 @@ onMounted(() => { load(); loadCatalog() })
 .rm-empty{background:var(--bg2);border-radius:12px}
 
 .rm-list{display:flex;flex-direction:column;gap:12px}
-.rm-card{display:flex;gap:14px;padding:16px;border:1px solid var(--bd);border-radius:14px;background:var(--bg);transition:opacity .15s}
+.rm-card{display:flex;gap:14px;padding:16px;border:1px solid var(--bd);border-radius:14px;background:var(--bg);transition:opacity var(--dur-base)}
 .rm-card.off{opacity:.5}
 
 .rm-av-wrap{position:relative;flex-shrink:0}
-.rm-av-btn{width:46px;height:46px;border:1px dashed var(--bd);border-radius:12px;background:var(--bg2);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color .15s}
+.rm-av-btn{width:46px;height:46px;border:1px dashed var(--bd);border-radius:12px;background:var(--bg2);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;overflow:hidden;transition:border-color var(--dur-base)}
 .rm-av-btn:hover{border-color:var(--p-dark)}
 .rm-av-btn.sm{width:40px;height:40px}
 .rm-av-img{width:100%;height:100%;object-fit:cover;display:block}
@@ -504,7 +504,6 @@ onMounted(() => { load(); loadCatalog() })
 .rm-main{flex:1;min-width:0}
 .rm-name{font-size:15px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:8px}
 .tag{font-size:11px;font-weight:500;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t2)}
-.tag.info{background:rgba(var(--p-rgb),.12);color:var(--p-dark)}
 .rm-open{font-size:12px;color:var(--t3);margin-top:4px;line-height:1.5}
 .rm-sys{font-size:13px;color:var(--t2);margin-top:6px;line-height:1.6;white-space:pre-wrap;max-height:84px;overflow:hidden}
 .rm-ops{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
@@ -535,8 +534,8 @@ onMounted(() => { load(); loadCatalog() })
 /* 开关（本页 scoped，自包含） */
 .switch{position:relative;width:40px;height:22px;flex-shrink:0;cursor:pointer;display:inline-block}
 .switch input{opacity:0;width:0;height:0}
-.switch .slider{position:absolute;inset:0;background:var(--bg3);border-radius:22px;transition:.2s}
-.switch .slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch .slider{position:absolute;inset:0;background:var(--bg3);border-radius:22px;transition:var(--dur-slow)}
+.switch .slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:var(--dur-slow)}
 .switch.on .slider{background:var(--p-dark)}
 .switch.on .slider::before{transform:translateX(18px)}
 

@@ -13741,7 +13741,7 @@ provide('sprintSummary', sprintSummary)
   background:transparent;color:var(--t1);
   border:1px solid var(--bd);
   cursor:pointer;user-select:none;
-  transition:background .15s;
+  transition:background var(--dur-base);
 }
 .confirm-badge.filter.filter-act:hover{background:var(--bg2)}
 /* v602：**三个徽标不带图标，只留文字**（用户拍板）。
@@ -14142,7 +14142,7 @@ provide('sprintSummary', sprintSummary)
    光晕不贴合胶囊边界，变成凭空浮在胶囊内部的一圈淡青方框（且 input 高 32px 溢出
    容器 30px 内容区，光晕上下还会顶出胶囊）。修法：焦点反馈上移到胶囊整体，
    对齐 CopilotDrawer 的 .cp-composer:focus-within 范式。 */
-.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);flex:0 0 auto;transition:border-color .2s,box-shadow .2s}
+.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);flex:0 0 auto;transition:border-color var(--dur-slow),box-shadow var(--dur-slow)}
 .tb-search:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
 .tb-search .fld:focus{box-shadow:none}
@@ -14722,7 +14722,7 @@ provide('sprintSummary', sprintSummary)
 .sd-spec{font-size:12px;color:var(--t3);margin-left:6px}
 .sd-meta{font-size:12px;color:var(--t3);margin-top:2px}
 .sd-bc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;opacity:.85}
-.qty-input{width:72px;height:30px;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);text-align:right;background:var(--bg3);color:var(--t1)}
+.qty-input{width:72px;height:32px;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);text-align:right;background:var(--bg3);color:var(--t1)}
 /* 🔴 v606：**编辑表 31px 行高的元凶**。原来是 30×30 + `display:inline-flex` ⇒ 按**基线**
    参与行盒（和 v579 表头齿轮同一个坑），把 20px 的行硬顶到 31px，154 行白丢 11px×153。
    改法同 v579：`display:flex`（block 级 ⇒ 不生成行内行盒，居中交给 `margin:0 auto`），
@@ -14832,7 +14832,7 @@ provide('sprintSummary', sprintSummary)
    z-index 高于页面浮层（--z-page-fs=1000）与表体浮层（1250 同档），避免被全屏网格压住。 */
 .jump-pop{position:fixed;left:50%;top:14vh;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:0 14px 36px rgba(0,0,0,.18);min-width:380px;box-sizing:border-box}
 .jump-ic{display:flex;align-items:center;flex:none;color:var(--t2)}
-.jump-input{flex:1;min-width:190px;height:30px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);font-size:13px;outline:none;box-sizing:border-box}
+.jump-input{flex:1;min-width:190px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);font-size:13px;outline:none;box-sizing:border-box}
 .jump-input:focus{border-color:var(--p)}
 /* v212（P2-2）：软警告角标（黄=疑）—— 与红角标**同形不同角**，靠颜色深浅分两档。
    位置：**右上角**（红在左上、填充柄在右下、左下留给行号格的红条，四角不打架）。
@@ -14988,9 +14988,6 @@ provide('sprintSummary', sprintSummary)
 .var-cat{margin-top:8px;border-top:1px dashed var(--bd);padding-top:6px}
 .var-cat-hd{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:4px}
 .nl-row{display:flex;gap:8px;align-items:center;margin-top:6px}
-.tag.ok{background:var(--ok-green-bg);color:var(--ok-green)}
-.tag.info{background:var(--info-blue-bg);color:var(--info-blue)}
-.tag.warn{background:var(--warn-amber-bg);color:var(--warn-amber)}
 /* P14-P16 第五轮增强样式 */
 :deep(.hs-badge){cursor:help;font-size:11px;margin-left:2px;color:var(--info-blue)}
 .mini-form{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
@@ -15064,7 +15061,7 @@ provide('sprintSummary', sprintSummary)
    清空 = 一个都不勾（两者在「不勾 = 不过滤」口径下都显示全部行，但按钮角标不同）。 */
 .brand-pop .bp-selall{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;
   font-size:12px;font-weight:400;color:var(--t2);cursor:pointer;user-select:none;
-  white-space:nowrap;padding:2px 5px;border-radius:5px;transition:background-color .15s,color .15s}
+  white-space:nowrap;padding:2px 5px;border-radius:5px;transition:background-color var(--dur-base),color var(--dur-base)}
 .brand-pop .bp-selall:hover{background:var(--bg2);color:var(--p-ink)}
 .brand-pop .bp-selall.is-off{cursor:not-allowed;color:var(--t3);opacity:.55}
 .brand-pop .bp-selall.is-off:hover{background:none;color:var(--t3)}

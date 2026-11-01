@@ -395,9 +395,9 @@ onMounted(load)
 .dl-map{margin-top:12px;display:flex;flex-direction:column;gap:10px}
 .dl-inc{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);cursor:pointer}
 
-.fade-enter-active,.fade-leave-active{transition:opacity .2s}
+.fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
-.pop-enter-active,.pop-leave-active{transition:transform .2s ease,opacity .2s ease}
+.pop-enter-active,.pop-leave-active{transition:transform var(--dur-slow) ease,opacity var(--dur-slow) ease}
 .pop-enter-from,.pop-leave-to{transform:translate(-50%,-48%);opacity:0}
 
 @media(max-width:768px){

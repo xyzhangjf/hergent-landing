@@ -132,11 +132,11 @@ onBeforeUnmount(() => {
 .ito-desc b{color:var(--t1);font-weight:600}
 .ito-sec{display:inline-block;min-width:1.6em;font-variant-numeric:tabular-nums;color:var(--war)}
 .ito-actions{display:flex;gap:10px;margin-top:20px}
-.ito-btn{flex:1;height:38px;border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:10px;font-size:13px;cursor:pointer;transition:all .15s}
+.ito-btn{flex:1;height:38px;border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:10px;font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .ito-btn:hover{border-color:var(--p);color:var(--p-dark)}
 .ito-btn.primary{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
 .ito-btn.primary:hover{filter:brightness(1.06);color:#fff}
 
-.ito-fade-enter-active,.ito-fade-leave-active{transition:opacity .18s ease}
+.ito-fade-enter-active,.ito-fade-leave-active{transition:opacity var(--dur-base) ease}
 .ito-fade-enter-from,.ito-fade-leave-to{opacity:0}
 </style>
