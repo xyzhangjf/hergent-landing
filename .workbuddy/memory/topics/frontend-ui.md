@@ -4833,3 +4833,48 @@ FundsReconcile/OutboundList）⇒ **换页面用同名类就静默退回灰底**
 ### G. 提交时剔掉别人在同一文件里的在途改动
 
 `CopilotDrawer.vue` 里二维码 `dark:'#0f172a'→'#000000'` 不是本轮的。做法：工作区内容里把那一行换回 HEAD 版 → 写 `/tmp/x.clean.vue` → `git hash-object -w` → `git update-index --cacheinfo 100644,<blob>,<path>`。**工作区保持原样**（仍留给对方提交）。提交后自证：`git cat-file blob :<path> | grep -c "<对方的新值>"` == 0，而工作区 `grep -c` == 1。
+
+## v720（视觉一致性 + 无障碍）判据原文
+
+### A. 为什么「间距令牌化」做不了（别再来第二次）
+- `padding` 声明 1360 条 / **229 种取值**，首值占比 9.6%；`gap` 1264 条 / 39 种（前 3 档 62%）；间距声明合计 2428 条。
+- `--sp-1..6` 六个令牌**全站仅被引用 18 次** —— 且 14/18/20 本身不在 4pt 网格。令牌是摆设，不是事实来源。
+- v717 的「某属性 >75% 集中在少数值 ⇒ 直接改令牌值」判据**要求取值收敛**，间距不满足 ⇒ 想统一只能「按容器逐一归一」= 全站重排。结论：**不做**，要做得先立 4/8pt 网格并接受逐页视觉回归。
+
+### B. `.ico` 压掉 `size` 属性（v720 根因，最值得记的一条）
+- `variables.css` 原有一条 `.ico{width:16px;height:16px}`。SVG 的 `width`/`height` 是 **presentation attribute**，优先级低于**任何** CSS 规则（哪怕是 0 特异性的 `svg{}`）。
+- 后果：模板 `<Icon :size>` 11 档（11/12/13/14/15/16/17/18/20/22/26）全部被压平，生产实测 **77.8% 渲染成 16×16**（`attr=13 → box=16`）。也就是说「图标八档」从 v5xx 起就是纸面声明。
+- 修法与顺序：① 先删 `.ico` 的 `width/height`，补 `flex:0 0 auto`（防 flex shrink）；② 再归一模板 86 处 / 42 文件 `{11,12,13→14} {15,17→16} {20→18} {26→22}`；③ 最后加护栏 `ICON_SIZES={14,16,18,22}`，**顺序反了会先冒出一批 22/26 的巨图标**。
+- **残留 3 处父级规则仍显式覆盖**（刻意保留，不是漏）：`Forecast.vue:13787` `.th-funnel .ico{10px}`、`Forecast.vue:15029` `.exp-chev svg{14px}`、`InvSaleList/InvPurchaseList/InvTransferList` 的 `.isl-sort-ind / .ipl-sort-ind svg{12px}`，约 64 个图标。它们是密集表头的窄装饰件，表头行高由密度契约锁死，放大到 16 会挤行 ⇒ 留到「表头重排」一起做。
+
+### C. `:active` 是全站唯一缺失的交互态
+- 改前统计：9 页 **939 个可交互元素**，hover 717(76%)、**active 0(0%)**、disabled 502(53%)；全站 `:active` 规则**仅 4 条**（`.md-item`/`.md-item-new`/`.cp-send`/`.drag`）。
+- 实现禁忌：**禁用 `transform:scale()`** —— 会创建层叠上下文与包含块，元素内所有 `position:fixed/absolute` 子级（下拉面板、悬浮菜单、tooltip）被重新锚定到按钮身上，点一下面板就飞。用 `background-image:linear-gradient(rgba(0,0,0,.07),…)` + `box-shadow:inset 0 1px 2px`，纯绘制层，零副作用。
+- 三类写法：按钮族叠色+内阴影｜列表/标签族直接切 `background:var(--bg4)`｜文字链切 `color:var(--p-deep)`。深色主题必须单独一套（叠白 7%、内阴影 `.35`）。
+- 结果：408/939（43%），顺带 hover 717→789。
+
+### D. 兜底 h1：判「可见性」不判「存在性」
+- `Shell.vue` 的 `sr-only` h1 逻辑：`srTitle = tabTitle(route.path, route.query, route.meta.title)`（与标签页标题**同源**，避免两处不一致）→ 探测 `.view-wrap h1` 且 `getClientRects().length > 0` → 有可见 h1 就不渲染兜底。
+- 🔴 为什么不能用存在性：`Archive.vue` 外壳自 v501 起**刻意 `display:none` 页头**，那两页 `<h1>` 存在但**不在无障碍树**。按存在性判 ⇒ 这两页判定「已有 h1」⇒ 兜底不渲染 ⇒ 实际 0 个可访问 h1。
+- 时序：路由切换后 **0 / 160 / 520ms 三次复检**（页面组件异步 chunk，第一次探测必然扑空），卸载时清定时器。
+- `.sr-only` 用 `clip-path:inset(50%)` + `width/height:1px`，**别写 `left:-9999px`**（RTL 与打印会翻车）。
+- 结果：10 页每页恰好 1 个**可访问** h1（档案两页 DOM 里 2 个，`display:none` 那个不在树上）。
+
+### E. 表单程序化名称：根因是「视觉标签不是 label」
+- 150 个可见控件里 72 个无程序化名称，开单单据 **53/53 全裸**。根因：`isn-lb` / `ipn-lb` 是 `<div>/<span>`（**没有 `for`**），`psi-lb` 虽是 `<label>` 但同样**没有 `for`** ⇒ 都不进无障碍树。
+- 修法：**不改共享件**（`psi-lb` 遍布全站，改它影响面大），只在调用方逐个补 `aria-label`；含插值的用 `:aria-label="\`第${i+1}行 数量\`"`（多行时必须带行号，否则 6 行全是同一个名字）。
+- 三批：建单页 25 处 / 4 文件、行内控件 11 处、列表筛选条 24 处 / 9 文件。结果 0/150。
+
+### F. 探针三个坑（都是假阴性，v720 连踩三次）
+1. **`CSSRuleList` 不是可迭代对象** —— `for (const r of list)` 直接抛 `TypeError`，被外层 `try/catch` 吞掉 ⇒ 读数全 0，看着像「全站没有规则」。
+2. **支持 CSS 嵌套后，每条样式规则都带一个空 `cssRules`**（对象恒真）—— `if (r.cssRules) { walk(...); continue }` 会把**所有**规则当容器跳过，规则数恒 0。正解：**先取 `selectorText` 决定是否收集，再 `if (r.cssRules && r.cssRules.length) walk(...)`**。
+3. **取选择器主体要按括号深度切分** —— `split(/\s/)` 会把 `:where(button, a, input, …)` 里的空格当组合器切开，末段退化成 `[tabindex])` 碎片，`matches()` 全 false ⇒ 焦点覆盖率假报 4%（真实 315 处被判成 36 处）。正解 `topLevelCompounds(s)`：遇 `(` `[` 深度 +1、`)` `]` 深度 −1，**深度 0** 时的 `\s>+~` 才切。
+- 阳性对照：`.input` 聚焦后必须 `inputMatches: true`；读到规则原文 `:where(button,a,input,…):focus-visible:focus-visible` 才说明选择器解析对了。
+
+### G. 临时探针算不准 `backdrop-filter` 顶栏
+- 自写探针只累加 `background-color` 的 alpha，顶栏是半透明底 + `backdrop-filter`，叠加后算出 **147 处「2.21:1」** —— 全部集中在 `tb-sub`/`wx-ic`/`wx-temp`/`tb-user-name`/`tb-cp-txt`，且值全是同一个 2.21（本质是同一个底色错了）。
+- 既定探针 `tools/v716-contrast-audit.mjs` 读完整个层叠链后：8 页 **3289 文本节点只剩 1 处** 1.96:1 = 「下一步」按钮的 **`:disabled`**（WCAG 1.4.3 豁免）。
+- 判据：**判对比度只认既定探针**；临时探针出现「所有不达标值完全相同」先怀疑底色算错，而不是去改色。
+
+### H. 本轮契约口径反转
+- `colmenu-sync.contract.mjs` 断言「全站齿轮 `<Icon>` 一律 `:size="15"`」，v720 把 15 归到 16 ⇒ 按 §5.49 **就地反转期望值并注明「v720 由 15 反转」**，保留编号与判据形态，**不许删断言**。

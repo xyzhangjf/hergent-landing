@@ -1,6 +1,6 @@
 # Hergent 记忆索引（只放判据首句 + 去哪查；细节一律 `topics/*.md`）
 
-> 前端构建号 **v719**，下一号 **v720**（`hergent-cn-v2/src/main.js:71`，commit `65c60ab`）。v714–v716 无发版（审计/权限/企微补丁/UI 评审）；v717 修 P0（对比度+字号）、v718 落地 P1（焦点环/令牌/状态与空态）、**v719 落地 P2 + 硬编码色 166→0**（护栏现 0/0，新色即构建失败）。域索引 → `topics/route-index.md`，**动手前按域 grep**。
+> 前端构建号 **v720**，下一号 **v721**（`hergent-cn-v2/src/main.js:71`）。v714–v716 无发版（审计/权限/企微补丁/UI 评审）；v717 修 P0（对比度+字号）、v718 落地 P1（焦点环/令牌/状态与空态）、v719 落地 P2 + 硬编码色 166→0、**v720 全站视觉一致性与无障碍**（按下态 0→43%、图标 11→4 档、圆角 15→11 档、无标签控件 72→0、h1 3/9→10/10）。域索引 → `topics/route-index.md`，**动手前按域 grep**。
 > 唯一开发源 = `main`（v705 `02a1b28` 合并完两线）；`line-a/v678`、`workbuddy/*` 不再开发 ⇒ 判「修过的 bug 又回来了」先 `git merge-base --is-ancestor <修复commit> HEAD`。
 > 🔴 合并/解冲突三教训（`2026-10-31.md`）：冲突块**之外**也有假象（重复 `export`／重复对象键／整段模板被覆盖 ⇒ **构建不报错**）；合并后**必须** `npm test` + `npm run build`；同功能两份客户端 API 按**消费方**取舍。
 > 🔴 「改了但用户说没变」第一步查构建号 `window.__HG_BUILD__`（`main.js` 唯一定义）+ `html[data-build]`；SPA 老标签页不重拉 index.html ⇒ 每版手改。判产物不以「dist 存在」为准：`grep -o "v70x" dist/assets/index-*.js`；`mv dist-vNNN dist` 会嵌套 ⇒ 闭包全 200 也能骗过（v637）。
@@ -22,6 +22,11 @@
 - 🔴 **护栏自己有假阳性**：任务号 `<!-- #356：… -->`／`// #357` 全是**合法 hex 字符** ⇒ 单文件虚报 4 条。必须 `stripComments()` 剥 HTML/块/行三类注释，行注释用 `(^|\s)//` 且**排除 `://`**（否则 URL 后半行被吞）。护栏可信度取决于不冤枉人 —— 一条假阳性就让人想整体关掉。
 - 🔴🔴 **原生 `<input type=checkbox>` 是 replaced element，`::before/::after` 根本不渲染** ⇒ 评审给的 `::before{inset:-8px}` 扩热区方案对 checkbox 不成立，只能包 `<label>`（原生关联行为，不与 `v-model` 打架）。且 81 处 checkbox 里 **70 处本就包在 `<label class="check-item">`**、热区是整行 —— 评审只量了 input 本体（13×13）。统一用全局 `.cb-hit`，不各页抄副本。
 - 🔴 **探针（前端）三条**：应用是 **hash 路由** ⇒ URL 必须 `https://hergent.cn/#` + path（写 `/archive/products` 会全被重定向到 `#/workbench`，表现为「九页节点数完全相同」）｜hash 切换等 **3200ms**（2600 会误判 h1=0）｜token 过期时页面**静默回退** `#/workbench`（用户名变「我」）。
+- 🔴🔴 **`.ico{width/height:16px}` 会压掉 `:size` 属性**（v720）：SVG 的 `width`/`height` 是 **presentation attribute**，优先级低于**任何** CSS 规则 ⇒ 模板 11 档 `size` 全被压平，生产实测 77.8% 渲染成 16×16（`attr=13 → box=16`）。同理：改控件尺寸若只改属性、CSS 里还有同名规则，等于没改。护栏 `check-tokens.mjs` 现锁 `ICON_SIZES={14,16,18,22}`。
+- 🔴🔴 **`:active` 别用 `transform:scale()`**（v720）：会创建层叠上下文与包含块，元素内 `position:fixed/absolute` 子级（下拉/浮层）被重新锚定 ⇒ 点一下面板就飞。用 `linear-gradient` 叠色 + `inset` 内阴影，零副作用。附：「全站唯一缺失的交互态」要靠**枚举全部规则**（含嵌套）统计，`:active` 当时全站仅 4 条 vs 939 个可交互元素。
+- 🔴 **兜底 h1 的判据是「可见性」不是「存在性」**（v720）：`display:none` 的元素同时不在无障碍树 ⇒ 必须 `getClientRects().length > 0` 才算有标题，否则 `Archive.vue` 那两页（自 v501 `display:none` 页头）会被误判成「已有 h1」而漏兜底。`.sr-only` 用 `clip-path:inset(50%)`，别写 `left:-9999px`（RTL/打印翻车）。
+- 🔴🔴 **写 CSS 规则统计探针三个坑**（v720，全是假阴性）：① `CSSRuleList` **不可 `for...of` 迭代**，直接抛 `TypeError` 且被 `try/catch` 吞掉 ⇒ 读数全 0；② 支持 CSS 嵌套后**每条样式规则都带空 `cssRules`**（对象恒真）⇒ `if (r.cssRules) continue` 会把所有规则当容器跳过 ⇒ 必须**先取 `selectorText` 再决定下沉**；③ 取选择器主体要**按括号深度切分**，`split(/\s/)` 会把 `:where(a, b, c)` 里的空格当组合器 ⇒ `matches()` 全 false（真实 315 处焦点被判成 36 处）。三坑叠加能让「焦点环已达标」变成「焦点覆盖率 4%」。
+- 🔴 **临时探针算不准 `backdrop-filter` 顶栏的对比度**（v720）：只累加 `background-color` 的 alpha 会得出 147 处「2.21:1」的假阳性，既定探针读完整个层叠链后只剩 1 处 `:disabled`（WCAG 豁免）⇒ 判对比度**只认 `tools/v716-contrast-audit.mjs`**。
 - 🔴 **`.page-hd` 内 h2→h1 两个坑**（v719）：页头规则要写成 `.page-hd :is(h1,h2)` 双代兼容（`Forecast.vue` 有 `:deep()` **隐藏**规则也依赖该选择器）；`<h1>` 带 UA 默认 `margin:0.67em` ⇒ 必须显式 `margin:0`。另：`Archive.vue` 外壳自 v501 **刻意 `display:none` 页头** ⇒ 档案两页 h1 宽高 0 是设计不是缺陷。
 - 🔴 **Python 替换不要用长度不等的占位符**：`page-hd`(7) 换 `@@DONE@@`(8) 每个处理位吞掉后一字符 ⇒ 88 文件变 `class="page-hd>`，构建才报 `Attribute name cannot contain U+0022`。改用「按块切片、不回写占位符」。
 - 🔴🔴 **AA 下限使「三级灰」实际只能两级**：bg4 上要过 4.5 必须 ≤`#6a6a70` ⇒ `--t2` 与 `--t3` 同取 `#6a6a70`（深色同取 `#b4b4b8`）。别再靠 t2/t3 深浅体现层级。
