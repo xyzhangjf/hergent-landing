@@ -4674,3 +4674,37 @@ const list = computed(() => show ? allList.value : allList.value.filter(m => m.i
    + `window focus` 时拉一次比对入口文件名。判「点击是否发请求」必须滤掉它，只认 `/api/`。
 3. **同 URL 的 `goto` 不重载 SPA**：hash 相同 ⇒ 只触发路由，组件状态保留（不是干净初始态）。
    要真重载用 `Page.reload`。造「全停用」这类场景用 **fetch 桩 + Page.reload**（只读，不动库）。
+
+### 🔴 「默认隐藏某状态」已抽公共件（v713）—— 新页面直接套，别再造第三份
+`composables/useInactiveFilter.js`（数据层）+ `components/InactiveToggle.vue`（纯受控 UI）。
+接入方式两种，**按数据源形态选**：
+```js
+// ① 全量常驻（零请求、即时生效）—— 员工/品牌/渠道/告警/买赠/报单对象
+const all = ref([]); const { showInactive, inactiveCount, list } = useInactiveFilter(all)
+// ② 服务端分页（商品档案）—— 组件只管 UI，v-model 接到查询参数上
+<InactiveToggle :model-value="inc" :count="n" @update:model-value="v => {...; reload()}" />
+```
+🔴 **判据只认 `is_active === 0 || === false`，缺失字段当启用**。
+写成 `!r.is_active` ⇒ 后端某次少下发该字段时 `!undefined === true` ⇒ **整表判成停用并全部藏起来**，
+用户看到「数据没了」。这类静默灾难比写错文案严重得多。
+🔴 **服务端分页的页面绝不能改前端过滤**：停用记录会混进某一页、后端 `total` 对不上。
+🔴 **全量 ref 必须留给其它消费方**：员工档案的保存后回读校验、品牌档案的下拉候选、
+告警规则的 KPI 与历史规则名查找 —— 跟着视图筛选走会分别变成
+「刚保存成功却查不到这个人」/「回填选中不存在的选项」/「规则总数只数启用的」。
+
+### 🔴 判「该给哪些页面做」看**数据分布**，不是看代码有多少候选（v713）
+静态 grep 出 20 个含 `is_active` 的页面，但生产库 79 张有该字段的表里
+**只有 2 张真有停用记录**（`products` 104/494、`report_mapping` 6/27），其余全 0。
+⇒ 光看代码会把 0 停用的页面也当急事；**`select is_active,count(*) group by` 才决定优先级**。
+另外单据类（`draft/confirmed/void`）与安全审计类（已吊销 token **必须**常驻可见）
+是明确反例，不要套「默认收起」。
+
+### 🔴 探针：fetch 桩必须用 `page.addInitScript`，不能用 `page.eval`（v713）
+`Page.reload` 会重建 window，`window.fetch` 被打回原样；而业务请求在 reload 后**立刻发出**，
+`eval` 再装来不及 ⇒ 桩不生效，页面显示真实数据，看起来像「功能坏了」（v713 首版 3 条假失败）。
+定式：`const sid = await page.addInitScript(stub)` → `Page.reload` → 用完 `removeInitScript(sid)`。
+🔴 必须再加一条元断言 `window.__stubHit > 0`：**桩没生效**与**功能坏了**长得一模一样。
+
+### 🔴 服务端分页页面的判据不能用 DOM 行数（v713）
+商品档案每页 50 行，行数恒等于 50，切「显示已停用」看不出任何变化 ⇒ 会误判「没生效」。
+用后端 `total`（页面上 `.pa-stat b` 那个数字）：默认 390 → 展开 494 → 收回 390。
