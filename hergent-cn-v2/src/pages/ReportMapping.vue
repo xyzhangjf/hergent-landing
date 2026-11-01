@@ -83,6 +83,21 @@
            Excel 导入=POST /api/report-mappings/import ⇒ data/create -->
       <button v-if="canDo('data', 'create')" class="btn btn-primary" @click="openCreate">+ 新建配置</button>
       <button v-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" @click="importOpen = true">Excel 批量导入</button>
+      <!-- v712：已停用记录**默认不展示**（列表 / 序号 / 条数都不含它们），
+           这里给一个显式开关让它们随时可见。写法照抄 `Forecast.vue` 的 `.tb-toggle`
+           （「显示全部商品」「显示空列」用的就是这套）：同行控件高 32 / 13px / radius 8。
+           🔴 没有停用记录时**不渲染**：一个「显示已停用（0）」的开关是纯噪音。
+           计数放在文字里，是为了让人在收起状态下也知道「藏了几条」—— 否则
+           「我明明有 12 条配置，怎么只看到 9 条」会变成一次新的询问。 -->
+      <label
+        v-if="inactiveCount"
+        class="tb-toggle"
+        :class="{ on: showInactive }"
+        :title="showInactive ? '收起已停用的配置（它们不会被删除，随时可以再显示）' : '把已停用的配置一并列出来（默认不展示，不影响它们的启用/编辑）'"
+      >
+        <input type="checkbox" v-model="showInactive">
+        显示已停用（{{ inactiveCount }}）
+      </label>
     </div>
 
     <!-- 列表 -->
@@ -124,7 +139,15 @@
               <button v-else-if="canDo('data', 'create')" class="btn btn-ghost btn-sm" @click="toggle(m.id, 1)">启用</button>
             </td>
           </tr>
-          <tr v-if="!list.length"><td colspan="10" class="empty">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</td></tr>
+          <!-- v712：空态必须分两种，否则「全部是停用」会被说成「暂无报单配置」——
+               那是**谎报**：数据在，只是被收起了。而「下拉到显示开关」不是所有人都想到的动作，
+               所以这里直接给一个就地按钮，点一下就把它们放出来。 -->
+          <tr v-if="!list.length">
+            <td colspan="10" class="empty">
+              <template v-if="!allList.length">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</template>
+              <template v-else>当前没有启用中的配置（{{ inactiveCount }} 条已停用已收起）——<button type="button" class="lnk-btn empty-lnk" @click="showInactive = true">显示已停用</button></template>
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -413,7 +436,20 @@ const { isVisible, toggleCol, resetCols } = useColSettings('REPORT-MAPPING', COL
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
-const list = ref([])
+/* 🔴 列表数据分两层：
+   `allList` = 接口返回的**全量**（`include_inactive:1`，含已停用）；
+   `list`    = 实际渲染的视图（默认剔除已停用）。
+   停用行是「历史 / 待恢复」的东西，天天挂在主列表里只会稀释当前在用的配置，
+   还会让序号和「共几条」的感知失真 —— 所以默认收起，但不删除、不丢数据。
+
+   ⚠️ 为什么纯前端过滤、不给接口追加参数：`include_inactive:1` 本来就拿到了全量，
+   开关切换因此**无需再发请求**（用户要求「即时生效」，网络往返做不到零延迟）；
+   而且停用行总要能一键看到，拆成两次请求反而多一个失败点、多一种「切过去是空的」
+   的中间态。数据量是配置级（几十条），全量常驻没有压力。 */
+const allList = ref([])
+const showInactive = ref(false)                                       // 默认隐藏已停用
+const inactiveCount = computed(() => allList.value.filter(m => m.is_active === 0).length)
+const list = computed(() => showInactive.value ? allList.value : allList.value.filter(m => m.is_active !== 0))
 const router = useRouter()
 /* v317：给「还没有外部客户账号」的提示条一个**真入口**。
    🔴 入口同判据（与 `EmployeeArchive::goConnect` 同规矩）：能进「报单配置」的人
@@ -805,7 +841,7 @@ function whShow(m) {
 }
 
 async function loadAll() {
-  try { list.value = await reportMappingApi.list({ include_inactive: 1 }) } catch (e) { toast(e.message || '加载失败', 'err') }
+  try { allList.value = await reportMappingApi.list({ include_inactive: 1 }) } catch (e) { toast(e.message || '加载失败', 'err') }
   try { const r = await reportMappingApi.health(); health.value = r } catch {}
   // 历史门店授权：接口或表缺失时静默降级为空（不能因为一条提示把整页带崩）
   try { const r = await reportMappingApi.legacyStores(); legacyStores.value = r.items || [] } catch { legacyStores.value = [] }
@@ -995,7 +1031,11 @@ async function toggle(id, target) {
     //    必须显式判 `res.error` —— 否则后端什么都没改、界面却报「已启用」= 静默失效。
     const res = await reportMappingApi.toggle(id, target)
     if (res && res.error) { toast(res.error, 'err'); return }
-    toast(target ? '已启用' : '已停用', 'ok')
+    /* v712：停用后这一行会**立刻从列表消失**（默认隐藏已停用）。不解释一句，
+       用户极可能以为「我刚点停用，这条配置被删了」。启用方向不用提示（行会重新出现）。
+       `showInactive` 为真时行仍在（灰色），此时不该说「已收起」—— 话必须跟界面一致。 */
+    const willHide = !target && !showInactive.value
+    toast(target ? '已启用' : (willHide ? '已停用（已收起，可用「显示已停用」查看）' : '已停用'), 'ok')
     await loadAll()
   } catch (e) { toast(e.message || '操作失败', 'err') }
 }
@@ -1050,6 +1090,19 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .chip{font-size:12px;padding:3px 9px;background:var(--bg2);border-radius:8px;color:var(--t2)}
 
 .toolbar{display:flex;gap:10px;align-items:center;margin:16px 0 12px}
+
+/* v712：工具栏右侧「显示已停用」开关。
+   🔴 逐属性对齐 `Forecast.vue` 的 `.tb-toggle`（全站工具行基准：高 32 / 13px /
+   radius 8 / padding 0 12px），**不能靠借样式** —— 两个 `<style scoped>` 各自
+   编译带不同的 data-v 属性，跨文件既拿不到也覆盖不了（v708 的老坑）。 */
+.toolbar .tb-toggle{margin-left:auto}
+.tb-toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--t1);background:transparent;border:1px solid var(--bd);border-radius:var(--radius-sm);height:32px;padding:0 12px;white-space:nowrap;cursor:pointer;user-select:none;flex:0 0 auto}
+.tb-toggle:hover{background:var(--bg2)}
+.tb-toggle input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
+/* 打开态高亮：那颗 14px 复选框太小，不额外染色的话「现在是开着还是关着」要靠找勾 */
+.tb-toggle.on{background:var(--p-bg);border-color:var(--p);color:var(--p-dark)}
+/* 空态里的就地入口：跟周围 13px 正文同号（.lnk-btn 默认 11.5px，用在工具栏合适，放进空态太小） */
+.empty-lnk{font-size:13px}
 
 /* v2026-09-23：弹窗字段分组 + 必填图例 + 内联校验 */
 .form-grp{display:flex;flex-direction:column;gap:12px}
