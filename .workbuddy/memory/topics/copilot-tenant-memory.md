@@ -23,3 +23,15 @@
 - 🔴 **气泡时间只认 `m.created_at`，三个来源必须都写**（v636）：后端 IM 同步 `select … timestamp`（Hermes 是 REAL 秒，×1000 存 ms）；前端每条 push 都带（`showDemo` 漏过）；`updated_at` **不许写 `now()`**（否则每打开一次历史就被改成"刚刚"、永远钉列表顶部）。v521(10-16) 前的旧 web 会话无法还原 ⇒ 不造假时间。
 - 🔴 **「打开副驾显示最后一次对话」两级取会话**（v637）：只按 `latestSessionOfRole(当前角色)` 会 100% 落空（真实最近会话常属别的角色或企微同步会话）⇒ `latestSessionOfRole(rid) || latestSessionOverall()`，恢复后归属角色 ≠ 当前则 `setAiRole` 跟过去；「接着上次聊」仍走严格口径。
 - 🔴 **副驾读表 = `spreadsheet_query._run_query`**（v638；企微端走 Hermes 自己的文件能力，所以两端表现会不同）：`by/bys`、`column/columns` **都支持多列**（交叉统计一次调完，拆两轮必错）；表头**自动探测**（舟谱/银行导出常在第 5 行），`summary` 回 `header_row`(1-based)，列名像标题就显式传它重试；单列调用仍回 `sum`+字符串 `by`（旧契约零改动）。
+
+## v715 企微流式占位（tools/hermes_wecom_ack_patch.py，现 v6，2026-11-01）
+
+**问题谱系**：`send_typing()` 在企微适配器里原是**空实现** ⇒ 发完消息 1~3 分钟零反馈（9-27 报障）⇒ 补丁用**企微原生流式消息**（`aibot_respond_msg` + `msgtype=stream`，`finish=false`）建占位，同 `stream.id` 再推是**原位全量替换**，`finish=true` 收口 ⇒ 聊天记录只留一条。
+
+- 🔴🔴 **v715 踩坑：企微客户端对流式消息自带「AI 生成中」动效**。v4 每 0.9s 推字符帧 `●··`/`·●·`/`··●`（灰、正文位），与客户端原生动效（彩、状态位）**节奏和位置都不同** ⇒ 老板看到「两个版本上下跳」。**这类"动画重复"先怀疑平台自带动效，不是我们两处代码重复**。
+- **v6 定式**：占位 = `\u200b`（不可见）+ 帧序列 `()`（空）⇒ 不做逐帧动画，只按 `--anim-interval`（默认 60s）**保活重推**（同内容，视觉零变化）。`_HERGENT_ANIM_MAX_SEC` 540s（官方要求首帧后 10 分钟内 finish）。
+- 🔴🔴 **`_send_reply_request()` 只在网络层抛异常；服务端业务拒绝是「正常返回带 errcode」** ⇒ 不查 errcode 就「发了但没显示」且日志全静。`_hergent_frame_ok()`：errcode≠0 记 WARNING；**首帧被拒⇒不建流**、**收口被拒⇒Return False**，两条路径都退回 `_hergent_orig_send()`。
+- 🔴 **收口后不许无条件报成功**：旧代码 `return SendResult(success=True)` 在流过期/req_id 失效时**把答案吞掉**。原则：宁可多一条普通消息，不丢答案。
+- 🔴 **看文件要看对路径**：`/opt/hermes-agent` 与 `/usr/local/lib/hermes-agent` 两份引擎，**进程跑后者**（`/usr/local/bin/hermes`）。查补丁/改适配器看 `/opt` 会误判成「没打」。
+- 🔴 **补丁打在 Hermes 发行版文件上 ⇒ 升级即覆盖**（现象=又变回「等半天没反应」）。升级后必跑 `--check`，rc=0 才算在位；脚本幂等、带 `.bak-hergent-<ts>` 备份、写后 `py_compile` 失败自动回滚，`--revert` 整块还原。
+- 想恢复「看得见」的占位：`--placeholder '●··' --anim-frames '●··|·●·|··●' --anim-interval 0.9`。

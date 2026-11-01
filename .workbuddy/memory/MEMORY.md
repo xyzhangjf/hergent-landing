@@ -42,6 +42,7 @@
 ## 🔴 副驾 / 租户 / 内存（全文 `topics/copilot-tenant-memory.md`）
 - 🔴 租户边界 = 进程用哪个系统账号（v635）：`gateway_api(tid)` 读该租户 `config.yaml` 的 `platforms.api_server.extra`（端口 `18800+tid`）；解析不到 ⇒ **必须 503，绝不回落根实例**。平台租户 1 = 根实例别名（v642）：凭证/state 走 `_host_home`、PID 走 `_systemd_main_pid`；`_identity_kwargs` 必须 `return []`（v646）。
 - 🔴🔴 同一企微 bot 只能一个 websocket 订阅：双连报 `846609` ⇒ 不回消息 + 100% CPU 重连死循环；卡住要 `kill -9` 连 `sudo -u` 包装一起杀。进程外推送必踢长连接（v648，2.2s 自愈）；`hermes send` **必须 `stdin=DEVNULL`**（v647）。`/root/.hermes/gateway_state.json` 会被临时 `hermes send` 写脏（v666）⇒ 判通道还要看 pid 是否 `hermes gateway run`。
+- 🔴 **企微「三点动画两个版本上下跳」= 我们补丁的字符动画 × 企微客户端对流式的原生动效叠加**（v715）。`tools/hermes_wecom_ack_patch.py` 现为 **v6**：占位 `\u200b`（不可见）+ 帧序列空（只 60s 保活重推）⇒ 位置全让给原生。🔴 **适配器在 `/usr/local/lib/hermes-agent/...`（进程跑这份），`/opt/hermes-agent` 是死副本**；补丁打发行版文件，**Hermes 升级即被覆盖**（现象=又变回「等半天没反应」）⇒ 升级后必跑 `--check`。🔴 `_send_reply_request()` **只在网络层抛异常，服务端拒绝是正常返回带 errcode** ⇒ 必须查 errcode，否则「发了但没显示」且日志全静；收口失败要退回普通发送，**绝不静默吞答案**。
 - 🔴 判后端内存看 `ps -o rss -p $(systemctl show -p MainPID --value hergent-erp)`，不看 `memory.current`；顶穿 `MemoryHigh` = D 状态锁死。成本 = 入口数 × 常驻进程 ⇒ 接客户就新开一台；闲置租户停不掉；镜像开客户必须先脱敏。
 - 🔴 气泡时间只认 `m.created_at`；「打开副驾显示最后一次」= `latestSessionOfRole() || latestSessionOverall()`（v637）；副驾读表 = `spreadsheet_query._run_query`（v638）｜改完 `hermes_tenants.py` 必须重启后端再做「杀掉观察 60s」。
 
