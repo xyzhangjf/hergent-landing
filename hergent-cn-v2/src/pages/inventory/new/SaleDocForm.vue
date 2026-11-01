@@ -40,7 +40,7 @@
            ⚠️ 选填：存量单（含舟谱导入）都没有这个值，强制必填会在快速开单时直接卡住。 -->
       <div class="isn-f">
         <label class="isn-lb">业务员</label>
-        <select v-model="form.handler" class="input isn-sel" @change="onHandlerChange">
+        <select aria-label="业务员" v-model="form.handler" class="input isn-sel" @change="onHandlerChange">
           <option value="">不指定</option>
           <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
         </select>
@@ -53,40 +53,40 @@
               两页看起来同名、落库形态不同，别互抄。 -->
       <div v-if="cfg.hasDept" class="isn-f">
         <label class="isn-lb">部门</label>
-        <select v-model="form.department" class="input isn-sel">
+        <select aria-label="部门" v-model="form.department" class="input isn-sel">
           <option value="">不指定</option>
           <option v-for="d in departments" :key="d.id" :value="d.name">{{ d.name }}</option>
         </select>
       </div>
       <div class="isn-f">
         <label class="isn-lb"><span class="isn-req">*</span>{{ cfg.whLabel }}</label>
-        <select v-model.number="form.warehouse_id" class="input isn-sel">
+        <select :aria-label="cfg.whLabel" v-model.number="form.warehouse_id" class="input isn-sel">
           <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
         </select>
       </div>
       <!-- 车销才有「送货司机」（自提没有，调拨走另一条内核）。 -->
       <div v-if="cfg.hasDriver" class="isn-f">
         <label class="isn-lb">送货司机</label>
-        <select v-model="form.driver_id" class="input isn-sel">
+        <select aria-label="送货司机" v-model="form.driver_id" class="input isn-sel">
           <option value="">不指定</option>
           <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
         </select>
       </div>
       <div class="isn-f">
         <label class="isn-lb">单据日期</label>
-        <input type="date" v-model="form.order_date" class="input isn-date" />
+        <input aria-label="单据日期" type="date" v-model="form.order_date" class="input isn-date" />
       </div>
       <div v-if="!cfg.isReturn" class="isn-f">
         <label class="isn-lb">交货日期</label>
-        <input type="date" v-model="form.delivery_date" class="input isn-date" />
+        <input aria-label="交货日期" type="date" v-model="form.delivery_date" class="input isn-date" />
       </div>
       <div v-if="!cfg.isReturn" class="isn-f">
         <label class="isn-lb">交货地址</label>
-        <input v-model.trim="form.delivery_address" class="input isn-addr" />
+        <input aria-label="交货地址" v-model.trim="form.delivery_address" class="input isn-addr" />
       </div>
       <div class="isn-f isn-f-grow">
         <label class="isn-lb">备注</label>
-        <input v-model.trim="form.note" maxlength="200" class="input isn-note-in" />
+        <input aria-label="备注" v-model.trim="form.note" maxlength="200" class="input isn-note-in" />
       </div>
     </div>
 
@@ -148,7 +148,7 @@
         <table class="tbl isn-tbl">
           <thead>
             <tr>
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
               <!-- 必填三列（商品 / 数量 / 单价）打红 `*`，判据 = `validate()` 里实际拦的字段。 -->
               <th class="isn-c-prod" :style="wStyle('prod')"><span class="isn-req">*</span>商品<ColResizeHandle col="prod" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-qty" :style="wStyle('qty')"><span class="isn-req">*</span>数量<ColResizeHandle col="qty" :start="startResize" :reset="resetColW" /></th>
@@ -176,14 +176,15 @@
                       :title="`该客户的历史销售记录里没有「${productNameOf(row) || '这个商品'}」。仍可正常退单，这里只是提醒。`">⚠</span>
               </td>
               <td>
-                <input v-model="row.quantity" class="input isn-in num" inputmode="decimal" placeholder="0" />
+                <input v-model="row.quantity" class="input isn-in num" inputmode="decimal" placeholder="0"
+                       :aria-label="`第${i + 1}行 数量`" />
               </td>
               <td v-if="isVisible('unit')" class="isn-c-unit">
                 <!-- v683：单位改成**下拉**（可选项 = 商品档案里配的可用单位）。
                      🔴 用 `:value` + 事件取值，不用 `v-model` + `@change`：
                         v-model 会在 change 派发**前**改掉 row.unit，事件里就再也
                         说不出"从哪一档切到哪一档"（采购页 `_prevUnit` 快照绕的就是这个坑）。 -->
-                <select v-if="unitOptionsOf(row).length" class="input isn-in isn-unit-sel"
+                <select v-if="unitOptionsOf(row).length" class="input isn-in isn-unit-sel" :aria-label="`第${i + 1}行 单位`"
                         :value="row.unit" :title="unitTitle(row)"
                         @change="onUnitChange(row, $event)">
                   <option v-for="o in unitOptionsOf(row)" :key="o.key" :value="o.name">{{ o.name }}</option>
@@ -194,7 +195,7 @@
               </td>
               <td>
                 <input v-model="row.unit_price" class="input isn-in num" inputmode="decimal" placeholder="0.00"
-                       :title="priceTitle(row)" />
+                       :title="priceTitle(row)" :aria-label="`第${i + 1}行 单价`" />
               </td>
               <td class="isn-c-reason" v-if="!cfg.isReturn">
                 <!-- v687：「请选择原因」不再当格内常驻文案（老板口径：这类占位太吵）。
@@ -203,7 +204,7 @@
                         「零价出库必须选择出库原因」的兜底 toast，表头列名也写着
                         「零价出库原因」—— 两处都在，用户不会不知道要选；
                         但格内那句「请选择原因」在还没选之前就占着位置，纯噪音。 -->
-                <select v-if="Number(row.unit_price) === 0" v-model="row.note" class="input isn-in"
+                <select v-if="Number(row.unit_price) === 0" v-model="row.note" class="input isn-in" :aria-label="`第${i + 1}行 零价出库原因`"
                         title="零价出库必须选择出库原因">
                   <option value="">—</option>
                   <option v-for="zr in ZERO_REASONS" :key="zr" :value="zr">{{ zr }}</option>
@@ -234,7 +235,7 @@
 
     <div class="isn-bottom">
       <span class="isn-total">{{ cfg.isReturn ? '退货合计' : '合计' }} <b>¥{{ fmtMoney(totalAmount) }}</b></span>
-      <input v-if="cfg.isReturn" v-model.trim="reason" maxlength="200" class="input isn-ret-reason"
+      <input v-if="cfg.isReturn" v-model.trim="reason" maxlength="200" class="input isn-ret-reason" aria-label="退货原因"
              placeholder="退货原因（选填，如：破损 / 临期 / 多订）" />
       <!-- ══ v500：退单底部改**双下拉**，与采购退货页（`PurchaseReturnForm.vue` v451）逐字同构 ══
            「保存 ▾」      = 落**草稿**（库存不回增、应收不冲减，待审核）

@@ -529,7 +529,7 @@ onMounted(() => { load(); loadCatalog() })
 .rm-bind-row:last-of-type{border-bottom:none}
 .rm-bind-name{font-size:14px;font-weight:500;color:var(--t1);flex:1}
 .rm-bind-scope{display:flex;align-items:center;gap:10px;padding:14px 0 4px}
-.rm-sel{font-size:13px;padding:7px 10px;border:1px solid var(--bd);border-radius:9px;background:var(--bg2);color:var(--t1);cursor:pointer;flex:1}
+.rm-sel{font-size:13px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);color:var(--t1);cursor:pointer;flex:1}
 
 /* 开关（本页 scoped，自包含） */
 .switch{position:relative;width:40px;height:22px;flex-shrink:0;cursor:pointer;display:inline-block}

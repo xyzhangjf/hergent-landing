@@ -396,7 +396,7 @@ function goWorkbench() {
    这正是当初把高度锁死要避免的 —— 锁定值必须 ≥ 较高的那一侧。 */
 .login-card{width:360px;max-width:100%;background:var(--bg);border-radius:20px;padding:40px 32px;box-shadow:var(--shadow-lg);border:1px solid var(--border-subtle);min-height:620px;display:flex;flex-direction:column}
 .login-logo{display:flex;justify-content:center;margin-bottom:14px}
-.login-logo img{width:48px;height:48px;border-radius:10px;box-shadow:0 4px 12px rgba(13,148,136,.18)}
+.login-logo img{width:48px;height:48px;border-radius:8px;box-shadow:0 4px 12px rgba(13,148,136,.18)}
 h1{font-size:20px;font-weight:600;text-align:center;margin-bottom:4px}
 .login-sub{font-size:13px;color:var(--t3);text-align:center;margin-bottom:24px}
 form{display:flex;flex-direction:column;gap:12px;flex:1}
@@ -439,7 +439,7 @@ form{display:flex;flex-direction:column;gap:12px;flex:1}
 .login-agree input{margin-top:2px;accent-color:var(--p);flex:none}
 .login-agree a{color:var(--p-dark);text-decoration:none}
 .login-agree a:hover{text-decoration:underline}
-.lg-tabs{display:flex;gap:8px;margin-bottom:18px;background:var(--bg2);border-radius:10px;padding:4px}
+.lg-tabs{display:flex;gap:8px;margin-bottom:18px;background:var(--bg2);border-radius:8px;padding:4px}
 .demo-btn{color:var(--p-dark);border-color:rgba(6,182,212,.35);margin-top:2px}
 .lg-tab{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-size:13px;color:var(--t3);cursor:pointer;transition:all var(--dur-base)}
 .lg-tab.on{background:var(--bg);color:var(--p-dark);font-weight:500;box-shadow:var(--shadow-sm)}

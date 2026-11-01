@@ -98,7 +98,7 @@
       <table class="tbl">
         <thead>
           <tr>
-            <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th><th>报单人</th><th v-if="isVisible('ctype')">对象类型</th><th>对象全称</th><th>简称(列头)</th>
+            <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th><th>报单人</th><th v-if="isVisible('ctype')">对象类型</th><th>对象全称</th><th>简称(列头)</th>
             <th v-if="isVisible('template')">单型</th><th v-if="isVisible('channel')">取价渠道</th><th v-if="isVisible('wh')">仓库(调拨)</th><th>状态</th><th class="ops">操作</th>
           </tr>
         </thead>
@@ -1118,7 +1118,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .tbl .ops{text-align:right;white-space:nowrap}
 .empty{text-align:center;color:var(--t3);padding:28px}
 
-.tag{font-size:12px;padding:2px 9px;border-radius:9px;background:var(--bg2);color:var(--t2)}
+.tag{font-size:12px;padding:2px 9px;border-radius:8px;background:var(--bg2);color:var(--t2)}
 .num{font-variant-numeric:tabular-nums}
 
 /* C2：按钮对齐全局令牌（.btn/.btn-sm/.btn-primary/.btn-ghost/.btn-danger 为 scoped 复刻，尺寸/圆角与 variables.css 保持一致） */
@@ -1151,7 +1151,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .combo-input:focus{border-color:var(--p-dark)}
 .combo-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:11px;pointer-events:none}
 .combo-panel{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:4px}
-.combo-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.combo-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .combo-item.on{background:var(--bg2)}
 .combo-item.sel{color:var(--p-ink);font-weight:600}
 .combo-sel{color:var(--p-ink);font-size:12px;flex:none}

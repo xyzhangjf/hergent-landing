@@ -25,7 +25,7 @@
     <div class="isn-hd isn-hd-flat hd-box">
       <div class="isn-f">
         <label class="isn-lb"><span class="isn-req">*</span>调出仓库</label>
-        <select v-model.number="form.from_warehouse_id" class="input isn-sel">
+        <select aria-label="调出仓库" v-model.number="form.from_warehouse_id" class="input isn-sel">
           <option :value="0" disabled>请选择调出仓库</option>
           <option v-for="w in warehouses" :key="w.id" :value="w.id"
                   :disabled="w.id === form.to_warehouse_id">
@@ -39,7 +39,7 @@
       <div class="isn-arrow">→</div>
       <div class="isn-f">
         <label class="isn-lb"><span class="isn-req">*</span>调入仓库</label>
-        <select v-model.number="form.to_warehouse_id" class="input isn-sel">
+        <select aria-label="调入仓库" v-model.number="form.to_warehouse_id" class="input isn-sel">
           <option :value="0" disabled>请选择调入仓库</option>
           <option v-for="w in warehouses" :key="w.id" :value="w.id"
                   :disabled="w.id === form.from_warehouse_id">
@@ -49,23 +49,23 @@
       </div>
       <div class="isn-f">
         <label class="isn-lb">单据日期</label>
-        <input :value="form.order_date" class="input isn-date" readonly
+        <input aria-label="单据日期" :value="form.order_date" class="input isn-date" readonly
                title="调拨单按保存当天记录，不能选别的日期" />
       </div>
       <div class="isn-f">
         <label class="isn-lb">部门</label>
-        <select v-model.number="form.department_id" class="input isn-sel">
+        <select aria-label="部门" v-model.number="form.department_id" class="input isn-sel">
           <option :value="0">未选</option>
           <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
         </select>
       </div>
       <div class="isn-f">
         <label class="isn-lb">搬运费（元）</label>
-        <input v-model.number="form.handling_fee" type="number" min="0" step="0.01" class="input isn-num" />
+        <input aria-label="搬运费（元）" v-model.number="form.handling_fee" type="number" min="0" step="0.01" class="input isn-num" />
       </div>
       <div class="isn-f isn-f-grow">
         <label class="isn-lb">备注</label>
-        <input v-model.trim="form.note" maxlength="200" class="input isn-note-in" />
+        <input aria-label="备注" v-model.trim="form.note" maxlength="200" class="input isn-note-in" />
       </div>
     </div>
 
@@ -118,7 +118,7 @@
         <table class="tbl isn-tbl">
           <thead>
             <tr>
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
               <th class="isn-c-prod" :style="wStyle('prod')"><span class="isn-req">*</span>商品<ColResizeHandle col="prod" :start="startResize" :reset="resetColW" /></th>
               <th class="num isn-c-qty" :style="wStyle('qty')"><span class="isn-req">*</span>数量<ColResizeHandle col="qty" :start="startResize" :reset="resetColW" /></th>
               <th class="isn-c-unit" v-if="isVisible('unit')" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>

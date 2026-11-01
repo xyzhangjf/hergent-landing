@@ -139,7 +139,7 @@
         <div v-if="result.results?.length" class="table-wrap">
           <table class="tbl">
             <thead><tr>
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
               <th>员工</th>
               <th v-if="isVisible('base')" class="num">基本工资</th>
               <th v-if="isVisible('comm')" class="num">提成</th>
@@ -377,7 +377,7 @@ onMounted(async () => {
 .pr-kpi-sub{font-size:12px;color:var(--t3)}
 .pr-net{font-weight:600;color:var(--t1)}
 .pr-footnote{font-size:12px;color:var(--t3)}
-.pr-confirm-ok{margin-top:14px;padding:12px 16px;border-radius:10px;background:rgba(var(--suc-rgb),.1);color:var(--suc);font-size:13px;font-weight:500}
+.pr-confirm-ok{margin-top:14px;padding:12px 16px;border-radius:8px;background:rgba(var(--suc-rgb),.1);color:var(--suc);font-size:13px;font-weight:500}
 
 @media(max-width:768px){
   .pr-grid{grid-template-columns:1fr}

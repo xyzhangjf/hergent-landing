@@ -365,7 +365,7 @@ onMounted(() => { load(); loadProducts() })
 .pm-prods { max-width: 220px }
 .pm-muted { color: var(--t3); font-size: 12px }
 .pm-op { white-space: nowrap; text-align: right }
-.pm-badge { display: inline-block; padding: 1px 9px; border-radius: 9px; font-size: 12px; font-weight: 400 }
+.pm-badge { display: inline-block; padding: 1px 9px; border-radius: 8px; font-size: 12px; font-weight: 400 }
 .pm-badge.on { background: var(--ok-green-bg); color: var(--ok) }
 .pm-badge.off { background: var(--bg2); color: var(--t3) }
 .pm-empty { padding: 28px 4px }

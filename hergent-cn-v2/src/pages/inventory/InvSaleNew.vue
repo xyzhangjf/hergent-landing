@@ -250,7 +250,7 @@
         <table class="tbl isn-tbl">
           <thead>
             <tr>
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
               <!-- v444：必填三列（商品 / 数量 / 单价）打红 `*`，与表单头「客户」
                    同一枚 `.isn-req`；判据 = `validate()` 里实际拦的字段。 -->
               <th class="isn-c-prod" :style="wStyle('prod')"><span class="isn-req">*</span>商品<ColResizeHandle col="prod" :start="startResize" :reset="resetColW" /></th>

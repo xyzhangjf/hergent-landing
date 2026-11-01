@@ -183,7 +183,7 @@ onMounted(loadInfo)
 .fld.acts { flex-direction: row; gap: 8px; }
 .token-flash { margin: 0 18px 12px; padding: 10px 12px; background: var(--bg2); border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .token-flash .tk { font-family: monospace; color: var(--brand); }
-.badge { padding: 1px 8px; border-radius: 10px; font-size: 12px; }
+.badge { padding: 1px 8px; border-radius: 8px; font-size: 12px; }
 .badge.on { background: rgba(46,160,67,.14); color: var(--suc); }
 .badge.off { background: var(--bg2); color: var(--t2); }
 .muted { color: var(--t2); }

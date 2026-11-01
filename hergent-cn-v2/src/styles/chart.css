@@ -105,7 +105,7 @@
       整幅等比缩放，**绝不拉扁**（v487 那版是 `none`，没有文字所以看不出来；
       现在有轴标签，一拉扁数字就变形）。
    ============================================================================ */
-.ch-md-card{margin:8px 0;padding:10px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg2)}
+.ch-md-card{margin:8px 0;padding:10px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg2)}
 .ch-md-ti{font-size:12px;font-weight:500;color:var(--t1);margin-bottom:6px}
 .ch-md-svg{width:100%;height:auto;display:block}
 .ch-md-grid{stroke:var(--chart-grid);stroke-width:1;stroke-dasharray:3 3}

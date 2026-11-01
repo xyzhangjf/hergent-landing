@@ -24,7 +24,7 @@
       <!-- ============ 补货需求（拣货面） ============ -->
       <section class="card wsp-p">
         <header class="wsp-p-hd">
-          <span class="wsp-p-t"><Icon name="package" :size="15" />补货需求</span>
+          <span class="wsp-p-t"><Icon name="package" :size="16" />补货需求</span>
           <span class="wsp-p-s">拣货位现货低于下限的商品</span>
           <span v-if="rep.loading" class="wsp-p-badge">加载中…</span>
           <span v-else-if="rep.err" class="wsp-p-badge bad">读取失败</span>
@@ -35,7 +35,7 @@
           <Icon name="alert" :size="14" />{{ rep.err }}
         </div>
         <div v-else-if="!rep.loading && !rep.rows.length" class="state-empty wsp-empty">
-          <div class="se-ic"><Icon name="check" :size="20" /></div>
+          <div class="se-ic"><Icon name="check" :size="18" /></div>
           <p>没有需要补货的拣货位 —— 所有拣货面都在下限之上。</p>
           <p class="wsp-hint">（补货需求来自「拣货面配置」：只有配过拣货位上/下限的商品才会出现在这里。）</p>
         </div>
@@ -71,7 +71,7 @@
       <!-- ============ 越库机会 ============ -->
       <section class="card wsp-p">
         <header class="wsp-p-hd">
-          <span class="wsp-p-t"><Icon name="cross" :size="15" />越库机会</span>
+          <span class="wsp-p-t"><Icon name="cross" :size="16" />越库机会</span>
           <span class="wsp-p-s">在途进货与待发订单撞上同一商品</span>
           <span v-if="dock.loading" class="wsp-p-badge">加载中…</span>
           <span v-else-if="dock.err" class="wsp-p-badge bad">读取失败</span>
@@ -88,7 +88,7 @@
             <span class="wsp-dock-hit">可越库 <b>{{ dock.data.cross_dock_opportunities || 0 }}</b> 条</span>
           </div>
           <div v-if="!(dock.data.opportunities || []).length" class="state-empty wsp-empty">
-            <div class="se-ic"><Icon name="check" :size="20" /></div>
+            <div class="se-ic"><Icon name="check" :size="18" /></div>
             <p>当前没有可越库的匹配 —— 在途进货与待发订单没有撞上同一商品。</p>
           </div>
           <div v-else class="table-wrap wsp-tw">
@@ -130,7 +130,7 @@
       <!-- ============ 上架建议 ============ -->
       <section class="card wsp-p">
         <header class="wsp-p-hd">
-          <span class="wsp-p-t"><Icon name="grid" :size="15" />上架建议</span>
+          <span class="wsp-p-t"><Icon name="grid" :size="16" />上架建议</span>
           <span class="wsp-p-s">按 ABC 分类与动销为商品找库位</span>
         </header>
 
@@ -184,7 +184,7 @@
       <!-- ============ 拣货路径 ============ -->
       <section class="card wsp-p">
         <header class="wsp-p-hd">
-          <span class="wsp-p-t"><Icon name="link" :size="15" />拣货路径</span>
+          <span class="wsp-p-t"><Icon name="link" :size="16" />拣货路径</span>
           <span class="wsp-p-s">按波次给最短走位顺序</span>
         </header>
 
@@ -211,7 +211,7 @@
             <span>算法 <b>{{ pick.data.method || '—' }}</b></span>
           </div>
           <div v-if="!(pick.data.path || []).length" class="state-empty wsp-empty">
-            <div class="se-ic"><Icon name="check" :size="20" /></div>
+            <div class="se-ic"><Icon name="check" :size="18" /></div>
             <p>本波次没有待拣项。</p>
           </div>
           <div v-else class="table-wrap wsp-tw">

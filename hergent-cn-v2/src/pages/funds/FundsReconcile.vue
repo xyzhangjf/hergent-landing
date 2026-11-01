@@ -571,7 +571,7 @@ function exportCsv() {
 .frc-spec { padding: 14px 16px }
 .frc-run { display: flex; gap: 12px; align-items: center; margin: 14px 2px }
 .frc-run-hint { font-size: 12px; color: var(--bad) }
-.frc-warn { display: flex; gap: 8px; align-items: flex-start; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); color: var(--war); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px }
+.frc-warn { display: flex; gap: 8px; align-items: flex-start; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); color: var(--war); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px }
 .frc-note { font-size: 12px; color: var(--t2); background: var(--bg1); border: 1px solid var(--bd); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px }
 .frc-card { padding: 0; overflow: hidden }
 .frc-filter { padding: 12px 14px 0 }

@@ -540,7 +540,7 @@
                 <div v-if="i === 0 || slashMatches[i - 1].group !== c.group" class="cp-slash-group">{{ c.group }}</div>
                 <button type="button" class="cp-slash-item" :class="{ active: i === slashIndex }"
                   @mousemove="slashIndex = i" @mousedown.prevent="pickSlash(c)">
-                  <span class="cp-slash-ic"><Icon :name="c.icon" :size="15" /></span>
+                  <span class="cp-slash-ic"><Icon :name="c.icon" :size="16" /></span>
                   <span class="cp-slash-cmd">{{ c.cmd }}</span>
                   <span class="cp-slash-title">{{ c.title }}</span>
                   <span v-if="c.hint" class="cp-slash-hint">{{ c.hint }}</span>
@@ -652,7 +652,7 @@
                 <div class="cp-ttsv">
                   <button class="cp-ttsv-btn" :class="{ on: showVoiceMenu }" @click.stop="toggleVoiceMenu"
                     :title="'朗读声音：' + (ttsVoiceName || '默认') + '（点开选择）'" aria-label="选择朗读声音">
-                    <Icon name="volume-2" :size="12" />
+                    <Icon name="volume-2" :size="14" />
                     <span class="cp-ttsv-tx">{{ ttsVoiceName || '朗读声音' }}</span>
                     <svg class="cp-guard-caret" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
                   </button>
@@ -2725,7 +2725,7 @@ async function shareCopyLink() {
 const qrUrl = ref(null)
 async function shareQR() {
   try {
-    qrUrl.value = await QRCode.toDataURL(window.location.href, { width: 168, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } })
+    qrUrl.value = await QRCode.toDataURL(window.location.href, { width: 168, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
   } catch (e) {
     store.toast('二维码生成失败')
   }
@@ -3956,7 +3956,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-todo-time{font-size:11px;color:var(--t3)}
 .cp-todo-ops{display:flex;gap:2px;flex:none}
 .cp-art-title{font-size:13px;font-weight:600;color:var(--t1);display:inline-flex;align-items:center;gap:8px}
-.cp-art-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 7px;border-radius:10px;background:var(--p-bg);color:var(--p-dark);font-size:11px;font-weight:600}
+.cp-art-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 7px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);font-size:11px;font-weight:600}
 .cp-art-ops{display:flex;align-items:center;gap:4px}
 .cp-art-ops .cp-icon-btn{width:28px;height:28px;padding:0}
 .cp-art-ops .cp-icon-btn:hover{background:rgba(127,127,127,.16);color:var(--t1)}
@@ -3967,7 +3967,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* P1-④ 产物栏文件卡片 */
 .cp-art-file{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2);text-decoration:none;transition:border-color var(--dur-base)}
 .cp-art-file:hover{border-color:var(--p-dark)}
-.cp-art-file-ic{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
+.cp-art-file-ic{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
 .cp-art-file-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .cp-art-file-name{font-size:13px;color:var(--t1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cp-art-file-meta{font-size:11px;color:var(--t3)}
@@ -4021,7 +4021,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-pager-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .cp-pg-card{background:var(--bg2);border:1px solid var(--bd1);border-radius:12px;padding:14px;cursor:pointer;transition:transform var(--dur-fast),border-color var(--dur-fast);display:flex;flex-direction:column;gap:6px}
 .cp-pg-card:hover{transform:translateY(-2px);border-color:var(--p)}
-.cp-pg-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+.cp-pg-ic{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center}
 .cp-pg-t{font-size:13px;color:var(--t2);font-weight:600}
 .cp-pg-v{font-size:24px;font-weight:700;color:var(--t1);line-height:1.1}
 .cp-pg-s{font-size:12px;color:var(--t3);line-height:1.4}
@@ -4085,7 +4085,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-hist-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .cp-hist-hd b{font-size:14px;font-weight:600;color:var(--t1)}
 .cp-hist-list{display:flex;flex-direction:column;gap:8px}
-.cp-hist-item{position:relative;padding:12px 32px 12px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);cursor:pointer;transition:all var(--dur-base)}
+.cp-hist-item{position:relative;padding:12px 32px 12px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);cursor:pointer;transition:all var(--dur-base)}
 .cp-hist-item:hover{border-color:var(--p);background:var(--p-bg)}
 .cp-hist-item.on{border-color:var(--p);background:var(--p-bg)}
 .cp-hist-title{font-size:13px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -4096,7 +4096,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-hist-q{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg2);font-size:12px;color:var(--t1);outline:none}
 .cp-hist-q:focus{border-color:var(--p)}
 .cp-hist-hits{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
-.cp-hist-hit{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);cursor:pointer;transition:all var(--dur-base)}
+.cp-hist-hit{padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);cursor:pointer;transition:all var(--dur-base)}
 .cp-hist-hit:hover{border-color:var(--p);background:var(--p-bg)}
 .cp-hist-snippet{font-size:12px;color:var(--t3);margin-top:4px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
@@ -4135,7 +4135,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* 命中跳转后的短暂描边（1.8s 自动撤）。用 box-shadow 而不是 outline：不吃布局、圆角跟卡片一致。
    🔴 挂在 `data-hit` 上而不是 class：`.msg` 的动态 `:class` 每次 patch 会整份重写 className，
    手写 class 会被擦掉（实测一次都抓不到）；data 属性 Vue 不接管，重渲染不会掉。 */
-.msg[data-hit]{box-shadow:0 0 0 2px var(--p), 0 0 0 6px var(--p-bg);border-radius:10px;transition:box-shadow var(--dur-slow) ease-out}
+.msg[data-hit]{box-shadow:0 0 0 2px var(--p), 0 0 0 6px var(--p-bg);border-radius:8px;transition:box-shadow var(--dur-slow) ease-out}
 .cp-welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px}
 .cp-w-ic{width:56px;height:56px;border-radius:18px;background:var(--p-bg);display:flex;align-items:center;justify-content:center;margin-bottom:14px}
 .cp-w-title{font-size:15px;font-weight:500;color:var(--t1);margin:0 0 4px}
@@ -4173,7 +4173,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* v634：用户消息里的「已收到附件」条（替代原先那段给模型看的英文上下文注）。
    配色跟随 user 气泡（深底白字）⇒ 半透明白描边而不是用边框色 token。
    🔴 文件名可能很长 ⇒ `min-width:0` + ellipsis，否则 flex 子项默认 min-width:auto 会把气泡撑爆。 */
-.cp-doc-chip{display:flex;align-items:center;gap:7px;max-width:100%;padding:6px 9px;margin:0 0 6px;border-radius:9px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24)}
+.cp-doc-chip{display:flex;align-items:center;gap:7px;max-width:100%;padding:6px 9px;margin:0 0 6px;border-radius:8px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24)}
 .cp-doc-chip>svg{flex:0 0 auto;opacity:.92}
 .cp-doc-chip-name{min-width:0;font-size:12px;font-weight:500;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cp-doc-chip-tag{flex:0 0 auto;margin-left:auto;font-size:11px;color:rgba(255,255,255,.72);letter-spacing:.2px}
@@ -4239,7 +4239,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-hist-role{display:inline-block;padding:0 5px;margin-right:5px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
 .cp-foot{padding:12px 16px;border-top:1px solid var(--border-subtle);flex-shrink:0;background:var(--bg)}
 .cp-atts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.cp-att{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--p-bg);border:1px solid var(--p);border-radius:10px;font-size:12px;color:var(--p-dark);max-width:100%}
+.cp-att{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;background:var(--p-bg);border:1px solid var(--p);border-radius:8px;font-size:12px;color:var(--p-dark);max-width:100%}
 .cp-att-ic{font-size:13px}
 .cp-att-name{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cp-att-meta{font-size:11px;color:var(--p-dark);opacity:.7}
@@ -4275,7 +4275,7 @@ button.cp-plus{border:none;background:transparent;padding:0}
 button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-role-menu{position:absolute;bottom:calc(100% + 8px);left:0;width:248px;max-height:300px;overflow-y:auto;background:var(--bg);border:1px solid var(--bd);border-radius:14px;box-shadow:var(--shadow-lg);padding:8px;z-index:20}
 .cp-role-menu-hd{font-size:11px;color:var(--t3);padding:4px 8px 8px}
-.cp-role-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;transition:all var(--dur-base)}
+.cp-role-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:pointer;transition:all var(--dur-base)}
 .cp-role-item:hover{background:var(--p-bg)}
 .cp-role-item.on{background:var(--p-bg);box-shadow:inset 0 0 0 1px var(--p)}
 .cp-role-item-av{font-size:18px;flex-shrink:0;width:24px;text-align:center;display:flex;align-items:center}
@@ -4328,7 +4328,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* 额度状态胶囊：比工具条按钮更轻 —— 无边框、无背景，只在 hover 时才有一层浅底。
    它是**信息**，不是控件；一旦做得像按钮，用户就会以为能点出个设置页。 */
 .cp-usage{position:relative;flex:none}
-.cp-usage-btn{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid transparent;border-radius:10px;background:transparent;font-size:11px;line-height:1;color:var(--t3);cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;transition:background var(--dur-base),color var(--dur-base)}
+.cp-usage-btn{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border:1px solid transparent;border-radius:8px;background:transparent;font-size:11px;line-height:1;color:var(--t3);cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums;transition:background var(--dur-base),color var(--dur-base)}
 .cp-usage-btn:hover{background:var(--bg4);color:var(--t1)}
 .cp-usage-btn .cp-usage-ring{flex:none;opacity:.9}
 .cp-usage-btn.warn{color:var(--war)}
@@ -4347,7 +4347,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-um-sub{padding:3px 10px 4px;font-size:12px;line-height:1.55;color:var(--t3)}
 .cp-um-sub b{font-weight:650;color:var(--t2)}
 .cp-um-foot{padding:2px 10px 3px;font-size:11px;line-height:1.5;color:var(--t3);opacity:.85}
-.cp-um-peak{margin:7px 10px 2px;padding:5px 8px;border-radius:7px;font-size:11px;line-height:1.5;color:var(--warn-amber);background:var(--warn-amber-bg)}
+.cp-um-peak{margin:7px 10px 2px;padding:5px 8px;border-radius:8px;font-size:11px;line-height:1.5;color:var(--warn-amber);background:var(--warn-amber-bg)}
 .cp-cost{margin-top:7px;font-size:11px;line-height:1.4;color:var(--t3);font-variant-numeric:tabular-nums}
 .cp-prop-cost{display:flex;align-items:flex-start;gap:5px;margin-bottom:9px;font-size:12px;line-height:1.5;color:var(--warn-amber)}
 .cp-prop-cost svg{flex:none;margin-top:1.5px}
@@ -4416,7 +4416,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-prop-change{font-size:11px;color:var(--t2);background:var(--bg);border:1px solid var(--border-subtle);border-radius:8px;padding:2px 8px}
 .cp-prop-rationale{font-size:12px;color:var(--t3);line-height:1.55;margin-bottom:9px}
 .cp-prop-ops{display:flex;gap:8px;justify-content:flex-end}
-.cp-prop-btn{font-size:12px;padding:6px 14px;border-radius:9px;cursor:pointer;transition:all var(--dur-base);border:1px solid transparent}
+.cp-prop-btn{font-size:12px;padding:6px 14px;border-radius:8px;cursor:pointer;transition:all var(--dur-base);border:1px solid transparent}
 .cp-prop-btn:disabled{opacity:.5;cursor:default}
 .cp-prop-btn.ghost{background:var(--bg);border-color:var(--border-subtle);color:var(--t2)}
 .cp-prop-btn.ghost:hover:not(:disabled){border-color:var(--t3);color:var(--t1)}
@@ -4623,8 +4623,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-act.cp-rate.on{color:var(--t2)}
 .cp-act.cp-rate.on:hover{background:var(--b2)}
 .cp-share{position:relative;display:inline-flex}
-.cp-share-menu{position:absolute;bottom:36px;left:0;z-index:30;display:flex;flex-direction:column;min-width:124px;padding:4px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:0 6px 20px rgba(15,23,42,.14)}
-.cp-share-menu button{text-align:left;padding:7px 10px;border:none;background:transparent;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer}
+.cp-share-menu{position:absolute;bottom:36px;left:0;z-index:30;display:flex;flex-direction:column;min-width:124px;padding:4px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;box-shadow:0 6px 20px rgba(15,23,42,.14)}
+.cp-share-menu button{text-align:left;padding:7px 10px;border:none;background:transparent;border-radius:8px;font-size:13px;color:var(--t1);cursor:pointer}
 .cp-share-menu button:hover{background:var(--bg2)}
 .cp-share-backdrop{position:fixed;inset:0;z-index:20;background:transparent}
 
@@ -4632,7 +4632,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-qr{position:absolute;bottom:36px;left:0;z-index:31;display:flex;flex-direction:column;align-items:center;gap:8px;width:188px;padding:12px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;box-shadow:0 8px 28px rgba(15,23,42,.18)}
 .cp-qr img{width:168px;height:168px;display:block;border-radius:6px}
 .cp-qr p{margin:0;font-size:12px;line-height:1.5;color:var(--t3);text-align:center}
-.cp-qr-close{padding:6px 14px;border:none;border-radius:7px;background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer}
+.cp-qr-close{padding:6px 14px;border:none;border-radius:8px;background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer}
 .cp-qr-close:hover{background:var(--bd)}
 
 /* v426 P0-3：结构化纠错面板（取代浏览器原生输入弹窗）

@@ -169,7 +169,7 @@
              🔴 选填：存量单都没有这个值，强制必填会在快速退货时把人卡住。 -->
         <div class="ipn-f">
           <label class="ipn-lb">业务员</label>
-          <select v-model="form.handler" class="input ipn-sel" @change="onHandlerChange">
+          <select aria-label="业务员" v-model="form.handler" class="input ipn-sel" @change="onHandlerChange">
             <option value="">不指定</option>
             <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
           </select>
@@ -182,24 +182,24 @@
                 但我方 v451 口径是"选填、不阻塞建单"——见 docTypes.js 的说明）。 -->
         <div class="ipn-f">
           <label class="ipn-lb">部门</label>
-          <select v-model.number="form.department_id" class="input ipn-sel">
+          <select aria-label="部门" v-model.number="form.department_id" class="input ipn-sel">
             <option :value="0">请选择</option>
             <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
           </select>
         </div>
         <div class="ipn-f">
           <label class="ipn-lb"><span class="ipn-req">*</span>{{ cfg.whLabel }}</label>
-          <select v-model.number="form.warehouse_id" class="input ipn-sel">
+          <select :aria-label="cfg.whLabel" v-model.number="form.warehouse_id" class="input ipn-sel">
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
         </div>
         <div class="ipn-f">
           <label class="ipn-lb">单据日期</label>
-          <input type="date" v-model="form.order_date" class="input ipn-date" />
+          <input aria-label="单据日期" type="date" v-model="form.order_date" class="input ipn-date" />
         </div>
         <div class="ipn-f ipn-f-grow">
           <label class="ipn-lb">备注</label>
-          <input v-model.trim="form.note" maxlength="500" class="input ipn-note-in" />
+          <input aria-label="备注" v-model.trim="form.note" maxlength="500" class="input ipn-note-in" />
         </div>
       </div>
 
@@ -218,7 +218,7 @@
             <span class="ipn-at-nm" :title="s.name">{{ s.name }}</span>
             <span class="ipn-at-sz">{{ fmtSize(s.size) }}</span>
             <button class="ipn-at-x" type="button" title="移除" @click="removeStaged(s.key)">
-              <Icon name="close" :size="12" />
+              <Icon name="close" :size="14" />
             </button>
           </li>
         </ul>
@@ -285,7 +285,7 @@
           <table class="tbl ipn-tbl">
             <thead>
               <tr>
-                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
                 <th class="ipn-c-prod" :style="wStyle('prod')"><span class="ipn-req">*</span>商品<ColResizeHandle col="prod" :start="startResize" :reset="resetColW" /></th>
                 <th class="num ipn-c-qty" :style="wStyle('qty')"><span class="ipn-req">*</span>退货数量<ColResizeHandle col="qty" :start="startResize" :reset="resetColW" /></th>
                 <th class="ipn-c-unit" v-if="isVisible('unit')" :style="wStyle('unit')">单位<ColResizeHandle col="unit" :start="startResize" :reset="resetColW" /></th>

@@ -103,9 +103,13 @@ console.log('③ 全站扫描（26 页齿轮 / 77 张序号表）')
     for (const m of code.matchAll(/@click\.prevent\s*=\s*"\s*(?:toggleCol|toggle)\s*\([^"]*\)/g)) {
       clickPrevent.push(rel + ':' + (code.slice(0, m.index).split('\n').length))
     }
-    // ③-b 齿轮图标尺寸必须写 :size="15"（<Icon> 默认 16，不写就不一致）
+    // ③-b 齿轮图标尺寸必须写 :size="16"
+    /* 🔴 v720 反转了这条判据（原为 `:size="15"`），保留编号与判据形态，只改期望值：
+       v720 把全站图标尺寸从 11 档收敛到 {14,16,18,22} 四档，并删掉了 `.ico{width:16px}`
+       那条硬压（它让 size 属性形同虚设）。齿轮属于「控件内固定档」⇒ 归到 16。
+       护栏本身仍成立：**要求每一处齿轮都显式写同一个值**，防止有人漏写落回默认或写回 15。 */
     for (const m of code.matchAll(/<button[^>]*class="[^"]*\bcol-cfg\b[^"]*"[^>]*>\s*<Icon([^>]*)\/>/g)) {
-      if (!/:size="15"/.test(m[1])) sizeMismatch.push(rel)
+      if (!/:size="16"/.test(m[1])) sizeMismatch.push(rel)
     }
     // ③-c 有 thead 且表体有 seq-cell ⇒ 表头必须有 seq-th（否则列数不等、整行右移）
     const hasThead = /<thead[\s>]/.test(code)
@@ -116,7 +120,7 @@ console.log('③ 全站扫描（26 页齿轮 / 77 张序号表）')
     if (nCell > 0 && nNum < nCell) numMissing.push(rel)
   }
   ok(clickPrevent.length === 0, '全站零 @click.prevent="toggleCol(...)"', clickPrevent.length ? '→ ' + clickPrevent.join(', ') : '')
-  ok(sizeMismatch.length === 0, '全站齿轮 <Icon> 一律 :size="15"', sizeMismatch.length ? '→ ' + sizeMismatch.join(', ') : '')
+  ok(sizeMismatch.length === 0, '全站齿轮 <Icon> 一律 :size="16"（v720 由 15 反转）', sizeMismatch.length ? '→ ' + sizeMismatch.join(', ') : '')
   ok(seqMismatch.length === 0, '有 thead 的表：表体有 seq-cell ⇒ 表头必有 seq-th', seqMismatch.length ? '→ ' + seqMismatch.join(', ') : '')
   ok(numMissing.length === 0, '序号一律包 .seq-num（等宽数字）', numMissing.length ? '→ ' + numMissing.join(', ') : '')
 }

@@ -223,12 +223,12 @@ onMounted(load)
 </script>
 
 <style scoped>
-.ap-chip{font-size:11px;padding:1px 9px;border-radius:10px;font-weight:500}
+.ap-chip{font-size:11px;padding:1px 9px;border-radius:8px;font-weight:500}
 .ap-chip.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .ap-chip.off{background:var(--bg2);color:var(--t3)}
 .ap-meta{font-size:12px;color:var(--t2)}
 .ap-strong{font-size:12px;color:var(--p-dark);font-weight:500}
-.ap-warnchip{font-size:12px;color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px 8px;border-radius:10px}
+.ap-warnchip{font-size:12px;color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px 8px;border-radius:8px}
 .ap-tip{font-size:12px;color:var(--t2);line-height:1.65;margin:12px 0}
 .ap-grid{display:grid;grid-template-columns:max-content minmax(180px,1fr) repeat(3,140px);gap:12px;padding:2px 0 6px}
 .ap-grid .field{display:flex;flex-direction:column;gap:5px}

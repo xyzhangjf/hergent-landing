@@ -1232,7 +1232,7 @@ onUnmounted(stopStatusPoll)
 .cc-card.disabled{cursor:default;opacity:.7}
 .cc-card.disabled:hover{transform:none;box-shadow:var(--shadow-sm)}
 .cc-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.cc-logo{width:38px;height:38px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--t2)}
+.cc-logo{width:38px;height:38px;border-radius:8px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--t2)}
 .cc-logo-wecom{background:var(--p-bg);color:var(--p-dark)}
 .cc-logo-chanjet{background:rgba(255,149,0,.14);color:var(--plt-chanjet)}
 .cc-logo-kingdee{background:rgba(14,165,183,.16);color:var(--plt-kingdee)}
@@ -1242,12 +1242,12 @@ onUnmounted(stopStatusPoll)
 .cc-modal-tip.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .cc-modal-btns{display:flex;gap:10px;flex-wrap:wrap}
 .cc-modal-btns .btn{flex:1;min-width:120px}
-.cc-state{font-size:11px;padding:3px 9px;border-radius:10px;background:var(--bg2);color:var(--t3)}
+.cc-state{font-size:11px;padding:3px 9px;border-radius:8px;background:var(--bg2);color:var(--t3)}
 .cc-state.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .cc-state.warn{background:rgba(245,158,11,.14);color:var(--war)}
 .cc-state.err{background:rgba(239,68,68,.14);color:var(--dan)}
 .cc-ops{display:flex;gap:8px;margin-bottom:12px}
-.cc-op{height:28px;padding:0 12px;border-radius:7px;font-size:12px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
+.cc-op{height:28px;padding:0 12px;border-radius:8px;font-size:12px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
 .cc-op:hover:not(:disabled){border-color:var(--p-dark);color:var(--p-dark)}
 .cc-op:disabled{opacity:.5;cursor:default}
 .cc-health{font-size:11px;color:var(--t3);margin-bottom:12px;line-height:1.5}
@@ -1327,10 +1327,10 @@ onUnmounted(stopStatusPoll)
 .switch.on .slider::before{transform:translateX(18px)}
 .wf-card.disabled{cursor:default;opacity:.65}
 .wf-top{display:flex;align-items:center;gap:12px}
-.wf-icon{width:40px;height:40px;border-radius:10px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;flex-shrink:0}
+.wf-icon{width:40px;height:40px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;flex-shrink:0}
 .wf-name-wrap{flex:1}
 .wf-name{font-size:15px;font-weight:500;color:var(--t1);margin-bottom:2px}
-.wf-state{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--bg2);color:var(--t3)}
+.wf-state{font-size:11px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t3)}
 .wf-state.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .wf-desc{font-size:12px;color:var(--t3);line-height:1.6}
 .wf-steps{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:12px;color:var(--t2)}
@@ -1343,7 +1343,7 @@ onUnmounted(stopStatusPoll)
 
 /* 弹窗 */
 /* v691：弹窗骨架统一由 components/Modal.vue 提供 */
-.cc-modal-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 16px;background:var(--p-bg);padding:10px 12px;border-radius:10px}
+.cc-modal-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 16px;background:var(--p-bg);padding:10px 12px;border-radius:8px}
 .cc-modal-tip a{color:var(--p-dark)}
 .cc-field{display:block;margin-bottom:14px}
 .cc-field span{display:block;font-size:12px;color:var(--t2);margin-bottom:6px}
@@ -1364,7 +1364,7 @@ onUnmounted(stopStatusPoll)
 .ev-stat span{font-size:11px;color:var(--t3);margin-top:2px}
 .ev-sk-hd{display:flex;align-items:center;gap:10px;margin:14px 0 10px}
 .ev-sk-hd b{font-size:13px;color:var(--t1)}
-.ev-jump{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 4px;padding:11px 14px;border:1px dashed var(--bd);border-radius:10px;background:var(--bg2);cursor:pointer}
+.ev-jump{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 4px;padding:11px 14px;border:1px dashed var(--bd);border-radius:8px;background:var(--bg2);cursor:pointer}
 .ev-jump:hover{border-color:var(--p);background:var(--p-bg)}
 .ev-jump-txt{font-size:13px;color:var(--t1)}
 .ev-jump-go{font-size:13px;font-weight:500;color:var(--p-dark);white-space:nowrap}
@@ -1384,7 +1384,7 @@ onUnmounted(stopStatusPoll)
 
 /* 三步引导条 */
 .cc-guide{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-.cc-guide-step{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--t2);background:var(--bg2);padding:6px 12px;border-radius:10px}
+.cc-guide-step{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--t2);background:var(--bg2);padding:6px 12px;border-radius:8px}
 .cgs-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--p-dark);color:#fff;font-size:11px;font-weight:600}
 .cgs-arrow{color:var(--t3);font-size:14px}
 

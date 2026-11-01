@@ -42,7 +42,7 @@
 
       <!-- ── 右：编辑区 ──────────────────────────────────────── -->
       <div v-if="!draft" class="card rb-hollow">
-        <h3>从左边选一张报表开始</h3>
+        <h2>从左边选一张报表开始</h2>
         <p>没有选中任何报表。左边每一条都能改：标题、取数 SQL、列名、列类型、要不要合计。</p>
       </div>
 
@@ -222,7 +222,7 @@
             </div>
 
             <p v-if="draft.chart.y.length && draft.chart.x && chartWarn" class="rb-chart-warn">
-              <Icon name="alert-triangle" :size="13" /> {{ chartWarn }}
+              <Icon name="alert-triangle" :size="14" /> {{ chartWarn }}
             </p>
           </template>
         </div>
@@ -732,7 +732,7 @@ onMounted(loadList)
 .rb-err p { margin: 6px 0 0; font-size: 12px; line-height: 1.8; color: var(--t2); word-break: break-all }
 
 .rb-hollow { padding: 28px 24px; text-align: center }
-.rb-hollow h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--t1) }
+.rb-hollow h2 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--t1) }
 .rb-hollow p { font-size: 12px; color: var(--t2); line-height: 1.9 }
 
 .rb-foot { margin: 14px 2px 0; font-size: 12px; line-height: 1.9; color: var(--t3) }

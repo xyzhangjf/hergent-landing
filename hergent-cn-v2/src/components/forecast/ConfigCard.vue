@@ -60,7 +60,7 @@ function toggle() { emit('update:modelValue', !isOpen.value) }
 
 /* ⚠️ chip / summary 由父组件经 slot 传入，其元素带父组件 scope，必须用 :deep 穿透样式化 */
 /* 状态芯片：on=绿（已开启/自动），off=灰（已关闭/手动），warn=琥珀（异常提示） */
-.cfg-side :deep(.cfg-chip){font-size:11px;padding:1px 9px;border-radius:10px;font-weight:500;white-space:nowrap}
+.cfg-side :deep(.cfg-chip){font-size:11px;padding:1px 9px;border-radius:8px;font-weight:500;white-space:nowrap}
 .cfg-side :deep(.cfg-chip.on){background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .cfg-side :deep(.cfg-chip.off){background:var(--bg2);color:var(--t3)}
 .cfg-side :deep(.cfg-chip.warn){background:rgba(var(--war-rgb),.12);color:var(--war);border:1px solid rgba(var(--war-rgb),.35)}

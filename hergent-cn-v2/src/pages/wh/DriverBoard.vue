@@ -83,15 +83,15 @@
                 <span class="dbd-btns">
                   <button v-if="o.delivery_status === 'assigned'" class="dbd-btn" :disabled="busy === o.id"
                           @click="mark(o, 'delivered')">
-                    <Icon name="check" :size="12" />标记送达
+                    <Icon name="check" :size="14" />标记送达
                   </button>
                   <button v-else-if="o.delivery_status === 'delivered'" class="dbd-btn" :disabled="busy === o.id"
                           @click="mark(o, 'signed')">
-                    <Icon name="check" :size="12" />标记签收
+                    <Icon name="check" :size="14" />标记签收
                   </button>
                   <button v-else-if="o.delivery_status === 'signed'" class="dbd-btn dbd-btn-fail" :disabled="busy === o.id"
                           @click="mark(o, 'failed')">
-                    <Icon name="close" :size="12" />标记失败
+                    <Icon name="close" :size="14" />标记失败
                   </button>
                   <span v-else class="dbd-dim">{{ statusText(o.delivery_status) }}</span>
                 </span>
@@ -119,7 +119,7 @@
                 <span class="dbd-amt">¥{{ money(o.total_amount) }}</span>
                 <span class="dbd-btns">
                   <button class="dbd-btn" :disabled="busy === o.id" @click="mark(o, 'delivered')">
-                    <Icon name="check" :size="12" />标记送达
+                    <Icon name="check" :size="14" />标记送达
                   </button>
                 </span>
               </div>
@@ -246,7 +246,7 @@ onMounted(loadBoard)
 .dbd-cards { display: flex; flex-direction: column; gap: 8px }
 .dbd-card {
   background: var(--bg); border: 1px solid var(--bd);
-  border-radius: 10px; padding: 10px;
+  border-radius: 8px; padding: 10px;
 }
 .dbd-card-hd { display: flex; align-items: center; gap: 6px }
 .dbd-mono { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t3) }

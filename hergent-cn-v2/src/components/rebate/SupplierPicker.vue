@@ -200,7 +200,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 .sp-trigger-t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .sp-panel { display: flex; flex-direction: column; gap: 8px; padding: 10px;
-  border: 1px solid var(--bd); border-radius: 10px; background: var(--bg2); }
+  border: 1px solid var(--bd); border-radius: 8px; background: var(--bg2); }
 .sp-hd { display: grid; grid-template-columns: 1fr 170px; gap: 8px; }
 .sp-search, .sp-cat { height: 32px; font-size: 12px; }
 

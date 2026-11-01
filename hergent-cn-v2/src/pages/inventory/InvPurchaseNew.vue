@@ -265,7 +265,7 @@
           <span class="ipn-at-nm" :title="s.name">{{ s.name }}</span>
           <span class="ipn-at-sz">{{ fmtSize(s.size) }}</span>
           <button class="ipn-at-x" type="button" title="移除" @click="removeStaged(s.key)">
-            <Icon name="close" :size="12" />
+            <Icon name="close" :size="14" />
           </button>
         </li>
       </ul>
@@ -359,7 +359,7 @@
           <thead>
             <tr>
               <th class="seq-th col-gear-th">
-                <button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
+                <button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button>
               </th>
               <!-- v444：必填三列（商品 / 采购价 / 订单数量）打红 `*`，与表单头
                    「供应商」同一枚 `.ipn-req`；判据 = `validate()` 里实际拦的字段。 -->
@@ -455,7 +455,7 @@
                         :title="batchText(row) || '点开填写批次号 / 到期日 / 生产日期（选填）'"
                         @click.stop="toggleBatch(row)">
                   <span class="ipn-batch-txt">{{ batchText(row) || (row.product_id ? '填写' : '') }}</span>
-                  <Icon name="chevron-down" :size="12" />
+                  <Icon name="chevron-down" :size="14" />
                 </button>
                 <div v-if="batchOpen === row.uid" class="ipn-batch-pop" @click.stop>
                   <label class="ipn-bp-row">

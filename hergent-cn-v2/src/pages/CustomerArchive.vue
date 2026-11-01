@@ -28,11 +28,11 @@
       <div class="cas-filters">
         <div class="cas-search">
           <svg class="cas-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input v-model="keyword" class="input cas-kw" placeholder="客户名称 / 编码 / 助记码 / 电话" @input="onFilterChange">
+          <input v-model="keyword" class="input cas-kw" aria-label="搜索客户" placeholder="客户名称 / 编码 / 助记码 / 电话" @input="onFilterChange">
         </div>
         <!-- v316：业态下拉的选项**从库里现取**（`/api/contacts/options`）。不给固定 6 项 ——
              生产数据里用户已用开 12 种业态，把现实塞回 6 个格子会造出同义不同字的重复档案。 -->
-        <select v-model="bizFilter" class="input" @change="onFilterChange">
+        <select v-model="bizFilter" class="input" aria-label="业态筛选" @change="onFilterChange">
           <option value="">全部业态</option>
           <option v-for="b in bizOptions" :key="b" :value="b">{{ b }}</option>
         </select>
@@ -44,7 +44,7 @@
         <table class="tbl">
           <thead>
             <tr>
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th><th>客户名称</th><th v-if="isVisible('channel')">业态</th><th v-if="isVisible('region')">片区</th><th v-if="isVisible('route')">配送线路</th><th>老板 / 电话</th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th><th>客户名称</th><th v-if="isVisible('channel')">业态</th><th v-if="isVisible('region')">片区</th><th v-if="isVisible('route')">配送线路</th><th>老板 / 电话</th>
               <th v-if="isVisible('sales')">负责业务员</th><th class="num">应收余额</th><th v-if="isVisible('last')">最近下单</th><th></th>
             </tr>
           </thead>
@@ -77,7 +77,7 @@
           <button class="btn btn-ghost btn-sm" :disabled="page <= 1" @click="goPage(page - 1)">上一页</button>
           <span class="cas-pageinfo">第 {{ page }} / {{ totalPages }} 页 · 共 {{ total }} 个客户</span>
           <button class="btn btn-ghost btn-sm" :disabled="page >= totalPages" @click="goPage(page + 1)">下一页</button>
-          <select v-model="pageSize" class="input cas-size" @change="onPageSizeChange">
+          <select v-model="pageSize" class="input cas-size" aria-label="每页显示条数" @change="onPageSizeChange">
             <option :value="20">20 / 页</option>
             <option :value="50">50 / 页</option>
             <option :value="100">100 / 页</option>
@@ -508,7 +508,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 .cas-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
 .cas-stat{font-size:12px;color:var(--t2)}
 .cas-stat b{font-size:15px;color:var(--t1)}
-.sync-state{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sync-state{font-size:12px;padding:3px 10px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 

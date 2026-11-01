@@ -17,7 +17,7 @@
       <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load">重试</button>
     </div>
     <div v-else-if="!items.length" class="card empty">
-      <Icon name="check" :size="20" />
+      <Icon name="check" :size="18" />
       <span>当前没有需要你审批的单据。</span>
     </div>
 

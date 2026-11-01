@@ -32,7 +32,7 @@
         <!-- 隐藏的 file input：真正「选文件」由上面的按钮触发。
              ⚠️ 不能用 `display:none`（部分浏览器 `.click()` 不触发）；
              ⚠️ 多选：一次可挑多张图片 / 多个文件。 -->
-        <input ref="attFileEl" type="file" multiple class="ipn-at-file" @change="onAttachPick" />
+        <input ref="attFileEl" type="file" multiple class="ipn-at-file" aria-label="选择附件" @change="onAttachPick" />
       </div>
     </div>
 
@@ -61,27 +61,27 @@
               与「有 `*`＝必填」配成一对；这不改变上面的校验行为（它们**仍然不是**必填）。 -->
       <div class="ipn-f">
         <label class="ipn-lb">业务员</label>
-        <select v-model="form.handler" class="input ipn-sel" @change="onHandlerChange">
+        <select aria-label="业务员" v-model="form.handler" class="input ipn-sel" @change="onHandlerChange">
           <option value="">不指定</option>
           <option v-for="u in users" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
         </select>
       </div>
       <div class="ipn-f">
         <label class="ipn-lb">部门</label>
-        <select v-model.number="form.department_id" class="input ipn-sel">
+        <select aria-label="部门" v-model.number="form.department_id" class="input ipn-sel">
           <option :value="0">不指定</option>
           <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
         </select>
       </div>
       <div class="ipn-f">
         <label class="ipn-lb"><span class="ipn-req">*</span>{{ cfg.whLabel }}</label>
-        <select v-model.number="form.warehouse_id" class="input ipn-sel">
+        <select :aria-label="cfg.whLabel" v-model.number="form.warehouse_id" class="input ipn-sel">
           <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
         </select>
       </div>
       <div class="ipn-f">
         <label class="ipn-lb">单据日期</label>
-        <input type="date" v-model="form.order_date" class="input ipn-date" />
+        <input aria-label="单据日期" type="date" v-model="form.order_date" class="input ipn-date" />
       </div>
       <!-- v439：撤掉「预计到货日期」输入框（老板拍板：本页不需要）。
            🔴 `form.expected_date` **照旧加载、照旧提交**（编辑既有单时必须原样写回，
@@ -90,7 +90,7 @@
         <label class="ipn-lb">备注</label>
         <!-- v428：同排其它输入框都是 32px（.ipn-sel/.ipn-date/.ipn-kw），备注框原本只用
              全局 .input（默认 40px）⇒ 整行高低不齐。补 ipn-note-in 收成 32px，对齐。 -->
-        <input v-model.trim="form.note" maxlength="500" class="input ipn-note-in" />
+        <input aria-label="备注" v-model.trim="form.note" maxlength="500" class="input ipn-note-in" />
         <!-- v439：字数计数**从标签里挪到框尾**（对齐舟谱：0/500 挂在框内最右）。
              留在标签里会挤成「备注：0/500」出现在框左，被读成标签的一部分。 -->
         <span class="ipn-cnt">{{ (form.note || '').length }}/500</span>
@@ -118,7 +118,7 @@
           <span class="ipn-at-nm" :title="s.name">{{ s.name }}</span>
           <span class="ipn-at-sz">{{ fmtSize(s.size) }}</span>
           <button class="ipn-at-x" type="button" title="移除" @click="removeStaged(s.key)">
-            <Icon name="close" :size="12" />
+            <Icon name="close" :size="14" />
           </button>
         </li>
       </ul>
@@ -164,7 +164,7 @@
     <div v-if="cfDefs.length" class="ipn-hd ipn-hd-flat hd-box">
       <div v-for="c in cfDefs" :key="c.key" class="ipn-f">
         <label class="ipn-lb">{{ c.label }}</label>
-        <input v-model="extra[c.key]" class="input ipn-cf-in"
+        <input :aria-label="c.label" v-model="extra[c.key]" class="input ipn-cf-in"
                :inputmode="c.num ? 'decimal' : 'text'"
                :placeholder="c.num ? '数字，选填' : '选填'" />
       </div>
@@ -187,7 +187,7 @@
              偏好写 localStorage，下次开单还是这个状态。 -->
         <label class="ipn-unitsw" :class="{ on: smallUnitMode }"
                :title="smallUnitMode ? '当前按小单位采购；点一下切回大单位' : '当前按大单位采购；点一下切成小单位'">
-          <input type="checkbox" v-model="smallUnitMode" @change="onSmallUnitMode" />
+          <input type="checkbox" v-model="smallUnitMode" @change="onSmallUnitMode" aria-label="按小单位下单" />
           <span class="ipn-unitsw-tx">按小单位采购</span>
         </label>
         <button class="ipn-tip-link" type="button" @click="showNotes = !showNotes">
@@ -221,7 +221,7 @@
           <thead>
             <tr>
               <th class="seq-th col-gear-th">
-                <button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
+                <button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button>
               </th>
               <!-- v444：必填三列（商品 / 采购价 / 订单数量）打红 `*`，与表单头
                    「供应商」同一枚 `.ipn-req`；判据 = `validate()` 里实际拦的字段。 -->
@@ -255,6 +255,7 @@
               <td class="ipn-c-prod" @click="openProd(row)">
                 <div v-if="isCellOn(row, 'prod')" class="ipn-prod-combo">
                   <input :value="row._pkw" class="input ipn-in" placeholder="输入名称或条码搜索"
+                         :aria-label="`第${i + 1}行 商品搜索`"
                          v-focus @input="onProdKw(row, $event)"
                          @keydown.down.prevent="pkMove(row, 1)" @keydown.up.prevent="pkMove(row, -1)"
                          @keydown.enter.prevent="pkEnter(row)" @keydown.esc.prevent="pkBlur(row)"
@@ -308,7 +309,8 @@
               </td>
               <td class="ipn-c-price" @click="cellOn(row, 'price')">
                 <input v-if="isCellOn(row, 'price')" v-model="row.unit_price" v-focus
-                       class="input ipn-in num" inputmode="decimal" @blur="cellOff" @keydown.esc="cellOff" />
+                       class="input ipn-in num" inputmode="decimal" @blur="cellOff" @keydown.esc="cellOff"
+                       :aria-label="`第${i + 1}行 单价`" />
                 <span v-else class="ipn-v num" tabindex="0"
                       @keydown.enter.prevent="cellOn(row, 'price')">{{ row.unit_price || '' }}</span>
                 <!-- v409（P2-1）双单位采购价：舟谱是「100 / 5/箱」两行，这里在所选档单价下面
@@ -319,7 +321,8 @@
               </td>
               <td class="ipn-c-qty" @click="cellOn(row, 'qty')">
                 <input v-if="isCellOn(row, 'qty')" v-model="row.quantity" v-focus
-                       class="input ipn-in num" inputmode="decimal" @blur="cellOff" @keydown.esc="cellOff" />
+                       class="input ipn-in num" inputmode="decimal" @blur="cellOff" @keydown.esc="cellOff"
+                       :aria-label="`第${i + 1}行 数量`" />
                 <span v-else class="ipn-v num" tabindex="0"
                       @keydown.enter.prevent="cellOn(row, 'qty')">{{ row.quantity || '' }}</span>
                 <!-- v409：折小单位数量 —— 让用户**下单时就看见**库存会进多少（不是事后才发现）。 -->
@@ -346,7 +349,7 @@
                         :title="batchText(row) || '点开填写批次号 / 到期日 / 生产日期（选填）'"
                         @click.stop="toggleBatch(row)">
                   <span class="ipn-batch-txt">{{ batchText(row) || (row.product_id ? '填写' : '') }}</span>
-                  <span class="ipn-batch-caret"><Icon name="chevron-down" :size="12" /></span>
+                  <span class="ipn-batch-caret"><Icon name="chevron-down" :size="14" /></span>
                 </button>
                 <div v-if="batchOpen === row.uid" class="ipn-batch-pop" @click.stop>
                   <label class="ipn-bp-row">
@@ -367,7 +370,8 @@
               </td>
               <td v-if="isVisible('note')" class="ipn-c-note" @click="cellOn(row, 'note')">
                 <input v-if="isCellOn(row, 'note')" v-model.trim="row.note" v-focus maxlength="200"
-                       class="input ipn-in" @blur="cellOff" @keydown.esc="cellOff" />
+                       class="input ipn-in" @blur="cellOff" @keydown.esc="cellOff"
+                       :aria-label="`第${i + 1}行 行备注`" />
                 <span v-else class="ipn-v" tabindex="0"
                       @keydown.enter.prevent="cellOn(row, 'note')">{{ row.note || '' }}</span>
               </td>

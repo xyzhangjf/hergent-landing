@@ -53,7 +53,7 @@
       <Icon name="check" :size="14" />
       <span>各列都和你上次定的一样，没有需要确认的地方，可以直接导入。</span>
       <button class="im-fold-btn" @click="collapsed = false">
-        <Icon name="chevron-right" :size="13" />
+        <Icon name="chevron-right" :size="14" />
         查看 / 调整映射（{{ rows.length }} 列）
       </button>
     </div>
@@ -61,7 +61,7 @@
     <div v-else class="im-wrap">
       <div v-if="collapsible" class="im-unfold">
         <button class="im-fold-btn" @click="collapsed = true">
-          <Icon name="chevron-down" :size="13" />
+          <Icon name="chevron-down" :size="14" />
           收起映射表
         </button>
       </div>
@@ -85,7 +85,7 @@
               <!-- v346：危险列在**行内**再说一遍原因。只靠顶部提示条不够 ——
                    用户点「改」的时候视线在这一行上，那时候最需要看到"为什么说它可疑"。 -->
               <div v-if="r.risk" class="im-rdanger">
-                <Icon name="alert" :size="12" />{{ riskTail(r) }}
+                <Icon name="alert" :size="14" />{{ riskTail(r) }}
               </div>
             </td>
             <td><span class="im-cc" :class="'im-cc-' + confKey(r)">{{ confLabel(r) }}</span></td>

@@ -27,13 +27,13 @@
       <div class="pa-filters">
         <div class="pa-search">
           <svg class="pa-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          <input v-model="keyword" class="input pa-kw" placeholder="商品名称 / 条码 / 规格 / 编码" @input="onFilterChange">
+          <input v-model="keyword" class="input pa-kw" aria-label="搜索商品" placeholder="商品名称 / 条码 / 规格 / 编码" @input="onFilterChange">
         </div>
-        <select v-model="brandFilter" class="input" @change="onFilterChange">
+        <select v-model="brandFilter" class="input" aria-label="品牌筛选" @change="onFilterChange">
           <option value="">全部品牌</option>
           <option v-for="b in brandOptions" :key="b" :value="b">{{ b }}</option>
         </select>
-        <select v-model="categoryFilter" class="input" @change="onFilterChange">
+        <select v-model="categoryFilter" class="input" aria-label="分类筛选" @change="onFilterChange">
           <option value="">全部分类</option>
           <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
         </select>
@@ -56,7 +56,7 @@
       <div v-else-if="products.length" class="table-wrap freeze-list" ref="listWrap">
         <table class="tbl">
           <thead><tr>
-            <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th><th>名称</th><th v-if="isVisible('barcode')">条码</th><th v-if="isVisible('spec')">规格</th><th>单位</th>
+            <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th><th>名称</th><th v-if="isVisible('barcode')">条码</th><th v-if="isVisible('spec')">规格</th><th>单位</th>
             <!-- v233：报单单位 —— 主表「单位」列与舟谱模板「*单位」列的**共同来源**。
                  与左边的「单位」分开成列，因为它们是**两个概念**（混在一格正是 v217 的病根）：
                    · 「单位」= 档案单位（舟谱「小单位」语义，用于档案对账/价格档位）
@@ -180,7 +180,7 @@
         <button class="btn btn-ghost btn-sm" :disabled="page <= 1" @click="goPage(page - 1)">上一页</button>
         <span class="pa-pageinfo">第 {{ page }} / {{ totalPages }} 页 · 共 {{ total }} 条</span>
         <button class="btn btn-ghost btn-sm" :disabled="page >= totalPages" @click="goPage(page + 1)">下一页</button>
-        <select v-model="pageSize" class="input pa-size" @change="onPageSizeChange">
+        <select v-model="pageSize" class="input pa-size" aria-label="每页显示条数" @change="onPageSizeChange">
           <option :value="20">20 / 页</option>
           <option :value="50">50 / 页</option>
           <option :value="100">100 / 页</option>
@@ -2071,7 +2071,7 @@ onMounted(() => {
 .pa-imp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pa-file-btn{position:relative;overflow:hidden}
 .pa-fname{font-size:12px;color:var(--t2)}
-.pa-imp-result{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc)}
+.pa-imp-result{margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc)}
 .pa-imp-result.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
 .pa-errs{display:flex;flex-direction:column;gap:2px;margin-top:6px}
 .pa-err{font-size:12px;color:var(--t2)}

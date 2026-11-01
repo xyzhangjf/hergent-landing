@@ -449,7 +449,7 @@ async function ackFallback() {
 
 <style scoped>
 .aops{display:flex;flex-direction:column;gap:16px}
-.aops-tip{display:flex;align-items:baseline;gap:10px;padding:10px 14px;background:var(--bg2);border:1px dashed var(--border-subtle);border-radius:10px}
+.aops-tip{display:flex;align-items:baseline;gap:10px;padding:10px 14px;background:var(--bg2);border:1px dashed var(--border-subtle);border-radius:8px}
 .aops-tip b{font-size:14px;font-weight:600;color:var(--t1);flex-shrink:0}
 .aops-tip span{font-size:12px;color:var(--t3)}
 
@@ -458,14 +458,14 @@ async function ackFallback() {
 
 /* 数据备份 */
 .bk-stat{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
-.bk-pill{background:var(--bg);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:4px;min-width:160px}
+.bk-pill{background:var(--bg);border:1px solid var(--border-subtle);border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:4px;min-width:160px}
 .bk-k{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em}
 .bk-v{font-size:15px;font-weight:600;color:var(--t1)}
 .bk-list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto}
 .bk-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:8px}
 .bk-main{display:flex;flex-direction:column;gap:2px}
 .bk-date{font-size:14px;font-weight:600;color:var(--t1)}
-.restore-box{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:10px}
+.restore-box{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:8px}
 .restore-row{display:flex;align-items:center;gap:10px;padding:4px 0}
 .bd-tag{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:var(--bg3);color:var(--t2)}
 .bd-tag.ok{background:var(--ok-green-bg);color:var(--ok-green)}
@@ -473,7 +473,7 @@ async function ackFallback() {
 
 /* 健康看板 */
 .obs-warn{color:var(--danger-txt)}
-.obs-prov,.obs-fail{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:10px}
+.obs-prov,.obs-fail{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:8px}
 .obs-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;gap:10px}
 .obs-prov-tag{font-size:13px;font-weight:600;color:var(--t1);padding:2px 8px;background:var(--info-blue-bg);border-radius:4px}
 .obs-fail-tag{font-size:12px;color:var(--danger-txt);background:var(--danger-bg);padding:2px 8px;border-radius:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}

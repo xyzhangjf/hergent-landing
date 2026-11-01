@@ -10,7 +10,7 @@
       <div class="dash-err-ti">今天的数没取回来</div>
       <div class="dash-err-msg">{{ kpiErr }}</div>
       <button type="button" class="btn btn-ghost btn-sm" @click="loadDash">
-        <Icon name="refresh" :size="13" />重试
+        <Icon name="refresh" :size="14" />重试
       </button>
     </div>
     <div v-else class="kpi-row">

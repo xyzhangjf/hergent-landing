@@ -167,7 +167,7 @@ onBeforeUnmount(() => {
     @keydown.enter.prevent="toggle"
     @keydown.space.prevent="toggle"
   >
-    <Icon name="keyboard" :size="13" />
+    <Icon name="keyboard" :size="14" />
     <span class="kc-txt">快捷键</span>
   </span>
 

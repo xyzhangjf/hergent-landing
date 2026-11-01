@@ -372,7 +372,7 @@ onMounted(load)
 .dl-count{font-size:13px;color:var(--t1);font-weight:500}
 .dl-count.dim{color:var(--t3);font-weight:400}
 .dl-last{font-size:12px;color:var(--t3)}
-.dl-tag{flex:0 0 auto;font-size:11px;padding:3px 9px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.dl-tag{flex:0 0 auto;font-size:11px;padding:3px 9px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .dl-tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .dl-tag.stale{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .dl-tag.empty,.dl-tag.err{background:rgba(var(--dan-rgb),.12);color:var(--danger-txt)}
@@ -385,7 +385,7 @@ onMounted(load)
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);
   font-size:12px;color:var(--war);line-height:1.6}
 
-.dl-risk{display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;padding:11px 13px;border-radius:10px;
+.dl-risk{display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;padding:11px 13px;border-radius:8px;
   background:rgba(245,158,11,.12);color:var(--war);font-size:12px;line-height:1.7}
 .dl-risk svg{flex:0 0 15px;margin-top:3px}
 .dl-pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}

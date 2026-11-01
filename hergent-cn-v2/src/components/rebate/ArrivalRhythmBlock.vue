@@ -178,7 +178,7 @@ function wkLabel(iso) {
 </script>
 
 <style scoped>
-.arrival-block{border:1px solid var(--bd2);border-radius:10px;padding:14px;margin-bottom:6px;background:var(--bg2)}
+.arrival-block{border:1px solid var(--bd2);border-radius:8px;padding:14px;margin-bottom:6px;background:var(--bg2)}
 .arrival-block .form-row{margin-bottom:8px}
 .form-row{display:flex;flex-direction:column;gap:6px}
 .form-row label{font-size:12px;font-weight:500;color:var(--t2)}

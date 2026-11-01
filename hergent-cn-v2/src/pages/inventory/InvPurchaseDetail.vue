@@ -263,7 +263,7 @@
             </template>
             <template v-else>
               <span class="ipd-bfv ipd-bfv-note">{{ o.note || '—' }}</span>
-              <button v-if="canWrite" class="ipd-pencil" title="编辑表头字段" @click="startEdit"><Icon name="pencil" :size="13" /></button>
+              <button v-if="canWrite" class="ipd-pencil" title="编辑表头字段" @click="startEdit"><Icon name="pencil" :size="14" /></button>
             </template>
           </div>
           <div class="ipd-bf">
@@ -411,7 +411,7 @@
             <table class="tbl ipd-tbl">
               <thead>
                 <tr>
-                  <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuGoods" title="列设置"><Icon name="settings" :size="15" /></button></th>
+                  <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuGoods" title="列设置"><Icon name="settings" :size="16" /></button></th>
                   <th>商品名称</th>
                   <th v-if="isVisGoods('barcode')">条形码</th>
                   <th>单位</th>
@@ -501,7 +501,7 @@
                     <button class="btn btn-ghost btn-sm ipd-hist-btn"
                             :title="'只看这一行的入库 / 退货痕迹：' + (it.product_name || ('商品 ' + it.product_id))"
                             @click="openLogsRow(it.product_id, it.product_name)">
-                      <Icon name="history" :size="13" />历史
+                      <Icon name="history" :size="14" />历史
                     </button>
                   </td>
                 </tr>
@@ -584,7 +584,7 @@
             </div>
 
             <div v-if="apMismatch" class="ipd-warn">
-              <Icon name="alert" :size="15" />
+              <Icon name="alert" :size="16" />
               <span>往来账里的应付余额（¥{{ fmtMoney(pay.ap_unpaid_amount) }}）与这里的未结金额对不上，
                 以本页为准；建议到「往来账」核对这一单。</span>
             </div>
@@ -594,13 +594,13 @@
                     后端说状态不对」这类自相矛盾重新长出来。none 时整颗按钮不渲染。 -->
             <button v-if="payMode !== 'none'" class="btn btn-primary ipd-paybtn"
                     :disabled="!canWrite || payBusy" @click="openPay">
-              <Icon name="payment" :size="15" />{{ payMode === 'prepay' ? '预付款' : '付款' }}
+              <Icon name="payment" :size="16" />{{ payMode === 'prepay' ? '预付款' : '付款' }}
             </button>
             <!-- 🔴 超付必须显式说出来：老板定了「预付不设上限」，而未结金额用 `max(0, …)`
                  兜底（永不为负）⇒ 多付的钱会被那个 max 吃掉，界面显示「未结 0」。
                  那是**看起来刚好付完、实际多给了钱**，属于本仓最忌讳的静默错数。 -->
             <div v-if="overpaid > 0" class="ipd-warn ipd-overpaid">
-              <Icon name="alert" :size="15" />
+              <Icon name="alert" :size="16" />
               <span>已多付 ¥{{ fmtMoney(overpaid) }}{{ payMode === 'prepay' ? '（超过订单金额）' : '（超过已到货金额）' }}，
                 请向供应商追回，或留抵下次货款。</span>
             </div>
@@ -611,7 +611,7 @@
           <div class="card ipd-flows">
             <div class="ipd-info-hd">付款信息</div>
             <div v-if="!payments.length" class="ipd-empty">
-              <div class="ipd-empty-ic"><Icon name="receipt" :size="26" /></div>
+              <div class="ipd-empty-ic"><Icon name="receipt" :size="22" /></div>
               <p>{{ payMode === 'prepay' ? '还没有预付款记录。' : '还没有付款记录。' }}</p>
               <p v-if="canPay" class="ipd-note">
                 <template v-if="payMode === 'prepay'">货还没到，可以点左侧「预付款」先把钱付给供应商。</template>
@@ -679,7 +679,7 @@
           </div>
         </div>
         <div v-if="inb.empty" class="card ipd-empty">
-          <div class="ipd-empty-ic"><Icon name="inbox" :size="26" /></div>
+          <div class="ipd-empty-ic"><Icon name="inbox" :size="22" /></div>
           <p>{{ inb.reason || '这张单还没有到货记录。' }}</p>
         </div>
         <template v-else>
@@ -707,7 +707,7 @@
               <table class="tbl ipd-tbl-wide">
                 <thead>
                 <tr>
-                  <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuIn" title="列设置"><Icon name="settings" :size="15" /></button></th>
+                  <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuIn" title="列设置"><Icon name="settings" :size="16" /></button></th>
                   <th v-if="isVisIn('batch')">生产批号</th>
                   <th>商品名称</th>
                   <th v-if="isVisIn('barcode')">小单位条码</th>
@@ -2225,7 +2225,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* v452-followup（O10）：行内编辑 —— 字段旁铅笔图标（不往动作区加按钮，遵守工具栏精简纪律）。 */
 .ipd-pencil {
   margin-left: 6px; padding: 2px; border: 0; background: transparent; cursor: pointer;
-  color: var(--t3); line-height: 0; border-radius: 5px;
+  color: var(--t3); line-height: 0; border-radius: 6px;
 }
 .ipd-pencil:hover { color: var(--c-blue); background: rgba(47, 111, 237, .08) }
 /* 🔵 v696（2026-10-26）编辑态控件改「下划线式就地改」，弃白底圆角框。

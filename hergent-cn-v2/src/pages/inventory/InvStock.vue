@@ -65,7 +65,7 @@
           <table class="tbl">
             <thead>
               <tr>
-                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
                 <th>商品</th>
                 <th v-if="isVisible('spec')">规格</th>
                 <th>仓库</th>

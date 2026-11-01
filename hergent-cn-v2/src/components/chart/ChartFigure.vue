@@ -15,7 +15,7 @@
           :title="busy ? '正在生成图片' : '导出为 PNG 图片，可直接贴进 PPT 或发给别人'"
           @click="doExport"
         >
-          <Icon name="download" :size="13" />{{ busy ? '正在导出' : '导出图片' }}
+          <Icon name="download" :size="14" />{{ busy ? '正在导出' : '导出图片' }}
         </button>
       </div>
     </div>
@@ -37,7 +37,7 @@
       <div class="ch-err-ti">{{ errorTitle }}</div>
       <div>{{ error }}</div>
       <button type="button" class="btn btn-ghost btn-sm ch-retry" @click="emit('retry')">
-        <Icon name="refresh" :size="13" />重试
+        <Icon name="refresh" :size="14" />重试
       </button>
     </div>
 

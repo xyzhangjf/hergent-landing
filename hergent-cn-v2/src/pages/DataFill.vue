@@ -179,7 +179,7 @@ onMounted(() => {
 <style scoped>
 .df-panel{padding:18px;margin-bottom:14px}
 .df-tip{font-size:12px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
-.df-tip code{background:var(--bg2);padding:1px 6px;border-radius:5px;font-size:12px}
+.df-tip code{background:var(--bg2);padding:1px 6px;border-radius:6px;font-size:12px}
 .df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:8px;font-size:12px}
 
 .df-import-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

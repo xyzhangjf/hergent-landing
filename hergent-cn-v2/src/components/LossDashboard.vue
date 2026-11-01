@@ -624,8 +624,8 @@ html.dark .dsh {
 .rk-tag.k-store { background: var(--p-bg); color: var(--p-deep); }
 .rk-tag.k-operator { background: var(--warn-amber-bg); color: var(--warn-amber); }
 .rk-nm { color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rk-bar { height: 14px; background: var(--bg2); border-radius: 7px; overflow: hidden; }
-.rk-bar i { display: block; height: 100%; border-radius: 7px; min-width: 3px; transition: width var(--dur-slow) ease; }
+.rk-bar { height: 14px; background: var(--bg2); border-radius: 8px; overflow: hidden; }
+.rk-bar i { display: block; height: 100%; border-radius: 8px; min-width: 3px; transition: width var(--dur-slow) ease; }
 .rk-v { text-align: right; color: var(--t1); font-variant-numeric: tabular-nums; }
 .rk-v.good { color: var(--suc); }
 .rk-r { text-align: right; color: var(--c-rate); font-variant-numeric: tabular-nums; }

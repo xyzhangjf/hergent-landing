@@ -418,7 +418,7 @@ onBeforeUnmount(() => { clearTimeout(_t) })
 .sup-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
 .sup-stat{font-size:12px;color:var(--t2)}
 .sup-stat b{font-size:15px;color:var(--t1)}
-.sup-sync{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sup-sync{font-size:12px;padding:3px 10px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sup-sync.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sup-sync.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 

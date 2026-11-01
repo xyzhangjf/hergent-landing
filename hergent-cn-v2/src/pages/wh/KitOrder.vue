@@ -87,7 +87,7 @@
               <Icon name="list" :size="14" />
               <span>{{ isAsm ? '组件明细（会被消耗）' : '组件明细（会被产出）' }}</span>
               <button class="btn btn-ghost btn-sm kt-add-item" @click="addItemRow">
-                <Icon name="plus" :size="13" />加一行
+                <Icon name="plus" :size="14" />加一行
               </button>
             </div>
             <div v-if="!draft.items.length" class="kt-items-none">还没有组件明细，点「加一行」开始。</div>

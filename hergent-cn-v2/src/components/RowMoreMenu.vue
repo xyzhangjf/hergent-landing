@@ -142,7 +142,7 @@ onBeforeUnmount(() => {
   position: fixed; z-index: var(--z-page-menu, 1101);
   display: flex; flex-direction: column; min-width: 96px; padding: 4px;
   background: var(--bg2); border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 10px); box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, .12));
+  border-radius: var(--radius-md, 8px); box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, .12));
   font-size: 13px;
 }
 .row-more-mi {

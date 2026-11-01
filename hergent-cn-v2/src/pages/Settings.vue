@@ -1584,7 +1584,7 @@ onMounted(() => {
 .plog-target{max-width:170px;overflow:hidden;text-overflow:ellipsis}
 .plog-type{width:104px}
 /* 操作类型标签：中性底；「删除角色」是破坏性操作 ⇒ 警示色单独标出，扫一眼就能定位 */
-.plog-tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;
+.plog-tag{display:inline-block;padding:1px 8px;border-radius:8px;font-size:11px;
           background:var(--bg3);color:var(--t2)}
 .plog-tag.danger{background:var(--dan-bg);color:var(--dan);font-weight:600}
 .plog-detail{min-width:260px;white-space:normal;color:var(--t1);line-height:1.7;word-break:break-all}
@@ -1637,7 +1637,7 @@ onMounted(() => {
 .pr-name{font-weight:600;color:var(--t1)}
 /* 「自定义角色」用主色小标签，「系统自带」用中性小标签 —— 一眼能分辨，
    且两者都只是"角色类型"的注脚，不需要抢眼到干扰扫读。 */
-.pr-type{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;
+.pr-type{display:inline-block;padding:1px 8px;border-radius:8px;font-size:11px;
          background:var(--bg3);color:var(--t2)}
 .pr-type.custom{background:var(--p-bg);color:var(--p-dark)}
 .pr-end{color:var(--t2)}
@@ -1729,7 +1729,7 @@ onMounted(() => {
 /* AI 记忆 */
 .mem-block{margin:14px 0}
 .mem-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.mem-tag{font-size:12px;padding:2px 8px;border-radius:10px}
+.mem-tag{font-size:12px;padding:2px 8px;border-radius:8px}
 .mem-tag.user{background:var(--p-bg);color:var(--p-dark)}
 .mem-tag.agent{background:var(--bg3);color:var(--t2)}
 .mem-count{font-size:12px;color:var(--t3)}

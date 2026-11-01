@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
     @click="toggle"
     @keydown.enter.prevent="toggle"
   >
-    <Icon name="target" :size="13" />
+    <Icon name="target" :size="14" />
     <template v-if="hasErr">
       <span class="sc-txt">冲刺 · <b>返利数据未读取</b></span>
     </template>

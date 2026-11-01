@@ -16,11 +16,11 @@
              ⚠️ 下拉删除后 `SO_OPTIONS` 一并移除（不再有任何引用）。 -->
         <div class="psi-f">
           <label class="psi-lb">下单起</label>
-          <input type="date" v-model="f.date_from" class="input psi-date" @change="onDateManual" />
+          <input type="date" v-model="f.date_from" class="input psi-date" aria-label="下单起" @change="onDateManual" />
         </div>
         <div class="psi-f">
           <label class="psi-lb">下单止</label>
-          <input type="date" v-model="f.date_to" class="input psi-date" @change="onDateManual" />
+          <input type="date" v-model="f.date_to" class="input psi-date" aria-label="下单止" @change="onDateManual" />
         </div>
         <!-- v496：快捷时间档（规范 §3.3）—— 五枚 chip 与采购/调拨列表同源；
              手动改上面两个日期框会经 onDateManual 清掉芯片高亮。 -->
@@ -39,13 +39,13 @@
       <div v-if="more" class="psi-frow psi-frow-sub">
         <div class="psi-f">
           <label class="psi-lb">出货方式</label>
-          <select v-model="f.order_type" class="input psi-sel" @change="load()">
+          <select v-model="f.order_type" class="input psi-sel" aria-label="出货方式" @change="load()">
             <option v-for="o in ORDER_TYPE_OPTIONS" :key="o.value" :value="o.value">{{ o.text }}</option>
           </select>
         </div>
         <div class="psi-f">
           <label class="psi-lb">客户</label>
-          <select v-model.number="f.customer_id" class="input psi-sel" @change="load()">
+          <select v-model.number="f.customer_id" class="input psi-sel" aria-label="客户" @change="load()">
             <option :value="0">全部客户</option>
             <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }}</option>
           </select>
@@ -158,7 +158,7 @@
               </th>
               <!-- 齿轮长在**序号列表头**格子里（§2.6.1：不放工具栏、不放别的表头列）。
                    v532：序号列让位给勾选列 ⇒ 冻结位置改 2（psi-frz-2）。 -->
-              <th class="seq-th col-gear-th psi-frz psi-frz-2"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th class="seq-th col-gear-th psi-frz psi-frz-2"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
               <!-- v473：可排序列 = `SORTABLE`。点击三态循环（降 → 升 → 取消），由 `onSort()`
                    重新拉数据（**服务端排序**，不是前端对当前页重排 —— 本页是服务端分页，
                    对当前 50 行重排「看着排好了」，一翻页就散架）。
@@ -170,7 +170,7 @@
                   :aria-sort="ariaSortOf(c)"
                   :title="canSort(c) ? '点击排序：降序 → 升序 → 取消' : null"
                   @click="onSort(c)">
-                {{ c.label }}<span v-if="canSort(c)" class="isl-sort-ind"><Icon :name="sortInd(c.key)" :size="12" /></span>
+                {{ c.label }}<span v-if="canSort(c)" class="isl-sort-ind"><Icon :name="sortInd(c.key)" :size="14" /></span>
               </th>
               <th class="isl-op-hd"></th>
             </tr>

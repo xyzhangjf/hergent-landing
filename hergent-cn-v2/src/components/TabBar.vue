@@ -21,12 +21,12 @@
               :class="{ on: t.key === activeKey }" :title="t.title" @click="go(t)">
         <span class="tab-ic tab-refresh" role="button" :aria-label="'刷新' + t.title"
               :title="'刷新「' + t.title + '」'" @click.stop="refresh(t)">
-          <Icon name="refresh" :size="12" />
+          <Icon name="refresh" :size="14" />
         </span>
         <span class="tab-title">{{ t.title }}</span>
         <span class="tab-ic tab-close" role="button" :aria-label="'关闭' + t.title"
               :title="'关闭「' + t.title + '」'" @click.stop="close(t)">
-          <Icon name="close" :size="12" />
+          <Icon name="close" :size="14" />
         </span>
       </button>
     </div>
@@ -42,10 +42,10 @@
             <span class="tab-title">{{ t.title }}</span>
           </button>
           <span class="tab-ic" role="button" :title="'刷新「' + t.title + '」'" @click="refresh(t)">
-            <Icon name="refresh" :size="12" />
+            <Icon name="refresh" :size="14" />
           </span>
           <span class="tab-ic" role="button" :title="'关闭「' + t.title + '」'" @click="close(t)">
-            <Icon name="close" :size="12" />
+            <Icon name="close" :size="14" />
           </span>
         </div>
       </div>
@@ -175,7 +175,7 @@ function close(t) {
        高度 28 → 26  ③ `.tab-more-menu` 的 `top` 34 → 32（它是相对 `.tab-more` 定位的，
        原值 = 条目 28 + 6 间隙，条目变矮必须同步，否则下拉与条之间会裂开一条缝）。
      🔴 下限 26px：`.tab-ic` 是 16×16、`border-radius:8px` 的圆角要 ≥16px 才不被切平，
-        26 − 16 = 10 ⇒ 上下各 5px 余量，已是这套字号(12.5px)下的合理下限。
+        26 − 16 = 10 ⇒ 上下各 6px 余量，已是这套字号(12.5px)下的合理下限。
      26px 以下的"再矮"只能靠减字号，那会让 12.5px 掉到 11px 级、中文实际不可读 ⇒ 不做。 */
 .tabbar{display:flex;align-items:center;gap:6px;flex-shrink:0;padding:4px 20px;background:var(--bg2);border-bottom:1px solid var(--border-subtle);position:relative}
 .tb-strip{flex:1;min-width:0;display:flex;gap:4px;overflow:hidden}
@@ -190,7 +190,7 @@ function close(t) {
 .tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .tab-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
-  border-radius:5px;color:var(--t3);flex-shrink:0;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);
+  border-radius:6px;color:var(--t3);flex-shrink:0;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);
   /* v719 P2：**视觉 16px 不变、点击热区撑到 22×26**。
      🔴 为什么不是评审建议的 30×30：本条目高 26px（v677 老板要求调矮，硬约束），
         图标放到 30px 会把整条标签栏撑高、作废 v677 的交付。
@@ -212,9 +212,9 @@ function close(t) {
 .tab-more-n{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;
   padding:0 4px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);font-size:11px;font-weight:600}
 .tab-more-menu{position:absolute;top:32px;right:0;min-width:180px;max-height:320px;overflow-y:auto;
-  background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:6px;
+  background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px;
   box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:40}
-.tab-more-row{display:flex;align-items:center;gap:4px;border-radius:7px;padding:0 4px 0 6px}
+.tab-more-row{display:flex;align-items:center;gap:4px;border-radius:8px;padding:0 4px 0 6px}
 .tab-more-row:hover{background:var(--bg2)}
 .tab-more-item{flex:1;min-width:0;display:flex;align-items:center;height:26px;border:none;
   background:none;color:var(--t2);font-size:12px;cursor:pointer;text-align:left;padding:0}

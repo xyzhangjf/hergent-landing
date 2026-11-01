@@ -101,7 +101,7 @@
     <table v-else class="br-tbl seq-host">
       <thead>
         <tr>
-          <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+          <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
           <th class="c-date" v-if="isVisible('date')">发布日</th>
           <th class="c-type" v-if="isVisible('type')">类型</th>
           <th class="c-src" v-if="isVisible('src')">来源</th>
@@ -376,18 +376,18 @@ onMounted(load)
 
 .br-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 /* 「默认地区」chip：只在当前区域 == 已记住的区域时出现，点击取消记住（弱化样式，不与主按钮抢视线） */
-.br-def{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 10px;border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:10px;font-size:12px;cursor:pointer;white-space:nowrap}
+.br-def{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 10px;border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap}
 .br-def:hover{filter:brightness(.97)}
 .br-def-tag{font-size:11px;font-weight:600;letter-spacing:.5px;opacity:.7}
 .br-def svg{opacity:.55}
 .br-def:hover svg{opacity:1}
-.br-notice{margin-bottom:12px;padding:9px 12px;border-radius:10px;font-size:12px;color:var(--t2);background:var(--bg3);border:1px solid var(--border-subtle)}
-.br-inp{height:38px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg2);color:var(--t1);font-size:13px;outline:none}
+.br-notice{margin-bottom:12px;padding:9px 12px;border-radius:8px;font-size:12px;color:var(--t2);background:var(--bg3);border:1px solid var(--border-subtle)}
+.br-inp{height:38px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg2);color:var(--t1);font-size:13px;outline:none}
 .br-inp:focus{border-color:var(--p)}
 .br-filters input[type=date]{width:150px}
 .br-tilde{color:var(--t3)}
 .br-chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--t2);cursor:pointer;user-select:none}
-.br-btn{height:38px;padding:0 18px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);border-radius:10px;font-size:13px;cursor:pointer;transition:all var(--dur-base)}
+.br-btn{height:38px;padding:0 18px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);border-radius:8px;font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .br-btn:hover:not(:disabled){border-color:var(--p);color:var(--p-dark)}
 .br-btn:disabled{opacity:.5;cursor:default}
 

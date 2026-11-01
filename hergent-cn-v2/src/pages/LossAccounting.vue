@@ -70,7 +70,7 @@
           <table class="la-ml-tbl seq-host">
             <thead>
               <tr>
-                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
                 <th>月份</th>
                 <th class="num">货损净额</th>
                 <th v-if="isVisible('rate_net')" class="num">货损净率</th>
@@ -1191,7 +1191,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-badge{display:inline-block;margin-left:5px;min-width:15px;height:15px;line-height:15px;padding:0 4px;border-radius:8px;background:var(--war);color:#fff;font-size:11px;text-align:center}
 
 /* ── 编辑态提示条 ── */
-.la-editbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 14px;margin-bottom:12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--p) 30%,transparent);background:var(--p-bg)}
+.la-editbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 14px;margin-bottom:12px;border-radius:8px;border:1px solid color-mix(in srgb,var(--p) 30%,transparent);background:var(--p-bg)}
 .la-editbar-txt{font-size:12px;color:var(--t1)}
 .la-dirty{font-size:12px;color:var(--p-dark)}
 .la-quiet{color:var(--t3);font-size:12px}
@@ -1205,7 +1205,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-co-formula{font-size:12px;color:var(--t3);line-height:1.6}
 .la-link{margin-left:auto;background:none;border:none;padding:0;color:var(--p-dark);font-size:12px;cursor:pointer}
 .la-co-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.la-kpi{padding:12px 14px;border-radius:10px;background:var(--bg2);border:1px solid var(--border-subtle)}
+.la-kpi{padding:12px 14px;border-radius:8px;background:var(--bg2);border:1px solid var(--border-subtle)}
 .la-kpi-main{border-color:color-mix(in srgb,var(--p) 40%,transparent);background:linear-gradient(180deg,var(--p-bg),transparent 140%)}
 .la-kpi i{display:block;font-style:normal;font-size:12px;color:var(--t3);margin-bottom:5px}
 .la-kpi b{display:inline-block;font-size:20px;font-weight:600;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
@@ -1219,7 +1219,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-bd-note{margin:8px 0 0;font-size:12px;color:var(--t3);line-height:1.6}
 .la-warn-inline{text-decoration:none;font-size:11px;color:var(--war);margin-left:6px}
 .la-q{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px}
-.la-q-item{font-size:12px;color:var(--war);background:color-mix(in srgb,var(--war) 9%,transparent);border:1px solid color-mix(in srgb,var(--war) 28%,transparent);padding:3px 9px;border-radius:9px}
+.la-q-item{font-size:12px;color:var(--war);background:color-mix(in srgb,var(--war) 9%,transparent);border:1px solid color-mix(in srgb,var(--war) 28%,transparent);padding:3px 9px;border-radius:8px}
 
 /* ── 主表 ── */
 .la-tbl-card{padding:0;overflow:hidden}
@@ -1316,7 +1316,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 /* ── 弹窗 ── */
 .la-modal-lead{font-size:12px;color:var(--t1);line-height:1.7;margin:0 0 10px}
 .la-modal-tip{font-size:12px;color:var(--t3);line-height:1.7;margin:10px 0 0}
-.la-notice{font-size:13px;color:var(--p-dark);background:var(--p-bg);border:1px solid color-mix(in srgb,var(--p) 28%,transparent);border-radius:10px;padding:10px 12px;margin:0 0 12px}
+.la-notice{font-size:13px;color:var(--p-dark);background:var(--p-bg);border:1px solid color-mix(in srgb,var(--p) 28%,transparent);border-radius:8px;padding:10px 12px;margin:0 0 12px}
 .la-list{margin:0 0 4px;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.9}
 .la-h4{font-size:12px;font-weight:600;color:var(--t1);margin:16px 0 8px}
 .la-h4:first-child{margin-top:0}
@@ -1325,13 +1325,13 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-mini th{color:var(--t3);font-weight:500;background:var(--bg2)}
 .la-mini td.num,.la-mini th.num{text-align:right}
 .la-mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--t3)}
-.la-input-sm{width:100%;padding:5px 8px;border:1px solid var(--bd);border-radius:7px;background:var(--bg);color:var(--t1);font-size:12px}
+.la-input-sm{width:100%;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t1);font-size:12px}
 .la-input-sm:focus{border-color:var(--p-dark)}
 .la-field{display:block;margin-bottom:12px}
 .la-field>span{display:block;font-size:12px;color:var(--t1);margin-bottom:5px}
 .la-field em{font-style:normal;font-size:11px;color:var(--t3);margin-left:6px}
 .la-health{list-style:none;margin:0;padding:0}
-.la-health li{display:flex;gap:9px;align-items:flex-start;padding:8px 10px;border-radius:9px;font-size:12px;line-height:1.6;margin-bottom:6px;background:var(--bg2)}
+.la-health li{display:flex;gap:9px;align-items:flex-start;padding:8px 10px;border-radius:8px;font-size:12px;line-height:1.6;margin-bottom:6px;background:var(--bg2)}
 .la-health .lv-warn{background:color-mix(in srgb,var(--war) 9%,transparent)}
 .la-health-lv{flex:0 0 auto;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--bg4);color:var(--t2)}
 .la-health .lv-warn .la-health-lv{background:var(--war);color:#fff}

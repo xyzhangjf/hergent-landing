@@ -89,7 +89,7 @@
               <span v-for="p in picked" :key="p.id" class="sfz-chip">
                 {{ p.name }}
                 <button class="sfz-chip-x" title="移除" @click="removePicked(p.id)">
-                  <Icon name="close" :size="11" />
+                  <Icon name="close" :size="14" />
                 </button>
               </span>
             </div>

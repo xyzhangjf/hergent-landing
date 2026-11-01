@@ -23,7 +23,7 @@
       </div>
       <div class="tb-right">
         <button class="tb-btn tb-bell" @click="toggleNoti" :title="notiUnread > 0 ? ('通知：' + Number(notiUnread).toLocaleString('zh-CN') + ' 条未读') : '通知'">
-          <Icon name="bell" :size="17" />
+          <Icon name="bell" :size="16" />
           <span v-if="notiUnread > 0" class="tb-bell-n">{{ notiUnread > 99 ? '99+' : notiUnread }}</span>
         </button>
         <button class="tb-btn" @click="toggleTheme" title="切换主题">
@@ -100,7 +100,7 @@
             <router-link v-if="!it.groups" :to="it.path" class="sb-item"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span></router-link>
             <div v-else class="sb-area" :class="{open: openArea === it.key, pinned: pinnedArea === it.key, cur: areaCur(it)}"
                  @mouseenter="areaEnter(it.key, $event)" @mouseleave="areaLeave">
-              <button type="button" class="sb-item sb-area-btn" :aria-expanded="openArea === it.key" @click="areaToggle(it.key, $event)"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span><Icon name="chevron-right" :size="13" class="sb-caret" /></button>
+              <button type="button" class="sb-item sb-area-btn" :aria-expanded="openArea === it.key" @click="areaToggle(it.key, $event)"><Icon :name="it.icon" :size="16" /><span>{{ it.name }}</span><Icon name="chevron-right" :size="14" class="sb-caret" /></button>
               <Teleport to="body">
                 <div v-if="openArea === it.key" class="sb-pop" :style="popStyle"
                      @mouseenter="areaKeep" @mouseleave="areaLeave">
@@ -127,7 +127,7 @@
                     <!-- v395：`key` 必须带上 `q` —— 「自提订单 / 自提退单 / 车销订单 …」
                          是**同一 path、不同 query** 的几条，只按 path 拼 key 会重复。 -->
                     <div v-for="x in sg.items" :key="x.path + (x.tab || '') + (x.q ? JSON.stringify(x.q) : '')" class="sb-pop-row">
-                      <router-link :to="navTo({ path: x.path, tab: x.tab, q: x.q })" class="sb-pop-item" :class="{cur: isCur(x)}" @click="onPick(x.path)"><Icon :name="x.icon" :size="15" /><span>{{ x.name }}</span>
+                      <router-link :to="navTo({ path: x.path, tab: x.tab, q: x.q })" class="sb-pop-item" :class="{cur: isCur(x)}" @click="onPick(x.path)"><Icon :name="x.icon" :size="16" /><span>{{ x.name }}</span>
                         <!-- v645 P2：已打开标记（读 useTabs，与标签栏同源）—— 避免重复开同一张表。 -->
                         <i v-if="isTabOpen(x.path)" class="sb-pop-dot" title="已打开" aria-label="已打开"></i>
                       </router-link>
@@ -143,7 +143,7 @@
                                    :title="'查看『' + x.name + '』明细'" :aria-label="'查看『' + x.name + '』明细'" @click="onPick(x.drill)">明细</router-link>
                       <router-link v-if="x.create" :to="navTo(x.create.to)" class="sb-pop-new"
                                    :title="x.create.title || ('新建' + x.name)"
-                                   :aria-label="x.create.title || ('新建' + x.name)" @click="areaClose"><Icon name="plus" :size="13" /><span>创建</span></router-link>
+                                   :aria-label="x.create.title || ('新建' + x.name)" @click="areaClose"><Icon name="plus" :size="14" /><span>创建</span></router-link>
                     </div>
                   </div>
                 </div>
@@ -168,6 +168,10 @@
 
       <!-- 内容区 -->
       <main class="content">
+        <!-- v720：页面大纲根节点（读屏可见、视觉不可见）。放在标签栏之前 ——
+             读屏用户进来先听到「这是哪一页」，再听到标签与内容。
+             页面自己有可见 h1 时 `showSrH1=false`，不会出现一页两个 h1。 -->
+        <h1 v-if="showSrH1 && srTitle" class="sr-only">{{ srTitle }}</h1>
         <!-- 全局标签栏：独立成行，位于顶栏正下方、滚动区 `.view-wrap` **之前**。
              🔴 v396 约束：标签栏必须在滚动区之外，否则长页面滚动时标签跟着滚走。
                 放在这里（`.content` 的 flex 纵向第一项、`flex-shrink:0`）⇒ 不滚，
@@ -194,8 +198,8 @@
          名字/图标/路径只有一份 ⇒ 不可能再出现"同一页两个名字"。
          ⚠️ 图标一律 `<Icon>`（全站规范）；`more-horizontal` 是抽屉开关，无对应路由，故不进 NAV。 -->
     <nav class="mnav">
-      <router-link v-for="it in mnavItems" :key="it.path" :to="it.path" class="mnav-item" @click="store.ui.mobileDrawer=false"><Icon :name="it.icon" :size="20" /><span>{{ it.name }}</span></router-link>
-      <button class="mnav-item" @click="store.ui.mobileDrawer=!store.ui.mobileDrawer"><Icon name="more-horizontal" :size="20" /><span>更多</span></button>
+      <router-link v-for="it in mnavItems" :key="it.path" :to="it.path" class="mnav-item" @click="store.ui.mobileDrawer=false"><Icon :name="it.icon" :size="18" /><span>{{ it.name }}</span></router-link>
+      <button class="mnav-item" @click="store.ui.mobileDrawer=!store.ui.mobileDrawer"><Icon name="more-horizontal" :size="18" /><span>更多</span></button>
     </nav>
 
     <!-- 移动端更多抽屉 -->
@@ -291,7 +295,7 @@ import { canSee } from '../constants/pages'
       （侧栏点「＋」没反应，而控制台干干净净）。 */
 import { DOC_PATHS } from '../pages/inventory/new/docTypes.js'
 /* v396（2026-10-08）：全局标签栏状态（模块级单例，见该文件头）。 */
-import { useTabs } from '../composables/useTabs'
+import { useTabs, tabTitle } from '../composables/useTabs'
 /* v396：`effTab` = 「有效子页」—— URL 省了 `?tab=` 时按默认子页算（见该文件头）。 */
 import { effTab } from '../constants/tabTitles'
 
@@ -1293,6 +1297,46 @@ const viewKey = computed(() => 'v' + viewTick.value)
 
 watch(() => route.fullPath, () => { openTab(route) }, { immediate: true })
 
+/* ---------------------------------------------------------------------------
+   v720：页面对话大纲补齐（sr-only `<h1>`）
+   ---------------------------------------------------------------------------
+   由来：v501（销售/采购/调拨列表）与 v509 把 `.page-hd` 整块退役，页面身份收归顶部
+   标签栏。视觉上没问题，但**语义上页面失去了标题根节点** —— 生产实测 9 页里
+   「工作台 / 本期预报 / 商品档案 / 客户档案 / 销售单 / 采购单」6 页 `h1 = 0`
+   （v719 只给「本来就有页头」的页面把 h2 改成了 h1，这 6 页本来就没有）。
+   读屏用户进来听到的第一句是工具栏里的按钮名，而不是「这是哪一页」。
+
+   做法：外壳补一个 `.sr-only` 的 h1，标题取 `tabTitle()`（标签栏同一个唯一源，
+   不再造第二套命名）；**页面自己已经有可见 h1 时不补**（避免一页两个 h1）。
+
+   🔴 为什么用「渲染后回查 DOM」而不是让各页注册标记：
+      26 个页面各有各的装配时机（有的页头在子组件里、有的异步才出），
+      让每页自己声明「我有 h1」= 26 处必须同步维护的第二真相源，漏一处就静默两个 h1。
+      回查 DOM 只有一处判据，新增页面自动适配。
+   🔴 为什么要重试两次：路由切换后页面是**异步 chunk**，第一次检查往往在组件挂载之前，
+      那时必然「没有 h1」⇒ 会在有页头的页面上错误地补一个，结果两个 h1。
+   --------------------------------------------------------------------------- */
+const srTitle = computed(() => tabTitle(route.path, route.query, route.meta && route.meta.title) || '')
+const showSrH1 = ref(true)
+let srTimers = []
+function syncSrH1() {
+  srTimers.forEach(clearTimeout)
+  const probe = () => {
+    /* 只看 `.view-wrap`（页面内容区）里**可见的** h1 —— 两个例外都要处理：
+       ① 外壳这个 sr-only h1 在 `.view-wrap` 外面，不会自己把自己数进去；
+       ② 商品档案 / 客户档案的 `Archive.vue` 外壳自 v501 起把页头 `display:none`，
+          它里面的 h1 **存在但不可见** —— 而 `display:none` 同时会把它移出无障碍树，
+          对读屏来说等于没有。所以判据必须是「可见」而不只是「存在」，
+          否则这两页会永远拿不到 sr-only h1（v720 第一版就是这么漏的）。
+       `getClientRects().length` 是判断可见最省事且不过度触发重排的写法。 */
+    const h = document.querySelector('.view-wrap h1')
+    showSrH1.value = !(h && h.getClientRects().length > 0)
+  }
+  srTimers = [setTimeout(probe, 0), setTimeout(probe, 160), setTimeout(probe, 520)]
+}
+watch(() => route.fullPath, () => { showSrH1.value = true; syncSrH1() }, { immediate: true })
+onBeforeUnmount(() => srTimers.forEach(clearTimeout))
+
 /** 标签 → vue-router 的 `to`（无 query 时给字符串，避免 URL 上多一个空 `?`）。 */
 function tabLink(t) {
   return Object.keys(t.query || {}).length ? { path: t.path, query: t.query } : t.path
@@ -1640,7 +1684,7 @@ function stopResize() {
 /* v417f：标签栏插进顶栏中间 ⇒ 左右三组**都不许收缩**，否则标签一多就把
    右侧动作区（通知 / 主题 / 用户）挤没了。收缩只由中间的 `.tabbar` 承担。 */
 .tb-brand{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
-.tb-brand-logo{width:22px;height:22px;border-radius:5px;display:block}
+.tb-brand-logo{width:22px;height:22px;border-radius:6px;display:block}
 .tb-brand b{font-size:16px;font-weight:600;letter-spacing:.2px}
 .tb-sub{font-size:12px;color:var(--t3);padding:3px 8px;border-radius:8px;background:var(--p-bg);color:var(--p-dark)}
 .tb-right{display:flex;align-items:center;gap:8px;flex:1;min-width:0;justify-content:flex-end}
@@ -1686,7 +1730,7 @@ function stopResize() {
    🔴 高度**不写死**：加 `height:38px` 会在字号/行高一变时把文字挤出去
       （`.psi-tbl` 就踩过"内容盒 8px < 复选框 13px"的同类坑）。
    🔴 纵向 padding 下限 5px：再小 16px 图标会贴上下边、圆角 10px 会吃到图标。 */
-.sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:10px;color:var(--t2);text-decoration:none;font-size:13px;line-height:1.6;transition:all var(--dur-base)}
+.sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:8px;color:var(--t2);text-decoration:none;font-size:13px;line-height:1.6;transition:all var(--dur-base)}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
 .sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 /* ⚠️ v390（2026-10-07）：原 `.sb-grp`（分组标题：经营 / 核算 / 配置）**已随分组一起删除**
@@ -1825,7 +1869,7 @@ function stopResize() {
 .md-item:active{background:var(--bg4)}
 /* 手机端「＋」（L1 双入口的右半区）：横向紧 ⇒ 纯图标（桌面 `.sb-pop-new` 用「＋ 创建」文字）。
    ⚠️ 命中区靠 36×36 撑住，别缩成 16px 图标本身；`margin-right` 与条目右侧留白对齐。 */
-.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:14px;border-radius:10px;background:var(--p-bg);color:var(--p-dark);text-decoration:none}
+.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:14px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);text-decoration:none}
 .md-item-new:active{background:var(--p-solid);color:#fff}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
@@ -1847,14 +1891,14 @@ function stopResize() {
 .pf-hd{padding:16px 20px;font-size:15px;font-weight:600;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
 .pf-bd{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
 .pf-field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--t2)}
-.pf-field input{height:40px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg2);color:var(--t1);font-size:14px;outline:none}
+.pf-field input{height:40px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg2);color:var(--t1);font-size:14px;outline:none}
 .pf-field input:focus{border-color:var(--p)}
 .pf-field small{color:var(--t3);font-size:11px}
 .pf-msg{font-size:12px}
 .pf-msg.ok{color:var(--suc)}
 .pf-msg.err{color:var(--dan)}
 .pf-ft{padding:14px 20px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-subtle)}
-.pf-btn{height:36px;padding:0 18px;border-radius:10px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer;transition:all var(--dur-base)}
+.pf-btn{height:36px;padding:0 18px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .pf-btn:hover{background:var(--bg3)}
 .pf-btn.primary{background:var(--p-solid);border-color:var(--p-solid);color:#fff}
 .pf-btn.primary:hover{opacity:.92}

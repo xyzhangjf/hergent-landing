@@ -25,7 +25,7 @@
               @click="run(c)"
               @mousemove="activeIndex = i"
             >
-              <span class="cmd-ic"><Icon :name="c.icon" :size="15" /></span>
+              <span class="cmd-ic"><Icon :name="c.icon" :size="16" /></span>
               <span class="cmd-title">{{ c.title }}</span>
               <span v-if="c.hint" class="cmd-hint">{{ c.hint }}</span>
             </button>
@@ -199,15 +199,15 @@ watch(q, () => { activeIndex.value = 0 })
 .cmd-search-ic{color:var(--t3);display:flex}
 .cmd-input{flex:1;border:none;outline:none;background:none;font-size:15px;color:var(--t1)}
 .cmd-input::placeholder{color:var(--t3)}
-.cmd-kbd{font-size:11px;color:var(--t3);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:5px;padding:2px 6px}
+.cmd-kbd{font-size:11px;color:var(--t3);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:6px;padding:2px 6px}
 .cmd-list{max-height:46vh;overflow-y:auto;padding:6px}
 .cmd-group-hd{font-size:11px;font-weight:600;color:var(--t3);padding:10px 12px 4px;letter-spacing:.6px}
-.cmd-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 12px;border:none;background:none;border-radius:9px;color:var(--t1);font-size:14px;cursor:pointer}
+.cmd-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 12px;border:none;background:none;border-radius:8px;color:var(--t1);font-size:14px;cursor:pointer}
 .cmd-item.active{background:var(--p-bg)}
 .cmd-ic{color:var(--t2);display:flex;flex-shrink:0}
 .cmd-item.active .cmd-ic{color:var(--p-dark)}
 .cmd-title{flex:1;line-height:1.4}
-.cmd-hint{font-size:11px;color:var(--t3);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:5px;padding:2px 6px}
+.cmd-hint{font-size:11px;color:var(--t3);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:6px;padding:2px 6px}
 .cmd-empty{font-size:13px;color:var(--t3);text-align:center;padding:24px 0}
 .cmd-foot{display:flex;gap:16px;padding:9px 15px;border-top:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
 .cmd-foot kbd{font-size:11px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:4px;padding:1px 5px;margin-right:4px}

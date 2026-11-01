@@ -17,6 +17,7 @@
       ref="inputRef"
       :value="custQuery"
       class="input ipn-cust-input"
+      aria-label="搜索客户"
       :placeholder="placeholder"
       autocomplete="off"
       @focus="onFocus"

@@ -46,23 +46,23 @@
       <div class="psi-frow">
         <div class="psi-f">
           <label class="psi-lb">搜索</label>
-          <input v-model.trim="f.keyword" class="input psi-kw"
+          <input v-model.trim="f.keyword" class="input psi-kw" aria-label="搜索"
                  placeholder="单号 / 供应商 / 备注" @keyup.enter="load()" />
         </div>
         <div class="psi-f">
           <label class="psi-lb">供应商</label>
-          <select v-model.number="f.supplier_id" class="input psi-sel" @change="load()">
+          <select v-model.number="f.supplier_id" class="input psi-sel" aria-label="供应商" @change="load()">
             <option :value="0">全部供应商</option>
             <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</option>
           </select>
         </div>
         <div class="psi-f">
           <label class="psi-lb">单据日期从</label>
-          <input type="date" v-model="f.date_from" class="input psi-date" @change="onDateManual" />
+          <input type="date" v-model="f.date_from" class="input psi-date" aria-label="单据日期从" @change="onDateManual" />
         </div>
         <div class="psi-f">
           <label class="psi-lb">至</label>
-          <input type="date" v-model="f.date_to" class="input psi-date" @change="onDateManual" />
+          <input type="date" v-model="f.date_to" class="input psi-date" aria-label="单据日期至" @change="onDateManual" />
         </div>
         <!-- v496：快捷时间档换**共享件** `QuickRangeChips` + `useQuickRange`
              （进销存列表页统一设计规范 §3.3；v479 P0-2 引入、v482 换全局 .chip、
@@ -88,14 +88,14 @@
       <div v-if="more && !isReturn" class="psi-frow psi-frow-sub">
         <div class="psi-f">
           <label class="psi-lb">入库仓库</label>
-          <select v-model.number="f.warehouse_id" class="input psi-sel" @change="load()">
+          <select v-model.number="f.warehouse_id" class="input psi-sel" aria-label="入库仓库" @change="load()">
             <option :value="0">全部仓库</option>
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
         </div>
         <div v-if="creators.length" class="psi-f">
           <label class="psi-lb">创建人</label>
-          <select v-model="f.creator" class="input psi-sel" @change="load()">
+          <select v-model="f.creator" class="input psi-sel" aria-label="创建人" @change="load()">
             <option value="">全部创建人</option>
             <option v-for="u in creators" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
           </select>
@@ -112,13 +112,13 @@
                 见 `baseFilter()` 里的同期注释。 -->
         <div class="psi-f">
           <label class="psi-lb">单据来源</label>
-          <select v-model="f.source" class="input psi-sel" @change="load()">
+          <select v-model="f.source" class="input psi-sel" aria-label="单据来源" @change="load()">
             <option v-for="o in PO_SOURCE_OPTIONS" :key="o.value || 'all'" :value="o.value">{{ o.text }}</option>
           </select>
         </div>
         <div class="psi-f">
           <label class="psi-lb">打印状态</label>
-          <select v-model="f.print_state" class="input psi-sel" @change="load()">
+          <select v-model="f.print_state" class="input psi-sel" aria-label="打印状态" @change="load()">
             <option value="">全部</option>
             <option value="printed">已打印</option>
             <option value="unprinted">未打印</option>
@@ -126,27 +126,27 @@
         </div>
         <div class="psi-f">
           <label class="psi-lb">商品</label>
-          <input v-model.trim="f.product_keyword" class="input psi-sel"
+          <input v-model.trim="f.product_keyword" class="input psi-sel" aria-label="商品"
                  placeholder="商品名 / 条码" @keyup.enter="load()" />
         </div>
         <!-- P1-3：部门 / 经办人 / 审核人 / 标记内容 四个筛选。全部默认空 = 不筛（与后端默认值一致）。 -->
         <div class="psi-f">
           <label class="psi-lb">部门</label>
-          <select v-model.number="f.department_id" class="input psi-sel" @change="load()">
+          <select v-model.number="f.department_id" class="input psi-sel" aria-label="部门" @change="load()">
             <option :value="0">全部部门</option>
             <option v-for="d in departments" :key="d.id" :value="d.id">{{ d.name }}</option>
           </select>
         </div>
         <div class="psi-f">
           <label class="psi-lb">业务员</label>
-          <select v-model="f.handler" class="input psi-sel" @change="load()">
+          <select v-model="f.handler" class="input psi-sel" aria-label="业务员" @change="load()">
             <option value="">全部业务员</option>
             <option v-for="u in creators" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
           </select>
         </div>
         <div class="psi-f">
           <label class="psi-lb">审核人</label>
-          <select v-model="f.auditor" class="input psi-sel" @change="load()">
+          <select v-model="f.auditor" class="input psi-sel" aria-label="审核人" @change="load()">
             <option value="">全部审核人</option>
             <option value="__none__">未标注</option>
             <option v-for="u in creators" :key="u.id" :value="String(u.id)">{{ u.name }}</option>
@@ -154,7 +154,7 @@
         </div>
         <div class="psi-f">
           <label class="psi-lb">标记内容</label>
-          <input v-model.trim="f.mark" class="input psi-sel"
+          <input v-model.trim="f.mark" class="input psi-sel" aria-label="标记内容"
                  placeholder="标记含关键字" @keyup.enter="load()" />
         </div>
         <!-- 🔴 「只看已标记」必须留在**最后**：它的样式是 `margin-left:auto`
@@ -173,7 +173,7 @@
       <div v-if="more && isReturn" class="psi-frow psi-frow-sub">
         <div class="psi-f">
           <label class="psi-lb">退货仓库</label>
-          <select v-model.number="f.warehouse_id" class="input psi-sel" @change="load()">
+          <select v-model.number="f.warehouse_id" class="input psi-sel" aria-label="退货仓库" @change="load()">
             <option :value="0">全部仓库</option>
             <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.name }}</option>
           </select>
@@ -285,7 +285,7 @@
                    ⛔ 不放工具栏、⛔ 不放别的表头列。 -->
               <th class="seq-th psi-frz psi-frz-2">
                 <div class="th-in">
-                  <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
+                  <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="16" /></button>
                 </div>
               </th>
               <!-- v470：可排序列 = `SORTABLE`。点击三态循环（降 → 升 → 取消），
@@ -297,7 +297,7 @@
                              'psi-frz-3': c.key === FIXED_FROZEN, 'psi-frz-4': isFrz2(c) }]"
                   :aria-sort="ariaSortOf(c)"
                   :title="canSort(c) ? '点击排序：降序 → 升序 → 取消' : null"
-                  @click="onSort(c)">{{ c.label }}<span v-if="canSort(c)" class="ipl-sort-ind"><Icon :name="sortInd(c.key)" :size="12" /></span></th>
+                  @click="onSort(c)">{{ c.label }}<span v-if="canSort(c)" class="ipl-sort-ind"><Icon :name="sortInd(c.key)" :size="14" /></span></th>
               <th v-if="!isReturn" class="ipl-c-rel">关联</th>
               <th class="ipl-c-op">操作</th>
             </tr>
@@ -323,7 +323,7 @@
                   <a v-else class="ipl-link strong" @click.prevent="go('/inventory/purchase/' + r.id)"
                      :href="'#/inventory/purchase/' + r.id">{{ r.order_no || ('#' + r.id) }}</a>
                   <span v-if="r.mark" class="ipl-mark" :title="'标记：' + r.mark">
-                    <Icon name="target" :size="12" />
+                    <Icon name="target" :size="14" />
                   </span>
                 </template>
                 <template v-else-if="c.key === 'status'">

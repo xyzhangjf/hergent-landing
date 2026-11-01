@@ -12,15 +12,15 @@
              StatusTabs，与采购 / 销售两页同款）。`TO_OPTIONS` 一并移除（无引用）。 -->
         <div class="psi-f">
           <label class="psi-lb">创建起</label>
-          <input type="date" v-model="f.date_from" class="input psi-date" @change="onDateManual" />
+          <input type="date" v-model="f.date_from" class="input psi-date" aria-label="创建起" @change="onDateManual" />
         </div>
         <div class="psi-f">
           <label class="psi-lb">创建止</label>
-          <input type="date" v-model="f.date_to" class="input psi-date" @change="onDateManual" />
+          <input type="date" v-model="f.date_to" class="input psi-date" aria-label="创建止" @change="onDateManual" />
         </div>
         <div class="psi-f psi-f-kw">
           <label class="psi-lb">商品</label>
-          <input v-model.trim="f.keyword" class="input psi-kw" placeholder="商品名" @keyup.enter="load()" />
+          <input v-model.trim="f.keyword" class="input psi-kw" aria-label="商品" placeholder="商品名" @keyup.enter="load()" />
         </div>
         <!-- v496：快捷时间档（规范 §3.3）—— 与采购/销售列表同款五枚 chip；
              手动改上面两个日期框会经 onDateManual 清掉芯片高亮。 -->
@@ -128,7 +128,7 @@
               </th>
               <!-- 齿轮长在序号列表头格子里（与采购/销售列表同一处）。
                    v532：序号列让位给勾选列 ⇒ 冻结位置改 2（psi-frz-2）。 -->
-              <th class="seq-th col-gear-th psi-frz psi-frz-2"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th class="seq-th col-gear-th psi-frz psi-frz-2"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
               <!-- v478：可排序列 = `SORTABLE`（除「备注」外全可点）。点击三态循环（降 → 升 → 取消），
                    由 `onSort()` 重新拉数据（**服务端排序**，非前端对当前页重排 —— 本页服务端分页，
                    对当前页重排"看着排好了"、一翻页就散架）。
@@ -140,7 +140,7 @@
                   :aria-sort="ariaSortOf(c)"
                   :title="canSort(c) ? '点击排序：降序 → 升序 → 取消' : null"
                   @click="onSort(c)">
-                {{ c.label }}<span v-if="canSort(c)" class="isl-sort-ind"><Icon :name="sortInd(c.key)" :size="12" /></span>
+                {{ c.label }}<span v-if="canSort(c)" class="isl-sort-ind"><Icon :name="sortInd(c.key)" :size="14" /></span>
               </th>
               <th class="isl-op-hd"></th>
             </tr>

@@ -8,7 +8,7 @@
     </div>
     <div class="card rpt-card">
       <div class="unavail">
-        <div class="ua-ic"><Icon name="info" :size="26" /></div>
+        <div class="ua-ic"><Icon name="info" :size="22" /></div>
         <h3>报表框架已就绪，数据待接入</h3>
         <p class="ua-main">本报表对应的业务模块——<b>{{ moduleName }}</b>——当前尚未在系统中录入 / 启用数据，因此暂无内容可展示。</p>
         <p class="ua-sub">{{ detail }}</p>

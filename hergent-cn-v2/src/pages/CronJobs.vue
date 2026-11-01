@@ -353,7 +353,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .push-ic{font-size:20px}
 .push-row b{font-size:14px;color:var(--t1)}
 .push-row .btn{margin-left:auto;flex-shrink:0}
-.push-help{margin-top:12px;background:var(--bg2);border-radius:10px;padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8}
+.push-help{margin-top:12px;background:var(--bg2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8}
 .push-help ol{margin:4px 0 0;padding-left:18px}
 .push-set{display:flex;gap:8px;margin-top:12px}
 .push-set .input{flex:1;height:32px;padding:0 12px;font-size:13px}

@@ -81,7 +81,7 @@
         <table class="pt-tbl seq-host">
           <thead>
             <tr>
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
               <th class="pt-th-prod">商品</th>
               <th v-if="isVisible('brand')">品牌</th>
               <th class="num">目标(箱)</th>

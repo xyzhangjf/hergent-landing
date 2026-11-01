@@ -179,7 +179,7 @@
             <div class="j-tradeoff-hd">
               <span>先出哪批（临期 vs 新鲜度 vs 利润）</span>
               <span class="j-pick">
-                <select v-model.number="tradeoffProductId" class="j-select">
+                <select v-model.number="tradeoffProductId" class="j-select" aria-label="选择要研判的商品">
                   <option :value="0">选择商品…</option>
                   <option v-for="p in productOptions" :key="p.id" :value="p.id">{{ p.name }}</option>
                 </select>
@@ -744,7 +744,7 @@ onMounted(loadData)
 .task-row.prio-amber::before{background:var(--war)}
 .task-row.prio-blue::before{background:var(--p)}
 .task-row .tag{flex-shrink:0;margin-top:1px;white-space:nowrap}
-.task-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
+.task-ic{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .task-main{flex:1;min-width:0}
 .task-title{font-size:14px;font-weight:500;color:var(--t1);margin-bottom:3px;letter-spacing:.1px}
 .task-sub{font-size:12px;color:var(--t2);line-height:1.55}

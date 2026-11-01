@@ -325,7 +325,7 @@ onMounted(() => {
 .ba-bullets .warn-line{color:var(--war)}
 .ba-bullets b{color:var(--t1)}
 .ba-notbrand{color:var(--t3)}
-.tag{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.tag{font-size:12px;padding:3px 10px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 
 .ba-add-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .ba-ops{white-space:nowrap}
@@ -342,7 +342,7 @@ onMounted(() => {
 .ba-pending-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border:1px solid var(--bd);border-radius:12px;flex-wrap:wrap}
 .ba-pending-info{min-width:0}
 .ba-pending-name{font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:8px}
-.ba-ref{font-size:11px;font-weight:400;color:var(--war);background:rgba(var(--war-rgb),.1);padding:1px 7px;border-radius:7px}
+.ba-ref{font-size:11px;font-weight:400;color:var(--war);background:rgba(var(--war-rgb),.1);padding:1px 7px;border-radius:8px}
 .ba-pending-meta{font-size:12px;color:var(--t3);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap}
 .ba-pending-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ba-canonical{height:30px}

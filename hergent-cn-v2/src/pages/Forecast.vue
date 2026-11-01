@@ -73,7 +73,7 @@
            编辑态多出 5 个编辑按钮，故编辑控制组 .tb-edit-group 独占第二行（flex:0 0 100%）。
            v169 校准：原写「6 个」—— v168 撤掉编辑态的「复制报单」后实为 5 个（取消、回退、查错、补录商品、保存）。 -->
       <div class="tb-group tb-ctx">
-          <select v-model="curPeriod" class="input sel-period" @change="onPeriodChange">
+          <select v-model="curPeriod" class="input sel-period" aria-label="期次选择" @change="onPeriodChange">
             <option value="0">— 选择期次 —</option>
             <option v-for="p in periods" :key="p.id" :value="p.id" :title="p.order_start + ' ~ ' + p.order_end">{{ p.name }}</option>
           </select>
@@ -649,7 +649,7 @@
                   <div class="th-in">
                     <template v-if="col.type === 'seq'">
                       <!-- v670：补 `:size="15"` 与全站另 26 处齿轮一致（`<Icon>` 默认是 16）。 -->
-                      <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
+                      <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="16" /></button>
                     </template>
                     <template v-else>
                       <span>{{ col.label }}<span v-if="canSort(col)" class="sort-ind"><Icon v-if="sortInd(col.key)" :name="sortInd(col.key)"/></span></span>
@@ -826,7 +826,7 @@
             <tbody>
               <tr class="col-total">
                 <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')">
-                  <template v-if="col.key === 'seq'"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（合计/单价换算口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="13"/></button></template>
+                  <template v-if="col.key === 'seq'"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（合计/单价换算口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="14"/></button></template>
                   <template v-else-if="col.key === 'name'">合计</template>
                   <template v-else-if="col.type === 'qty'">{{ footUnit((ci - 1) - visibleCols.length) || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(footNum('qty')) }}</template>
@@ -1146,7 +1146,7 @@
                是 `position:fixed;inset:0`，留在表内会被它的层叠/裁切影响；挂到 body 才是唯一稳的。 -->
           <Teleport to="body">
             <div v-if="jumpOpen" class="jump-pop" role="dialog" aria-label="跳转到">
-              <span class="jump-ic"><Icon name="target" :size="15"/></span>
+              <span class="jump-ic"><Icon name="target" :size="16"/></span>
               <input ref="jumpInputEl" v-model="jumpText" class="jump-input" placeholder="行号，或商品名 / 条码 / 客户名"
                      @keydown.enter.prevent="doJump" @keydown.esc.prevent.stop="closeJump" aria-label="跳转目标" />
               <button class="btn btn-primary btn-sm" @click="doJump">跳转</button>
@@ -1177,7 +1177,7 @@
                            :count="visibleRowIdx.length"
                            :title="visibleRowIdx.length ? '全选/取消当前显示的 ' + visibleRowIdx.length + ' 行（不影响被筛选隐藏的行）' : '当前没有显示的行'"
                            @toggle="toggleSelectAllVisible" />
-                    <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="15" /></button>
+                    <button class="col-cfg gear" @click.stop="toggleColMenu" title="列设置"><Icon name="settings" :size="16" /></button>
                   </div>
                   <span class="col-resizer" @mousedown.stop.prevent="startResize($event, 'seq')" @click.stop></span>
                 </th>
@@ -1245,7 +1245,7 @@
             </colgroup>
             <tbody role="rowgroup">
               <tr class="foot-row">
-                <td class="seq-cell"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（下单/单价录入口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="13"/></button></td>
+                <td class="seq-cell"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（下单/单价录入口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="14"/></button></td>
                 <td v-for="c in visibleCols" :key="'f' + c.key" class="num calc" :class="{ frozen: c.fixed || c.key === frozenExtra }" :style="c.fixed ? 'left:' + frozenLeftOf(c.key) : (c.key === frozenExtra ? 'left:' + frozenRight() : '')"><template v-if="c.key === 'name'">合计</template><ForecastAgg v-else-if="c.edit === 'num'" kind="footMaster" :ck="c.key"/></td>
                 <td v-for="(u, ui) in cross.units" :key="'fu' + u.name" class="num calc"><ForecastAgg kind="footUnitSum" :ui="ui"/></td>
                 <td class="num calc sum"><ForecastAgg kind="footQty"/></td>
@@ -14051,7 +14051,7 @@ provide('sprintSummary', sprintSummary)
 .cross-viewport::-webkit-scrollbar,
 .edit-grid-wrap::-webkit-scrollbar{height:18px;width:14px}
 .cross-viewport::-webkit-scrollbar-thumb,
-.edit-grid-wrap::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:9px;min-height:44px}
+.edit-grid-wrap::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:8px;min-height:44px}
 .cross-viewport::-webkit-scrollbar-thumb:hover,
 .edit-grid-wrap::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
 .cross-viewport::-webkit-scrollbar-track,
@@ -14830,7 +14830,7 @@ provide('sprintSummary', sprintSummary)
 :deep(.cell-dirty-dot){position:absolute;right:0;top:0;width:0;height:0;border-top:6px solid var(--p);border-left:6px solid transparent;z-index:4;pointer-events:none;opacity:.9}
 /* v598（C2）：跳转框。固定垂直位置在视口上方 14%（不遮住当前行），水平居中；
    z-index 高于页面浮层（--z-page-fs=1000）与表体浮层（1250 同档），避免被全屏网格压住。 */
-.jump-pop{position:fixed;left:50%;top:14vh;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:0 14px 36px rgba(0,0,0,.18);min-width:380px;box-sizing:border-box}
+.jump-pop{position:fixed;left:50%;top:14vh;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;box-shadow:0 14px 36px rgba(0,0,0,.18);min-width:380px;box-sizing:border-box}
 .jump-ic{display:flex;align-items:center;flex:none;color:var(--t2)}
 .jump-input{flex:1;min-width:190px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);font-size:13px;outline:none;box-sizing:border-box}
 .jump-input:focus{border-color:var(--p)}
@@ -15061,7 +15061,7 @@ provide('sprintSummary', sprintSummary)
    清空 = 一个都不勾（两者在「不勾 = 不过滤」口径下都显示全部行，但按钮角标不同）。 */
 .brand-pop .bp-selall{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;
   font-size:12px;font-weight:400;color:var(--t2);cursor:pointer;user-select:none;
-  white-space:nowrap;padding:2px 5px;border-radius:5px;transition:background-color var(--dur-base),color var(--dur-base)}
+  white-space:nowrap;padding:2px 5px;border-radius:6px;transition:background-color var(--dur-base),color var(--dur-base)}
 .brand-pop .bp-selall:hover{background:var(--bg2);color:var(--p-ink)}
 .brand-pop .bp-selall.is-off{cursor:not-allowed;color:var(--t3);opacity:.55}
 .brand-pop .bp-selall.is-off:hover{background:none;color:var(--t3)}

@@ -12,7 +12,7 @@
         <button v-if="b.to && i < breadcrumb.length - 1" type="button" class="rpt-crumb-a" @click="goTo(b.to)">{{ b.label }}</button>
         <span v-else-if="i < breadcrumb.length - 1" class="rpt-crumb-txt">{{ b.label }}</span>
         <span v-else class="rpt-crumb-cur" aria-current="page">{{ b.label }}</span>
-        <Icon v-if="i < breadcrumb.length - 1" name="chevron-right" :size="12" class="rpt-crumb-sep" />
+        <Icon v-if="i < breadcrumb.length - 1" name="chevron-right" :size="14" class="rpt-crumb-sep" />
       </template>
     </nav>
 

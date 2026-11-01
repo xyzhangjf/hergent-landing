@@ -274,7 +274,7 @@
         <table class="tbl">
           <thead>
             <tr>
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuRules" title="列设置"><Icon name="settings" :size="15" /></button></th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuRules" title="列设置"><Icon name="settings" :size="16" /></button></th>
               <th>规则名称</th><th>维度</th>
               <th v-if="isVisRules('period')">周期</th><th>作用对象</th>
               <th v-if="isVisRules('target')" class="num">目标值</th>
@@ -361,7 +361,7 @@
                      所以这一列永远是「所选那个月的目标」：年度规则取该月的月度分解额
                      （monthTargetOf → monthly_amounts[MM]），单期规则在生效起始月取整额。
                      至于是哪一种，由右侧新增的「周期」列显式标出，用户不必再自己选口径。 -->
-                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuAchv" title="列设置"><Icon name="settings" :size="15" /></button></th>
+                <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuAchv" title="列设置"><Icon name="settings" :size="16" /></button></th>
                 <th>维度</th><th>作用对象</th>
                 <th v-if="isVisAchv('period')">周期</th><th class="num">本月目标</th>
                 <th v-if="isVisAchv('ach_amt')" class="num">实际达成金额</th>
@@ -3427,7 +3427,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 /* v112 R27：达成填报主标题与仪表盘 .dash-hd b 统一 16px */
 .panel-hd b{font-size:16px}
 /* v118 (L2细化)：到货排程引擎面板 */
-.arrival-block{border:1px solid var(--bd2);border-radius:10px;padding:14px;margin-bottom:6px;background:var(--bg2)}
+.arrival-block{border:1px solid var(--bd2);border-radius:8px;padding:14px;margin-bottom:6px;background:var(--bg2)}
 .arrival-block .form-row{margin-bottom:8px}
 .seg{display:inline-flex;border:1px solid var(--bd2);border-radius:8px;overflow:hidden}
 .seg-btn{padding:6px 14px;border:0;background:transparent;cursor:pointer;font-size:13px;color:var(--t2)}

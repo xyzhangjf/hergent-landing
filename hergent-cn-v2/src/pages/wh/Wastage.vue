@@ -92,7 +92,7 @@
               <span>报损明细</span>
               <span class="wl-new-sub">单位成本留空 ⇒ 按库存批次成本自动取</span>
               <button class="btn btn-ghost btn-sm wl-add-item" @click="addRow">
-                <Icon name="plus" :size="13" />加一行
+                <Icon name="plus" :size="14" />加一行
               </button>
             </div>
             <div v-if="!draft.length" class="wl-items-none">还没有明细，点「加一行」开始。</div>

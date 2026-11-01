@@ -2205,7 +2205,7 @@ onMounted(() => {
 
 <style scoped>
 .sync-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.sync-state{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sync-state{font-size:12px;padding:3px 10px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
@@ -2215,7 +2215,7 @@ onMounted(() => {
    🔴 用全局 `.input` 的原高（40px）会把整行顶到 40+，表格瞬间变稀疏；
       这里收到 26px（与 .btn-row-ic 同档），行高由它决定，不再被文本撑。 */
 .hd-sel{height:26px;line-height:24px;padding:0 6px;font-size:12px;min-width:120px}
-.df-tip code{background:var(--bg2);padding:1px 6px;border-radius:5px;font-size:12px}
+.df-tip code{background:var(--bg2);padding:1px 6px;border-radius:6px;font-size:12px}
 /* v312：角色默认端的出处说明 / 内联小按钮 / 「与角色配置不一致」提示条 */
 .df-scope-src{margin:0 0 12px}
 .df-mini-lnk{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:12px;padding:0 2px;text-decoration:underline}
@@ -2382,7 +2382,7 @@ onMounted(() => {
 .df-acc-ops{padding-top:1px}
 .df-acc-ops .btn.is-on{border-color:var(--teal);color:var(--teal)}
 .df-acc-right{margin-left:auto}
-.df-acc-expand{display:flex;flex-direction:column;gap:10px;padding:10px 11px;border-radius:9px;background:var(--bg);border:1px dashed var(--border-subtle)}
+.df-acc-expand{display:flex;flex-direction:column;gap:10px;padding:10px 11px;border-radius:8px;background:var(--bg);border:1px dashed var(--border-subtle)}
 .df-acc-exp-label{font-size:12px;color:var(--t2);flex-shrink:0;min-width:56px}
 .df-acc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .df-acc-row .input, .df-acc-row select{flex:1;min-width:0}
@@ -2398,7 +2398,7 @@ onMounted(() => {
 .df-extra-chips .chip:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
 /* Q29（2026-09-19）忘记密码：一次性重置码的展示区 */
 .rc-tip{font-size:12px;color:var(--t3);line-height:1.5}
-.rc-box{gap:10px;background:var(--bg2);border-radius:9px;padding:8px 12px}
+.rc-box{gap:10px;background:var(--bg2);border-radius:8px;padding:8px 12px}
 .rc-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:20px;letter-spacing:3px;color:var(--teal)}
 .rc-exp{font-size:12px;color:var(--t3);margin-left:auto}
 .btn-block{width:100%}
@@ -2407,7 +2407,7 @@ onMounted(() => {
    而角色 label 是「财务/文员（仅网页端 · 账务 / 报表 / 订货）」这种长句，窄屏被硬切成半截。
    补自绘 chevron（背景 svg + 右侧让位 padding）；关闭态走省略号，全称在 title 里（长按/hover 可见）。
    注意：必须写 `background-color` 而不是 `background` 简写 —— 简写会把 background-image 一起重置掉。 */
-.acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:9px;padding:0 32px 0 11px;font-size:13px;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;color:var(--t1);appearance:none;-webkit-appearance:none;cursor:pointer;text-overflow:ellipsis;white-space:nowrap}
+.acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:8px;padding:0 32px 0 11px;font-size:13px;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;color:var(--t1);appearance:none;-webkit-appearance:none;cursor:pointer;text-overflow:ellipsis;white-space:nowrap}
 
 /* ============================================================
    v706 响应式（断点 768px —— 与全站「移动端基础」一致，见 variables.css）

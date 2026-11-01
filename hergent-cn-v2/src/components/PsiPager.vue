@@ -20,12 +20,12 @@
               @click="go(p)">{{ p }}</button>
       <button class="psi-pg" :disabled="page >= pageCount" @click="go(page + 1)">›</button>
     </div>
-    <select :value="limit" class="input psi-pg-size" @change="onSize">
+    <select :value="limit" class="input psi-pg-size" aria-label="每页显示条数" @change="onSize">
       <option v-for="s in sizes" :key="s" :value="s">{{ s }} 条/页</option>
     </select>
     <span class="psi-pg-jump">
       跳至
-      <input v-model.number="jump" class="input psi-pg-in" inputmode="numeric"
+      <input v-model.number="jump" class="input psi-pg-in" inputmode="numeric" aria-label="跳转页码"
              @keyup.enter="doJump" />
       页
     </span>

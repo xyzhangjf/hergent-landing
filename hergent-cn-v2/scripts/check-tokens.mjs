@@ -99,8 +99,32 @@ function collect() {
   return found
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   v720 · 图标尺寸白名单
+   ─────────────────────────────────────────────────────────────────────────────
+   由来：`<Icon :size="N">` 曾出现 11 档（11/12/13/14/15/16/17/18/20/22/26），
+   而 `.ico{width:16px;height:16px}` 又把它们**全部压平成 16px** ⇒ 声明与渲染脱节，
+   「八档尺寸」只是一纸空文。v720 去掉那条硬压并收敛到 4 档 {14,16,18,22}。
+   这条护栏守的就是「别再长回第八档」—— 新写 15px / 20px 直接构建失败。
+   为什么是这 4 档：14 = 正文/工具栏（占比最大），16 = 控件内固定档，
+   18 = 分区标题，22 = 空态大图标（`.se-ic` 48×48 容器内）。 */
+const ICON_SIZES = new Set(['14', '16', '18', '22'])
+function checkIconSizes() {
+  const bad = []
+  const re = /<Icon\b[^>]*?\bsize\s*=\s*"(\d+)"/g
+  for (const abs of walk(SRC)) {
+    if (!abs.endsWith('.vue')) continue
+    const rel = relative(ROOT, abs).split('\\').join('/')
+    for (const m of stripComments(readFileSync(abs, 'utf8')).matchAll(re)) {
+      if (!ICON_SIZES.has(m[1])) bad.push({ rel, v: m[1] })
+    }
+  }
+  return bad
+}
+
 const args = new Set(process.argv.slice(2))
 const current = collect()
+const iconBad = checkIconSizes()
 
 if (args.has('--update')) {
   const obj = {}
@@ -140,22 +164,33 @@ for (const [file, vals] of current) {
   if (added.length) violations.push({ file, kind: 'new-color', vals: added })
 }
 
-if (!violations.length) {
+if (!violations.length && !iconBad.length) {
   const files = Object.keys(base).length
   const total = Object.values(base).reduce((a, b) => a + b.length, 0)
   console.log(`✓ 设计令牌护栏通过（存量待清：${files} 个文件 / ${total} 条，见 --list）`)
+  console.log(`✓ 图标尺寸护栏通过（允许 ${[...ICON_SIZES].join(' / ')} 四档）`)
   process.exit(0)
 }
 
-console.error('\n✗ 设计令牌护栏：出现了新的硬编码色值\n')
-for (const v of violations) {
-  console.error(`  ${v.file}`)
-  console.error(`    ${v.kind === 'new-file' ? '新文件直接用 hex（应从 variables.css 取令牌）' : '新增了 baseline 之外的色值'}`)
-  console.error(`    ${v.vals.map(x => '#' + x).join(', ')}\n`)
+if (iconBad.length) {
+  console.error('\n✗ 图标尺寸护栏：出现了白名单之外的 <Icon :size>\n')
+  for (const b of iconBad) console.error(`  ${b.rel}  → ${b.v}`)
+  console.error(`\n只允许 ${[...ICON_SIZES].join(' / ')} 四档：`)
+  console.error('  14 = 正文/工具栏｜16 = 控件内固定档｜18 = 分区标题｜22 = 空态大图标')
+  console.error('尺寸梯度是「视觉节奏」的一部分，随手写 15/20 会让同屏图标大小不一。\n')
 }
-console.error('改法（按顺序选一个）：')
-console.error('  1) 用已有令牌：background:var(--p-dark) / color:var(--st-ok-txt) / border:1px solid var(--bd)')
-console.error('  2) 确实缺语义色 ⇒ 在 src/styles/variables.css 的 :root 与 :root.dark 里各加一个令牌，再来引用')
-console.error('  3) 只是把存量挪了位置/改了大小写 ⇒ 跑 `node scripts/check-tokens.mjs --update`')
-console.error('\n不要直接往 baseline 里手塞色值 —— 那等于把护栏拆了。\n')
+
+if (violations.length) {
+  console.error('\n✗ 设计令牌护栏：出现了新的硬编码色值\n')
+  for (const v of violations) {
+    console.error(`  ${v.file}`)
+    console.error(`    ${v.kind === 'new-file' ? '新文件直接用 hex（应从 variables.css 取令牌）' : '新增了 baseline 之外的色值'}`)
+    console.error(`    ${v.vals.map(x => '#' + x).join(', ')}\n`)
+  }
+  console.error('改法（按顺序选一个）：')
+  console.error('  1) 用已有令牌：background:var(--p-dark) / color:var(--st-ok-txt) / border:1px solid var(--bd)')
+  console.error('  2) 确实缺语义色 ⇒ 在 src/styles/variables.css 的 :root 与 :root.dark 里各加一个令牌，再来引用')
+  console.error('  3) 只是把存量挪了位置/改了大小写 ⇒ 跑 `node scripts/check-tokens.mjs --update`')
+  console.error('\n不要直接往 baseline 里手塞色值 —— 那等于把护栏拆了。\n')
+}
 process.exit(1)

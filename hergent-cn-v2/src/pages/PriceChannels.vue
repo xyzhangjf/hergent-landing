@@ -123,7 +123,7 @@
         <table class="pc-tb seq-host">
           <thead>
             <tr>
-              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuCust" title="列设置"><Icon name="settings" :size="15" /></button></th><th>客户</th><th>商品</th><th v-if="isVisibleCust('spec')">规格</th>
+              <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuCust" title="列设置"><Icon name="settings" :size="16" /></button></th><th>客户</th><th>商品</th><th v-if="isVisibleCust('spec')">规格</th>
               <th>小单位价</th><th>中单位价</th><th>大单位价</th><th v-if="isVisibleCust('updated')">更新时间</th>
             </tr>
           </thead>
@@ -325,7 +325,7 @@
           <div v-if="mxLoading" class="pc-empty">正在加载商品…</div>
           <table v-else class="pc-tb seq-host">
             <thead>
-              <tr><th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuMatrix" title="列设置"><Icon name="settings" :size="15" /></button></th><th>商品</th><th v-if="isVisibleMatrix('barcode')">条码</th><th v-if="isVisibleMatrix('extcode')">该渠道商品编码</th><th>该渠道价格</th><th>状态</th></tr>
+              <tr><th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuMatrix" title="列设置"><Icon name="settings" :size="16" /></button></th><th>商品</th><th v-if="isVisibleMatrix('barcode')">条码</th><th v-if="isVisibleMatrix('extcode')">该渠道商品编码</th><th>该渠道价格</th><th>状态</th></tr>
             </thead>
             <tbody>
               <tr v-for="(r, i) in mxRows" :key="r.id" :class="{ dirty: mxDirty[r.id] }">
@@ -914,7 +914,7 @@ onMounted(async () => {
 .pc-empty{padding:26px;text-align:center;color:var(--t3);font-size:13px}
 
 .pc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:12px;margin-bottom:16px}
-.pc-card{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:10px;background:var(--bg);
+.pc-card{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:8px;background:var(--bg);
   padding:12px 14px;transition:border-color var(--dur-base),box-shadow var(--dur-base)}
 .pc-card:hover{box-shadow:var(--shadow-sm)}
 .pc-card.is-def{border-color:rgba(var(--p-rgb),.45);background:var(--p-bg)}
@@ -973,7 +973,7 @@ onMounted(async () => {
 .pc-spec{display:block;font-size:12px;color:var(--t3)}
 .pc-mono{font-family:var(--font-mono,monospace);color:var(--t2)}
 .pc-in{width:100%;height:28px;padding:0 8px;font-size:12px;color:var(--t1);background:var(--bg);
-  border:1px solid var(--bd);border-radius:5px;box-sizing:border-box}
+  border:1px solid var(--bd);border-radius:6px;box-sizing:border-box}
 .pc-in:focus{border-color:var(--p-dark)}
 .pc-ok{color:var(--suc);font-size:12px}
 .pc-miss{color:var(--t3);font-size:12px}

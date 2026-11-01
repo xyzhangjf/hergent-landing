@@ -32,7 +32,7 @@
     <!-- ① 未配置：这条路径的报表还没写 SQL。诚实说明，不假装"没数据"。 -->
     <div v-else-if="notConfigured" class="card gr-hollow">
       <div class="gr-hollow-ic"><Icon name="bar-chart" :size="22" /></div>
-      <h3>这张报表还没有配数据口径</h3>
+      <h2>这张报表还没有配数据口径</h2>
       <p class="gr-hollow-desc">
         报表引擎已经就绪，但「{{ title }}」的具体 SQL 还没写。
         <b>这不是"没有数据"，而是"还没定义怎么取数"</b> —— 两者看起来一样，含义完全不同。
@@ -45,7 +45,7 @@
     <!-- ② 本产品没有这个模块：报表在、功能没启用。不是"没配口径"，也不是"没数据"。 -->
     <div v-else-if="unavailable" class="card gr-hollow">
       <div class="gr-hollow-ic"><Icon name="help-circle" :size="22" /></div>
-      <h3>本产品还没有这个模块</h3>
+      <h2>本产品还没有这个模块</h2>
       <p class="gr-hollow-desc">{{ reason || '本产品尚未提供该报表所需的业务模块。' }}</p>
       <p class="gr-hollow-foot">
         这张报表的入口是预留的：等对应模块上线、录了数据，它会自动开始出数，
@@ -56,7 +56,7 @@
     <!-- ③ 无权查看：这个账号的角色没有该报表的数据权限（后端 403）。诚实说明，不白屏也不假装"没数据"。 -->
     <div v-else-if="denied" class="card gr-hollow">
       <div class="gr-hollow-ic"><Icon name="lock" :size="22" /></div>
-      <h3>你没有查看这张报表的权限</h3>
+      <h2>你没有查看这张报表的权限</h2>
       <p class="gr-hollow-desc">
         报表「{{ title }}」需要相应的数据权限，当前账号的角色尚未开通，所以看不到内容。
         <b>这不是"没有数据"，而是"还没有被授权查看"</b> —— 两者看起来都是空，含义完全不同。
@@ -653,7 +653,7 @@ onMounted(load)
 .gr-foot code { background: var(--bg2); padding: 1px 5px; border-radius: 4px; font-size: 11px }
 .gr-hollow { padding: 28px 24px; max-width: 720px; text-align: center }
 .gr-hollow-ic { color: var(--t3); margin-bottom: 6px }
-.gr-hollow h3 { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 10px }
+.gr-hollow h2 { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 10px }
 .gr-hollow-desc { font-size: 13px; color: var(--t2); line-height: 1.9; margin-bottom: 10px }
 .gr-hollow-foot { font-size: 12px; color: var(--t3); line-height: 1.8 }
 .gr-hollow code { background: var(--bg2); padding: 1px 5px; border-radius: 4px }

@@ -486,7 +486,7 @@ onMounted(loadAll)
 .ar-cond, .ar-msg { min-width: 0; word-break: break-word }
 .ar-time { white-space: nowrap; color: var(--t2) }
 .ar-muted { color: var(--t3); font-size: 12px }
-.ar-badge { display: inline-block; padding: 1px 9px; border-radius: 9px; font-size: 12px; font-weight: 400; white-space: nowrap }
+.ar-badge { display: inline-block; padding: 1px 9px; border-radius: 8px; font-size: 12px; font-weight: 400; white-space: nowrap }
 .ar-badge.on { background: var(--ok-green-bg); color: var(--ok) }
 .ar-badge.ok { background: var(--ok-green-bg); color: var(--ok) }
 .ar-badge.off { background: var(--bg2); color: var(--t3) }
