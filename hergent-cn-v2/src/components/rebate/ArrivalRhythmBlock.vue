@@ -186,15 +186,15 @@ function wkLabel(iso) {
 .form-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .seg{display:inline-flex;border:1px solid var(--bd2);border-radius:8px;overflow:hidden}
 .seg-btn{padding:6px 14px;border:0;background:transparent;cursor:pointer;font-size:13px;color:var(--t2)}
-.seg-btn.on{background:var(--p);color:#fff}
+.seg-btn.on{background:var(--p-solid);color:#fff}
 .wk-chips{display:flex;gap:6px;flex-wrap:wrap}
 .wk-chip{padding:6px 12px;border:1px solid var(--bd2);border-radius:18px;background:var(--bg1);cursor:pointer;font-size:13px;color:var(--t2)}
-.wk-chip.on{background:var(--p);color:#fff;border-color:var(--p)}
+.wk-chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 .input-affix{display:flex;align-items:center;gap:6px}
 .input-affix .input{flex:1}
 .input-affix .affix{font-size:12px;color:var(--t3);white-space:nowrap}
 .ro-val{font-size:14px;color:var(--t1);padding:7px 0;font-variant-numeric:tabular-nums}
-.ro-val b{color:var(--p)}
+.ro-val b{color:var(--p-ink)}
 .ap-sec{display:flex;align-items:center;gap:8px;margin:12px 0 8px;font-size:12px;font-weight:600;color:var(--t1)}
 .ap-sec:first-child{margin-top:0}
 .ap-sec-note{font-weight:400;font-size:12px;color:var(--t3)}
@@ -203,7 +203,7 @@ function wkLabel(iso) {
 .ap-derive{margin:2px 0 0;font-size:12px;color:var(--p-dark);background:rgba(6,182,212,.08);border-radius:6px;padding:6px 8px}
 .ap-warn{font-size:12px;color:var(--danger,#c0392b);background:rgba(192,57,43,.08);border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.5}
 .ap-adopt{margin-left:8px;border:1px solid var(--p);background:transparent;color:var(--p-dark);border-radius:6px;padding:1px 10px;font-size:12px;cursor:pointer}
-.ap-adopt:hover{background:var(--p);color:#fff}
+.ap-adopt:hover{background:var(--p-solid);color:#fff}
 /* v364：② 本月到货 —— 三个数字 + 一排可点的到货日。
    颜色一律走既有令牌（--p / --t1..t3 / --bg1..2 / --bd2），不新增硬编码色：
    本仓深色模式靠令牌翻转，写死色会在深色下变成白块（v362 踩过）。 */

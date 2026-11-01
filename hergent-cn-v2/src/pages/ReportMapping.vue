@@ -1066,7 +1066,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .health-bar.ok{background:rgba(var(--suc-rgb),.10);border-color:rgba(var(--suc-rgb),.35)}
 .hb-dot{width:8px;height:8px;border-radius:50%;background:var(--war);flex-shrink:0}
 .health-bar.ok .hb-dot{background:var(--suc)}
-.hb-toggle{margin-left:auto;color:var(--p);font-size:12px}
+.hb-toggle{margin-left:auto;color:var(--p-ink);font-size:12px}
 .health-detail{margin-bottom:12px;padding:14px 16px}
 .hd-sec{margin-bottom:12px}
 .hd-sec:last-child{margin-bottom:0}
@@ -1076,7 +1076,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 /* 历史门店授权提示条：与「配置体检」同构但用中性色 —— 它是「待收敛」不是「有错」。 */
 .legacy-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:var(--bg2);border:1px solid var(--border-subtle);border-left:3px solid var(--t3);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:14px;cursor:pointer}
 .lb-dot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex-shrink:0}
-.lb-toggle{margin-left:auto;color:var(--p);font-size:12px}
+.lb-toggle{margin-left:auto;color:var(--p-ink);font-size:12px}
 .legacy-detail{margin-bottom:12px;padding:14px 16px}
 .lb-tip{font-size:12px;color:var(--t2);line-height:1.8;margin:8px 0 0}
 .legacy-detail ul{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--t2);line-height:1.9}
@@ -1146,7 +1146,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .field .hint{font-size:12px;color:var(--t3);line-height:1.5}
 .seg{display:flex;gap:6px}
 .seg-btn{flex:1;height:34px;border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-sm);font-size:13px;color:var(--t2);cursor:pointer}
-.seg-btn.on{background:var(--p);border-color:var(--p);color:#fff}
+.seg-btn.on{background:var(--p-solid);border-color:var(--p-solid);color:#fff}
 
 .warn-text{font-size:13px;color:var(--war);line-height:1.7}
 /* v381：`.ro-box` / `.ro-name` / `.ro-tag` / `.ro-warn`（本人仓**只读框**）已随入口迁移删除 ——
@@ -1158,13 +1158,13 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .combo-panel{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:4px}
 .combo-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .combo-item.on{background:var(--bg2)}
-.combo-item.sel{color:var(--p);font-weight:600}
-.combo-sel{color:var(--p);font-size:12px;flex:none}
+.combo-item.sel{color:var(--p-ink);font-weight:600}
+.combo-sel{color:var(--p-ink);font-size:12px;flex:none}
 .combo-note{font-size:11px;color:var(--war);flex:none}
 .combo-empty{padding:10px;text-align:center;font-size:12px;color:var(--t3)}
 /* v295：报单简称名册 —— 面板表头（sticky，滚动时仍看得见来源说明）、状态标签、三态提示 */
 .al-hd{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px -4px 4px;padding:6px 10px 7px;font-size:12px;color:var(--t3);background:var(--bg);border-bottom:1px solid var(--border-subtle)}
-.al-from{color:var(--p);flex:none}
+.al-from{color:var(--p-ink);flex:none}
 .al-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .al-tag{flex:none;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--bg2);color:var(--t3)}
 .al-tag.war{background:rgba(var(--war-rgb),.14);color:var(--war)}
@@ -1173,7 +1173,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 /* v317：报单人下拉下方的引导行（「还没有外部客户账号？去员工档案开通」）。
    中性灰而不是告警色 —— 它描述的是"还没有这种数据"，不是配置出错。 */
 .al-note{font-size:12px;line-height:1.6;color:var(--t3)}
-.lnk-btn{border:none;background:none;color:var(--p);cursor:pointer;font-size:12px;padding:0 2px;font-family:inherit;text-decoration:underline}
+.lnk-btn{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:12px;padding:0 2px;font-family:inherit;text-decoration:underline}
 .lnk-btn:hover{color:var(--p-dark)}
 .al-hint{font-size:12px;line-height:1.55;padding:6px 9px;border-radius:var(--radius-sm)}
 .al-hint.ok{color:var(--suc);background:rgba(var(--suc-rgb),.10)}
@@ -1182,9 +1182,9 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 /* v295：相近列头的一键改选（把"会新增一列"的警告变成一个可点的动作，而不是光提示） */
 .al-near{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--t3);line-height:1.8}
 .al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:8px;padding:2px 9px;font-size:12px;cursor:pointer}
-.al-near-btn:hover{background:var(--p);color:#fff}
+.al-near-btn:hover{background:var(--p-solid);color:#fff}
 .al-near-tip{color:var(--t3)}
-.upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:14px 18px;font-size:13px;color:var(--p);cursor:pointer;text-align:center}
+.upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:14px 18px;font-size:13px;color:var(--p-ink);cursor:pointer;text-align:center}
 .imp-result{font-size:13px;color:var(--t1);margin-top:6px}
 .imp-result .suc{color:var(--suc)} .imp-result .dan{color:var(--dan)}
 .imp-result ul{margin:8px 0 0;padding-left:18px;color:var(--t2);font-size:12px;line-height:1.7}

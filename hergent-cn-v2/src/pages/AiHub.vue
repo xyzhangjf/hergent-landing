@@ -722,7 +722,7 @@ async function refreshProfile() {
 /* 审核台是列表，整行铺开（与 profile-card 同策略）；🔴 不写这条会被栅格塞进 1 列窄栏、文字竖排 */
 .proposal-card{grid-column:1/-1}
 .ops-hint{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3);margin-top:-8px}
-.ops-hint a{color:var(--p);text-decoration:none;font-weight:500}
+.ops-hint a{color:var(--p-ink);text-decoration:none;font-weight:500}
 .ops-hint a:hover{text-decoration:underline}
 .card{background:var(--bg2);border:1px solid var(--border-subtle);border-radius:14px;padding:16px 18px}
 /* KPI 条要覆盖上面这条 scoped .card 的内距 —— 两者特异性同为 0,2,0（scoped 会被加上

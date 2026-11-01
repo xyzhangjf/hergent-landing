@@ -1420,7 +1420,7 @@ onMounted(() => { load(month.value); loadAudit() })
    差异是"有色/无色"级别，不依赖透明度，深色模式下同样成立。 */
 .pt-picked{display:flex;align-items:center;gap:10px;padding:10px 12px;
   background:var(--p-bg);border:1px solid var(--p);border-radius:var(--radius-sm)}
-.pt-picked-tick{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--p);
+.pt-picked-tick{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--p-solid);
   color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
 .pt-picked-txt{flex:1 1 auto;min-width:0}
 .pt-picked-nm{font-size:14px;font-weight:600;color:var(--t1);overflow:hidden;

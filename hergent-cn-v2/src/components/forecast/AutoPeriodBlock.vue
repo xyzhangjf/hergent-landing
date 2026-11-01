@@ -239,7 +239,7 @@ onMounted(load)
 .ap-sel:disabled,.ap-in:disabled{opacity:.55;cursor:not-allowed}
 .seg{display:inline-flex;border:1px solid var(--bd);border-radius:var(--radius-sm);overflow:hidden;width:max-content}
 .seg-btn{padding:6px 14px;border:0;background:transparent;cursor:pointer;font-size:13px;color:var(--t2);font-family:inherit}
-.seg-btn.on{background:var(--p);color:#fff}
+.seg-btn.on{background:var(--p-solid);color:#fff}
 .seg-btn:disabled{opacity:.6;cursor:not-allowed}
 .ap-mirror{margin:6px 0;font-size:12px;color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs, 6px);padding:6px 9px;line-height:1.55}
 .ap-mirror-warn{color:var(--war);background:rgba(var(--war-rgb),.08)}

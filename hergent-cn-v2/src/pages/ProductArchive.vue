@@ -1885,7 +1885,7 @@ onMounted(() => {
 <style scoped>
 .pa-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .pa-stat{font-size:13px;color:var(--t2);flex-shrink:0}
-.pa-stat b{color:var(--p);font-size:16px}
+.pa-stat b{color:var(--p-ink);font-size:16px}
 
 /* v157 「补进价」入口：仅当有商品未录进价时出现，补完自动消失（不是常驻按钮） */
 .pa-fp-btn{color:var(--war);border-color:rgba(var(--war-rgb),.35);gap:5px}
@@ -1895,9 +1895,9 @@ onMounted(() => {
 /* v157 进价列（行内可编） */
 .pa-fp-cell{white-space:nowrap}
 .pa-fp-val{cursor:pointer;border-bottom:1px dashed transparent}
-.pa-fp-val:hover{border-bottom-color:var(--p);color:var(--p)}
+.pa-fp-val:hover{border-bottom-color:var(--p);color:var(--p-ink)}
 .pa-fp-from{cursor:pointer;color:var(--txt-3);font-size:12px;border-bottom:1px dashed transparent}
-.pa-fp-from:hover{border-bottom-color:var(--p);color:var(--p)}
+.pa-fp-from:hover{border-bottom-color:var(--p);color:var(--p-ink)}
 .pa-fp-miss{display:inline-block;padding:1px 8px;border-radius:8px;background:rgba(var(--war-rgb),.14);color:var(--war);font-size:12px;cursor:pointer}
 .pa-fp-miss:hover{background:rgba(var(--war-rgb),.24)}
 .pa-fp-input{width:92px;height:30px;text-align:right;padding:0 8px}
@@ -1915,12 +1915,12 @@ onMounted(() => {
    但**不用**警示色 —— 见下面 .pa-cyc-none 的注释。 */
 .pa-cyc-cell{white-space:nowrap;text-align:center}
 .pa-cyc-val{cursor:pointer;border-bottom:1px dashed transparent;font-variant-numeric:tabular-nums}
-.pa-cyc-val:hover{border-bottom-color:var(--p);color:var(--p)}
+.pa-cyc-val:hover{border-bottom-color:var(--p);color:var(--p-ink)}
 /* 「未设」用**灰**（--t3）而不是进价列那种琥珀（--war）：
    缺进价是**问题**（闸门开启后该商品在报单导入/小程序报单时会被拒收），缺到货周期只是「未设置」。
    本租户 285 个在售商品里 274 个为空 —— 用警示色会变成满屏噪音，反而盖掉真正要看的缺价提示。 */
 .pa-cyc-none{cursor:pointer;color:var(--t3);font-size:12px;border-bottom:1px dashed transparent}
-.pa-cyc-none:hover{border-bottom-color:var(--p);color:var(--p)}
+.pa-cyc-none:hover{border-bottom-color:var(--p);color:var(--p-ink)}
 /* v233：报单单位列 —— 「已指定」「跟随」两态。**不用破折号**：留空是一等状态（跟随档案单位），
    破折号说不清「这是有意的跟随」还是「这格没数据」（同 .pa-cyc-none 的三态道理）。 */
 .pa-ou-val{font-variant-numeric:tabular-nums}
@@ -1948,7 +1948,7 @@ onMounted(() => {
   white-space:nowrap;vertical-align:bottom;font-size:12px;border-bottom:1px dashed transparent}
 .pa-od-val{cursor:pointer;color:var(--t1);font-variant-numeric:tabular-nums}
 .pa-od-none{cursor:pointer;color:var(--t3)}
-.pa-od-val:hover,.pa-od-none:hover{border-bottom-color:var(--p);color:var(--p)}
+.pa-od-val:hover,.pa-od-none:hover{border-bottom-color:var(--p);color:var(--p-ink)}
 /* 无 data/update 权限：**不能点就别看起来能点**（不换手型、不 hover 变色） */
 .pa-od-val.ro,.pa-od-none.ro{cursor:default}
 .pa-od-val.ro:hover,.pa-od-none.ro:hover{border-bottom-color:transparent;color:inherit}
@@ -1975,7 +1975,7 @@ onMounted(() => {
 .pa-ord-month{max-width:360px}
 .pa-ord-month.bad{border-color:var(--danger)}
 .pa-ord-preview{margin:14px 0 4px;font-size:var(--fs-base);color:var(--t1)}
-.pa-ord-preview b{color:var(--p)}
+.pa-ord-preview b{color:var(--p-ink)}
 .pa-ord-hint{font-size:var(--fs-sm);color:var(--t2)}
 /* `.pa-ft-note` 全局是警告橙（既有用法是「N 个字段已改，未保存」= 真提醒）。
    本弹窗里「与当前设置一致，无需修改」是**正常态**，用橙会让人以为哪里错了 ⇒ 压成灰。 */
@@ -1993,7 +1993,7 @@ onMounted(() => {
 .pa-name{font-weight:600;color:var(--t1)}
 .pa-mono{font-size:12px;color:var(--t3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .pa-brand{display:inline-block;min-width:48px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t1);cursor:pointer;transition:.15s}
-.pa-brand:hover{background:rgba(var(--p-rgb,6,182,212),.14);color:var(--p)}
+.pa-brand:hover{background:rgba(var(--p-rgb,6,182,212),.14);color:var(--p-ink)}
 .pa-brand-input{height:30px;min-width:120px}
 .pa-status{font-size:12px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t3)}
 /* v717：前景色改用状态胶囊令牌 —— 原 --suc(#34c759) 对本浅绿底仅 2.01:1，
@@ -2035,8 +2035,8 @@ onMounted(() => {
   border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:6px}
 .pa-modal-body>.pa-sec:first-of-type{margin-top:2px}
 .pa-sec-click{cursor:pointer;user-select:none}
-.pa-sec-click:hover{color:var(--p)}
-.pa-caret{margin-left:auto;font-size:12px;color:var(--p);font-weight:400}
+.pa-sec-click:hover{color:var(--p-ink)}
+.pa-caret{margin-left:auto;font-size:12px;color:var(--p-ink);font-weight:400}
 .pa-f-full{grid-column:1 / -1}
 .pa-ta{height:auto;min-height:66px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
 /* 状态行：徽标 + 说明 + 按钮排一行；说明占满剩余宽度，长句不撑破弹窗。 */

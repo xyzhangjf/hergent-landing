@@ -480,5 +480,5 @@ watch(repOk, (ok) => {
 .seg{display:inline-flex;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
 .seg-btn{padding:4px 12px;font-size:12px;background:transparent;border:0;color:var(--t2)}
 .seg-btn + .seg-btn{border-left:1px solid var(--bd)}
-.seg-btn.on{background:var(--p);color:#fff}
+.seg-btn.on{background:var(--p-solid);color:#fff}
 </style>

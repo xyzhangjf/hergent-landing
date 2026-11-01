@@ -35,6 +35,6 @@ onErrorCaptured((err) => {
 .err-card{padding:28px 32px;border-radius:16px;background:var(--bg2);box-shadow:var(--shadow-lg);max-width:420px;text-align:center}
 .err-title{font-size:17px;font-weight:600;color:var(--t1);margin-bottom:8px}
 .err-msg{font-size:13px;color:var(--t2);margin-bottom:16px;word-break:break-word;line-height:1.5}
-.err-btn{padding:8px 18px;border:none;border-radius:10px;background:var(--p);color:#fff;font-size:13px;cursor:pointer}
+.err-btn{padding:8px 18px;border:none;border-radius:10px;background:var(--p-solid);color:#fff;font-size:13px;cursor:pointer}
 .err-btn:hover{opacity:.9}
 </style>

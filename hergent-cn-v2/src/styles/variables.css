@@ -22,6 +22,11 @@
   --p-dark:#0e7490;       /* 主交互（白字可读 5.36:1；v717 原 #0891b2 仅 3.68） */
   --p-deep:#0b5f75;       /* hover/按下（白字 7.22:1；v717 原 #0e7490） */
   --p-ink:#0e7490;        /* P0(v376)：强调态**文字色** —— 对选中青底 4.87:1；勿用于白字背景 */
+  /* v717：**实心选中底**（chip/seg-btn 选中、小圆形序号、主色按钮 hover）。
+     原写法是 background:var(--p-solid) + color:#fff —— #06b6d4 上白字只有 2.43:1，
+     看板「近 7 天」、销售单「全部」都属于这一类。深浅两套同取 #0e7490（白字 5.36），
+     深色下故意不用亮青：亮青当底配白字在哪个主题都是 2.43。 */
+  --p-solid:#0e7490;
   --p-rgb:8,145,178;
   --p-bg:rgba(6,182,212,.06);
   --p-border:rgba(6,182,212,.28);
@@ -39,7 +44,7 @@
   --suc:#0F7B3F; --suc-rgb:52,199,89;        /* v717：原 #34c759（白底 2.22） */
   --dan:#C62828; --dan-rgb:255,59,48;        /* v717：原 #ff3b30（白底 3.55） */
   --dan-bg:rgba(255,59,48,.10);  /* 删除/危险 hover 浅红底 */
-  --war:#B45309; --war-rgb:255,159,10;       /* v717：原 #ff9f0a（白底 2.06） */
+  --war:#AE4F08; --war-rgb:255,159,10;       /* v717：原 #ff9f0a（白底 2.06） */
 
   /* 扩展语义色（C2：ReportMapping 等组件特有对象类型色，全局化供复用） */
   --purple:#7c77dd; --purple-rgb:124,119,221;   /* 客户 */
@@ -57,8 +62,8 @@
   --sum-col-bg:#fef3c7;                         /* 列合计加深 */
   --final-bg:#cffafe;                           /* 最终下单列浅青 */
   --danger-bg:#fef2f2;                          /* 错误/危险浅红底 */
-  --danger-txt:#dc2626;                         /* 危险文字 */
-  --danger-solid:#dc2626;                       /* v367：危险**实心**底（两态同值 ⇒ 配白字 5.0:1）。
+  --danger-txt:#C62828;                         /* 危险文字（v717：原 #dc2626 在 --bg2 上仅 4.44:1） */
+  --danger-solid:#C62828;                       /* v367：危险**实心**底（两态同值 ⇒ 配白字 5.62:1）。
                                                    与上面的 --danger-txt 分开：后者深色下是浅红
                                                    #f87171（为文字可读性调过），拿来当底会偏亮。 */
   --resizer-bg:#cbd5e1;                         /* 列宽调节手柄 */
@@ -88,7 +93,7 @@
 
   /* 严重度 / 报单状态语义色（C4/C5 令牌化：替代散点硬编码 #A32D2D/#BA7517/#9A6B00/#FBEEDA/#7C3AED/#F3E8FF 与 .tag.st-* 状态色） */
   --sev-risk:#A32D2D; --sev-risk-bg:rgba(163,45,45,.12);   /* 高风险/缺货/驳回 */
-  --sev-warn:#B45309; --sev-warn-bg:rgba(186,117,23,.12);  /* 警告/偏低（v717：原 #BA7517 作文字仅 3.72:1，压深到 5.02:1） */
+  --sev-warn:#AE4F08; --sev-warn-bg:rgba(186,117,23,.12);  /* 警告/偏低（v717：原 #BA7517 作文字仅 3.72:1；#AE4F08 在深橙底 #FFF0D8 上 4.77:1） */
   --sev-info:#9A6B00; --sev-info-bg:rgba(154,107,0,.12);   /* 到期/待处理金 */
   --sev-expired:#7A1F1F;                                    /* 已过期 */
   --violet:#7c3aed; --violet-bg:#f3e8ff;                   /* 客户紫（下单主体徽标色板之一） */
@@ -106,7 +111,7 @@
      统一入口 —— 新写状态标签请直接用这五个，不要再手写 #34c759/#ff9f0a 这类亮色当文字。
      括号内为「该色 on 对应浅底（叠白后实算）」的真实对比度，替换前的值一并记下备查。 */
   --st-ok-txt:#0F7B3F;    /* 4.85:1，原 #34c759 仅 2.01 */
-  --st-warn-txt:#B45309;  /* 4.58:1，原 #ff9f0a 仅 1.86 */
+  --st-warn-txt:#AE4F08;  /* 橙底 4.77:1 / 白底 5.35，原 #ff9f0a 仅 1.86 */
   --st-info-txt:#4338CA;  /* 6.64:1，原 #6366f1 仅 3.75 */
   --st-cust-txt:#7E22CE;  /* 5.88:1，原 #a855f7 仅 3.33 */
   --st-off-txt:#C62828;   /* 白底 5.62:1、灰底 5.03:1，原 #ff3b30 仅 3.55 */
@@ -137,13 +142,18 @@
   --bg3:#fafafa;       /* 输入底 */
   --bg4:#f0f0f2;       /* 悬浮底 */
   --t1:#1d1d1f;        /* 主文字 */
-  --t2:#6e6e73;        /* 次要文字 */
+  /* P0(v717)：原 #6e6e73，在悬浮底 --bg4(#f0f0f2) 上只有 4.46:1（销售单分页「1/0/0」实测命中）。
+     与 --t3 同取 #6a6a70 ⇒ 灰字只剩一档，四种底色（白/bg2/bg3/bg4）全部过 AA。
+     两级灰合并是有意的：AA 下限决定了「能被读的文字」都必须深到这个程度，
+     层级改由字号/字重/位置承担 —— 与其留一档读不清的灰，不如让灰字都能读。 */
+  --t2:#6a6a70;        /* 次要文字（AA 安全） */
   /* P0(v717)：原 #a1a1a6 是 Apple 的 tertiary label（装饰层级），却被当业务数据文字用
      —— 白底仅 2.57:1、表头底 2.36:1，商品档案单页 245 处看不懂的条码/规格都是它。
-     现取 #6e6e73（白 5.07:1 / 表头底 4.66:1 / bg3 4.86:1，均过 AA）。
-     与被 t2 同值是有意的：AA 下限决定了「能被读的次要文字」必须到这个深度，
+     现取 #6a6a70：白 5.37 / 表头底 --bg2 4.93 / 输入底 --bg3 5.15 / 悬浮底 --bg4 4.72，
+     四种底色全部过 AA（首次取 #6e6e73 时 bg4 只有 4.46，生产实测差 0.04，故再压一档）。
+     与被 t2(#6e6e73) 几乎同值是有意的：AA 下限决定了「能被读的次要文字」必须到这个深度，
      三档颜色层级里 t3 的区分改由字号与位置承担（详见 docs/v716 §1.1）。 */
-  --t3:#6e6e73;        /* 提示文字（AA 安全，勿再调浅） */
+  --t3:#6a6a70;        /* 提示文字（AA 安全，勿再调浅） */
   --bd:#e5e5ea;        /* 边框 */
   --border-subtle:#ececee;
 
@@ -294,7 +304,7 @@
   --danger:var(--danger-txt); --err:var(--danger-txt); --err-red:var(--danger-txt);
   --warn:var(--warn-amber);
   --txt-3:var(--t3);
-  --t3-rgb:110,110,115;          /* = 浅色 --t3(#6e6e73)，供 rgba(var(--t3-rgb),a) 用 */
+  --t3-rgb:106,106,112;          /* = 浅色 --t3(#6a6a70)，供 rgba(var(--t3-rgb),a) 用 */
   --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
   --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
   --radius-xs:6px;
@@ -310,6 +320,7 @@
   --p-dark:#06b6d4;
   --p-deep:#0891b2;
   --p-ink:#22d3ee;        /* P0(v376)：深色下强调态文字色 —— 对选中青底约 7:1 */
+  --p-solid:#0e7490;      /* v717：实心选中底，白字 5.36:1（深色下也不用亮青 --p） */
   --p-rgb:34,211,238;
   --p-bg:rgba(6,182,212,.10);
   --p-border:rgba(34,211,238,.30);
@@ -398,10 +409,12 @@
   --bg3:#3a3a3c;       /* 输入底 */
   --bg4:#444446;       /* 悬浮底 */
   --t1:#f5f5f7;
-  --t2:#aeaeb2;
-  /* P0(v717)：深色下原 #8e8e93 对卡片底 --bg2(#2c2c2e) 仅 4.27:1，略低于 AA；
-     提亮到 #98989d ⇒ 页面底 5.93:1 / 卡片底 4.85:1。 */
-  --t3:#98989d;
+  /* P0(v717)：原 #aeaeb2 在悬浮底 --bg4(#444446) 上仅 4.39:1。深色下 bg4 本身偏亮，
+     要过 AA 文字必须提到 #b4b4b8（bg 8.23 / bg2 7.05 / bg3 5.49 / bg4 4.70）。 */
+  --t2:#b4b4b8;
+  /* P0(v717)：原 #8e8e93 对 --bg2 仅 4.27、对 --bg3(#3a3a3c) 3.51、对 --bg4 3.01。
+     与 --t2 同取 #b4b4b8 ⇒ 四种底色 5.49~8.23 全部过 AA（与浅色同样合并两级灰）。 */
+  --t3:#b4b4b8;
   --bd:#3a3a3c;
   --border-subtle:#333336;
 
@@ -426,7 +439,7 @@
   --toast-fg:#f5f5f7;
   --toast-bd:rgba(255,255,255,0.10);
 
-  --t3-rgb:152,152,157;          /* = 深色 --t3(#98989d) —— 见 :root 里的兼容别名说明 */
+  --t3-rgb:180,180,184;          /* = 深色 --t3(#b4b4b8) —— 见 :root 里的兼容别名说明 */
 }
 
 /* 基础 */
@@ -480,7 +493,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    尺寸刻意不设 height：它必须跟着所在段落的行高走，否则一行正文里会撑出半行空白。 */
 .lnk-btn{
   border:none;background:none;padding:0 1px;cursor:pointer;
-  font:inherit;font-weight:500;color:var(--p);
+  font:inherit;font-weight:500;color:var(--p-ink);
   text-decoration:underline;text-underline-offset:2px;
 }
 .lnk-btn:hover{color:var(--p-dark)}
@@ -550,7 +563,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .fld:focus{outline:none;border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
 .chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,color .15s,border-color .15s}
 .chip:hover{border-color:var(--p)}
-.chip.on{background:var(--p);color:#fff;border-color:var(--p)}
+.chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 .ico{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
 
 /* ============================================================

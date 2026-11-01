@@ -544,7 +544,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 .cas-ta{height:auto;min-height:60px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
 .cas-more{width:100%;margin-top:12px;padding:8px;border:1px dashed var(--border-subtle);border-radius:8px;
   background:none;color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
-.cas-more:hover{color:var(--p);border-color:var(--p)}
+.cas-more:hover{color:var(--p-ink);border-color:var(--p)}
 .cas-caret{font-size:11px}
 
 .cas-imp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}

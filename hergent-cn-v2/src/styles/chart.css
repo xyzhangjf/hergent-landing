@@ -123,7 +123,7 @@
 .ch-md-seg{display:inline-flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;margin-bottom:6px}
 .ch-md-segbtn{padding:2px 9px;font:inherit;font-size:11px;line-height:1.7;background:transparent;border:0;color:var(--t2);cursor:pointer}
 .ch-md-segbtn + .ch-md-segbtn{border-left:1px solid var(--bd)}
-.ch-md-segbtn.on{background:var(--p);color:#fff}
+.ch-md-segbtn.on{background:var(--p-solid);color:#fff}
 /* 环形：左图右明细（明细就是图例，名称+数值+占比三件一起看） */
 .ch-md-donut{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .ch-md-donut .ch-md-svg{flex:1 1 200px;min-width:150px}

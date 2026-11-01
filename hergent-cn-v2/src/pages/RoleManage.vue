@@ -556,11 +556,11 @@ onMounted(() => { load(); loadCatalog() })
 .rm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .rm-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);font-size:12px;color:var(--t2);cursor:pointer;user-select:none}
 .rm-chip input{display:none}
-.rm-chip.on{border-color:var(--p);color:var(--p);background:var(--p-bg)}
+.rm-chip.on{border-color:var(--p);color:var(--p-ink);background:var(--p-bg)}
 .rm-radios{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .rm-radio{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);font-size:12px;color:var(--t2);cursor:pointer}
 .rm-radio input{display:none}
-.rm-radio.on{border-color:var(--p);color:var(--p);background:var(--p-bg)}
+.rm-radio.on{border-color:var(--p);color:var(--p-ink);background:var(--p-bg)}
 .rm-hint{margin-top:6px;font-size:12px;color:var(--t3);line-height:1.6}
 .rm-req{color:var(--dan)}
 .rm-av-in{width:90px}

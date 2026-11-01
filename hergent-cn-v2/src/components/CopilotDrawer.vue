@@ -3981,7 +3981,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-art-img{max-width:100%;max-height:240px;border-radius:8px;cursor:zoom-in;border:1px solid var(--bd);background:var(--bg3)}
 .cp-art-video{width:100%;max-height:320px;border-radius:8px;background:#000;border:1px solid var(--bd)}
 .cp-art-frame{width:100%;height:320px;border:1px solid var(--bd);border-radius:8px;background:#fff}
-.cp-art-dl-row{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;color:var(--p);font-size:12px;text-decoration:none;cursor:pointer}
+.cp-art-dl-row{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;color:var(--p-ink);font-size:12px;text-decoration:none;cursor:pointer}
 .cp-art-dl-row:hover{text-decoration:underline}
 /* v483 P0-④：多步计划步骤列表 */
 .cp-plan-steps{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
@@ -3990,7 +3990,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-plan-step.running .cp-step-dot{background:var(--p);animation:cpStepPulse 1s infinite}
 .cp-plan-step.done .cp-step-dot{background:#1a9e57}
 .cp-plan-step.fail .cp-step-dot{background:#e0483a}
-.cp-plan-step.running .cp-step-tx{color:var(--p)}
+.cp-plan-step.running .cp-step-tx{color:var(--p-ink)}
 .cp-plan-step.fail .cp-step-tx{color:#e0483a}
 @keyframes cpStepPulse{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
 /* v483：预览灯箱 */
@@ -4030,7 +4030,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-anom-list{display:flex;flex-direction:column}
 .cp-anom-row{display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid var(--bd1);cursor:pointer;font-size:13px;color:var(--t2)}
 .cp-anom-row:last-child{border-bottom:none}
-.cp-anom-row:hover{color:var(--p)}
+.cp-anom-row:hover{color:var(--p-ink)}
 .cp-anom-n{font-weight:700;color:var(--t1)}
 .cp-pager-loading{padding:30px;text-align:center;color:var(--t3);font-size:13px}
 @media (max-width:560px){.cp-pager-grid{grid-template-columns:1fr}}
@@ -4231,10 +4231,10 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-switch-line::before,.cp-switch-line::after{content:'';flex:1;height:1px;background:var(--border-subtle)}
 .cp-switch-line > span{white-space:nowrap}
 .cp-switch-new{flex:none;padding:1px 8px;border-radius:var(--radius-md);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:11px;cursor:pointer}
-.cp-switch-new:hover{color:var(--p);border-color:var(--p)}
+.cp-switch-new:hover{color:var(--p-ink);border-color:var(--p)}
 /* v320：「接着《…》聊」—— 会话标题可能很长 ⇒ 限宽 + 省略号，绝不把分隔行撑破 */
 .cp-switch-resume{flex:none;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 8px;border-radius:var(--radius-md);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:11px;cursor:pointer}
-.cp-switch-resume:hover{color:var(--p);border-color:var(--p)}
+.cp-switch-resume:hover{color:var(--p-ink);border-color:var(--p)}
 /* v320：历史列表里「这段是谁开的」小标签（归属为空则不渲染 = 存量会话界面不变） */
 .cp-hist-role{display:inline-block;padding:0 5px;margin-right:5px;border-radius:var(--radius-md);background:var(--bg2);border:1px solid var(--border-subtle);font-size:11px;color:var(--t3)}
 .cp-foot{padding:12px 16px;border-top:1px solid var(--border-subtle);flex-shrink:0;background:var(--bg)}
@@ -4377,7 +4377,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* ---- v461：朗读声音选择（胶囊几何照抄上面 .cp-guard-btn，配色走主色以示"偏好类设置"）---- */
 .cp-ttsv{position:relative;display:inline-flex;flex-shrink:0;min-width:0}
 .cp-ttsv-btn{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 11px;border:1px solid transparent;border-radius:16px;background:transparent;font-size:12px;color:var(--t2);cursor:pointer;flex-shrink:0;white-space:nowrap;transition:background .15s,color .15s,border-color .15s;max-width:150px;min-width:0}
-.cp-ttsv-btn svg.ico{color:var(--p);flex-shrink:0;width:12px;height:12px}
+.cp-ttsv-btn svg.ico{color:var(--p-ink);flex-shrink:0;width:12px;height:12px}
 .cp-ttsv-btn:hover{background:var(--bg4);color:var(--t1)}
 .cp-ttsv-btn.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark)}
 .cp-ttsv-tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -4398,7 +4398,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-clarify-qhd{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--t1);margin-bottom:8px}
 .cp-clarify-grp{padding:8px 0;border-top:1px dashed var(--border-subtle)}
 .cp-clarify-grp:first-of-type{border-top:none;padding-top:0}
-.cp-clarify-no{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--p);color:#fff;font-size:11px;font-weight:700;line-height:1}
+.cp-clarify-no{flex:none;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--p-solid);color:#fff;font-size:11px;font-weight:700;line-height:1}
 .cp-clarify-ask svg{color:var(--p-dark);flex-shrink:0}
 .cp-clarify-opts{display:flex;flex-direction:column;gap:6px}
 .cp-clarify-opt{padding:7px 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);font-size:12px;color:var(--t1);cursor:pointer;text-align:left;transition:all .15s}
@@ -4485,7 +4485,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-snap-sel{position:absolute;left:0;top:0;width:0;height:0;border:1.5px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.5);box-sizing:border-box;pointer-events:none}
 .cp-snap-hint{color:#fff;font-size:12px;background:rgba(0,0,0,.45);padding:4px 10px;border-radius:6px;pointer-events:none}
 .cp-snap-bar{display:flex;gap:10px}
-.cp-snap-btn{height:34px;padding:0 18px;border-radius:8px;border:none;background:var(--p);color:#fff;font-size:13px;cursor:pointer;font-family:inherit}
+.cp-snap-btn{height:34px;padding:0 18px;border-radius:8px;border:none;background:var(--p-solid);color:#fff;font-size:13px;cursor:pointer;font-family:inherit}
 .cp-snap-btn.ghost{background:rgba(255,255,255,.18)}
 .cp-snap-btn:hover{filter:brightness(1.08)}
 

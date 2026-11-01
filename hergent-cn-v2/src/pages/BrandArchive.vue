@@ -326,7 +326,7 @@ onMounted(() => {
 .ba-bullets b{color:var(--t1)}
 .ba-notbrand{color:var(--t3)}
 .tag{font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg2);color:var(--t3);white-space:nowrap}
-.tag.info{background:rgba(var(--p-rgb,6,182,212),.12);color:var(--p)}
+.tag.info{background:rgba(var(--p-rgb,6,182,212),.12);color:var(--p-ink)}
 .tag.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
 .ba-add-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}

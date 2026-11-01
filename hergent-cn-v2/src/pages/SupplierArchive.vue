@@ -452,7 +452,7 @@ onBeforeUnmount(() => { clearTimeout(_t) })
 .sup-ta{height:auto;min-height:60px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
 .sup-more{width:100%;margin-top:12px;padding:8px;border:1px dashed var(--border-subtle);border-radius:8px;
   background:none;color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
-.sup-more:hover{color:var(--p);border-color:var(--p)}
+.sup-more:hover{color:var(--p-ink);border-color:var(--p)}
 .sup-caret{font-size:11px}
 
 /* UI-SPEC §3.3：表单型页面**必须**有 640px 断点（四个档案页曾全部为 0 个 @media）。 */

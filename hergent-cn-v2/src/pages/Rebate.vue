@@ -3431,15 +3431,15 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .arrival-block .form-row{margin-bottom:8px}
 .seg{display:inline-flex;border:1px solid var(--bd2);border-radius:8px;overflow:hidden}
 .seg-btn{padding:6px 14px;border:0;background:transparent;cursor:pointer;font-size:13px;color:var(--t2)}
-.seg-btn.on{background:var(--p);color:#fff}
+.seg-btn.on{background:var(--p-solid);color:#fff}
 .wk-chips{display:flex;gap:6px;flex-wrap:wrap}
 .wk-chip{padding:6px 12px;border:1px solid var(--bd2);border-radius:18px;background:var(--bg1);cursor:pointer;font-size:13px;color:var(--t2)}
-.wk-chip.on{background:var(--p);color:#fff;border-color:var(--p)}
+.wk-chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 .input-affix{display:flex;align-items:center;gap:6px}
 .input-affix .input{flex:1}
 .input-affix .affix{font-size:12px;color:var(--t3);white-space:nowrap}
 .ro-val{font-size:14px;color:var(--t1);padding:7px 0;font-variant-numeric:tabular-nums}
-.ro-val b{color:var(--p)}
+.ro-val b{color:var(--p-ink)}
 /* v112 R34：导入干跑预览结果 */
 .achv-preview{margin-top:4px;padding:10px 12px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
 .achv-preview-hd{font-size:12px;color:var(--t2);margin:0 0 6px}
@@ -3500,7 +3500,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .ap-warn{font-size:12px;color:var(--danger,#c0392b);background:rgba(192,57,43,.08);border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.5}
 .ap-warn-tip{color:var(--p-dark)}
 .ap-adopt{margin-left:8px;border:1px solid var(--p);background:transparent;color:var(--p-dark);border-radius:6px;padding:1px 10px;font-size:12px;cursor:pointer}
-.ap-adopt:hover{background:var(--p);color:#fff}
+.ap-adopt:hover{background:var(--p-solid);color:#fff}
 .ap-tbl{width:100%;border-collapse:collapse;font-size:12px}
 .ap-tbl th{text-align:left;color:var(--t3);font-weight:500;padding:4px 6px;border-bottom:1px solid var(--border-subtle)}
 .ap-tbl td{padding:5px 6px;border-bottom:1px solid var(--border-subtle);vertical-align:middle}
@@ -3744,7 +3744,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .cf-mo-cell label{display:block;font-size:12px;color:var(--t2);margin-bottom:3px}
 .cf-mo-sum{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding:10px 14px;background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.18);border-radius:8px}
 .cf-mo-sum span{font-size:13px;color:var(--p-dark)}
-.cf-mo-sum b{font-size:18px;color:var(--p);font-weight:600}
+.cf-mo-sum b{font-size:18px;color:var(--p-ink);font-weight:600}
 .cf-tip b{color:var(--t1)}
 /* v387（2026-10-06）：「档案管理 › xx」指路文案里的跳转按钮。
    原先是死文本（一句指向当时不存在的页面）⇒ 做成真入口。

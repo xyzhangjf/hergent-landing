@@ -372,7 +372,7 @@ onMounted(load)
 .br-presets{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .br-chip{height:32px;padding:0 14px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);border-radius:999px;font-size:12px;cursor:pointer;transition:all .15s}
 .br-chip:hover{border-color:var(--p)}
-.br-chip.on{background:var(--p);color:#fff;border-color:var(--p)}
+.br-chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 
 .br-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 /* 「默认地区」chip：只在当前区域 == 已记住的区域时出现，点击取消记住（弱化样式，不与主按钮抢视线） */

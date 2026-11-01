@@ -2216,7 +2216,7 @@ onMounted(() => {
 .df-tip code{background:var(--bg2);padding:1px 6px;border-radius:5px;font-size:12px}
 /* v312：角色默认端的出处说明 / 内联小按钮 / 「与角色配置不一致」提示条 */
 .df-scope-src{margin:0 0 12px}
-.df-mini-lnk{border:none;background:none;color:var(--p);cursor:pointer;font-size:12px;padding:0 2px;text-decoration:underline}
+.df-mini-lnk{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:12px;padding:0 2px;text-decoration:underline}
 .df-mini-lnk:hover{color:var(--p-dark)}
 .df-mismatch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 10px;padding:7px 10px;border-radius:var(--radius-md);background:var(--bg3)}
 .df-mismatch-tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:20px;background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
@@ -2339,7 +2339,7 @@ onMounted(() => {
 /* 文件名可能很长：`min-width:0` + 省略号，**不能让文件名把"删除"挤出去** ——
    否则长名附件的删除键会被推到可视区外，看起来像"没有删除按钮"。 */
 .cf-attach-name{display:inline-flex;align-items:center;gap:6px;min-width:0;
-  background:none;border:0;padding:0;cursor:pointer;color:var(--p);font-size:12px;
+  background:none;border:0;padding:0;cursor:pointer;color:var(--p-ink);font-size:12px;
   text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cf-attach-name:hover{text-decoration:underline}
 .cf-attach-meta{font-size:12px;color:var(--t3);margin-left:auto;flex:0 0 auto}

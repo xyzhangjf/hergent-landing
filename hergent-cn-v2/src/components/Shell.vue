@@ -1658,7 +1658,7 @@ function stopResize() {
 
 .tb-ai{display:flex;align-items:center;gap:12px;flex-shrink:0}
 .tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
-.tb-copilot:hover{background:var(--p);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
+.tb-copilot:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .tb-cp-ic{display:flex;align-items:center;justify-content:center}
 
 .body{flex:1;display:flex;overflow:hidden;position:relative}
@@ -1760,13 +1760,13 @@ function stopResize() {
 .sb-pop-new{display:flex;align-items:center;gap:3px;flex-shrink:0;padding:6px 9px;border-radius:8px;
   background:var(--p-bg);color:var(--p-dark);text-decoration:none;font-size:12px;
   white-space:nowrap;transition:all .15s}
-.sb-pop-new:hover{background:var(--p);color:#fff}
+.sb-pop-new:hover{background:var(--p-solid);color:#fff}
 /* v640（2026-10-22）：借鉴舟谱弹窗内「明细」次级入口 + 状态标签。
    两者都 `flex-shrink:0` 右对齐（行内 `.sb-pop-item` 是 `flex:1` 吃掉剩余宽度）；
    与 `.sb-pop-new`（L1 双入口右半区）同一套版式语言。 */
 .sb-pop-drill{font-size:11px;line-height:1;padding:3px 7px;border-radius:6px;
   background:var(--p-bg);color:var(--p-dark);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all .15s}
-.sb-pop-drill:hover{background:var(--p);color:#fff}
+.sb-pop-drill:hover{background:var(--p-solid);color:#fff}
 .sb-pop-badge{font-size:11px;line-height:1;padding:2px 6px;border-radius:6px;white-space:nowrap;flex-shrink:0}
 .sb-pop-badge.tone-warn{background:#fff4e5;color:#b45309}
 .sb-pop-badge.tone-danger{background:#fde8e8;color:#c0392b}
@@ -1826,7 +1826,7 @@ function stopResize() {
 /* 手机端「＋」（L1 双入口的右半区）：横向紧 ⇒ 纯图标（桌面 `.sb-pop-new` 用「＋ 创建」文字）。
    ⚠️ 命中区靠 36×36 撑住，别缩成 16px 图标本身；`margin-right` 与条目右侧留白对齐。 */
 .md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:14px;border-radius:10px;background:var(--p-bg);color:var(--p-dark);text-decoration:none}
-.md-item-new:active{background:var(--p);color:#fff}
+.md-item-new:active{background:var(--p-solid);color:#fff}
 .fade-enter-active,.fade-leave-active{transition:opacity .2s}
 .fade-enter-from,.fade-leave-to{opacity:0}
 .sheet-enter-active,.sheet-leave-active{transition:transform .25s ease}
@@ -1856,7 +1856,7 @@ function stopResize() {
 .pf-ft{padding:14px 20px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-subtle)}
 .pf-btn{height:36px;padding:0 18px;border-radius:10px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer;transition:all .15s}
 .pf-btn:hover{background:var(--bg3)}
-.pf-btn.primary{background:var(--p);border-color:var(--p);color:#fff}
+.pf-btn.primary{background:var(--p-solid);border-color:var(--p-solid);color:#fff}
 .pf-btn.primary:hover{opacity:.92}
 .pf-btn:disabled{opacity:.6;cursor:default}
 

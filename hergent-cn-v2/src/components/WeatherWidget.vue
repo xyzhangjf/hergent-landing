@@ -541,7 +541,7 @@ onBeforeUnmount(() => {
 @media(max-width:768px){ .wx{display:none} }
 .wx-now{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:18px;
   background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all .15s;white-space:nowrap}
-.wx-now:hover{background:var(--p);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
+.wx-now:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .wx-now.dim{opacity:.6}
 .wx-ic{font-size:16px;line-height:1}
 .wx-temp{font-variant-numeric:tabular-nums}
@@ -552,7 +552,7 @@ onBeforeUnmount(() => {
    ⚠️ 不要用 space-between / margin-left:auto 把实况推到右端：面板宽度由下方 14 天卡片行撑开
    （实测 922px），两端对齐会在中间留下约 800px 空洞。左对齐与同面板内搜索框的行为一致。 */
 .wx-where{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--t2)}
-.wx-where-ic{color:var(--p);flex:0 0 auto}
+.wx-where-ic{color:var(--p-ink);flex:0 0 auto}
 .wx-where-city{font-size:13px;font-weight:600;color:var(--t1)}
 .wx-where-tag{flex:0 0 auto;padding:1px 6px;border-radius:6px;background:var(--p-bg);color:var(--p-dark);font-size:11px;line-height:1.6}
 .wx-where-desc{font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -575,7 +575,7 @@ onBeforeUnmount(() => {
   background:var(--bg);color:var(--t1);font-size:13px;outline:none}
 .wx-input:focus{border-color:var(--p)}
 .wx-loc{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--p);background:transparent;
-  color:var(--p);font-size:12px;cursor:pointer;white-space:nowrap}
+  color:var(--p-ink);font-size:12px;cursor:pointer;white-space:nowrap}
 .wx-loc:hover{background:var(--p-bg)}
 .wx-results{display:flex;flex-direction:column;max-height:200px;overflow:auto;border-radius:8px;
   background:var(--bg);border:1px solid var(--glass-border)}

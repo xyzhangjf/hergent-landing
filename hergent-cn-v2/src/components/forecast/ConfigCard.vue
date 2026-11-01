@@ -54,7 +54,7 @@ function toggle() { emit('update:modelValue', !isOpen.value) }
 .cfg-side{
   display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;
 }
-.cfg-toggle{color:var(--p);display:inline-flex;align-items:center}
+.cfg-toggle{color:var(--p-ink);display:inline-flex;align-items:center}
 .cfg-toggle :deep(svg){width:16px;height:16px}
 .cfg-body{padding:0 16px 14px;border-top:1px solid var(--border-subtle)}
 

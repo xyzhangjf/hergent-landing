@@ -13780,9 +13780,9 @@ provide('sprintSummary', sprintSummary)
 .cross-tbl thead th:hover .th-funnel{border-color:var(--bd);background:var(--bg3)}
 /* 🔴 已筛选的列：漏斗**实心 + 主题色 + 常显**。靠悬停才看得见 = 用户不知道哪列在筛，
    而 Excel 的第一可读性就是「哪个漏斗是亮的」。 */
-.cross-tbl thead th .th-funnel.on{display:inline-flex;opacity:1;color:var(--p);border-color:var(--p);background:var(--p-bg)}
-.cross-tbl thead th .th-qa:hover{color:var(--p);border-color:var(--p);background:var(--p-bg)}
-.cross-tbl thead th .th-funnel:hover{color:var(--p);border-color:var(--p);background:var(--p-bg);opacity:1}
+.cross-tbl thead th .th-funnel.on{display:inline-flex;opacity:1;color:var(--p-ink);border-color:var(--p);background:var(--p-bg)}
+.cross-tbl thead th .th-qa:hover{color:var(--p-ink);border-color:var(--p);background:var(--p-bg)}
+.cross-tbl thead th .th-funnel:hover{color:var(--p-ink);border-color:var(--p);background:var(--p-bg);opacity:1}
 /* 全局 `.ico{16px}` 会盖掉 svg 的 width 属性 ⇒ 尺寸只能在这里定，Icon.vue 的 size 参数不管用 */
 .cross-tbl thead th .th-qa .ico,.cross-tbl thead th .th-funnel .ico{width:10px;height:10px}
 /* v579：排序箭头的 svg 是 inline-block + `vertical-align:middle` ⇒ 它按基线对齐会给行盒
@@ -13866,7 +13866,7 @@ provide('sprintSummary', sprintSummary)
 .cross-tbl.edit-tbl :deep( tbody tr:hover){background:var(--bg3)}
 :deep(th.sortable){cursor:pointer;user-select:none}
 :deep(th.sortable:hover){color:var(--p-dark)}
-.sort-ind{font-size:var(--fs-xs);margin-left:2px;color:var(--p)}
+.sort-ind{font-size:var(--fs-xs);margin-left:2px;color:var(--p-ink)}
 .grp-head{background:var(--bg3);cursor:pointer}
 .grp-head :deep( td){padding:6px 8px;border-bottom:1px solid var(--border-subtle)}
 .grp-toggle{display:inline-block;width:14px;color:var(--p-dark)}
@@ -14304,12 +14304,12 @@ provide('sprintSummary', sprintSummary)
 .pin .mini b{color:var(--t1)}
 /* v666：「筛选后 N / 共 M 行」用主题色（这是本轮新增的口径说明），
    「全期」对照用 t3 弱化 —— 两者都在解释左边那三个数，不能抢主数字的视觉权重。 */
-.pin .pin-filtered{color:var(--p)}
+.pin .pin-filtered{color:var(--p-ink)}
 /* v672：筛选**来源**（品牌 2/3 个 · 到货周期 +3天…）—— 比主题色再弱一档，
    它解释「为什么只有 N 行」，不该和「筛选后 177」抢读。 */
 .pin .pin-src{color:var(--t3);font-size:12px;font-weight:400}
 .pin .pin-clr{margin-left:5px;padding:0 4px;height:16px;line-height:16px;font-size:12px;
-  color:var(--p);background:none;border:1px solid color-mix(in srgb,var(--p) 35%,transparent);
+  color:var(--p-ink);background:none;border:1px solid color-mix(in srgb,var(--p) 35%,transparent);
   border-radius:4px;cursor:pointer}
 .pin .pin-clr:hover{background:color-mix(in srgb,var(--p) 12%,transparent)}
 .pin .pin-all{color:var(--t3);font-size:12px}
@@ -14494,10 +14494,10 @@ provide('sprintSummary', sprintSummary)
 .ctx-menu .ctx-sel{padding:5px 4px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-sm);outline:none}
 .ctx-menu .ctx-ipt-actions{display:flex;gap:6px;padding:0 8px 7px}
 .ctx-menu .ctx-ipt-actions button{flex:1;justify-content:center;padding:5px 8px;border:none;background:var(--bg3);color:var(--t1);cursor:pointer;border-radius:var(--radius-sm);font-size:var(--fs-sm)}
-.ctx-menu .ctx-ipt-actions button.btn-primary{background:var(--p);color:#fff}
+.ctx-menu .ctx-ipt-actions button.btn-primary{background:var(--p-solid);color:#fff}
 .ctx-menu .ctx-ipt-actions button.btn-primary:hover{filter:brightness(.95)}
 .ctx-menu .ctx-ipt-actions button:hover{background:var(--bg2)}
-.ctx-menu button.ctx-on{background:color-mix(in srgb,var(--p) 14%,var(--bg));color:var(--p)}
+.ctx-menu button.ctx-on{background:color-mix(in srgb,var(--p) 14%,var(--bg));color:var(--p-ink)}
 /* 表头右键：唯一值筛选列表 */
 .ctx-uniq-hd{padding:7px 10px 4px;font-size:12px;color:var(--t1);display:flex;align-items:center;justify-content:space-between;gap:8px}
 /* v666：Excel 式筛选面板（比普通菜单宽 —— 值清单要能读全；高度由内容决定，超出则菜单自身滚动）
@@ -14514,7 +14514,7 @@ provide('sprintSummary', sprintSummary)
 .ctx-fx-cnt{margin-left:auto;color:var(--t3);font-size:11px;font-variant-numeric:tabular-nums}
 /* 「清空选择」是同排里的小号文字钮：不能长成整行按钮，否则和「全选」抢视线 */
 .ctx-menu .ctx-fx-link{width:auto;display:inline-flex;padding:0;background:none;border:none;
-  color:var(--p);font-size:11px;line-height:1;cursor:pointer}
+  color:var(--p-ink);font-size:11px;line-height:1;cursor:pointer}
 .ctx-menu .ctx-fx-link:hover{background:none;text-decoration:underline}
 .ctx-uniq-all{display:flex;align-items:center;gap:4px;color:var(--t2);font-size:var(--fs-sm);cursor:pointer}
 .ctx-uniq-list{max-height:200px;overflow:auto;padding:2px 6px}
@@ -14529,7 +14529,7 @@ provide('sprintSummary', sprintSummary)
 .ctx-fx-cond{margin-top:4px;border-top:1px solid var(--border-subtle);padding-top:2px}
 .ctx-menu .ctx-fx-cond-hd{width:100%;padding:6px 10px;color:var(--t2);font-size:11px;gap:6px;align-items:center}
 .ctx-fx-cond-hd .ico{margin-left:auto;width:12px;height:12px;color:var(--t3)}
-.ctx-fx-cond-on{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--p-bg);color:var(--p);font-size:11px;line-height:16px}
+.ctx-fx-cond-on{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--p-bg);color:var(--p-ink);font-size:11px;line-height:16px}
 .ctx-fx-foot{border-top:1px solid var(--border-subtle);padding-top:7px}
 .ctx-ipt-unit{color:var(--t2)}
 /* 条件格式：库存<安全库存 整行高亮 */
@@ -14544,10 +14544,10 @@ provide('sprintSummary', sprintSummary)
 .stat-sample b{font-weight:600;white-space:pre-wrap;text-align:right}
 
 /* 表头右键「筛选」激活提示 */
-.filter-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--p);background:color-mix(in srgb,var(--p) 12%,var(--bg));color:var(--p);border-radius:999px;font-size:12px;white-space:nowrap;max-width:280px}
+.filter-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--p);background:color-mix(in srgb,var(--p) 12%,var(--bg));color:var(--p-ink);border-radius:999px;font-size:12px;white-space:nowrap;max-width:280px}
 .filter-chip{overflow:hidden;text-overflow:ellipsis}
-.filter-chip .chip-x{border:none;background:transparent;color:var(--p);cursor:pointer;font-size:12px;line-height:1;padding:0 2px;border-radius:50%}
-.filter-chip .chip-x:hover{background:color-mix(in srgb,var(--p) 22%,var(--bg));color:var(--p)}
+.filter-chip .chip-x{border:none;background:transparent;color:var(--p-ink);cursor:pointer;font-size:12px;line-height:1;padding:0 2px;border-radius:50%}
+.filter-chip .chip-x:hover{background:color-mix(in srgb,var(--p) 22%,var(--bg));color:var(--p-ink)}
 
 /* ---- P0-2 Excel 导入弹窗 ---- */
 /* v136 修复：模态层必须高于「页面内所有浮层」，原先的 980/990 排在工具栏下拉之下。
@@ -14877,7 +14877,7 @@ provide('sprintSummary', sprintSummary)
 :deep(.foot-row td.frozen){background:var(--bg3);z-index:6}
 .grp-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 12px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;white-space:nowrap;text-align:left}
 .grp-btn:hover{border-color:var(--p)}
-.grp-btn.on{background:var(--p);color:#fff;border-color:var(--p)}
+.grp-btn.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 .grp-btn.danger{color:var(--dan);border-color:rgba(var(--dan-rgb),.4)}
 .grp-btn.danger:hover{border-color:var(--dan)}
 .grp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg2);border:0.5px solid var(--bd);border-radius:var(--radius-md)}
@@ -14977,14 +14977,14 @@ provide('sprintSummary', sprintSummary)
 .tmpl-form .input{width:auto;flex:1;min-width:120px}
 .bi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:6px}
 .bi-card{background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:10px;text-align:center}
-.bi-num{font-size:20px;font-weight:600;color:var(--p)}
+.bi-num{font-size:20px;font-weight:600;color:var(--p-ink)}
 .bi-num.warn{color:var(--sev-risk)}
 .bi-lbl{font-size:11px;color:var(--t2);margin-top:2px}
 /* P11-P13 第四轮增强样式 */
 /* v576：删掉品名旁的「缺批次/到期」三角角标（入口统一收在「补录批次资料」按钮 + 商品详情） */
 .gap-form{display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap}
 .rolling-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.rolling-chips .on{background:var(--p);color:#fff;border-color:var(--p)}
+.rolling-chips .on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 .var-cat{margin-top:8px;border-top:1px dashed var(--bd);padding-top:6px}
 .var-cat-hd{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:4px}
 .nl-row{display:flex;gap:8px;align-items:center;margin-top:6px}
@@ -15065,7 +15065,7 @@ provide('sprintSummary', sprintSummary)
 .brand-pop .bp-selall{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;
   font-size:12px;font-weight:400;color:var(--t2);cursor:pointer;user-select:none;
   white-space:nowrap;padding:2px 5px;border-radius:5px;transition:background-color .15s,color .15s}
-.brand-pop .bp-selall:hover{background:var(--bg2);color:var(--p)}
+.brand-pop .bp-selall:hover{background:var(--bg2);color:var(--p-ink)}
 .brand-pop .bp-selall.is-off{cursor:not-allowed;color:var(--t3);opacity:.55}
 .brand-pop .bp-selall.is-off:hover{background:none;color:var(--t3)}
 /* 🔴 v709b：这里必须是 `line-height: normal`，**不能**写数值、更不能 `line-height: 1`。
@@ -15130,7 +15130,7 @@ provide('sprintSummary', sprintSummary)
 /* 每月几号是**文字输入**（3、7、11…），故覆盖 .cb-input 的 74px 右对齐 —— 那是给「天数」用的 */
 .ord-sub input.cb-input{width:100%;max-width:380px;text-align:left;padding:0 10px;height:32px}
 .ord-preview{margin:2px 0 0;font-size:12px;color:var(--t2)}
-.ord-preview b{color:var(--p);font-weight:600}
+.ord-preview b{color:var(--p-ink);font-weight:600}
 .cb-in-wrap{position:relative;display:inline-block}
 /* 单位「天」常驻在框内右侧（不是 placeholder）—— 填了数字也还看得见单位；
    补 20px 右内边距给这俩字腾位置，否则值会压在它上面。 */

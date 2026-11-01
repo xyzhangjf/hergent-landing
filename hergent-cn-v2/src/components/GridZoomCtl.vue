@@ -38,7 +38,7 @@ function set(v) {
   border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:8px;cursor:pointer;
   font-size:15px;line-height:1;padding:0;
 }
-.zoom-group .zb-btn:hover:not(:disabled){background:var(--bg2);color:var(--p)}
+.zoom-group .zb-btn:hover:not(:disabled){background:var(--bg2);color:var(--p-ink)}
 .zoom-group .zb-btn:disabled{opacity:.35;cursor:default}
 .zoom-group .zb-reset{font-size:14px}
 .zoom-group .zb-range{width:100px;accent-color:var(--p);cursor:pointer}
