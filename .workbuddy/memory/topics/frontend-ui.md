@@ -4708,3 +4708,31 @@ const all = ref([]); const { showInactive, inactiveCount, list } = useInactiveFi
 ### 🔴 服务端分页页面的判据不能用 DOM 行数（v713）
 商品档案每页 50 行，行数恒等于 50，切「显示已停用」看不出任何变化 ⇒ 会误判「没生效」。
 用后端 `total`（页面上 `.pa-stat b` 那个数字）：默认 390 → 展开 494 → 收回 390。
+
+## 从 MEMORY.md 搬来的高频判据（v717 瘦身，原文照搬）
+
+### 🔴 「UI 不统一」先怀疑样式缺失（v676）
+列设置面板 8 个类全站零定义，注释却写「全局已有」⇒ `v676e-orphan-check.py` 机械核对；
+**注释说「已有」一律不认，grep 到定义才算**。
+
+### 🔴🔴 复选框禁止 `@click.prevent` + 单向 `:checked`（v677 复发）
+勾选态与真值永久相反 ⇒ 用 `@change`+`nextTick`；
+🔴 验它**只能 CDP 真鼠标**（`el.click()` 无 pre-click activation ⇒ 必假 PASS）。护栏 `guard-checkbox-change.py`。
+
+### 🔴 看起来能点的必须真能点
+`role=button`+`tabindex=0`+`@click`+`@keydown.enter/space`+`cursor:pointer`+hover；
+图标尺寸只由 CSS 定，量法只认 `getBoundingClientRect`。
+
+### 🔴 「全选/清空」类裸控件要挂文字时在调用方包 label（v713）
+`SelectAllCheckbox.vue` 是全站唯一源；库存三单据/商品档案/调拨面板横向空间紧。
+
+### 🔴 图标+文字没居中 = 容器不是 flex（v711）
+inline 里 svg 走 `vertical-align:middle` 会偏高 1.3~2px ⇒ 抄 `.btn` 的 `inline-flex/center/gap 6`；
+flex 里 `vertical-align` 无效 ⇒「改参数值纹丝不动」立刻换思路。
+
+### 🔴 同行控件必须同构（基准 `.tb-toggle`/`.btn-sm`：32 高 / 13 字 / radius 8 / `padding:0 12px`）
+判据 = 顶边差 0、高度差 0。危险程度靠角标配色，不改按钮外形。
+
+### 🔴 判「同行同构」要挑同类基准（v712）
+`.btn`(36) 与 `.btn-sm`/`.tb-toggle`(32) 本就并存；工具栏加控件先算总宽 ⇒ `flex-wrap:wrap`，
+**换行后 `margin-left:auto` 成孤岛** ⇒ 窄屏改 0。

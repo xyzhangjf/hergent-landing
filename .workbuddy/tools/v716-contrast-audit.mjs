@@ -1,5 +1,5 @@
 /** 精确复核：alpha 合成后的真实对比度 + 小触控目标分类 */
-import { launch } from '../lib/cdp-lite.mjs'
+import { launch } from './lib/cdp-lite.mjs'
 const TOKEN = process.env.HG_TOKEN
 const PAGES = [['工作台','/'],['看板','/dashboard'],['本期预报','/forecast'],['商品档案','/archive/products'],['销售单','/inventory/sale'],['开单单据','/inventory/sale/new'],['销售报表','/reports/goods-sales'],['员工档案','/archive/employees']]
 const b = await launch({ headless: true })

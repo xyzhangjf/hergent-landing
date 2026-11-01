@@ -1,6 +1,6 @@
 # Hergent 记忆索引（只放判据首句 + 去哪查；细节一律 `topics/*.md`）
 
-> 前端构建号 **v713**，下一号 **v715**（`hergent-cn-v2/src/main.js:71`）。v714 无发版（数据审计 + 权限变更）。域索引 → `topics/route-index.md`，**动手前按域 grep**。
+> 前端构建号 **v717**，下一号 **v718**（`hergent-cn-v2/src/main.js:71`）。v714–v716 无发版（审计/权限/企微补丁/UI 评审）。域索引 → `topics/route-index.md`，**动手前按域 grep**。
 > 唯一开发源 = `main`（v705 `02a1b28` 合并完两线）；`line-a/v678`、`workbuddy/*` 不再开发 ⇒ 判「修过的 bug 又回来了」先 `git merge-base --is-ancestor <修复commit> HEAD`。
 > 🔴 合并/解冲突三教训（`2026-10-31.md`）：冲突块**之外**也有假象（重复 `export`／重复对象键／整段模板被覆盖 ⇒ **构建不报错**）；合并后**必须** `npm test` + `npm run build`；同功能两份客户端 API 按**消费方**取舍。
 > 🔴 「改了但用户说没变」第一步查构建号 `window.__HG_BUILD__`（`main.js` 唯一定义）+ `html[data-build]`；SPA 老标签页不重拉 index.html ⇒ 每版手改。判产物不以「dist 存在」为准：`grep -o "v70x" dist/assets/index-*.js`；`mv dist-vNNN dist` 会嵌套 ⇒ 闭包全 200 也能骗过（v637）。
@@ -14,20 +14,20 @@
 - **预报主表** → `topics/forecast-order-domain.md`｜**成本/容量** → `topics/cost-and-capacity.md`｜**返利** → `topics/rebate-domain.md`｜**账务** → `topics/accounting-gl-v716-v717.md`｜**条码小程序** → `topics/miniprogram-and-brand-data.md`。
 
 ## 🔴 UI 判据（高频，全文 `topics/frontend-ui.md` 末 200 行）
-- 🔴🔴 **判对比度必须做 alpha 合成再算，且只看实测不走源码**（v716：直接把 `rgba(52,199,89,.12)` 当不透明会得出「1:1」的假结论）。现状：`#A1A1A6` 被当数据文字 = **2.57:1**（单页 245 处）、表头 2.36、状态标签 1.86~3.75、`.btn-primary` 白字 on `--p-dark` **3.68**、`--dan` 3.55、`--war` 当文字 2.06 —— **全站不达 AA**。正确答案早写在项目里（`--p-ink` 注释算过 §5.6）却没人用 ⇒ 改 `var(--p-deep)` 即 5.36。可复用探针 `tools/v716-contrast-audit.mjs`。
+- 🔴🔴 **判对比度必须做 alpha 合成再算、只看实测、且四种底色全算一遍**（白 / `--bg2` / `--bg3` / **`--bg4 #f0f0f2` 最容易漏**）—— v717 首轮只算白与 bg2，生产实测在 bg4 上差 0.04 返工。探针 `tools/v716-contrast-audit.mjs`（import 已修成 `./lib/cdp-lite.mjs`，原来写的 `../lib` 跑不起来）。
+- 🔴 **v717 起全站对比度已达标**（8 页 1968 文本节点仅剩 1 处 = `:disabled` opacity，WCAG 豁免）。**改令牌值 > 改用法**：先 `grep -rho "[a-z-]*:[^;{]*var(--x)"` 统计属性分布，某属性占 >75% 就直接改值（`--t3` 799 处 color、`--p-dark` 254、`--suc/--dan/--war` 250 ⇒ 6 个变量修好 1400 处，组件零改动）；分散多属性才需拆令牌。
+- 🔴🔴 **AA 下限使「三级灰」实际只能两级**：bg4 上要过 4.5 必须 ≤`#6a6a70` ⇒ `--t2` 与 `--t3` 同取 `#6a6a70`（深色同取 `#b4b4b8`）。别再靠 t2/t3 深浅体现层级。
+- 🔴 **亮青 `--p #06b6d4` 只能做装饰**（当文字 2.43、当白字底 2.43）；实心选中底用 `--p-solid`、强调文字用 `--p-ink`、主交互用 `--p-dark`。**改浅色必须同时配深色**（`.df-role` 9 角色原先零深色覆盖，只改浅色会让深色从 3.x 掉到 1.86）。
+- 🔴 **正则 `color:var(--p)` 会连 `border-color`/`accent-color` 一起替换**（v717 误伤 80 处）⇒ 必须写 `var\(--p\)(?!-)`，改完**按属性前缀分组复核**；判据 = git diff 的 `-` 行里有没有同属性旧值（一条都没有 ⇒ 全是本次误伤，可安全回退）。
 - 🔴 **判「焦点不可用」必须先注入 `*{outline:none}` 过阳性对照**（v716：14 元素全「有指示」是真的，但全是浏览器 `outline:auto` —— 同屏 3 种宽度 3 种颜色、无 offset ⇒ 结论是「不受控」不是「没有」）。
 - 🔴 **组件造了没人用比没有组件更常见**（v716：`EmptyState` 6/169、`StatusBadge` **0**、`ConfirmDialog` 1 ⇒ 空态 12 种自定义类名、状态色失控）。修这类先查**采纳率**再谈重构。
 - 🔴 **报「没有 X 按钮」先核 X 是否已存在**（v709：多是不可发现而非缺功能）⇒ 调用方包 `<label>`+`<span>`，**别改共享件**。
 - 🔴🔴 **判对齐只能量文字渲染矩形** `Range.selectNodeContents().getBoundingClientRect()`，**盒子差 0 ≠ 对齐**（v710：盒子全 0 而文字差 0.5px）；`line-height` 跟邻居同用 `normal`，别抄数值别写 `1`。
 - 🔴🔴 **自动扫描报「全 0」先过阳性对照**（v711：阈值 `<=0.5` 吃掉实测 0.500 ⇒ 改 `<0.4`）；阈值别取实测常见落点。
-- 🔴 **图标+文字没居中 = 容器不是 flex**（v711：inline 里 svg 走 `vertical-align:middle` 偏高 1.3~2px ⇒ 抄 `.btn` 的 `inline-flex/center/gap 6`）；flex 里 `vertical-align` 无效 ⇒「改参数值纹丝不动」立刻换思路。
-- 🔴 **判「同行同构」挑同类基准**（v712：`.btn`36 与 `.btn-sm`/`.tb-toggle`32 本就并存）；工具栏加控件先算总宽 ⇒ `flex-wrap:wrap`，**换行后 `margin-left:auto` 成孤岛** ⇒ 窄屏改 0。
 - 🔴 **「默认隐藏某状态+开关」已有公共件**（v713：`useInactiveFilter`+`InactiveToggle`，7 页已接）⇒ 新页直接套；判据只认 `===0||===false`（**缺失字段当启用**，写 `!x` 会把整表藏光）；**服务端分页页不能改前端过滤**（用后端 total 验，DOM 行数恒等于 pageSize）；判「哪些页该做」看**库里的数据分布**不是代码候选数。
 - 🔴 **探针纪律**：fetch 桩用 `addInitScript`（`eval` 会被 reload 清掉）+ 断言 `__stubHit>0`；每场景前 `Page.reload`（浮层吃掉下次点击）；`screenshot()` 返回值必须判空（`clip` 缺 `scale` 静默返回空串）；取列别写死 `td` 索引（列可配置）；滤掉 `/index.html?_v=` 版本轮询；数行数别数 `tbody tr`（虚拟滚动）也别读 `body.innerText`（headless 可能空串）⇒ 直接查接口。
-- 🔴 **同行控件必须同构**（基准 `.tb-toggle`/`.btn-sm`：32 高/13 字/radius 8/`padding:0 12px`）；判据=顶边差 0、高度差 0。危险程度靠角标配色，不改按钮外形。
-- 🔴 **「UI 不统一」先怀疑样式缺失**（v676：列设置面板 8 个类全站零定义，注释却写「全局已有」）⇒ `v676e-orphan-check.py` 机械核对；**注释说「已有」一律不认，grep 到定义才算**。
-- 🔴🔴 **复选框禁止 `@click.prevent` + 单向 `:checked`**（v677 复发）：勾选态与真值永久相反 ⇒ `@change`+`nextTick`；🔴 验它**只能 CDP 真鼠标**（`el.click()` 无 pre-click activation ⇒ 必假 PASS）。护栏 `guard-checkbox-change.py`。
-- 🔴 **看起来能点的必须真能点**：`role=button`+`tabindex=0`+`@click`+`@keydown.enter/space`+`cursor:pointer`+hover；图标尺寸只由 CSS 定，量法只认 `getBoundingClientRect`。
+- 🔴 控件类三条（图标+文字居中 / 同行控件同构 / 挑同类基准）已搬 → `topics/frontend-ui.md` 末节。
+- 🔴 「UI 不统一先怀疑样式缺失」/「复选框禁用 `@click.prevent`」/「看起来能点的必须真能点」/「全选类裸控件包 label」四条已搬 → `topics/frontend-ui.md` 末节（各有护栏脚本 `v676e-orphan-check.py`、`guard-checkbox-change.py`）。
 - 🔴 **「全选/清空」类裸控件要挂文字时在调用方包 label**（`SelectAllCheckbox.vue` 是全站唯一源，库存三单据/商品档案/调拨面板横向空间紧）。
 
 ## 🔴 免密码做生产 UI 真机验证（v707，最省事的正路）

@@ -1,5 +1,5 @@
 /** 焦点探针 + 阳性对照 + 实测 outline 真实值 */
-import { launch } from '../lib/cdp-lite.mjs'
+import { launch } from './lib/cdp-lite.mjs'
 const TOKEN = process.env.HG_TOKEN
 const b = await launch({ headless: true }); const page = await b.newPage()
 await page.enable(); await page.raw.send('Network.enable')
