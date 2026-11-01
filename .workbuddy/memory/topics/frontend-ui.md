@@ -4568,3 +4568,24 @@ text-overflow: ellipsis; white-space: nowrap;
 🔴 **验它只能 CDP 真鼠标**（`Input.dispatchMouseEvent` + 点后等 ≥1s）：JS `el.click()`
 **没有 pre-click activation** ⇒ 用它写的探针对这个 bug 一路判 PASS（v669、v677 各被骗一次）。
 定式：**先在旧版跑出 FAIL，再用同一个探针验修复**（判别力自证）。
+
+### 🔴🔴 「功能有但认不出来」= 等于没有（v709）
+用户报「某处没有 X 按钮」时，第一步**核 X 是不是已经存在** —— 若存在，八成就不是缺功能，
+而是**不可发现**：无文字标签 / 无边框 / 视觉权重低于邻居 / 尺寸过小贴边。
+实例：品牌筛选弹窗的「全选」是 `SelectAllCheckbox` 的 **13×13 裸 checkbox**，
+夹在 12px 灰字标题与橙色下划线「清空」之间 ⇒ 用户原话「现在只有清空按钮」。
+定式：共享的裸复选框要挂文字时，**在调用方包一层 `<label>` + `<span>`**，
+不改 `components/SelectAllCheckbox.vue`（那是全站唯一源；库存三单据/商品档案/调拨面板
+横向空间本来就紧，加文字会把那些页全改样）。点文字靠 label 原生转发，零 JS。
+判据：`label` 与相邻链接**顶边差 0 / 垂直中心差 0**、字号与邻居一致、头部高度不变。
+
+### 🔴 截图探针：`screenshot()` 返回值必须判空（v709 新坑）
+`lib/cdp-lite.mjs` 的 `screenshot(path, {clip})` 在 CDP 侧的 clip 报错会被
+`if (!data) return ''` **静默吞掉** ⇒ 文件不落盘，脚本仍 exit 0，「截了」看着像成功。
+定式：① 打印并判空返回值；② `clip` 里补 `scale: 2`（不带 scale 时实测返回空串）。
+
+### 🔴 浮层加宽先做归因，不要拍数（v709）
+面板从 240 变宽时，「我觉得太宽了」不是判据。定式：
+量 `before` → 把新控件临时 `display:none` → 量 `after`，**相等即证明宽度不是它撑的**。
+实例：品牌面板 660 宽是底部 `.bp-tip` 长文案撑的（`.brand-pop` 只有 `min-width`、没有
+`max-width`；`.cycle-pop` 才有 `max-width:300`），新加的 52px label 完全没参与撑宽。
