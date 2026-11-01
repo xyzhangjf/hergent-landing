@@ -4,6 +4,7 @@
 
 ## 前端（通用 UI / 页面工程）
 → `topics/frontend-ui.md`
+- 🔴 **结构与实现细则（v587–v713 原文）** → `topics/impl-and-deploy-criteria.md`（加列/分页条/加字段 4 处/构建/闭包部署/单位口径/行筛选两份实现）
 - 入口唯一源 `pages.js`（未登记=失门禁）§v209
 - `permView.js` 唯一源；`module:null` = 只读 §v348
 - 文案三禁 ⇒ `hergent-ui-copy-guard` §v331
