@@ -1,6 +1,6 @@
 # Hergent 记忆索引（只放判据首句 + 去哪查；细节一律 `topics/*.md`）
 
-> 前端构建号 **v717**，下一号 **v718**（`hergent-cn-v2/src/main.js:71`）。v714–v716 无发版（审计/权限/企微补丁/UI 评审）。域索引 → `topics/route-index.md`，**动手前按域 grep**。
+> 前端构建号 **v718**，下一号 **v719**（`hergent-cn-v2/src/main.js:71`）。v714–v716 无发版（审计/权限/企微补丁/UI 评审）；v717 修 P0（对比度+字号）、v718 落地 P1（焦点环/令牌/状态与空态）。域索引 → `topics/route-index.md`，**动手前按域 grep**。
 > 唯一开发源 = `main`（v705 `02a1b28` 合并完两线）；`line-a/v678`、`workbuddy/*` 不再开发 ⇒ 判「修过的 bug 又回来了」先 `git merge-base --is-ancestor <修复commit> HEAD`。
 > 🔴 合并/解冲突三教训（`2026-10-31.md`）：冲突块**之外**也有假象（重复 `export`／重复对象键／整段模板被覆盖 ⇒ **构建不报错**）；合并后**必须** `npm test` + `npm run build`；同功能两份客户端 API 按**消费方**取舍。
 > 🔴 「改了但用户说没变」第一步查构建号 `window.__HG_BUILD__`（`main.js` 唯一定义）+ `html[data-build]`；SPA 老标签页不重拉 index.html ⇒ 每版手改。判产物不以「dist 存在」为准：`grep -o "v70x" dist/assets/index-*.js`；`mv dist-vNNN dist` 会嵌套 ⇒ 闭包全 200 也能骗过（v637）。
@@ -16,6 +16,8 @@
 ## 🔴 UI 判据（高频，全文 `topics/frontend-ui.md` 末 200 行）
 - 🔴🔴 **判对比度必须做 alpha 合成再算、只看实测、且四种底色全算一遍**（白 / `--bg2` / `--bg3` / **`--bg4 #f0f0f2` 最容易漏**）—— v717 首轮只算白与 bg2，生产实测在 bg4 上差 0.04 返工。探针 `tools/v716-contrast-audit.mjs`（import 已修成 `./lib/cdp-lite.mjs`，原来写的 `../lib` 跑不起来）。
 - 🔴 **v717 起全站对比度已达标**（8 页 1968 文本节点仅剩 1 处 = `:disabled` opacity，WCAG 豁免）。**改令牌值 > 改用法**：先 `grep -rho "[a-z-]*:[^;{]*var(--x)"` 统计属性分布，某属性占 >75% 就直接改值（`--t3` 799 处 color、`--p-dark` 254、`--suc/--dan/--war` 250 ⇒ 6 个变量修好 1400 处，组件零改动）；分散多属性才需拆令牌。
+- 🔴🔴 **焦点环别用 `:where()` 降特异性**（v718 返工）：基类 `.input{outline:none}` 同为 (0,1,0) 且后加载 ⇒ 吃掉 315 处焦点环 = 零指示。正解叠伪类抬到 (0,2,0)：`:where(…):focus-visible:focus-visible`。判焦点**必须等 260ms**（`transition:all` 会把 outline 动画，采样拿到中间态）且**认 outline 不认 box-shadow**（改实现后旧判据会把新实现判成"没有"）。铁律：改控件高度前先 `npm test` —— 22px 建单页行内控件、34px 顶栏都由契约锁死。
+- 🔴 **状态标签病根是「三套并行」不是「缺组件」**（v718）：`risk/danger/suc/purple` 全站无定义、只在个别页自写，而 `risk` 由 `statusOf().cls` 动态返回 ⇒ 换页面用同名类**静默变灰**。`.state-empty` 也全局定义过两遍。收口细节 + 护栏 `scripts/check-tokens.mjs`（挂 `prebuild`，新色即构建失败）→ `topics/frontend-ui.md` v718 节。
 - 🔴🔴 **AA 下限使「三级灰」实际只能两级**：bg4 上要过 4.5 必须 ≤`#6a6a70` ⇒ `--t2` 与 `--t3` 同取 `#6a6a70`（深色同取 `#b4b4b8`）。别再靠 t2/t3 深浅体现层级。
 - 🔴 **亮青 `--p #06b6d4` 只能做装饰**（当文字 2.43、当白字底 2.43）；实心选中底用 `--p-solid`、强调文字用 `--p-ink`、主交互用 `--p-dark`。**改浅色必须同时配深色**（`.df-role` 9 角色原先零深色覆盖，只改浅色会让深色从 3.x 掉到 1.86）。
 - 🔴 **正则 `color:var(--p)` 会连 `border-color`/`accent-color` 一起替换**（v717 误伤 80 处）⇒ 必须写 `var\(--p\)(?!-)`，改完**按属性前缀分组复核**；判据 = git diff 的 `-` 行里有没有同属性旧值（一条都没有 ⇒ 全是本次误伤，可安全回退）。

@@ -4736,3 +4736,55 @@ flex 里 `vertical-align` 无效 ⇒「改参数值纹丝不动」立刻换思�
 ### 🔴 判「同行同构」要挑同类基准（v712）
 `.btn`(36) 与 `.btn-sm`/`.tb-toggle`(32) 本就并存；工具栏加控件先算总宽 ⇒ `flex-wrap:wrap`，
 **换行后 `margin-left:auto` 成孤岛** ⇒ 窄屏改 0。
+
+## v718（P1 落地）判据原文
+
+### 🔴🔴 焦点环：`:where()` 降特异性是**错**的思路
+`：where(...):focus-visible` = (0,1,0)。本意"让组件能覆盖"，但 `.input{…outline:none …}` 这类**基类**
+同为 (0,1,0) 且后加载 ⇒ **315 个 `.input` 的焦点环被吃掉**，键盘聚焦 `outline-style` = `none`。
+同类还有 `.cp-input`（副驾输入区）`.cmd-input`（命令面板）`.cp-search-input`（都无边框，删 outline = 零指示）。
+✅ 正解：叠一个伪类抬到 (0,2,0) —— `:where(…):focus-visible:focus-visible`
+（同一伪类重复**不改命中集合**，只提权重）。同时删 `.input` 基类的 `outline:none`。
+组件若要另写焦点表达，必须 ≥(0,2,0) **且给出可见替代指示**。
+保留 `outline:none` 的唯一例外：`.cross-tbl.edit-tbl:focus`（选中格自己有 `.cell-active` outline）。
+`border-color:var(--p)` 当焦点边框 = 2.43:1（不够 UI 3:1）⇒ 一律 `--p-dark`。
+`box-shadow:0 0 0 3px var(--p-bg)` 当焦点光晕 = `rgba(6,182,212,.06)`，**肉眼看不见**，已全删。
+
+### 🔴🔴 判焦点必须「等 260ms」且「认 outline 不是 box-shadow」
+- 侧栏/顶栏有 `transition:all` ⇒ outline 被一起做动画，Tab 后立刻采样拿到的是
+  「UA 默认 3px + currentColor」→「2px 品牌青」的**中间态**，看起来像没生效（误判过一次）。
+- v717 之前焦点全是 `outline:auto`，旧判据只认 `box-shadow` 环 ⇒ 新实现（outline）
+  会被判成「没有」。判据 = `solid 2px` + `rgb(14,116,144)` + `offset ≥ 1px`。
+- 阳性对照仍必须做：注入 `*{outline:none!important}` 应识别 8/8。
+
+### 🔴🔴 改控件高度前先 `npm test`
+被我当「越界值」的 22px 是**建单页行内控件**，由 `tests/psi-order-form-density.contract.mjs` 锁死
+（统一改 24 ⇒ 当场挂 4 条断言）。顶栏 `.tb-btn/.tb-copilot/.wx-now` 的 **34px** 同理，
+`--topbar-h:48px` 按 (47−34)/2 = 6.5px 呼吸位算，跑 `tests/shell-topbar-h.contract.mjs`。
+⇒ 评审说的「40 种高度收到 3 档」**不成立**：40 计入了装饰高度（图标 14 / 圆点 8 / 线 1），
+真交互控件只有 13 档/135 处；三档会压平上面两件刻意值。实际收成 6 档语义档位
+（22 行内 / 24 紧凑 / 28 分页 / 32 工具栏 / 36 主按钮 / 40 大表单），只清掉输入类的 30/34/38。
+
+### 🔴 状态标签的病根是「三套并行」不是「缺组件」
+`.badge`（胶囊/6 处）+ `.tag`（圆角/64 处）+ **7 个页面各自重定义** `.tag.ok/.info/.warn`。
+且 `risk`/`danger`/`suc`/`purple`/`hot` **全站无定义**，只在个别页面自写 ——
+而 `risk` 由 `statusOf(r).cls` 这类辅助函数动态返回（Rebate/Forecast/ImportMapping/Workbuddy/
+FundsReconcile/OutboundList）⇒ **换页面用同名类就静默退回灰底**（看着是标签但没颜色）。
+✅ 收口：全局 `.tag` 补到 12 个变体 + 前景色全走 `--st-*-txt` + 删 7 处页面重定义。
+`off`（停用：灰底红字）与 `neutral`（无状态：纯灰）**必须分开**，否则「停用」被读成「没设置」。
+`--teal #1d9e75` 当文字仅 3.39:1 ⇒ `--st-teal-txt #0F766E`（4.69）。
+
+### 🔴 `.state-empty` 全局定义了**两遍**（值相同）+ 5 页各改一版（padding 14/22/48px 三档）
+⇒ 同一个「暂无数据」在商品档案占 22px、在客户档案占 48px。收成 `默认 48px` / `.sm 12px`。
+⚠️ **不要**把 129 处手写 `class="state-empty"` 全换 `<EmptyState>`：多数是单行纯文字，
+换组件会无条件加 48px 图标块（变啰嗦不是变统一）。
+
+### 🔴 硬编码色护栏 `scripts/check-tokens.mjs`（挂 `prebuild`）
+判据**不是**「见 `#` 就报错」，是**按文件的允许色值集合**（`scripts/ui-token-baseline.json`）：
+新文件出现 hex / 已有文件新增色值 ⇒ exit 1；用集合内旧值 ⇒ 放行；`#fff/#000` 及带 alpha 永远放行。
+存量 45 文件/166 条。`npm run tokens:list` 看清单，`--update` 清完重写。
+🔴 加护栏必须过阳性对照（注入 `#123456` ⇒ exit 1，还原 ⇒ exit 0），不然等于没有。
+
+### 🔴 动效降级用 `.01ms` 不用 `0s`
+有些组件靠 `transitionend` 推进状态，`0s` 时事件可能不触发。全局兜底写在 variables.css 末尾，
+`!important` 覆盖全站 235 处 transition。
