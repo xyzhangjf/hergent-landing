@@ -6,6 +6,13 @@
         <span class="page-sub">系统级监控规则：命中后记入下方「告警历史」 · 只有老板 / 管理员可改</span>
       </div>
       <div class="ar-acts">
+        <!-- v713：已停用规则默认收起（停用只是"不参与评估"，行还留在表里，久了会越堆越长） -->
+        <InactiveToggle
+          v-model="showInactiveRule"
+          :count="inactiveRuleCount"
+          unit="条"
+          align="inline"
+        />
         <button class="btn btn-primary btn-sm" :disabled="loading" @click="openCreate()">
           <Icon name="plus" :size="14" />新建规则
         </button>
@@ -65,6 +72,16 @@
           </p>
         </div>
 
+        <!-- v713：空态分两种 —— 规则全被停用时说「还没有任何告警规则」是谎报（规则在，只是被收起） -->
+        <div v-else-if="!visibleRules.length" class="ar-empty">
+          <p class="ar-empty-note">当前没有启用中的规则（{{ inactiveRuleCount }} 条已停用，已收起）。</p>
+          <p class="ar-empty-guide">
+            停用的规则不参与评估，配置都还在 ——
+            <button type="button" class="lnk-btn" @click="showInactiveRule = true">显示已停用</button>
+            可以再启用回来。
+          </p>
+        </div>
+
         <div v-else class="table-wrap">
           <table class="tbl">
             <thead>
@@ -80,7 +97,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(r, i) in rules" :key="r.id">
+              <tr v-for="(r, i) in visibleRules" :key="r.id">
                 <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
                 <td class="ar-name">{{ r.name }}</td>
                 <td>{{ metricLabel(r.metric) }}</td>
@@ -236,6 +253,9 @@
 import Skeleton from '../components/Skeleton.vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
+/* v713：已停用规则默认收起 —— 全站统一件（口径见 composables/useInactiveFilter.js） */
+import InactiveToggle from '../components/InactiveToggle.vue'
+import { useInactiveFilter } from '../composables/useInactiveFilter'
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api/client.js'
 import { alertsApi } from '../api/modules.js'
@@ -245,6 +265,14 @@ import { fmt, cleanNumText } from '../utils/forecast/format.js'
 const loading = ref(true)
 const err = ref('')
 const rules = ref([])
+/* v713：列表渲染用 `visibleRules`（默认剔除已停用），但 **KPI 与告警历史的规则名查找
+   必须继续用全量 `rules`** —— KPI 写「规则总数」却只数启用的，就是篡改口径；
+   历史记录里引用的停用规则若查不到，规则名会显示成空白。 */
+const {
+  showInactive: showInactiveRule,
+  inactiveCount: inactiveRuleCount,
+  list: visibleRules,
+} = useInactiveFilter(rules)
 const history = ref([])
 const metrics = ref([])
 const conditions = ref([])

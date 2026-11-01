@@ -6,6 +6,13 @@
         <span class="page-sub">买赠 / 满赠 / 折扣等让利政策的建、改、删与启停（只老板 / 管理员可操作）</span>
       </div>
       <div class="pm-acts">
+        <!-- v713：已停用活动默认收起（停用后行还留在表里、只是变灰） -->
+        <InactiveToggle
+          v-model="showInactivePromo"
+          :count="inactivePromoCount"
+          unit="条"
+          align="inline"
+        />
         <button class="btn btn-primary btn-sm" :disabled="loading" @click="openCreate()">
           <Icon name="plus" :size="14" />新建活动
         </button>
@@ -71,9 +78,15 @@
       </div>
 
       <!-- 诚实空态：没有 ≠ 是零 -->
-      <div v-else class="pm-empty">
+      <div v-else-if="!allPromos.length" class="pm-empty">
         <p class="pm-empty-note">还没有任何买赠 / 满赠 / 折扣活动。</p>
         <p class="pm-empty-guide">点右上角「新建活动」建立第一条让利政策；建好后，销售开单命中规则会自动套用，并在「促销 ROI 分析」里出现对比。</p>
+      </div>
+
+      <!-- v713：全被停用时不能报「还没有任何活动」—— 活动在，只是被收起，那是谎报 -->
+      <div v-else class="pm-empty">
+        <p class="pm-empty-note">当前没有启用中的活动（{{ inactivePromoCount }} 条已停用，已收起）。</p>
+        <p class="pm-empty-guide">停用的活动不参与开单匹配，配置都还在 —— <button type="button" class="lnk-btn" @click="showInactivePromo = true">显示已停用</button> 可以再启用回来。</p>
       </div>
     </template>
 
@@ -170,6 +183,9 @@
       本页只读列表 + 建改删启停，不重算任何口径（成本/对比全在后端）。
    🔴 生产买赠为主、活动 0 条 ⇒ 列表空是**诚实空态**，展示说明 + 引导，不编造活动。 */
 import Skeleton from '../../components/Skeleton.vue'
+/* v713：已停用活动默认收起 —— 全站统一件（口径见 composables/useInactiveFilter.js） */
+import InactiveToggle from '../../components/InactiveToggle.vue'
+import { useInactiveFilter } from '../../composables/useInactiveFilter'
 import { ref, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
 import Modal from '../../components/Modal.vue'
@@ -178,7 +194,14 @@ import { promotionsApi } from '../../api/modules.js'
 
 const loading = ref(true)
 const err = ref('')
-const list = ref([])
+/* v713：`allPromos` = 接口全量（含停用）；`list` = 渲染视图（默认剔除停用，开关展开）。
+   切换是纯前端过滤 ⇒ 零请求、即时生效。 */
+const allPromos = ref([])
+const {
+  showInactive: showInactivePromo,
+  inactiveCount: inactivePromoCount,
+  list,
+} = useInactiveFilter(allPromos)
 const products = ref([])
 
 const showForm = ref(false)
@@ -310,10 +333,10 @@ async function load () {
   err.value = ''
   try {
     const data = await promotionsApi.list()
-    list.value = Array.isArray(data) ? data : []
+    allPromos.value = Array.isArray(data) ? data : []
   } catch (e) {
     err.value = (e && e.message) || '买赠活动读取失败'
-    list.value = []
+    allPromos.value = []
   } finally {
     loading.value = false
   }

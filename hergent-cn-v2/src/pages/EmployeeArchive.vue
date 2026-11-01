@@ -18,6 +18,14 @@
       <div class="panel-hd df-ph">
         <b>在职员工</b>
         <div class="df-ph-right">
+          <!-- v713：已停用员工默认不展示（标题写「在职员工」，把离职的混在里面本来就不对）。
+               计数在文案里，是为了让人在收起状态下也知道藏了几个人。 -->
+          <InactiveToggle
+            v-model="showInactiveEmp"
+            :count="inactiveEmpCount"
+            unit="人"
+            align="inline"
+          />
           <span class="tag info">工资按档案底薪算</span>
           <button v-if="canDo('hr', 'create')" class="btn btn-primary btn-sm" @click="openCreate">＋ 添加员工</button>
         </div>
@@ -71,7 +79,11 @@
           </tbody>
         </table>
       </div>
-      <div v-else class="state-empty">还没有员工档案，先添加或从 Excel 导入</div>
+      <!-- v713：空态必须分两种 —— 全员停用时说「还没有员工档案」是**谎报**（人在，只是被收起）。 -->
+      <div v-else-if="!employeesAll.length" class="state-empty">还没有员工档案，先添加或从 Excel 导入</div>
+      <div v-else class="state-empty">
+        当前没有在职员工（{{ inactiveEmpCount }} 人已停用，已收起）——<button type="button" class="lnk-btn" @click="showInactiveEmp = true">显示已停用</button>
+      </div>
     </div>
 
     <!-- 开账号已整合进「编辑员工」弹窗（见下方 edit-modal 的"登录账号"区） -->
@@ -659,6 +671,9 @@ import Modal from '../components/Modal.vue'
 import Icon from '../components/Icon.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
+/* v713：「已停用员工默认收起」的全站统一件（7 个页面共用同一份实现与口径）。 */
+import InactiveToggle from '../components/InactiveToggle.vue'
+import { useInactiveFilter } from '../composables/useInactiveFilter'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, apiBlob } from '../api/client'
@@ -676,7 +691,16 @@ import { roleName, isCanonicalRole, ROLE_END, ROLE_END_LABEL, canUseMiniProgram,
 const router = useRouter()
 const loading = ref(false)
 const importing = ref(false)
-const employees = ref([])
+/* v713：「全量」与「渲染视图」分开 —— 已停用员工**默认收起**，靠开关展开。
+   接口本来就传 `include_inactive:1`（全量常驻），故切换是纯前端过滤、零请求、即时生效。
+   🔴 `employeesAll` 必须留给全量：保存后回读校验与统计都该看全量，
+      跟着视图筛选走会变成「刚保存成功却查不到这个人」的假失败。 */
+const employeesAll = ref([])
+const {
+  showInactive: showInactiveEmp,
+  inactiveCount: inactiveEmpCount,
+  list: employees,
+} = useInactiveFilter(employeesAll)
 const empStats = ref(null)
 
 /* ---- 员工 ---- */
@@ -1118,11 +1142,12 @@ function fmt(n) { return n == null ? '—' : Number(n).toLocaleString('zh-CN', {
 async function loadEmployees() {
   loading.value = true
   try {
-    employees.value = await employeeApi.list({ include_inactive: 1 }) || []
-    const missing = employees.value.filter(e => !salaryOf(e)).length
-    empStats.value = { total: employees.value.length, missing }
-    // v518：把行数据返回给调用方 —— 保存后回读校验要用（见 saveEmployeeCore）。
-    return employees.value
+    employeesAll.value = await employeeApi.list({ include_inactive: 1 }) || []
+    const missing = employeesAll.value.filter(e => !salaryOf(e)).length
+    empStats.value = { total: employeesAll.value.length, missing }
+    // v518：把**全量**行数据返回给调用方 —— 保存后回读校验要用（见 saveEmployeeCore）。
+    // v713：刻意不用过滤后的 `employees` —— 校验不该受「显示已停用」开关状态影响。
+    return employeesAll.value
   } catch (e) { toast(e.message || '加载员工失败', 'err'); return [] }
   finally { loading.value = false }
 }

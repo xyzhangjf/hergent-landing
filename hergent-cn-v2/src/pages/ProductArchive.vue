@@ -37,7 +37,18 @@
           <option value="">全部分类</option>
           <option v-for="c in categoryOptions" :key="c" :value="c">{{ c }}</option>
         </select>
-        <label class="pa-check"><input type="checkbox" v-model="includeInactive" @change="onFilterChange"> 含停用</label>
+        <!-- v713：「含停用」裸复选框（无样式、无计数、措辞不统一）升级为全站统一件。
+             ⚠️ 本页是**服务端分页**（limit/offset + total 由后端给），不能改成纯前端过滤
+             —— 那样停用记录会混进某一页、total 也会对不上。故仍是接口参数驱动（切换会重新查询）。
+             计数取自 `refreshProductIndex` 已缓存的**全量商品索引**（含停用），不额外发请求；
+             口径按当前品牌/分类筛选收敛，免得筛完某个品牌后仍显示全表那 104 条。 -->
+        <InactiveToggle
+          :model-value="includeInactive"
+          :count="inactiveProductCount"
+          unit="个商品"
+          align="inline"
+          @update:model-value="onToggleInactive"
+        />
         <button class="btn btn-ghost btn-sm" @click="resetFilters">重置</button>
       </div>
 
@@ -678,6 +689,9 @@ import { toast, canDo } from '../store'
 import { arrivalCycleText, parseArrivalDays, ARRIVAL_MAX } from '../utils/arrival.js'
 /* v671：表头全选（三态）全站统一件，原型 = 本期预报 v615 那颗。 */
 import SelectAllCheckbox from '../components/SelectAllCheckbox.vue'
+/* v713：已停用记录默认收起 + 显式开关。全站同一件（7 个页面共用），
+   自带几何/高亮/窄屏换行处理，不在本页另写一份 .pa-check 裸框。 */
+import InactiveToggle from '../components/InactiveToggle.vue'
 /* v674：下单日（`products.order_days`）—— 与「到货周期」是**两个正交维度**：
    到货周期答「下单后几天到」，下单日答「哪天该下单」。
    判定 / 文案 / 规则组装**一律走 orderDays.js**（与预报主表、批量弹窗同一份实现），
@@ -727,6 +741,17 @@ const categoryOptions = ref([])
 //   闸门开启后，两列都没有的商品会在报单导入 / 小程序报单时被拒收。
 // 解析的唯一实现：前端 `fpEff()`（本页）/ 后端 `db.factory_price_sql`（同为"有没有"口径）。改口径请只改这两处。
 const allProducts = ref([])           // 全量商品索引（含停用），供补进价面板与分类候选共用
+/* v713：停用商品计数（工具栏「显示已停用（N）」用）。
+   数据源就是上面这份全量索引 —— **不额外发请求**（本页是服务端分页，为算个数字再查一次不值得）。
+   口径按当前品牌/分类筛选收敛：筛了「蒙牛」却还显示全表那 104 条，会让人以为数字坏了。
+   关键词**不参与**：它走后端模糊匹配（名称/条码/规格/编码），前端复刻一份必然对不齐，
+   宁可少算一项也不要给出一个和实际展开行数不符的数字。 */
+const inactiveProductCount = computed(() => allProducts.value.filter(p => {
+  if (p.is_active !== 0) return false
+  if (brandFilter.value && p.brand !== brandFilter.value) return false
+  if (categoryFilter.value && p.category !== categoryFilter.value) return false
+  return true
+}).length)
 const missingFactoryCount = ref(0)    // 启用商品中「连进价都没有」的数量 → 为 0 时工具栏入口自动隐藏
 const editingFpId = ref(null)
 const editFp = ref('')
@@ -1121,6 +1146,10 @@ function recomputeMissingFactory() {
 const listWrap = ref(null)
 function scrollListTop() { const el = listWrap.value; if (el) el.scrollTop = 0 }
 function onFilterChange() { page.value = 1; loadProducts(); scrollListTop() }
+/* v713：切换「显示已停用」= 改查询参数并重查（本页服务端分页，做不到零请求）。
+   复用 onFilterChange：它已经处理了「回到第 1 页 + 滚回顶部」——
+   切开关后停留在第 3 页会看到一个和条数对不上的中段，像没生效。 */
+function onToggleInactive(v) { includeInactive.value = !!v; onFilterChange() }
 function onPageSizeChange() { page.value = 1; loadProducts(); scrollListTop() }
 function goPage(p) { if (p < 1 || p > totalPages.value) return; page.value = p; loadProducts(); scrollListTop() }
 function resetFilters() {
@@ -1958,7 +1987,7 @@ onMounted(() => {
 .pa-search-ico{position:absolute;left:10px;width:15px;height:15px;color:var(--t3);pointer-events:none}
 .pa-kw{width:100%;padding-left:32px}
 .pa-filters select{flex:0 0 140px;width:140px}
-.pa-filters .pa-check,.pa-filters .btn{flex:0 0 auto}
+.pa-filters .btn{flex:0 0 auto}
 
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
 .pa-name{font-weight:600;color:var(--t1)}

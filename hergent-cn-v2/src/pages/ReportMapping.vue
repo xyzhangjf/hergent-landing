@@ -89,15 +89,8 @@
            🔴 没有停用记录时**不渲染**：一个「显示已停用（0）」的开关是纯噪音。
            计数放在文字里，是为了让人在收起状态下也知道「藏了几条」—— 否则
            「我明明有 12 条配置，怎么只看到 9 条」会变成一次新的询问。 -->
-      <label
-        v-if="inactiveCount"
-        class="tb-toggle"
-        :class="{ on: showInactive }"
-        :title="showInactive ? '收起已停用的配置（它们不会被删除，随时可以再显示）' : '把已停用的配置一并列出来（默认不展示，不影响它们的启用/编辑）'"
-      >
-        <input type="checkbox" v-model="showInactive">
-        显示已停用（{{ inactiveCount }}）
-      </label>
+      <!-- v713：手写 label 换成全站统一件（组件自带几何/高亮/窄屏换行/count=0 不渲染） -->
+      <InactiveToggle v-model="showInactive" :count="inactiveCount" unit="条配置" />
     </div>
 
     <!-- 列表 -->
@@ -145,7 +138,7 @@
           <tr v-if="!list.length">
             <td colspan="10" class="empty">
               <template v-if="!allList.length">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</template>
-              <template v-else>当前没有启用中的配置（{{ inactiveCount }} 条已停用已收起）——<button type="button" class="lnk-btn empty-lnk" @click="showInactive = true">显示已停用</button></template>
+              <template v-else>当前没有启用中的配置（{{ inactiveCount }} 条已停用，已收起）——<button type="button" class="lnk-btn empty-lnk" @click="showInactive = true">显示已停用</button></template>
             </td>
           </tr>
         </tbody>
@@ -417,6 +410,9 @@ import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
+/* v713：「已停用记录默认收起」的全站统一件（本页是这套设计的原型，现已收敛到公共件） */
+import InactiveToggle from '../components/InactiveToggle.vue'
+import { useInactiveFilter } from '../composables/useInactiveFilter'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 /* v317：页内跳转入口同判据（见 goEmployees）。 */
@@ -447,9 +443,10 @@ function openColMenu (e) { if (panel.value) panel.value.open(e) }
    而且停用行总要能一键看到，拆成两次请求反而多一个失败点、多一种「切过去是空的」
    的中间态。数据量是配置级（几十条），全量常驻没有压力。 */
 const allList = ref([])
-const showInactive = ref(false)                                       // 默认隐藏已停用
-const inactiveCount = computed(() => allList.value.filter(m => m.is_active === 0).length)
-const list = computed(() => showInactive.value ? allList.value : allList.value.filter(m => m.is_active !== 0))
+/* v713：这段逻辑已被抽成全站唯一实现（`useInactiveFilter`），本页改用它 —— 
+   原先这里是第二份拷贝，7 个页面各写一遍必然有一页写歪（判据、计数、空态文案都会漂）。
+   变量名刻意保持 `showInactive` / `inactiveCount` / `list` 不变 ⇒ 模板与其它逻辑零改动。 */
+const { showInactive, inactiveCount, list } = useInactiveFilter(allList)
 const router = useRouter()
 /* v317：给「还没有外部客户账号」的提示条一个**真入口**。
    🔴 入口同判据（与 `EmployeeArchive::goConnect` 同规矩）：能进「报单配置」的人
@@ -1095,21 +1092,12 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
    （将来再加一个控件也不用重新算断点）。 */
 .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 12px}
 
-/* v712：工具栏右侧「显示已停用」开关。
-   🔴 逐属性对齐 `Forecast.vue` 的 `.tb-toggle`（全站工具行基准：高 32 / 13px /
-   radius 8 / padding 0 12px），**不能靠借样式** —— 两个 `<style scoped>` 各自
-   编译带不同的 data-v 属性，跨文件既拿不到也覆盖不了（v708 的老坑）。 */
-.toolbar .tb-toggle{margin-left:auto}
-.tb-toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--t1);background:transparent;border:1px solid var(--bd);border-radius:var(--radius-sm);height:32px;padding:0 12px;white-space:nowrap;cursor:pointer;user-select:none;flex:0 0 auto}
-.tb-toggle:hover{background:var(--bg2)}
-.tb-toggle input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
-/* 打开态高亮：那颗 14px 复选框太小，不额外染色的话「现在是开着还是关着」要靠找勾 */
-.tb-toggle.on{background:var(--p-bg);border-color:var(--p);color:var(--p-dark)}
-/* 空态里的就地入口：跟周围 13px 正文同号（.lnk-btn 默认 11.5px，用在工具栏合适，放进空态太小） */
+/* v713：`<InactiveToggle>` 组件自带几何（32 / 13px / radius 8 / padding 0 12px）、
+   打开态高亮、以及「窄屏换行后 margin-left 归零」。
+   这里原先逐属性复制的那一套已删除 —— 复制件一旦和组件各自演进就是两份会漂移的真相，
+   而且窄屏那条 `margin-left:auto` 还可能反过来盖掉组件里的归零规则（同特异性比顺序）。
+   本页只保留空态里那个文字链接按钮的字号修正。 */
 .empty-lnk{font-size:13px}
-/* 🔴 窄屏换行后，`margin-left:auto` 会把开关推到第二行的**最右边**，孤零零浮在那儿。
-   换行了就说明桌面那套「右对齐」已经失效 ⇒ 改成左对齐，与上面两个按钮左边线对齐。 */
-@media (max-width:480px){ .toolbar .tb-toggle{margin-left:0} }
 
 /* v2026-09-23：弹窗字段分组 + 必填图例 + 内联校验 */
 .form-grp{display:flex;flex-direction:column;gap:12px}

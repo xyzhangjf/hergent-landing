@@ -17,6 +17,12 @@
       <div class="ba-add-row">
         <!-- v335 按钮级门禁：POST /api/brands ⇒ 模块 data / 动作 create -->
         <button v-if="canDo('data', 'create')" class="btn btn-primary btn-sm" @click="openCreate">+ 添加品牌</button>
+        <!-- v713：已停用品牌默认收起（停用后仍占一行、只是变灰，攒久了列表会越来越长） -->
+        <InactiveToggle
+          v-model="showInactiveBrand"
+          :count="inactiveBrandCount"
+          unit="个品牌"
+        />
       </div>
 
       <Skeleton v-if="loading" />
@@ -52,7 +58,11 @@
           </tbody>
         </table>
       </div>
-      <div v-else class="state-empty">还没有品牌，先添加，或在导入/连接器里发现的品牌会进「待审」队列</div>
+      <!-- v713：空态分两种 —— 品牌全被停用时说「还没有品牌」是谎报（品牌在，只是被收起） -->
+      <div v-else-if="!brandsAll.length" class="state-empty">还没有品牌，先添加，或在导入/连接器里发现的品牌会进「待审」队列</div>
+      <div v-else class="state-empty">
+        当前没有启用中的品牌（{{ inactiveBrandCount }} 个已停用，已收起）——<button type="button" class="lnk-btn" @click="showInactiveBrand = true">显示已停用</button>
+      </div>
     </div>
 
     <!-- 待审品牌（决策②：导入/连接器未匹配品牌入队） -->
@@ -141,16 +151,28 @@
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
 import Modal from '../components/Modal.vue'
+/* v713：已停用品牌默认收起 —— 全站统一件，口径见 composables/useInactiveFilter.js */
+import InactiveToggle from '../components/InactiveToggle.vue'
+import { useInactiveFilter } from '../composables/useInactiveFilter'
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '../api/client'
 import { toast, canDo } from '../store'
 
 const loading = ref(false)
 const pendingLoading = ref(false)
-const brands = ref([])
+/* v713：`brandsAll` = 接口全量（含停用，接口本来就传 include_inactive:1）；
+   `brands` = 渲染视图（默认剔除停用，开关展开）。切换是纯前端过滤 ⇒ 零请求、即时生效。 */
+const brandsAll = ref([])
+const {
+  showInactive: showInactiveBrand,
+  inactiveCount: inactiveBrandCount,
+  list: brands,
+} = useInactiveFilter(brandsAll)
 const pending = ref([])
 
-const activeBrands = computed(() => brands.value.filter(b => b.is_active !== 0))
+/* ⚠️ 下拉候选要基于**全量**：把已停用品牌从「品牌目标」等处的候选里删掉，
+   会让历史配置回填时选中一个不存在的选项（显示为空，保存即丢）。 */
+const activeBrands = computed(() => brandsAll.value.filter(b => b.is_active !== 0))
 
 /* 🔴 brand_pending.source 是后端内部标识（生产实测 backfill / unit_test / selftest），
    直接渲染会把英文枚举印在界面上 ⇒ 映射成中文；兜底也必须是中文。 */
@@ -185,7 +207,7 @@ async function loadBrands() {
   loading.value = true
   try {
     const d = await api('/api/brands?include_inactive=1')
-    brands.value = Array.isArray(d) ? d : []
+    brandsAll.value = Array.isArray(d) ? d : []
   } catch (e) { toast(e.message || '加载品牌失败', 'err') }
   finally { loading.value = false }
 }

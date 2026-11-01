@@ -6,6 +6,13 @@
         <span class="page-sub">一个渠道 = 一个下游系统（它自己的一套商品编码 + 一套价格）。你有几个系统就建几条。</span>
       </div>
       <div class="pc-act">
+        <!-- v713：已停用渠道默认收起（卡片流，停用后仍占一格、只是变灰） -->
+        <InactiveToggle
+          v-model="showInactiveCh"
+          :count="inactiveChCount"
+          unit="个渠道"
+          align="inline"
+        />
         <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load"><Icon name="refresh"/> 刷新</button>
         <!-- v335 按钮级门禁：POST /api/price-channels ⇒ 模块 data / 动作 create
              （🔴 本页 `pages.js` 的 `module` 是 `null`，但接口归 `data`
@@ -21,7 +28,11 @@
     </div>
 
     <div v-if="loading" class="pc-empty">正在加载渠道…</div>
-    <div v-else-if="!channels.length" class="pc-empty">还没有渠道。点右上角「新建渠道」开始。</div>
+    <!-- v713：空态分两种 —— 渠道全被停用时说「还没有渠道」是谎报（渠道在，只是被收起） -->
+    <div v-else-if="!channelsAll.length" class="pc-empty">还没有渠道。点右上角「新建渠道」开始。</div>
+    <div v-else-if="!channels.length" class="pc-empty">
+      当前没有启用中的渠道（{{ inactiveChCount }} 个已停用，已收起）——<button type="button" class="lnk-btn" @click="showInactiveCh = true">显示已停用</button>
+    </div>
 
     <div v-else class="pc-grid">
       <div
@@ -353,6 +364,9 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
+/* v713：已停用渠道默认收起 —— 全站统一件（口径见 composables/useInactiveFilter.js） */
+import InactiveToggle from '../components/InactiveToggle.vue'
+import { useInactiveFilter } from '../composables/useInactiveFilter'
 import { ref, computed, onMounted } from 'vue'
 import { priceChannelApi, reportMappingApi, productsApi, custPriceApi } from '../api/modules'
 import { toast, canDo, confirm } from '../store'
@@ -392,7 +406,14 @@ const { isVisible: isVisibleMatrix, toggleCol: toggleColMatrix, resetCols: reset
   useColSettings('price-channels-matrix', COLS_MATRIX)
 // 渠道价矩阵表空态行的 colspan 必须跟着可见列数走。
 const mxColspan = computed(() => 1 + COLS_MATRIX.filter(c => isVisibleMatrix(c.key)).length)
-const channels = ref([])
+/* v713：`channelsAll` = 接口全量（后端 `list_price_channels(include_inactive=True)` 默认给全量，
+   停用渠道**仍然可见、可以再启用回来**，不存在"停用即失踪"）；`channels` = 渲染视图。 */
+const channelsAll = ref([])
+const {
+  showInactive: showInactiveCh,
+  inactiveCount: inactiveChCount,
+  list: channels,
+} = useInactiveFilter(channelsAll)
 const stat = ref({})
 const used = ref({})
 const srcOptions = ref({ price_sources: [], code_sources: [], kinds: [] })
@@ -422,7 +443,7 @@ async function load() {
   loading.value = true
   try {
     const r = await priceChannelApi.list()
-    channels.value = r.channels || []
+    channelsAll.value = r.channels || []
     stat.value = r.summary || {}
     used.value = r.used || {}
   } catch (e) {
