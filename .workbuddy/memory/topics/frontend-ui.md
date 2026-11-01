@@ -4788,3 +4788,48 @@ FundsReconcile/OutboundList）⇒ **换页面用同名类就静默退回灰底**
 ### 🔴 动效降级用 `.01ms` 不用 `0s`
 有些组件靠 `transitionend` 推进状态，`0s` 时事件可能不触发。全局兜底写在 variables.css 末尾，
 `!important` 覆盖全站 235 处 transition。
+
+## v719（P2 落地 + 硬编码色清零）判据原文
+
+### A. 清硬编码色的正确顺序（本轮 166→0 的实操结论）
+
+1. **先分类，不要先删**。把所有 `var(--x, #hex)` 抓出来（正则 `var\(--[a-z0-9-]+,\s*#[0-9a-fA-F]{3,8}\)`），与 `variables.css` 里真实定义的令牌做差集：
+   - 令牌**已定义** ⇒ 兜底永不生效 ⇒ **直接删兜底**（零风险，且顺手消除隐患）。
+   - 令牌**不存在** ⇒ 兜底**一直在生效** ⇒ 先补定义，再删兜底。**这一步顺序反了会作废声明**（颜色直接变透明/继承）。
+2. **兜底值不是"运气"，它暴露了各页私有的设计决策**。v719 的 12 个未定义令牌里，`--pri` 兜底 `#2b6cb0`（报表中心蓝）、`--brand` 兜底 `#2f6bff`（副驾/资金蓝）、`--c-primary` 兜底 `#2f6fed`（图表蓝），而站内主色是青 `#0e7490` ⇒ **同屏两种"主色"**。补齐时一律指向 canonical 令牌（`--brand:var(--p-dark)`），而不是把 `#2f6bff` 提成正式定义 —— 后者只是把错误固化。
+3. **护栏要先修再清**。`scripts/check-tokens.mjs` 把任务号当颜色（`<!-- #356：异常预警区 -->`，`356/354/355/357` 都是合法 hex），单文件虚报 4 条 ⇒ 加 `stripComments()` 剥 HTML/块/行三类注释。行注释正则用 `(^|\s)\/\/[^\n]*` 并**排除 `://`**，否则 `https://…` 后半行会被当成注释吞掉。
+4. **豁免必须可见**。图表的 `--c-*` 调色板（`LossDashboard` 12 项、`MonthlyAchvChart` 五组）属于「配色本身是设计产物、深色另有整套」，进 `EXEMPT` 表并由 `--list` 打印理由。**看不见的豁免等于关掉护栏。**
+
+### B. 原生控件扩热区：先判它是不是 replaced element
+
+- `<input type=checkbox|radio|file>`、`<select>`、`<img>`、`<video>` 都是 **replaced element**，`::before` / `::after` **不渲染**。评审给的「`input::before{inset:-8px}`」方案对它们**完全不成立**。
+- 正解：包 `<label>`。label 与内部控件的关联是原生行为，不会与 `v-model` 打架，且点击整块即切换。
+- **动手前先量采纳率**：81 处 checkbox 里 70 处本已包在 `<label class="check-item">` 里（热区 = 整行含文字），真正裸的只有 11 处。审计报「13×13 不达标」是因为只量了 input 本体 —— 这是**测量口径错**，不是缺陷。
+- 统一成全局工具类 `.cb-hit`（`display:flex;align-items:center;justify-content:center;width:100%;min-height:26px`），不要各页抄私有副本。
+
+### C. 伪元素扩热区的边界（`.tab-ic`）
+
+- 视觉尺寸可以不动，用 `::before{content:'';position:absolute;inset:-5px -3px}` 扩，但**邻近可点元素会交叠**：标签栏 `.tab-item` 的刷新/关闭 `gap:6px`，各向外扩 3px 正好贴边；扩 5px 交叠 4px ⇒ 点「关闭」误触「刷新」，反方向更糟（误关整页）。**热区只能单向扩到「刚好不重叠」**。
+- 条目高的硬约束优先于热区目标：v677 要求标签栏条目 26px ⇒ 不做评审建议的 30×30，报「22×26（面积 2.2 倍）是这条 26px 标签栏的物理上限」。
+
+### D. 标题语义迁移（h2→h1）的三个连带
+
+1. 选择器要**双代兼容**：`.page-hd h2` → `.page-hd :is(h1,h2)`。漏改的后果不是"样式差点"而是**页头消失** —— `Forecast.vue` 有两处 `:deep(.page-hd h2){display:none}` 这类隐藏规则。
+2. `<h1>` 有 UA 默认 `margin:0.67em`，必须显式 `margin:0`，否则页头被撑开、与 h2 不齐。
+3. 迁完会看到「某些页 h1 宽高 0」：`Archive.vue` 外壳自 v501 起**刻意 `display:none` 页头**（标题由顶部标签栏承担）⇒ 档案两页是设计，不是缺陷。**判缺陷前先确认是不是刻意为之**。
+
+### E. 批量脚本改模板：不要用长度不等的占位符
+
+`page-hd`（7 字符）替换成 `@@DONE@@`（8 字符），然后按顺序回写 ⇒ 每个处理位**吃掉后一个字符**，88 个文件变成 `class="page-hd>`，构建才报 `Attribute name cannot contain U+0022`。
+- 正解：**按块切片、不回写占位符**（`t = t[:i] + new + t[j:]`），从根上消除长度耦合。
+- 同类纪律：占位符首字符集不能与被替换串首字符重叠（`@` vs `p` 可以，但 `p@` vs `page` 不行）。
+
+### F. 前端探针的三条硬约束（本轮连踩）
+
+1. **hash 路由**：URL 必须是 `https://hergent.cn/#` + path。写 `https://hergent.cn/archive/products` 会被重定向到 `#/workbench` ⇒ 九页读到同一页，症状是「每页节点数完全相同」。**看到"每页数据一模一样"，先怀疑路由没生效，别先怀疑探针逻辑。**
+2. **等够时间**：hash 切换要等 **3200ms** 让 chunk 加载完。2600ms 会把"还没渲染"判成 h1=0。
+3. **登录态过期是静默的**：页面回退到 `#/workbench`、用户名变成「我」。造临时 session 时 `created_at`/`expires_at`/`last_activity` 必须 `datetime('now','localtime')`（UTC 差 8 小时 ⇒ 401），插入 SQL 必须参数化 `?`（字符串拼接会把 token 当列名，报 `no such column`）。
+
+### G. 提交时剔掉别人在同一文件里的在途改动
+
+`CopilotDrawer.vue` 里二维码 `dark:'#0f172a'→'#000000'` 不是本轮的。做法：工作区内容里把那一行换回 HEAD 版 → 写 `/tmp/x.clean.vue` → `git hash-object -w` → `git update-index --cacheinfo 100644,<blob>,<path>`。**工作区保持原样**（仍留给对方提交）。提交后自证：`git cat-file blob :<path> | grep -c "<对方的新值>"` == 0，而工作区 `grep -c` == 1。

@@ -1,6 +1,6 @@
 # Hergent 记忆索引（只放判据首句 + 去哪查；细节一律 `topics/*.md`）
 
-> 前端构建号 **v718**，下一号 **v719**（`hergent-cn-v2/src/main.js:71`）。v714–v716 无发版（审计/权限/企微补丁/UI 评审）；v717 修 P0（对比度+字号）、v718 落地 P1（焦点环/令牌/状态与空态）。域索引 → `topics/route-index.md`，**动手前按域 grep**。
+> 前端构建号 **v719**，下一号 **v720**（`hergent-cn-v2/src/main.js:71`，commit `65c60ab`）。v714–v716 无发版（审计/权限/企微补丁/UI 评审）；v717 修 P0（对比度+字号）、v718 落地 P1（焦点环/令牌/状态与空态）、**v719 落地 P2 + 硬编码色 166→0**（护栏现 0/0，新色即构建失败）。域索引 → `topics/route-index.md`，**动手前按域 grep**。
 > 唯一开发源 = `main`（v705 `02a1b28` 合并完两线）；`line-a/v678`、`workbuddy/*` 不再开发 ⇒ 判「修过的 bug 又回来了」先 `git merge-base --is-ancestor <修复commit> HEAD`。
 > 🔴 合并/解冲突三教训（`2026-10-31.md`）：冲突块**之外**也有假象（重复 `export`／重复对象键／整段模板被覆盖 ⇒ **构建不报错**）；合并后**必须** `npm test` + `npm run build`；同功能两份客户端 API 按**消费方**取舍。
 > 🔴 「改了但用户说没变」第一步查构建号 `window.__HG_BUILD__`（`main.js` 唯一定义）+ `html[data-build]`；SPA 老标签页不重拉 index.html ⇒ 每版手改。判产物不以「dist 存在」为准：`grep -o "v70x" dist/assets/index-*.js`；`mv dist-vNNN dist` 会嵌套 ⇒ 闭包全 200 也能骗过（v637）。
@@ -18,6 +18,12 @@
 - 🔴 **v717 起全站对比度已达标**（8 页 1968 文本节点仅剩 1 处 = `:disabled` opacity，WCAG 豁免）。**改令牌值 > 改用法**：先 `grep -rho "[a-z-]*:[^;{]*var(--x)"` 统计属性分布，某属性占 >75% 就直接改值（`--t3` 799 处 color、`--p-dark` 254、`--suc/--dan/--war` 250 ⇒ 6 个变量修好 1400 处，组件零改动）；分散多属性才需拆令牌。
 - 🔴🔴 **焦点环别用 `:where()` 降特异性**（v718 返工）：基类 `.input{outline:none}` 同为 (0,1,0) 且后加载 ⇒ 吃掉 315 处焦点环 = 零指示。正解叠伪类抬到 (0,2,0)：`:where(…):focus-visible:focus-visible`。判焦点**必须等 260ms**（`transition:all` 会把 outline 动画，采样拿到中间态）且**认 outline 不认 box-shadow**（改实现后旧判据会把新实现判成"没有"）。铁律：改控件高度前先 `npm test` —— 22px 建单页行内控件、34px 顶栏都由契约锁死。
 - 🔴 **状态标签病根是「三套并行」不是「缺组件」**（v718）：`risk/danger/suc/purple` 全站无定义、只在个别页自写，而 `risk` 由 `statusOf().cls` 动态返回 ⇒ 换页面用同名类**静默变灰**。`.state-empty` 也全局定义过两遍。收口细节 + 护栏 `scripts/check-tokens.mjs`（挂 `prebuild`，新色即构建失败）→ `topics/frontend-ui.md` v718 节。
+- 🔴🔴 **v719 起硬编码色已归零（166→0，45→0 文件）+ 27 条图表调色板豁免；护栏现 `0/0`**。清色**第一步不是删 hex 而是分类**：70 条其实是 `var(--tok,#hex)` **兜底值**（令牌早定义 ⇒ 删零风险，且消除「令牌漏定义⇒静默回退浅色」的深色模式隐患）；35 处引用的 12 个令牌（`--brand/--pri/--line/--bad/--warn-*` 等）**全站从未定义** ⇒ 兜底一直生效 ⇒ 各页在用自己发明的主色（报表蓝 `#2b6cb0`、副驾蓝 `#2f6bff`，站内主色是青 `#0e7490`）⇒ 补齐时**一律指向 canonical 令牌**、不是把兜底值提成定义。**顺序反了会作废声明**（删了未定义令牌的兜底 = 颜色变透明）。
+- 🔴 **护栏自己有假阳性**：任务号 `<!-- #356：… -->`／`// #357` 全是**合法 hex 字符** ⇒ 单文件虚报 4 条。必须 `stripComments()` 剥 HTML/块/行三类注释，行注释用 `(^|\s)//` 且**排除 `://`**（否则 URL 后半行被吞）。护栏可信度取决于不冤枉人 —— 一条假阳性就让人想整体关掉。
+- 🔴🔴 **原生 `<input type=checkbox>` 是 replaced element，`::before/::after` 根本不渲染** ⇒ 评审给的 `::before{inset:-8px}` 扩热区方案对 checkbox 不成立，只能包 `<label>`（原生关联行为，不与 `v-model` 打架）。且 81 处 checkbox 里 **70 处本就包在 `<label class="check-item">`**、热区是整行 —— 评审只量了 input 本体（13×13）。统一用全局 `.cb-hit`，不各页抄副本。
+- 🔴 **探针（前端）三条**：应用是 **hash 路由** ⇒ URL 必须 `https://hergent.cn/#` + path（写 `/archive/products` 会全被重定向到 `#/workbench`，表现为「九页节点数完全相同」）｜hash 切换等 **3200ms**（2600 会误判 h1=0）｜token 过期时页面**静默回退** `#/workbench`（用户名变「我」）。
+- 🔴 **`.page-hd` 内 h2→h1 两个坑**（v719）：页头规则要写成 `.page-hd :is(h1,h2)` 双代兼容（`Forecast.vue` 有 `:deep()` **隐藏**规则也依赖该选择器）；`<h1>` 带 UA 默认 `margin:0.67em` ⇒ 必须显式 `margin:0`。另：`Archive.vue` 外壳自 v501 **刻意 `display:none` 页头** ⇒ 档案两页 h1 宽高 0 是设计不是缺陷。
+- 🔴 **Python 替换不要用长度不等的占位符**：`page-hd`(7) 换 `@@DONE@@`(8) 每个处理位吞掉后一字符 ⇒ 88 文件变 `class="page-hd>`，构建才报 `Attribute name cannot contain U+0022`。改用「按块切片、不回写占位符」。
 - 🔴🔴 **AA 下限使「三级灰」实际只能两级**：bg4 上要过 4.5 必须 ≤`#6a6a70` ⇒ `--t2` 与 `--t3` 同取 `#6a6a70`（深色同取 `#b4b4b8`）。别再靠 t2/t3 深浅体现层级。
 - 🔴 **亮青 `--p #06b6d4` 只能做装饰**（当文字 2.43、当白字底 2.43）；实心选中底用 `--p-solid`、强调文字用 `--p-ink`、主交互用 `--p-dark`。**改浅色必须同时配深色**（`.df-role` 9 角色原先零深色覆盖，只改浅色会让深色从 3.x 掉到 1.86）。
 - 🔴 **正则 `color:var(--p)` 会连 `border-color`/`accent-color` 一起替换**（v717 误伤 80 处）⇒ 必须写 `var\(--p\)(?!-)`，改完**按属性前缀分组复核**；判据 = git diff 的 `-` 行里有没有同属性旧值（一条都没有 ⇒ 全是本次误伤，可安全回退）。
