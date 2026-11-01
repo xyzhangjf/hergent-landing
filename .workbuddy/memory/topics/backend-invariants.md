@@ -1005,3 +1005,39 @@ hergent/root ⇒ chmod 700 后后端读写不变、`hergent_t1` 实测被挡。
 - 影响面：每次推送 = 网关入站断 2.2s（老板恰在瞬间发消息可能投递失败，WS 无离线队列）；正常态频率低（告警 24h 节流+仅状态跳变才推），今晚高频是重启补推假象。
 - 方案：**接受（推荐）**；彻底方案 P1 = 把库存预警/巡检推送改成网关内 hermes cron（deliver=wecom 走 live adapter）或给网关加代发端点；可选缓解 = `_ALERT_PUSH_AT` 节流落盘防重启补推。
 - CLOSE-WAIT 陈旧 fd 无害（适配器注释自证 tighter keepalive 会 drained），重启网关即清。
+
+---
+
+# v707（2026-11-01）给 `hr_employees` 加字段 = 4 处 + 第三份白名单；员工档案 PII 附件
+
+## 加一列要改 4 处（缺任何一处都是**静默失败**）
+1. 主库 `_safe_migrate('vNNN_hr_xxx')` 一条 ALTER
+2. 租户库手工补列清单（`_sync_tenant_columns_on` 之前那段 tuple，**当次启动即生效**）
+3. `_safe_migrate_script('v131_hr_employees')` 的建表 DDL —— **新库走 DDL，ALTER 对新库无效**
+4. `_init_payroll_tables` 里的建表 DDL（同上）
+
+读端不用改：`employee_list` 是 `SELECT *`。
+
+🔴🔴 **`employee_create`（erp_db.py 内）还有第三份 `allowed` 白名单**，注释自己写着
+「三处必须同时改（本处 + server.py 新建 + server.py 更新），只改一处 = 仍然进不去」。
+v707 第一版只改了 server.py 两处 ⇒ 冒烟当场抓到新字段恒空。
+⇒ **加字段前先 `grep "allowed = \["` 数清有几份**，别信注释说的「三处」。
+
+🔴 **空串语义分叉**：`PUT` 原 `if d[k] != ''` 把空串一律当"没传"（对既有字段是对的），
+但合同到期要能**清空** ⇒ 必须另开 `_clearable` 白名单，并让前端**真的发 `''`**
+（发 `undefined` 会被 `JSON.stringify` 整个丢掉）。前后端少改一边 = 「提示成功、库里没变」。
+
+## 附件：为什么不复用通用 `/api/attachments`
+通用那套**只做 `_auth`、不校验归属** ⇒ 换 `ref_id` 就能读别人的劳动合同/身份证
+（IDOR + PII 泄漏）。psi 采购单附件（v408 P1-8）早是同一结论。
+⇒ 照 psi 范式做独立四件套（列/传/下/删），四个端点都校验「这条附件真属于这个员工」，
+越界一律 **404 而不是 403**（403 会泄漏「这个 id 存在」）。
+模块边界靠**前缀匹配**自动归到 `hr`，无需在 RBAC 表里新登记。
+
+## `attachment_create` 两个真问题（v707 修）
+1. `ref_type` **不做过滤就拼进文件名** ⇒ `../../x` 可越出 uploads 写文件（已白名单 `^[a-z][a-z0-9_]{0,31}$`）
+2. 落盘名确定性 `{ref_type}_{ref_id}_{safe_name}` ⇒ **同名两次互相覆盖**，库里两行指向同一文件、
+   删一条另一条变打不开的幽灵（已加 8 位随机前缀）
+
+⚠️ 改完要同步更新 `attachment_delete` 里那段过时 docstring（它按旧的三段式文件名解释）。
+改动对调用方透明（返回 aid 不变，只有盘上文件名变）。

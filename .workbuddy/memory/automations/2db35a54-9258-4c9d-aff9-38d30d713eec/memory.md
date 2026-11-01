@@ -579,3 +579,15 @@
   ⇒ **前端一上线就夹带别人的半成品**。判据：按「逻辑名前缀 + 精确文件名（含内容哈希）」比，**不要用 chunk 名**。
   另：老版小程序不带 `kind`，后端先上线会让 403 出现在新出现的「本人仓」入口上 ⇒ 后端与小程序必须同发。
 - **待老板拍板**：A 只发后端 / B 后端 + 小程序（推荐）/ C 等并行会话落定三端齐发。
+
+## 最近执行：2026-11-01
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告 2026-09-29.md 留 30 份），未部署/重启，无 git 写操作（git status/diff/log 仅读）。
+- 范围：窗口 10-31 02:00→11-01 02:00。前端 hergent-cn-v2/src 38 文件 +5792/−958（**v705 两线合并 A v633-v678 + B v704 + v706 员工档案页重构**），全部已提交 HEAD `570b97e`；后端 hergent-erp/server 窗口内 0 改动（HEAD `0ff0be5` @ 10-29）；根 erp/ 0 改动。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。合并雷区扫描：冲突标记 0、同文件重复顶层 export 0、新增 v-html 0、新增硬编码 #hex 0、新增裸 JSON.parse 0、新增 alert/confirm 0（仅 L6 既有集合延续）。orderDays.js（下单日唯一实现）逻辑自洽。
+- 本轮闭环 2 项：① **H-B 消息搜索 d.msgs↔d.hits 契约修复**——后端 ai_assist.py::search_chat(:581-662) 现同时回 hits+msgs（msgs 含 idx/pre/hit/post/created_at/role @:639-647），前端 CopilotDrawer.vue:1639 读 d.msgs / :1590 读 d.hits 双向对齐（行号由 :1570→:1639 位移）；② **L11 构建号已维护为 v706**（main.js:71）。
+- 历史遗留未修 9 项（1 高 / 1 中 / 7 低），轮次 +1：H-A(第16轮)、M-A(sales.py:751 ret_map 商品级)、H3/H4/L5/L6/L7/L10/L12。
+- **H-A 本轮证据更清晰**：db/queries/approvals.py 查 `approval_flows`(:45/:70)/`approval_chain`(:87/:114/:129/:162/:188/:194)，但 erp_db.py::_migrate_v68(:14914-14917) 建的是孤儿表 `approval_workflows`/`approval_steps`/`approval_history`/`document_states`（grep erp_db.py 对 approval_flows|approval_chain 零命中）；查询层依赖的表不在自修复路径 → 新租户库审批端点必 500，且 _migrate_v68 那套死表无人引用。建议下次审批改动时一并收口（建表改名对齐查询层 或 删孤儿表二选一）。
+- 未提交：前端 src 已干净；后端 3 tracked-M（sales.py/funds_db.py/funds.py = 10-29 窗口）仍遗留 + 未跟踪 patches/docs；根仓库历史报告删除未提交（报告产物，非产品码）。
+- UI 规范：新增/合并件合规（零新增硬编码色/v-html/内联svg/原生confirm）；仅历史偏离 H4/L12/L6。
+- 建议：上线前重跑 `hergent-cn-v2` `npm test`（21 契约+207 .vue 符号扫描）+ `npm run build` 以最终确认「悬空模板引用」类假象（仅 SFC 符号扫描可抓），因本审查严格只读未重跑构建。
+- 报告落盘：docs/code-review/2026-11-01.md（目录 31→30，删最旧 2026-09-29.md）。

@@ -1750,3 +1750,35 @@
 - ✅ **`status=9/KILL` 不是崩溃**，是有人/脚本发了信号 9；`code=exited, status=1/FAILURE` 才是代码崩。两者要分开写。
 - ✅ **`grep -c` 命中 0 会让整条 ssh 命令 exit 1**，别误判成「命令失败」；把多个计数串在一条里时最后加 `; true` 或接受 exit_code 非 0。
 - ✅ **本机 `git show HEAD:f > /tmp/h.txt` 再 `git diff --no-index --numstat /tmp/h.txt prod/f`**：一次循环算完 19 个文件的方向，比逐个读 diff 快一个数量级；注意 `--numstat` 输出第 3 列要 `awk '{print $1"/"$2}'`，否则空行会被当文件。
+
+---
+
+## 最近执行：2026-11-01（第 34 次 · 04:00）
+- 模式：严格只读。未改/删/重命名生产文件，未部署、未重启；库仅 `mode=ro` SELECT；只把 17 个生产文件 `tar cf - | tar xf -` 单向拉到本机 `/tmp/prod17` 比对。副作用 1 次 `demo-login`。`MainPID=4148255` 首尾一致、`NRestarts=0`。
+- 结果：**总体 🔴 高危（1 项 · 2 条风险）** —— 5 项正常、2 项需关注、1 项高危、0 项未知。
+  - 🔴🔴 **`routers/report_engine.py` 仍未入库（第 2 天，最高优先）**：HEAD `server/server.py:1096` 顶层 import + `:1268` include_router，文件不在 git（`git cat-file -e` 报 not in HEAD、`ls-files` 空、`status` 仍是 `??`）⇒ **按 HEAD 全量部署 = 启动即 ModuleNotFoundError = 整站起不来**。今日**复核确认 HEAD 唯一缺失依赖就是它**：另三个（`product_pricing`/`partner_history`/`forecast_unit_order`）在 HEAD 中 `git grep` 零引用 ⇒ 只是生产侧死代码，不影响启动。**上一轮「三个都危险」的表述今日收窄为一个。**
+  - 🔴 **第 8 项仍 42**（基线 0，生产 `*.py` 389、三方一致 347）：构成 **2+16+1+10+13**，与昨日**逐个文件完全相同、无一归位**。**但内容偏差扩大**：10-31 10:39/10:46 两次发版 ⇒ `db/queries/products.py` +1/−1 → **+135/−1**、`routers/data.py` +35 → **+84/−1**、`erp_db.py` +18 → **+42/−1**。⇒ **「总数不变 ≠ 没恶化」，必须比 numstat 才看得出来。**
+  - 方向判（本轮 12 超前 / 4 落后 / 1 同行数异内容）：**12 个生产超前合计 +1042/−137**（purchases +267/−18、ai_assist +295/−46、products +135/−1、data +84/−1、inventory +81/−58、copilot_proxy +57/−8、erp_db +42/−1、forecast_submissions +38、wh +27/−1、auth +6/−2、platform +3/−1、routers/sales +7）；**4 个生产落后合计 −323**（data_health −270、queries/finance −31、routers/finance −17、queries/sales −5）⇒ 重部署反而推进。
+  - ✅ **第 4 项连续第 2 天全清**：traceback **0 行/0 块**、`[ERROR]` **0**、5xx **0**（窗口 6573 行）；`[WARNING]` 仅 2 条 tenant-scan（跳过 5/6 个各 1 次）⇒ 无 ≥5 命中；`WeCom webhook not configured` 连续第 2 天 **0 次**。
+  - ✅ **第 3 项明显改善**：`NRestarts=**0**`、24h `Started` **2 次**（10-31 10:39:38 / 10:46:49）、`Stopping+Stopped` 4 行 = 2 对干净停止、**无** `Main process exited`/`status=9`/`Scheduled restart` ⇒ 全发版式，昨日那次 `9/KILL` 未复发（连续 2 天）。mtime 对得上：`products.py` 10:39:31、`data.py` 10:39:32、`erp_db.py` 10:46:48。
+  - ✅ 第 1 项 200/200/active（PID 4132981→4148255，ActiveEnter 10-31 10:46:49，RSS 283MB）；第 2 项备份**连续第 10 天**（7 份非零 73.9MB/02:00 + `backup-alert.log`「本地 7 / 期望 7 / 异地 7」；`backup.log` 今日 0 行、mtime 停 10-21 属预期）；第 5 项 50% / inode 14% / **428.0M**（+16M/天，约 11 天触 600MB）；第 6 项 **68.6 天**；第 7 项 3/3=403 原因正确 + 对照 200，第 4 探针 `READONLY_TENANT` 第 **37** 天。
+  - 迁移：0006~0010 仍未入库（**第 5 天**）；0004/0005 本机有、git 无、生产无、任何库未执行；三库 `schema_patches` 完全一致（1,2,3,6~14 ok，无 4/5）。
+  - 👀 **整库副本权限恶化**：世界可读（`-rw-r--r-- root`）从 2 份 → **4 份**（新增 `pre-brandmerge-20261031.db` 10-31 10:11、`pre-v671-20261031-0935.db`），6 份合计 **276M**；另 2 份 `pre-v617/v618` 是正确 `600 hergent`。`routers/*.bak*` 58、根目录 `*.bak*` 52；`backup_config_get` 第 **34** 天（`erp_db.py` 定义 0、`server.py:5576/5607` 仍调）；凭证模板/收支单调用第 **5** 天为 0；`tenant_9.db` 与 `tenant_99*` 均不存在（维持结案）。
+- ✅ 报告落盘：`docs/prod-inspection/2026-11-01.md`；目录 31 → 删最旧 `2026-09-28.md` 后 **30 份**。`2026-10-24` 仍缺失（累计 4 天：10-02/10-09/10-10/10-24）。
+- ✅ **推送成功**：`scp` 到 `/tmp` → `hermes send --to wecom:ZhangJunFeng -f … < /dev/null` → `Sent to wecom home channel (chat_id: ZhangJunFeng)`；两侧临时文件已删。本机 `wecom-cli` 连续 14 天 850003，按纪律未试。
+
+## 下轮必做（2026-11-02 起）
+1. 🔴🔴 **`report_engine.py` 是否入库**（第 3 天）。**未入库前任何部署都不能做**；这是唯一「禁令级」项。
+2. 🔴 **第 8 项 = 42 是否变化**（2/16/1/10/13 → 0）。**不只比总数，必须比 numstat**（本轮总数持平但 +1042 已从 +836 涨上来）。
+3. 🔴 迁移 0006~0010（第 6 天）；0004/0005 去向仍未定。
+4. ✅ 第 3 项守「`NRestarts=0` + 无 `status=9`」；若再次出现 ~10 秒间隔连续 `Started` ⇒ 部署后启动崩溃。
+5. ✅ 备份守第 11 天；第 7 项第 4 探针（38 天）；`backup_config_get`（34 天）；通知通道（33 天）。
+6. 👀 journal **428.0M**（约 11 天触 600MB）；`tenant_1.pre-*.db` 世界可读 4 份 / 276M 是否治理。
+
+## 复用要点补充（2026-11-01）
+- 🔴 **「未入库文件清单里有几个危险」要每轮用 `git grep` 重算，不能沿用**：昨日说「三个死代码也有导入风险」，今日 `git grep -e "import X" -e "from [a-zA-Z_.]*X import" HEAD -- server/` 实测 `product_pricing`/`partner_history`/`forecast_unit_order` **全零引用**，只有 `report_engine` 命中 `server.py:1096`。**结论从「3 个都危险」收窄成「只有 1 个」，且它才是唯一禁令项。**
+- 🔴 **第 8 项「总数不变」绝不能写成「没恶化」**：本轮 42→42、清单逐个相同，但 `products.py` +1→+135、`data.py` +35→+84、`erp_db.py` +18→+42。**判据必须是每个文件的 numstat，不是总计数。** 反过来说：「有人归位」会降数、「有人发版」会涨内容但数不变，两种情况必须分开识别。
+- ✅ **`grep -c " 50[0-9] " /var/log/nginx/access.log` 会把「响应字节数」误当状态码**（本轮命中一条 `200 509`）。判 nginx 5xx 要限定在第 9 字段：`awk '$9>=500 && $9<600'`。本次差点误报 1 次 5xx。
+- ✅ **`sqlite3` 命令行在生产机上不存在**（`command not found`），只读查库要用 `python3 -c 'sqlite3.connect("file:…?mode=ro", uri=True)'`。
+- ✅ **两次 `Started` 间隔仅 7 分钟（10:39/10:46）也仍是发版**：判据是有没有 `Stopping`→`Stopped` 成对 + `NRestarts` 是否为 0；本轮两对全齐、计数器 0 ⇒ 干净。**别只凭「短时间内重启两次」就判崩溃循环。**
+- ✅ **`ActiveEnterTimestamp` 是昨天、`MainPID` 与日志里的 `hergent-erp[PID]` 一致 ⇒ 说明进程从昨天起没换过**，可直接把「日志里所有 `[4148255]`」当成同一进程实例读，不必怀疑中途重启。

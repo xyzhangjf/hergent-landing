@@ -4511,3 +4511,60 @@ const colByKey = computed(() => {
   筛选口径要把它归 ''，否则值清单里「（空白）」与「—」并存，用户分不清哪个才是没填的行。
 - 测试写法：从 SFC 原文切 `colByKey`/`cfRowVal`/`cellText`/`masterVal` 执行
   （`.workbuddy/tools/v668-master-col-filter-test.mjs`），并用「把实现退回旧写法应失败」反向自证。
+
+---
+
+# v708（2026-11-01）窄屏两尾巴 + 本轮新得的 CSS 判据
+
+## ① 裸文本在 flex 容器里 = 匿名 flex item ⇒ 逐字换行
+顶栏 `{{ store.user.name }}` 直接放在 `.tb-user{display:flex}` 里，375px 下被压到 1 字宽
+⇒ 「张/俊/峰」竖排三行，字还顶出 `--topbar-h`。
+定式：包 `<span class="xxx-name">` + `white-space:nowrap;overflow:hidden;text-overflow:ellipsis`。
+🔴 **`text-overflow:ellipsis` 对 flex item 生效的前提是 `min-width:0`** —— flex item 默认
+`min-width:auto`，会撑到内容宽，省略号永远不出现。
+🔴 空间不够时该让**有 `flex:1` 的块**（这里是 `.tb-brand`）让位；图标/胶囊类要 `flex-shrink:0`，
+否则被压扁。
+
+## ② CSS 规则「存在 + matches:true + 不生效」= 同特异性的顺序问题
+实测 `.df-acc-row select[data-v-x]{flex:1 1 100%}`：
+- 产物里存在 ✓
+- `el.matches('.df-acc-row select[data-v-x]')` 返回 **true** ✓
+- 但 `getComputedStyle(el).flex` 是 **`1 1 0%`** ✗
+
+原因：`.df-acc-row .input, .df-acc-row select`（同为 0,2,1）在**压缩后**反而排在它后面 ⇒ 后写者胜。
+加 `.acc-role` 提到 0,3,1 才真生效。
+⇒ **纪律：CSS 改完要量 `getComputedStyle`，不能只 grep「规则进产物了」**。
+   压缩后的顺序不一定等于源码顺序。
+
+## ③ 跨组件样式覆盖必须写在目标组件自己的文件里
+Shell.vue 里 `@media(max-width:768px){ .wx{display:none} }`（隐藏天气）**从未生效**：
+1. `@media` **不提高优先级**（同一句话写过很多次，这次是真踩到）；
+2. scoped 编译成 `.wx[data-v-<Shell>]`，而天气元素带的是它自己的 scope 属性。
+⇒ 写进 `WeatherWidget.vue` 自己文件里，靠「同文件内后写者胜」才可靠。
+判据：产物里确认 `display:flex` 规则在前、`@media{display:none}` 在后。
+
+## ④ `appearance:none` 必须补自绘箭头
+`.acc-role` 抹掉原生箭头却没补 ⇒ 用户以为它是只读文本框（实测反馈）。
+定式：
+```css
+background-color: var(--bg);
+background-image: url("data:image/svg+xml,...chevron...");
+background-repeat: no-repeat;
+background-position: right 11px center;
+padding: 0 32px 0 11px;   /* 右侧让位 */
+appearance: none; -webkit-appearance: none;
+text-overflow: ellipsis; white-space: nowrap;
+```
+🔴 **不能写 `background` 简写** —— 会把 `background-image` 一起重置掉。
+关闭态长文案走省略号，全称挂 `title`（`optLabel(list, v)` helper 一处定义四处用）。
+
+## ⑤ v677/v669 复选框（原在 MEMORY.md，移入）
+🔴🔴 **禁止 `@click.prevent` + 单向 `:checked`**：Chrome 的 pre-click activation 先翻转
+`checked` 再派发 click，`preventDefault()` 让浏览器在**派发结束后还原**，而 Vue 只在 vnode prop
+变化时写 DOM ⇒ 不再 patch ⇒ **勾选态与真值永久相反**。
+定式 `@change`（不 prevent）+ `nextTick(() => el.checked = state)`。
+全站 4 处：`Forecast.vue` 查看态/改单态、`ColMenuPanel.vue`、`InvPurchaseList.vue`；
+护栏 `tests/guard-checkbox-change.py`（扫到 0 处即 exit 1）。
+🔴 **验它只能 CDP 真鼠标**（`Input.dispatchMouseEvent` + 点后等 ≥1s）：JS `el.click()`
+**没有 pre-click activation** ⇒ 用它写的探针对这个 bug 一路判 PASS（v669、v677 各被骗一次）。
+定式：**先在旧版跑出 FAIL，再用同一个探针验修复**（判别力自证）。
