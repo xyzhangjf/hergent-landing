@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd split">
-      <div><h2>资金流水账</h2><span class="page-sub">所有已过账资金单据的流水记录（收正付负）</span></div>
+      <div><h1>资金流水账</h1><span class="page-sub">所有已过账资金单据的流水记录（收正付负）</span></div>
       <div class="ff-acts"><button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()"><Icon name="refresh" :size="14" />刷新</button></div>
     </div>
 

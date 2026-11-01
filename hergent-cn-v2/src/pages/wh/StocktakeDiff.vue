@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>{{ detail ? (detail.take_no || ('盘点差异 #' + detail.id)) : '盘点差异单' }}</h2>
+        <h1>{{ detail ? (detail.take_no || ('盘点差异 #' + detail.id)) : '盘点差异单' }}</h1>
         <span class="page-sub">{{ detail ? subDetail : '只看有差异的行：实盘 ≠ 账面 · 数据源为「盘点单」的期次' }}</span>
       </div>
       <div class="std-acts">

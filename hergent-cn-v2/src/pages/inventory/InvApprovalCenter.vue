@@ -2,7 +2,7 @@
   <div class="inv-page">
     <div class="page-hd split">
       <div>
-        <h2>待我审核</h2>
+        <h1>待我审核</h1>
         <span class="page-sub">只列出当前轮到我这一关的单据</span>
       </div>
       <div class="isd-acts">
@@ -112,7 +112,7 @@ onMounted(load)
 .isd-acts { display: flex; gap: 8px }
 .card { padding: 0; overflow: hidden }
 .empty { display: flex; align-items: center; gap: 10px; padding: 28px; color: var(--t2) }
-.empty svg { color: var(--ok, #16a34a) }
+.empty svg { color: var(--ok) }
 .tbl th, .tbl td { padding: 10px 12px; text-align: left }
 /* v670：删掉原来的 `.seq-cell{color:var(--t3);width:40px}` ——
    ① 列宽与全局 `table.tbl td.seq-cell` 的 46px 冲突，而本规则 specificity (0,1,0) 恒定被

@@ -201,7 +201,7 @@ function wkLabel(iso) {
 .ap-moved{margin:8px 0 0;font-size:12px;color:var(--t3);line-height:1.6}
 .ap-moved a{color:var(--p-dark);text-decoration:none;border-bottom:1px dashed var(--p)}
 .ap-derive{margin:2px 0 0;font-size:12px;color:var(--p-dark);background:rgba(6,182,212,.08);border-radius:6px;padding:6px 8px}
-.ap-warn{font-size:12px;color:var(--danger,#c0392b);background:rgba(192,57,43,.08);border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.5}
+.ap-warn{font-size:12px;color:var(--danger);background:rgba(192,57,43,.08);border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.5}
 .ap-adopt{margin-left:8px;border:1px solid var(--p);background:transparent;color:var(--p-dark);border-radius:6px;padding:1px 10px;font-size:12px;cursor:pointer}
 .ap-adopt:hover{background:var(--p-solid);color:#fff}
 /* v364：② 本月到货 —— 三个数字 + 一排可点的到货日。

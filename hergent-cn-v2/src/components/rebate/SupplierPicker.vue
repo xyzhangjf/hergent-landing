@@ -211,7 +211,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 .sp-item:last-child { border-bottom: 0; }
 .sp-item:hover { background: var(--bg2); }
 .sp-item.on { background: rgba(0, 122, 255, .08); }
-.sp-item input { flex: none; width: 14px; height: 14px; accent-color: #007aff; cursor: pointer; }
+.sp-item input { flex: none; width: 14px; height: 14px; accent-color: var(--p-dark); cursor: pointer; }
 .sp-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-code { flex: none; font-size: 12px; color: var(--t3); }
 .sp-catb { flex: none; font-size: 11px; color: var(--t3); padding: 1px 6px;

@@ -383,10 +383,10 @@ onMounted(load)
 .dl-foot{font-size:12px;color:var(--t3);line-height:1.7;margin:10px 0 0}
 .dl-err{display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border-radius:12px;
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);
-  font-size:12px;color:#b45309;line-height:1.6}
+  font-size:12px;color:var(--war);line-height:1.6}
 
 .dl-risk{display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;padding:11px 13px;border-radius:10px;
-  background:rgba(245,158,11,.12);color:#b45309;font-size:12px;line-height:1.7}
+  background:rgba(245,158,11,.12);color:var(--war);font-size:12px;line-height:1.7}
 .dl-risk svg{flex:0 0 15px;margin-top:3px}
 .dl-pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
 .dl-filebtn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:5px}

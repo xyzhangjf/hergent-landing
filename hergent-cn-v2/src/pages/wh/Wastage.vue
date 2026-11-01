@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>{{ detail ? (detail.order.order_no || ('报损单 #' + detail.order.id)) : '损益单' }}</h2>
+        <h1>{{ detail ? (detail.order.order_no || ('报损单 #' + detail.order.id)) : '损益单' }}</h1>
         <span class="page-sub">{{ detail ? subDetail : '口径即「报损单」：只记损失 · 一次性生效，立即扣库存并落账 · 撤销走「撤销」' }}</span>
       </div>
       <div class="wl-acts">

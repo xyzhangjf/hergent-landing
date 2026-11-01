@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd">
       <div>
-        <h2>开放API 控制台</h2>
+        <h1>开放API 控制台</h1>
         <span class="page-sub">自助管理 API 令牌，把 Hergent 数据对接到您的系统或第三方</span>
       </div>
     </div>
@@ -182,11 +182,11 @@ onMounted(loadInfo)
 .inp { height: 30px; border: 1px solid var(--bd); border-radius: 6px; padding: 0 10px; background: var(--bg); color: var(--t1); min-width: 160px; }
 .fld.acts { flex-direction: row; gap: 8px; }
 .token-flash { margin: 0 18px 12px; padding: 10px 12px; background: var(--bg2); border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.token-flash .tk { font-family: monospace; color: var(--brand, #2f6bff); }
+.token-flash .tk { font-family: monospace; color: var(--brand); }
 .badge { padding: 1px 8px; border-radius: 10px; font-size: 12px; }
-.badge.on { background: rgba(46,160,67,.14); color: #2ea043; }
+.badge.on { background: rgba(46,160,67,.14); color: var(--suc); }
 .badge.off { background: var(--bg2); color: var(--t2); }
 .muted { color: var(--t2); }
-.btn.danger { color: #e5484d; }
+.btn.danger { color: var(--dan); }
 .rpt-foot { margin: 10px 18px 14px; font-size: 12px; color: var(--t2); }
 </style>

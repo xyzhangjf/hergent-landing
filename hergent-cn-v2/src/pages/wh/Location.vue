@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>库位管理</h2>
+        <h1>库位管理</h1>
         <span class="page-sub">把库存行指向正式库位（替代自由文本库位），拣货上架更清晰</span>
       </div>
       <div class="wl-acts">
@@ -350,6 +350,6 @@ defineExpose({ load })
 .wl-fe { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 8px 10px }
 .wl-modal-ft { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px }
 .wl-ar { max-height: 42vh; overflow: auto; margin-top: 8px }
-.btn.danger { color: var(--danger, #d4380d) }
-.req { color: var(--danger, #d4380d) }
+.btn.danger { color: var(--danger) }
+.req { color: var(--danger) }
 </style>

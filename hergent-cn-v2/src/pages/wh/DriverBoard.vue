@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>司机任务看板</h2>
+        <h1>司机任务看板</h1>
         <span class="page-sub">按日期把已分车的配送单按司机聚合 · {{ date }} · 共 {{ board.total_tasks || 0 }} 单</span>
       </div>
       <div class="dbd-acts">

@@ -2,7 +2,7 @@
   <div class="inv-page">
     <div class="page-hd split">
       <div>
-        <h2>销售单详情</h2>
+        <h1>销售单详情</h1>
         <span class="page-sub">{{ o.order_no || ('#' + oid) }}</span>
       </div>
       <div class="isd-acts">

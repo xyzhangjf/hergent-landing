@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>往来核销</h2>
+        <h1>往来核销</h1>
         <span class="page-sub">逐笔核销客户应收 / 供应商应付：一笔预收可分拆冲多张单据，账本留痕可追溯。</span>
       </div>
       <div class="frc-acts">
@@ -273,25 +273,25 @@ loadContacts()
 
 <style scoped>
 .pr-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-.pr-seg { display: inline-flex; border: 1px solid var(--bd, #e3e6ee); border-radius: 8px; overflow: hidden; }
+.pr-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
 .pr-seg-btn { padding: 6px 14px; border: 0; background: #fff; cursor: pointer; font-size: 13px; }
-.pr-seg-btn.on { background: var(--c-primary, #2f6fed); color: #fff; }
+.pr-seg-btn.on { background: var(--c-primary); color: #fff; }
 .pr-contact { min-width: 200px; }
-.pr-out { color: #8a90a2; font-size: 13px; }
-.pr-out b { color: #1f2533; }
-.pr-out b.neg { color: #d9483b; }
-.pr-empty { color: #8a90a2; padding: 40px; text-align: center; }
+.pr-out { color: var(--t3); font-size: 13px; }
+.pr-out b { color: var(--t1); }
+.pr-out b.neg { color: var(--dan); }
+.pr-empty { color: var(--t3); padding: 40px; text-align: center; }
 .pr-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.pr-tab { padding: 6px 16px; border: 1px solid var(--bd, #e3e6ee); background: #fff; border-radius: 8px; cursor: pointer; font-size: 13px; }
-.pr-tab.on { background: #eef3ff; border-color: var(--c-primary, #2f6fed); color: var(--c-primary, #2f6fed); }
+.pr-tab { padding: 6px 16px; border: 1px solid var(--bd); background: #fff; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.pr-tab.on { background: var(--p-bg); border-color: var(--c-primary); color: var(--c-primary); }
 .pr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .pr-col-full { margin-top: 12px; }
-.pr-col-hd { font-weight: 600; margin-bottom: 8px; font-size: 13px; color: #46506a; }
+.pr-col-hd { font-weight: 600; margin-bottom: 8px; font-size: 13px; color: var(--t2); }
 .pr-amt { width: 110px; }
-.pr-nodata { color: #aab; text-align: center; padding: 18px; }
+.pr-nodata { color: var(--t3); text-align: center; padding: 18px; }
 .pr-submit { margin: 14px 0; display: flex; align-items: center; gap: 12px; }
-.pr-diff { color: #d9483b; font-size: 13px; }
+.pr-diff { color: var(--dan); font-size: 13px; }
 .pr-ledger { margin-top: 14px; }
 .num { text-align: right; }
-.neg { color: #d9483b; }
+.neg { color: var(--dan); }
 </style>

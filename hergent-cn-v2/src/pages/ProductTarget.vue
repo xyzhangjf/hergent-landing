@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd">
-      <h2>商品目标</h2>
+      <h1>商品目标</h1>
       <span class="page-sub">按月设总量 · 分解到人 · 期次自动认领</span>
     </div>
 

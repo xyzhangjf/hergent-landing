@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd">
-      <h2>货损核算</h2>
+      <h1>货损核算</h1>
       <span class="page-sub">月度核算 · 期间流水口径</span>
     </div>
 
@@ -1253,7 +1253,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-row td{background:var(--bg)}
 .la-row .la-editable{background:color-mix(in srgb,var(--p) 5%,var(--bg))}
 .la-void,.la-void-t{color:var(--t3)}
-.la-good{color:var(--ok,#16a34a)}
+.la-good{color:var(--ok)}
 /* 环比为正 = 货损变大 = 坏（红）；为负 = 变小 = 好（绿）。
    与详情表里的「负净额 = 好事」同一套符号约定，两处不能各定一套。 */
 .la-bad{color:var(--danger-txt)}

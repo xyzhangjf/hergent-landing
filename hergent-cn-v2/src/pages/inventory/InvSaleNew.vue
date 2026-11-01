@@ -2,7 +2,7 @@
   <div class="inv-page">
     <div class="page-hd split">
       <div class="isn-hd-t">
-        <h2>{{ pageTitle }}</h2>
+        <h1>{{ pageTitle }}</h1>
         <span v-if="pageSub" class="page-sub">{{ pageSub }}</span>
       </div>
       <div class="isn-acts">

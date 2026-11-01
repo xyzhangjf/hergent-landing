@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd split">
-      <div><h2>{{ title }}</h2><span class="page-sub">{{ sub }}</span></div>
+      <div><h1>{{ title }}</h1><span class="page-sub">{{ sub }}</span></div>
       <div class="fs-acts"><button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()"><Icon name="refresh" :size="14" />刷新</button></div>
     </div>
 

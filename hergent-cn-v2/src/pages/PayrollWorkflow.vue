@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd">
-      <h2>算工资工作流</h2>
+      <h1>算工资工作流</h1>
       <span class="page-sub">配算法 → 一键算工资 → 核对并确认</span>
     </div>
 

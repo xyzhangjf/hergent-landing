@@ -393,10 +393,10 @@ onMounted(() => { loadBrands(); load() })
 .rs-ym{font-size:12px;color:var(--t3);font-variant-numeric:tabular-nums}
 .rs-cal-rows{display:flex;flex-direction:column;gap:8px}
 .rs-cal-row{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:var(--bg2)}
-.rs-cal-brand{flex-shrink:0;min-width:96px;font-size:12px;font-weight:600;color:var(--t1,#1f2328)}
+.rs-cal-brand{flex-shrink:0;min-width:96px;font-size:12px;font-weight:600;color:var(--t1)}
 .rs-cal-txt{font-size:12px;color:var(--t2);line-height:1.75}
-.rs-cal-txt b{color:var(--t1,#1f2328);font-variant-numeric:tabular-nums}
-.rs-cal-txt b.bad,.rs-rest.bad{color:var(--err-red,#d9534f)}
+.rs-cal-txt b{color:var(--t1);font-variant-numeric:tabular-nums}
+.rs-cal-txt b.bad,.rs-rest.bad{color:var(--err-red)}
 .rs-rest{margin-left:2px;color:var(--t3);font-size:12px}
 .rs-sep{margin:0 6px;color:var(--t3)}
 .rs-nodoc{color:var(--t3)}

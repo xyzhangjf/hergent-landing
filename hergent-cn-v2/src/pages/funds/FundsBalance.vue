@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd split">
-      <div><h2>资金余额表</h2><span class="page-sub">各资金账户当前余额（过账后实时更新）</span></div>
+      <div><h1>资金余额表</h1><span class="page-sub">各资金账户当前余额（过账后实时更新）</span></div>
       <div class="fb-acts">
         <button class="btn btn-primary btn-sm" @click="openCreate()"><Icon name="plus" :size="14" />新建账户</button>
         <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()"><Icon name="refresh" :size="14" />刷新</button>
@@ -200,5 +200,5 @@ onMounted(load)
 .fa-row .input:disabled { background: var(--bg2); color: var(--t3); cursor: not-allowed }
 .fa-hint { display: block; font-size: 12px; color: var(--t3); margin-top: 4px }
 .fa-err { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 8px 10px;
-  border-radius: var(--radius-sm); background: var(--dan-bg, #fdeaea); color: var(--dan); font-size: var(--fs-sm) }
+  border-radius: var(--radius-sm); background: var(--dan-bg); color: var(--dan); font-size: var(--fs-sm) }
 </style>

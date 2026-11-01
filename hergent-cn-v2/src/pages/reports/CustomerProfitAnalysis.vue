@@ -123,8 +123,8 @@ onMounted(load)
 /* 仅保留仍被引用的私有类（警示条 / 合计卡挂在 #extra 插槽，插槽内容在本页作用域编译）。 */
 .warn-banner {
   margin-top: 14px; padding: 10px 14px; border-radius: 8px;
-  background: var(--warn-bg, #fff7e6); color: var(--warn-t, #ad6800);
-  border: 1px solid var(--warn-bd, #ffd591); font-size: 12px; line-height: 1.8;
+  background: var(--warn-bg); color: var(--warn-t);
+  border: 1px solid var(--warn-bd); font-size: 12px; line-height: 1.8;
 }
 .rpt-tot { margin-top: 14px; padding: 12px 14px; }
 .rpt-tot-row { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 8px; }

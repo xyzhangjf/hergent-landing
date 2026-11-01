@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>{{ detail ? (detail.order_no || (typeLabel + ' #' + detail.id)) : typeLabel }}</h2>
+        <h1>{{ detail ? (detail.order_no || (typeLabel + ' #' + detail.id)) : typeLabel }}</h1>
         <span class="page-sub">{{ detail ? subDetail : pageSub }}</span>
       </div>
       <div class="kt-acts">

@@ -455,6 +455,6 @@ form{display:flex;flex-direction:column;gap:12px;flex:1}
 .act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:12px;padding:26px 16px;font-size:13px;color:var(--p-dark);cursor:pointer;text-align:center;transition:all var(--dur-base)}
 .act-drop:hover{background:var(--p-bg)}
 .act-drop.busy{opacity:.6}
-.act-done{margin-top:14px;font-size:13px;color:#2f9e44;font-weight:500}
+.act-done{margin-top:14px;font-size:13px;color:var(--suc);font-weight:500}
 .act-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
 </style>

@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd">
-      <h2>货损计算工作流</h2>
+      <h1>货损计算工作流</h1>
       <span class="page-sub">配算法 → 一键跑算 → 按维度看损耗</span>
     </div>
 

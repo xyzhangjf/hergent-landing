@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>供应商档案</h2>
+        <h1>供应商档案</h1>
         <span class="page-sub">管理供应商 / 厂家主档 —— 支持<b>逐笔新建</b>与外部 ERP 同步</span>
       </div>
       <div class="sup-actions">

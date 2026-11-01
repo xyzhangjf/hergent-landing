@@ -2,7 +2,7 @@
   <div class="inv-page">
     <div class="page-hd split">
       <div>
-        <h2>审批链配置</h2>
+        <h1>审批链配置</h1>
         <span class="page-sub">设置每类单据要过哪几关</span>
       </div>
     </div>
@@ -152,7 +152,7 @@ onMounted(load)
 .page-sub { font-size: 12px; color: var(--t3) }
 .fc-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px }
 .fc-tab { padding: 7px 14px; border: 1px solid var(--bd); background: var(--bg); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--t1) }
-.fc-tab.on { border-color: var(--p); color: var(--p-ink); background: var(--p-bg, #eef2ff) }
+.fc-tab.on { border-color: var(--p); color: var(--p-ink); background: var(--p-bg) }
 .card { padding: 16px }
 .fc-hd { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px }
 .fc-sub { font-size: 12px; color: var(--t3) }

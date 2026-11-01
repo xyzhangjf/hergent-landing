@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>{{ detail ? (detail.take_no || ('盘点 #' + detail.id)) : '盘点单' }}</h2>
+        <h1>{{ detail ? (detail.take_no || ('盘点 #' + detail.id)) : '盘点单' }}</h1>
         <span class="page-sub">{{ detail ? subDetail : '按（商品 · 仓库）聚合快照账面数 · 逐行录实盘数 · 完成时统一落差异' }}</span>
       </div>
       <div class="wst-acts">

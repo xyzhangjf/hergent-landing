@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>线路设置</h2>
+        <h1>线路设置</h1>
         <span class="page-sub">车辆档案 {{ vehicles.length }} 台 · 线路 {{ rows.length }} 条<span v-if="date"> · {{ date }}</span></span>
       </div>
       <div class="rts-acts">

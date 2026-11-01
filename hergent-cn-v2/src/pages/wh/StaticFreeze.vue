@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>{{ detail ? (detail.freeze_no || ('冻结单 #' + detail.id)) : pageTitle }}</h2>
+        <h1>{{ detail ? (detail.freeze_no || ('冻结单 #' + detail.id)) : pageTitle }}</h1>
         <span class="page-sub">{{ detail ? subDetail : pageSub }}</span>
       </div>
       <div class="sfz-acts">

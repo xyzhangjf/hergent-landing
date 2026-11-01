@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>拣货波次</h2>
+        <h1>拣货波次</h1>
         <span class="page-sub">把待拣销售单聚成波次统一拣货，生成时按小单位自动预留，防超卖</span>
       </div>
       <div class="pw-acts">
@@ -343,8 +343,8 @@ defineExpose({ load })
 .pw-pick-num { width: 92px; height: 28px }
 
 /* 危险操作按钮（作废） */
-.btn.danger { color: var(--danger, #d4380d) }
-.badge-gray { background: var(--bg-2, #eee); color: var(--t2) }
-.req { color: var(--danger, #d4380d) }
+.btn.danger { color: var(--danger) }
+.badge-gray { background: var(--bg-2); color: var(--t2) }
+.req { color: var(--danger) }
 .state-empty.small { padding: 18px 0 }
 </style>

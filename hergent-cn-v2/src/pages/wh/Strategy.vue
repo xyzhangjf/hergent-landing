@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>出入库策略</h2>
+        <h1>出入库策略</h1>
         <span class="page-sub">上架指引 · 补货需求 · 越库机会 · 拣货路径 —— 全部只读建议，不自动改库存</span>
       </div>
       <div class="wsp-acts">

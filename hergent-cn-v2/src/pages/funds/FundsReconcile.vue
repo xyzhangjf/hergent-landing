@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd split">
-      <div><h2>对账工作台</h2><span class="page-sub">上传银行流水与舟谱明细两份表格，自动逐笔勾对；未匹配项按「渠道有·内部无 / 内部有·渠道无」分象限列出</span></div>
+      <div><h1>对账工作台</h1><span class="page-sub">上传银行流水与舟谱明细两份表格，自动逐笔勾对；未匹配项按「渠道有·内部无 / 内部有·渠道无」分象限列出</span></div>
       <div class="frc-acts">
         <button v-if="result" class="btn btn-ghost btn-sm" @click="exportCsv"><Icon name="file-text" :size="14" />导出结果（CSV）</button>
         <button class="btn btn-ghost btn-sm" :disabled="running" @click="run"><Icon name="refresh" :size="14" />{{ running ? '对账中…' : '开始对账' }}</button>
@@ -542,8 +542,8 @@ function exportCsv() {
 .frc-side { padding: 14px 16px }
 .frc-side-hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px }
 .frc-side-tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px }
-.frc-tag-a { background: rgba(47,107,255,.12); color: var(--brand, #2f6bff) }
-.frc-tag-b { background: rgba(245,158,11,.14); color: #b45309 }
+.frc-tag-a { background: rgba(47,107,255,.12); color: var(--brand) }
+.frc-tag-b { background: rgba(245,158,11,.14); color: var(--war) }
 .frc-file { font-size: 12px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px }
 .frc-presets { margin-left: auto; display: flex; gap: 4px }
 .frc-frow { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 8px }
@@ -552,10 +552,10 @@ function exportCsv() {
 .frc-file-input { font-size: 12px; padding: 6px }
 .frc-num { width: 90px }
 .frc-hint { font-size: 12px; color: var(--t2) }
-.frc-err { font-size: 12px; color: var(--bad, #dc2626); margin: 6px 0 }
-.frc-miss { border-color: var(--bad, #dc2626) }
+.frc-err { font-size: 12px; color: var(--bad); margin: 6px 0 }
+.frc-miss { border-color: var(--bad) }
 .frc-loaded { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; margin-top: 6px }
-.frc-ok { color: var(--ok, #16a34a) }
+.frc-ok { color: var(--ok) }
 .frc-sug { color: var(--t2) }
 .frc-chk { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--t2) }
 .frc-head-preview { margin-top: 8px }
@@ -567,11 +567,11 @@ function exportCsv() {
 .frc-hp-tbl tr.frc-hp-on { background: rgba(47,107,255,.08) }
 .frc-hp-radio { width: 28px; text-align: center }
 .frc-radio { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--bd); border-radius: 50% }
-.frc-radio.on { border-color: var(--brand, #2f6bff); background: var(--brand, #2f6bff) }
+.frc-radio.on { border-color: var(--brand); background: var(--brand) }
 .frc-spec { padding: 14px 16px }
 .frc-run { display: flex; gap: 12px; align-items: center; margin: 14px 2px }
-.frc-run-hint { font-size: 12px; color: var(--bad, #dc2626) }
-.frc-warn { display: flex; gap: 8px; align-items: flex-start; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); color: #92400e; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px }
+.frc-run-hint { font-size: 12px; color: var(--bad) }
+.frc-warn { display: flex; gap: 8px; align-items: flex-start; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); color: var(--war); border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px }
 .frc-note { font-size: 12px; color: var(--t2); background: var(--bg1); border: 1px solid var(--bd); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px }
 .frc-card { padding: 0; overflow: hidden }
 .frc-filter { padding: 12px 14px 0 }

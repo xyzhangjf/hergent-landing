@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>商品档案</h2>
+        <h1>商品档案</h1>
         <span class="page-sub">浏览与维护商品主档 · <b>点行尾「编辑」改名称/规格/价格/描述等（没改动的会保持原样）</b> · 品牌、进价、到货周期三列支持行内直接点改，下单日点格子选节奏</span>
       </div>
       <div class="pa-actions">
@@ -383,8 +383,8 @@
                       <td class="num"><input v-model="row.retail_price" class="input pm-input" type="number" min="0" step="0.01"></td>
                       <td class="num"><input v-model="row.min_price" class="input pm-input" type="number" min="0" step="0.01"></td>
                       <td class="num"><input v-model="row.purchase_price" class="input pm-input" type="number" min="0" step="0.01"></td>
-                      <td class="pm-c"><input type="checkbox" v-model="row.allow_reprice"></td>
-                      <td class="pm-c"><input type="checkbox" v-model="row.allow_view_cost"></td>
+                      <td class="pm-c"><label class="cb-hit"><input type="checkbox" v-model="row.allow_reprice"></label></td>
+                      <td class="pm-c"><label class="cb-hit"><input type="checkbox" v-model="row.allow_view_cost"></label></td>
                     </tr>
                   </tbody>
                 </table>
@@ -622,7 +622,7 @@
                 </tr></thead>
                 <tbody>
                   <tr v-for="r in fpViewRows" :key="r.id" :class="{ 'pa-row-off': !r._ck }">
-                    <td class="pa-fp-ck"><input type="checkbox" v-model="r._ck"></td>
+                    <td class="pa-fp-ck"><label class="cb-hit"><input type="checkbox" v-model="r._ck"></label></td>
                     <td class="pa-mono">{{ r.barcode || '—' }}</td>
                     <td class="pa-name">{{ r.name }}</td>
                     <td>{{ r.spec || '—' }}</td>
@@ -1909,7 +1909,7 @@ onMounted(() => {
 /* v683：默认开单单位配错时的提示条。用告警色而不是错误红框 —— 它是"保存前先提醒"，
    还没发生提交失败；红框会让人以为已经存坏了。 */
 .pa-warn{margin:6px 0 0;padding:6px 10px;border-radius:var(--radius-sm);
-  background:var(--warn-bg, #fff7e6);color:var(--warn, #b45309);
+  background:var(--warn-bg);color:var(--warn);
   font-size:var(--fs-sm);line-height:1.5}
 
 /* v184b 到货周期列：行内可编，沿用进价列的视觉语言（虚线下划 + hover 变品牌色），

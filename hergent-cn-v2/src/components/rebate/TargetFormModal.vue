@@ -1080,18 +1080,18 @@ async function save() {
 /* v702：作用对象说明 —— 选中范围与生效规则（"多选=几条独立目标，不是合计"）就靠这块说清 */
 .sp-note{font-size:12px;line-height:1.65;color:var(--t2);padding:6px 8px;border-radius:7px;
   background:var(--bg2);border:1px solid var(--bd)}
-.sp-note-link{color:#b45309;background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4)}
+.sp-note-link{color:var(--war);background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4)}
 .yh-scope{color:var(--t3);font-size:12px;margin-left:2px}
 /* v125：重复目标预检提示（黄底，与红色硬错误区分：只是提醒，保存仍由后端裁决） */
 .dup-warn{display:flex;gap:8px;align-items:flex-start;margin:2px 0 8px;padding:8px 10px;border-radius:8px;
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);font-size:12px;color:var(--t2);line-height:1.6}
-.dup-warn svg,.dup-warn .icon{width:15px;height:15px;flex:none;margin-top:2px;color:#b45309}
+.dup-warn svg,.dup-warn .icon{width:15px;height:15px;flex:none;margin-top:2px;color:var(--war)}
 .dup-warn b{color:var(--t1)}
 .dup-warn p{margin:2px 0}
 .dup-warn .dup-tip{color:var(--t3)}
 /* v128：同年份已存在提示（蓝底，与「月份被占用」的黄底区分 —— 这个可以一键跳编辑） */
 .year-hit{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.45)}
-.year-hit svg,.year-hit .icon{color:#1d4ed8}
+.year-hit svg,.year-hit .icon{color:var(--p-dark)}
 .yh-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .cf-tbl{width:100%;margin-bottom:12px}
 .cf-sol{font-size:12px;color:var(--t3);line-height:1.7;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px;margin:0}

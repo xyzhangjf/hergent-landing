@@ -1669,7 +1669,7 @@ onMounted(() => {
 .pm-sec:first-child td{border-top:0;padding-top:2px}
 .pm-col-sub{font-size:11px;color:var(--t3);margin-bottom:2px}
 /* v328 G4：自定义角色的标记要能被看见（它是"为什么勾了没反应"的答案所在）。 */
-.pm-col-custom{color:var(--warn,#b7791f);cursor:help}
+.pm-col-custom{color:var(--warn);cursor:help}
 
 /* ==================== v351（2026-10-01）路线 A：单一写入口 + 只读对比 ====================
    🔴 样式上的核心主张：**用户看见的边界 = 实际的写边界**。

@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd split">
-      <div><h2>员工欠款</h2><span class="page-sub">内部费用（借款）减内部收入后的未冲销净额</span></div>
+      <div><h1>员工欠款</h1><span class="page-sub">内部费用（借款）减内部收入后的未冲销净额</span></div>
       <div class="fsd-acts"><button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()"><Icon name="refresh" :size="14" />刷新</button></div>
     </div>
 

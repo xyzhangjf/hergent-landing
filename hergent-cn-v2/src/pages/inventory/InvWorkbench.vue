@@ -2,7 +2,7 @@
   <div class="inv-page">
     <div class="page-hd split">
       <div>
-        <h2>进销存</h2>
+        <h1>进销存</h1>
         <span class="page-sub">采购、销售、库存的一体台账</span>
       </div>
       <div class="iw-acts">

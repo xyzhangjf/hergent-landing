@@ -5,7 +5,7 @@
       <!-- v453（R9）页头身份信息压一行：标题 / 单号 / 状态原本换行各占一行（h2 是块级，
            副标题被挤到第二行），页头因此吃掉两行高度。这里把左侧改成 flex 基线横排。 -->
       <div class="ipd-hd-l">
-        <h2>采购单详情</h2>
+        <h1>采购单详情</h1>
         <span class="page-sub">
           {{ o.order_no || ('#' + oid) }}
           <span v-if="o.status" class="tag" :class="tagOf(PO_STATUS, o.status)">{{ textOf(PO_STATUS, o.status) }}</span>
@@ -2151,7 +2151,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipd-appr-wait {
   display: inline-flex; align-items: center; height: 30px; padding: 0 12px;
   font-size: 13px; color: var(--t2);
-  background: var(--bg-2, #f3f4f6); border: 1px solid var(--bd); border-radius: var(--radius-sm, 8px);
+  background: var(--bg-2); border: 1px solid var(--bd); border-radius: var(--radius-sm, 8px);
 }
 /* 两半拼成一个按钮：去掉中间的重复边框与内侧圆角，否则接缝处是双线 */
 .ipd-pm-main { border-top-right-radius: 0; border-bottom-right-radius: 0 }
@@ -2227,7 +2227,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   margin-left: 6px; padding: 2px; border: 0; background: transparent; cursor: pointer;
   color: var(--t3); line-height: 0; border-radius: 5px;
 }
-.ipd-pencil:hover { color: var(--c-blue, #2f6fed); background: rgba(47, 111, 237, .08) }
+.ipd-pencil:hover { color: var(--c-blue); background: rgba(47, 111, 237, .08) }
 /* 🔵 v696（2026-10-26）编辑态控件改「下划线式就地改」，弃白底圆角框。
    ────────────────────────────────────────────────────────────────────
    报障：点「备注」后的铅笔，六个字段一起变成白底输入框。
@@ -2276,11 +2276,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   margin-left: 6px; font-size: 11px; color: var(--t3);
   font-variant-numeric: tabular-nums;
 }
-.ipd-edit-count-max { color: #d8453b }
+.ipd-edit-count-max { color: var(--dan) }
 /* v453：编辑态的操作行 —— 从「更多信息」里搬到信息带正下方（R5 之后必须常驻可见）。
    ⚠️ 原来那条 `border-top: dashed` 是「卡片内分隔」用的，独立成行后不再需要。 */
 .ipd-edit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px }
-.ipd-edit-actions .ipd-err { color: #d8453b }
+.ipd-edit-actions .ipd-err { color: var(--dan) }
 .ipd-edit-lock { color: var(--t3) }
 /* 金额组：`margin-left:auto` 永远贴右（舟谱把总金额放在信息带右侧同一行）。 */
 .ipd-bmoney { margin-left: auto; display: flex; gap: 26px; flex-wrap: wrap }
@@ -2446,7 +2446,7 @@ tfoot td { font-weight: 600 }
   position: absolute; top: -4px; right: -4px;
   min-width: 15px; height: 15px; padding: 0 3px;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px; background: var(--p-dark, #2f6fed); color: #fff;
+  border-radius: 8px; background: var(--p-dark); color: #fff;
   font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums;
 }
 /* 🔴 全局 `.page-hd.split` 是 `align-items:flex-start` —— 左侧那个 div 里

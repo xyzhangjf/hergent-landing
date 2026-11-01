@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>效期预警表</h2>
+        <h1>效期预警表</h1>
         <span class="page-sub">临期库存 · 红区 30 天内到期 / 黄区 31–60 天</span>
       </div>
       <div class="wer-acts">

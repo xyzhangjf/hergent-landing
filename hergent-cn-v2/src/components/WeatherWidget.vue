@@ -626,14 +626,14 @@ onBeforeUnmount(() => {
 .wx-trend-svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
 .wx-trend-area{fill:url(#wxTrendGrad);stroke:none}
 .wx-trend-line{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-.wx-trend-line.up{stroke:#f97316}
-.wx-trend-line.down{stroke:#0ea5e9}
+.wx-trend-line.up{stroke:var(--war)}
+.wx-trend-line.down{stroke:var(--chart-6)}
 .wx-trend-line.flat{stroke:var(--t3)}
 /* 拐点圆点：HTML 绝对定位，避免 SVG preserveAspectRatio=none 把圆点压成椭圆 */
 .wx-trend-dot{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;
   background:var(--bg);border:2px solid currentColor;pointer-events:none}
-.wx-trend-dot.up{color:#f97316}
-.wx-trend-dot.down{color:#0ea5e9}
+.wx-trend-dot.up{color:var(--war)}
+.wx-trend-dot.down{color:var(--chart-6)}
 .wx-trend-dot em{position:absolute;left:9px;top:-5px;font-size:11px;font-style:normal;font-weight:600;
   line-height:1.3;padding:0 3px;border-radius:4px;background:var(--bg2);color:currentColor;
   box-shadow:0 0 0 1px var(--glass-border)}

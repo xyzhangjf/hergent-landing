@@ -3988,10 +3988,10 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-plan-step{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t1);line-height:1.5}
 .cp-step-dot{width:10px;height:10px;border-radius:50%;margin-top:4px;flex-shrink:0;background:var(--t3);border:1px solid var(--bd)}
 .cp-plan-step.running .cp-step-dot{background:var(--p);animation:cpStepPulse 1s infinite}
-.cp-plan-step.done .cp-step-dot{background:#1a9e57}
-.cp-plan-step.fail .cp-step-dot{background:#e0483a}
+.cp-plan-step.done .cp-step-dot{background:var(--suc)}
+.cp-plan-step.fail .cp-step-dot{background:var(--dan)}
 .cp-plan-step.running .cp-step-tx{color:var(--p-ink)}
-.cp-plan-step.fail .cp-step-tx{color:#e0483a}
+.cp-plan-step.fail .cp-step-tx{color:var(--dan)}
 @keyframes cpStepPulse{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
 /* v483：预览灯箱 */
 .cp-lightbox{position:fixed;inset:0;z-index:985;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:40px;cursor:zoom-out}
@@ -4077,8 +4077,8 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 
 .cp-body{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;position:relative}
 /* v488：进入副驾恢复最近会话时的加载遮罩，覆盖在对话流上，避免先闪空白新对话 */
-.cp-restoring{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg,#fff);color:var(--t3,#94a3b8);font-size:13px}
-.cp-restoring-spin{width:22px;height:22px;border:2.5px solid var(--border-subtle,#e2e8f0);border-top-color:var(--p-dark,#3b5bdb);border-radius:50%;animation:cp-spin .7s linear infinite}
+.cp-restoring{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--bg);color:var(--t3);font-size:13px}
+.cp-restoring-spin{width:22px;height:22px;border:2.5px solid var(--border-subtle);border-top-color:var(--p-dark);border-radius:50%;animation:cp-spin .7s linear infinite}
 
 /* 历史会话 */
 .cp-hist{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
@@ -4166,7 +4166,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
   .msg-role{font-size:12px}
 }
 /* v495b：每条消息的沟通时间（次级灰字，随气泡左/右对齐） */
-.msg-time{font-size:11px;color:var(--t3,#94a3b8);line-height:1.4;padding:1px 4px;user-select:none;font-variant-numeric:tabular-nums}
+.msg-time{font-size:11px;color:var(--t3);line-height:1.4;padding:1px 4px;user-select:none;font-variant-numeric:tabular-nums}
 .msg-bubble{max-width:100%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 .msg.user .msg-bubble{background:var(--p-dark);color:#fff;border-bottom-right-radius:4px}
 .msg.assistant .msg-bubble{background:var(--bg2);border-bottom-left-radius:4px;color:var(--t1)}
@@ -4363,8 +4363,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-mode-banner.readonly{background:var(--warn-amber-bg);color:var(--warn-amber)}
 /* v408：AI 生成内容免责提示 —— 输入框正下方，整行居中、低对比灰字，不抢视线。
    用 --t3（次要文字色）而非警示红：这是常驻免责声明，不是报错/危险。 */
-.cp-ai-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;font-size:12px;line-height:1.4;color:var(--t3,#94a3b8);user-select:none}
-.cp-queue-hint{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-size:12px;line-height:1.4;color:var(--brand,#2563eb);user-select:none;animation:cp-queue-pulse 1.4s ease-in-out infinite}
+.cp-ai-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:2px;font-size:12px;line-height:1.4;color:var(--t3);user-select:none}
+.cp-queue-hint{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;font-size:12px;line-height:1.4;color:var(--brand);user-select:none;animation:cp-queue-pulse 1.4s ease-in-out infinite}
 @keyframes cp-queue-pulse{0%,100%{opacity:.55}50%{opacity:1}}
 .cp-ai-note svg{flex-shrink:0;opacity:.85}
 
@@ -4480,7 +4480,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 
 /* v465 截图区域框选遮罩（微信式拖拽框选） */
 .cp-snap-mask{position:fixed;inset:0;z-index:980;background:rgba(0,0,0,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;user-select:none;outline:none}
-.cp-snap-stage{position:relative;box-shadow:0 8px 30px rgba(0,0,0,.45);cursor:crosshair;overflow:hidden;background:#222}
+.cp-snap-stage{position:relative;box-shadow:0 8px 30px rgba(0,0,0,.45);cursor:crosshair;overflow:hidden;background:var(--t1)}
 .cp-snap-img{display:block;pointer-events:none;-webkit-user-drag:none;user-select:none}
 .cp-snap-sel{position:absolute;left:0;top:0;width:0;height:0;border:1.5px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.5);box-sizing:border-box;pointer-events:none}
 .cp-snap-hint{color:#fff;font-size:12px;background:rgba(0,0,0,.45);padding:4px 10px;border-radius:6px;pointer-events:none}
@@ -4507,8 +4507,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-smart-ops{margin-left:auto;display:flex;gap:6px;flex-shrink:0}
 .cp-smart-prev{margin-top:8px;border-top:1px solid var(--bd);padding-top:8px;max-height:100px;overflow-y:auto}
 .cp-smart-row{font-size:11px;color:var(--t2);padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cp-smart-result{margin-top:8px;font-size:12px;color:#2f9e44;font-weight:500}
-.cp-smart-result.err{color:#d0342c}
+.cp-smart-result{margin-top:8px;font-size:12px;color:var(--suc);font-weight:500}
+.cp-smart-result.err{color:var(--dan)}
 
 /* 过渡 */
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
@@ -4545,61 +4545,61 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* v717：`.9em` 是沿用 markdown 惯例的相对缩小，但正文 12px 时实际只算到 10.8px，
    中文已到笔画粘连的边缘 —— 用 max() 兜住下限，相对缩放意图不变。 */
 .md :deep(table){border-collapse:collapse;margin:8px 0;font-size:max(11px,.9em);width:100%;table-layout:fixed}
-.md :deep(th),.md :deep(td){border:1px solid var(--b2,#e5e7eb);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}
-.md :deep(th){background:var(--bg2,#f3f4f6);font-weight:600}
-.md :deep(blockquote){margin:6px 0;padding:4px 10px;border-left:3px solid var(--p,#06b6d4);background:rgba(6,182,212,.06);color:var(--t2,#475569);border-radius:0 6px 6px 0}
-.md :deep(hr){border:none;border-top:1px solid var(--b2,#e5e7eb);margin:8px 0}
-.md :deep(code){background:var(--bg2,#f3f4f6);padding:1px 4px;border-radius:4px;font-size:max(11px,.9em);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.md :deep(pre){background:var(--bg2,#f3f4f6);padding:8px;border-radius:6px;overflow-x:auto;margin:6px 0}
+.md :deep(th),.md :deep(td){border:1px solid var(--b2);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere;word-break:break-word}
+.md :deep(th){background:var(--bg2);font-weight:600}
+.md :deep(blockquote){margin:6px 0;padding:4px 10px;border-left:3px solid var(--p);background:rgba(6,182,212,.06);color:var(--t2);border-radius:0 6px 6px 0}
+.md :deep(hr){border:none;border-top:1px solid var(--b2);margin:8px 0}
+.md :deep(code){background:var(--bg2);padding:1px 4px;border-radius:4px;font-size:max(11px,.9em);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.md :deep(pre){background:var(--bg2);padding:8px;border-radius:6px;overflow-x:auto;margin:6px 0}
 .md :deep(pre code){background:none;padding:0}
 /* —— P1-a 代码块：语言标签 + 行号（对标 WorkBuddy 代码块范式） —— */
-.md :deep(.md-codeblock){margin:6px 0;border:1px solid var(--b2,#e5e7eb);border-radius:8px;overflow:hidden;background:var(--bg2,#f3f4f6)}
-.md :deep(.md-codeblock__bar){display:flex;align-items:center;padding:4px 10px;background:var(--bg3,#e9eef3);border-bottom:1px solid var(--b2,#e5e7eb)}
-.md :deep(.md-codeblock__lang){font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--t3,#94a3b8);text-transform:uppercase}
+.md :deep(.md-codeblock){margin:6px 0;border:1px solid var(--b2);border-radius:8px;overflow:hidden;background:var(--bg2)}
+.md :deep(.md-codeblock__bar){display:flex;align-items:center;padding:4px 10px;background:var(--bg3);border-bottom:1px solid var(--b2)}
+.md :deep(.md-codeblock__lang){font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--t3);text-transform:uppercase}
 /* v486 P1-② 代码块一键复制：靠右、低对比，hover 才提亮，不抢代码正文视线 */
-.md :deep(.md-code-copy){margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;cursor:pointer;transition:color var(--dur-base),border-color var(--dur-base),background var(--dur-base)}
-.md :deep(.md-code-copy:hover){color:var(--p,#06b6d4);border-color:var(--p,#06b6d4);background:var(--bg2,#f3f4f6)}
-.md :deep(.md-code-copy.copied){color:#16a34a;border-color:#16a34a}
+.md :deep(.md-code-copy){margin-left:auto;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;font:inherit;font-size:11px;line-height:1.6;color:var(--t3);background:transparent;border:1px solid var(--b2);border-radius:6px;cursor:pointer;transition:color var(--dur-base),border-color var(--dur-base),background var(--dur-base)}
+.md :deep(.md-code-copy:hover){color:var(--p);border-color:var(--p);background:var(--bg2)}
+.md :deep(.md-code-copy.copied){color:var(--suc);border-color:var(--suc)}
 .md :deep(.md-codeblock .md-pre){margin:0;border-radius:0;background:transparent;padding:8px 0}
 .md :deep(.md-ln){display:block;white-space:pre}
-.md :deep(.md-ln-no){display:inline-block;width:2.2em;margin-right:10px;text-align:right;color:var(--t3,#94a3b8);user-select:none;-webkit-user-select:none}
+.md :deep(.md-ln-no){display:inline-block;width:2.2em;margin-right:10px;text-align:right;color:var(--t3);user-select:none;-webkit-user-select:none}
 .md :deep(.md-ln-tx){font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:max(11px,.9em)}
 /* —— P1-b 长回复目录（TOC），可折叠，点击跳转 —— */
-.md :deep(.md-toc){margin:8px 0;padding:8px 12px;border:1px solid var(--b2,#e5e7eb);border-radius:8px;background:var(--bg3,#eef2f6)}
-.md :deep(.md-toc__title){font-size:12px;font-weight:700;color:var(--t2,#475569);cursor:pointer;user-select:none}
+.md :deep(.md-toc){margin:8px 0;padding:8px 12px;border:1px solid var(--b2);border-radius:8px;background:var(--bg3)}
+.md :deep(.md-toc__title){font-size:12px;font-weight:700;color:var(--t2);cursor:pointer;user-select:none}
 .md :deep(.md-toc-list){margin:6px 0 0;padding-left:0;list-style:none}
 .md :deep(.md-toc-li){margin:2px 0;line-height:1.5}
 .md :deep(.md-toc-li.lv3){padding-left:14px}
-.md :deep(.md-toc-link){color:var(--p,#06b6d4);cursor:pointer;font-size:13px}
+.md :deep(.md-toc-link){color:var(--p);cursor:pointer;font-size:13px}
 .md :deep(.md-toc-link:hover){text-decoration:underline}
 /* —— P2-a / P3-a 引用块：区分 AI 结论 / 引用资料 / 关键结论卡片 —— */
-.md :deep(blockquote.md-quote--ai){border-left-color:var(--p,#06b6d4);background:rgba(6,182,212,.06)}
-.md :deep(blockquote.md-quote--src){border-left-color:var(--t3,#94a3b8);background:rgba(148,163,184,.08);color:var(--t2,#64748b)}
-.md :deep(blockquote.md-quote--key){border-left-color:#f59e0b;background:rgba(245,158,11,.10);color:var(--t1)}
-.md :deep(blockquote.md-quote--key .md-quote__tag){display:inline-block;margin-bottom:2px;padding:0 6px;border-radius:4px;background:#f59e0b;color:#fff;font-size:11px;font-weight:700;line-height:1.7}
+.md :deep(blockquote.md-quote--ai){border-left-color:var(--p);background:rgba(6,182,212,.06)}
+.md :deep(blockquote.md-quote--src){border-left-color:var(--t3);background:rgba(148,163,184,.08);color:var(--t2)}
+.md :deep(blockquote.md-quote--key){border-left-color:var(--war);background:rgba(245,158,11,.10);color:var(--t1)}
+.md :deep(blockquote.md-quote--key .md-quote__tag){display:inline-block;margin-bottom:2px;padding:0 6px;border-radius:4px;background:var(--war);color:#fff;font-size:11px;font-weight:700;line-height:1.7}
 /* —— P2-b 表格：横向滚动容器 + 表头吸顶 —— */
 .md :deep(.md-table-wrap){margin:8px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 .md :deep(th){position:sticky;top:0;z-index:1}
 /* —— v487 P2-③ 表格→图表开关（:deep 因 v-html 注入的 DOM 无 scoped 属性） —— */
 .md :deep(.md-table-bar){display:flex;justify-content:flex-end;margin:2px 0 4px}
-.md :deep(.md-table-chart-toggle){font:inherit;font-size:11px;line-height:1.6;color:var(--t3,#94a3b8);background:transparent;border:1px solid var(--b2,#e5e7eb);border-radius:6px;padding:2px 8px;cursor:pointer;transition:color var(--dur-base),border-color var(--dur-base)}
-.md :deep(.md-table-chart-toggle:hover){color:var(--p,#06b6d4);border-color:var(--p,#06b6d4)}
+.md :deep(.md-table-chart-toggle){font:inherit;font-size:11px;line-height:1.6;color:var(--t3);background:transparent;border:1px solid var(--b2);border-radius:6px;padding:2px 8px;cursor:pointer;transition:color var(--dur-base),border-color var(--dur-base)}
+.md :deep(.md-table-chart-toggle:hover){color:var(--p);border-color:var(--p)}
 .md :deep(.md-table-chart){margin:4px 0 2px}
 .md :deep(.md-chart-svg){width:100%;height:96px;display:block}
-.md :deep(.md-chart-legend){display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:11px;color:var(--t2,#475569)}
+.md :deep(.md-chart-legend){display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:4px;font-size:11px;color:var(--t2)}
 .md :deep(.md-chart-lg){display:inline-flex;align-items:center;gap:4px}
 .md :deep(.md-chart-lg i){width:8px;height:8px;border-radius:2px;flex-shrink:0}
 /* —— v487 P2-⑦ 内联交互控件（滑块/开关） —— */
-.md :deep(.md-control){display:inline-flex;align-items:center;gap:8px;margin:2px 10px 2px 0;padding:4px 10px;background:var(--bg2,#f3f4f6);border:1px solid var(--b2,#e5e7eb);border-radius:8px}
-.md :deep(.md-control-lbl){font-size:12px;color:var(--t2,#475569);white-space:nowrap}
-.md :deep(.md-control-range){width:120px;accent-color:var(--p,#06b6d4)}
-.md :deep(.md-control-val){font-size:12px;font-weight:600;color:var(--t1,#0f172a);font-variant-numeric:tabular-nums;min-width:2.5em;text-align:right}
-.md :deep(.md-switch){width:38px;height:22px;border-radius:11px;border:none;background:var(--b2,#e5e7eb);position:relative;cursor:pointer;padding:0;transition:background var(--dur-base)}
+.md :deep(.md-control){display:inline-flex;align-items:center;gap:8px;margin:2px 10px 2px 0;padding:4px 10px;background:var(--bg2);border:1px solid var(--b2);border-radius:8px}
+.md :deep(.md-control-lbl){font-size:12px;color:var(--t2);white-space:nowrap}
+.md :deep(.md-control-range){width:120px;accent-color:var(--p)}
+.md :deep(.md-control-val){font-size:12px;font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums;min-width:2.5em;text-align:right}
+.md :deep(.md-switch){width:38px;height:22px;border-radius:11px;border:none;background:var(--b2);position:relative;cursor:pointer;padding:0;transition:background var(--dur-base)}
 .md :deep(.md-switch)::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left var(--dur-base);box-shadow:0 1px 2px rgba(0,0,0,.2)}
-.md :deep(.md-switch.on){background:var(--p,#06b6d4)}
+.md :deep(.md-switch.on){background:var(--p)}
 .md :deep(.md-switch.on)::after{left:18px}
 /* —— v487 P2-⑨ 产物元数据 —— */
-.cp-art-meta{font-size:11px;color:var(--t3,#94a3b8);line-height:1.5;padding:2px 4px 6px;margin-bottom:4px;border-bottom:1px dashed var(--border-subtle)}
+.cp-art-meta{font-size:11px;color:var(--t3);line-height:1.5;padding:2px 4px 6px;margin-bottom:4px;border-bottom:1px dashed var(--border-subtle)}
 
 /* —— v423：单轮对话底部操作栏（对齐 WorkBuddy message-actions） —— */
 /* v451：操作栏按钮规格对齐 WorkBuddy。实测依据（WorkBuddy.app → app.asar →
@@ -4610,18 +4610,18 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
    颜色映射到本仓 token：--cb-text-secondary → --t2；--cb-bg-primary-hover → --b2。 */
 /* v524：分割线由「按钮上方」移至「按钮下方」—— 让复制/点赞等操作条归到本条消息，
    线作为消息与消息之间的分隔；保留顶部 8px 间距，底部 8px 内边距后落线。 */
-.cp-msg-actions{display:flex;align-items:center;gap:8px;margin-top:8px;padding-bottom:8px;border-bottom:1px solid var(--b2,#eef1f5)}
-.cp-act{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:none;background:transparent;border-radius:8px;color:var(--t2,#6e6e73);cursor:pointer;transition:background-color var(--dur-base)}
-.cp-act:hover{background:var(--b2,#ebebeb)}
+.cp-msg-actions{display:flex;align-items:center;gap:8px;margin-top:8px;padding-bottom:8px;border-bottom:1px solid var(--b2)}
+.cp-act{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:none;background:transparent;border-radius:8px;color:var(--t2);cursor:pointer;transition:background-color var(--dur-base)}
+.cp-act:hover{background:var(--b2)}
 .cp-act:focus-visible{/* v717：不再抑制焦点环，交给全局 2px ring */}
 .cp-act:disabled{opacity:.35;cursor:not-allowed}
-.cp-act.on{color:var(--p,#3b82f6)}          /* 朗读/分享激活态：主色高亮 */
+.cp-act.on{color:var(--p)}          /* 朗读/分享激活态：主色高亮 */
 .cp-act.on:hover{background:transparent}
 /* 点赞/点踩：WorkBuddy 的选中态**不改颜色**，只把图标从线框换成实心（见 Icon.vue 的 FILL_ICONS），
    所以这里把上面 .cp-act.on 的主色高亮「收回」为默认字色，并保留 hover 背景。
    两条选择器各多一层类，特异性 (0,3,0)/(0,4,0) > 上面的 (0,2,0)/(0,3,0)，无需 !important。 */
-.cp-act.cp-rate.on{color:var(--t2,#6e6e73)}
-.cp-act.cp-rate.on:hover{background:var(--b2,#ebebeb)}
+.cp-act.cp-rate.on{color:var(--t2)}
+.cp-act.cp-rate.on:hover{background:var(--b2)}
 .cp-share{position:relative;display:inline-flex}
 .cp-share-menu{position:absolute;bottom:36px;left:0;z-index:30;display:flex;flex-direction:column;min-width:124px;padding:4px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:0 6px 20px rgba(15,23,42,.14)}
 .cp-share-menu button{text-align:left;padding:7px 10px;border:none;background:transparent;border-radius:7px;font-size:13px;color:var(--t1);cursor:pointer}

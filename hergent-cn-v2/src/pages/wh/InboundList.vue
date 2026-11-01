@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>入库单</h2>
+        <h1>入库单</h1>
         <span class="page-sub">收货登记 · 确认收货后落 FEFO 批次与效期</span>
       </div>
       <div class="win-acts">

@@ -2,7 +2,7 @@
   <div class="page page-default">
     <div class="page-hd split">
       <div>
-        <h2>打印</h2>
+        <h1>打印</h1>
         <span class="page-sub">单据模板、打印设置与打印记录</span>
       </div>
     </div>

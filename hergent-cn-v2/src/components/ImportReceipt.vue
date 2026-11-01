@@ -140,11 +140,11 @@ async function doUndo() {
 .ir.bad{background:rgba(var(--war-rgb),.12);color:var(--war)}
 .ir-line b{font-size:14px}
 .ir-line b.dim{color:var(--t3);font-weight:500}
-.ir-line b.bad{color:var(--err-red, #d9534f)}
+.ir-line b.bad{color:var(--err-red)}
 .ir-sub{font-size:12px;color:var(--t2);display:flex;flex-direction:column;gap:2px}
 /* v304：「已导入但要你看一眼」用暖色，与"真失败"（红）刻意区分开 ——
    两者混成一色，用户就无法一眼分辨"要不要重来"。 */
-.ir-sub-warn{color:#b45309}
+.ir-sub-warn{color:var(--war)}
 .ir-sub-h{font-weight:500}
 .ir-sub-i{padding-left:8px}
 .ir-act{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}

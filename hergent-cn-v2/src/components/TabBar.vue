@@ -190,7 +190,16 @@ function close(t) {
 .tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .tab-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
-  border-radius:5px;color:var(--t3);flex-shrink:0;cursor:pointer;transition:background var(--dur-base),color var(--dur-base)}
+  border-radius:5px;color:var(--t3);flex-shrink:0;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);
+  /* v719 P2：**视觉 16px 不变、点击热区撑到 22×26**。
+     🔴 为什么不是评审建议的 30×30：本条目高 26px（v677 老板要求调矮，硬约束），
+        图标放到 30px 会把整条标签栏撑高、作废 v677 的交付。
+     🔴 为什么水平只敢扩 3px：刷新与关闭两个图标相邻、`.tab-item` 的 gap 是 6px，
+        各向外扩 3px 正好贴边不重叠；扩到 5px 两者热区交叠 4px ⇒ 点"关闭"会误触"刷新"
+        （反向更糟：误关整页）。垂直方向没有这个约束，可撑满条目内距 5px。
+     结论：热区从 16×16 提到 22×26（面积 2.2 倍），是这条 26px 标签栏的物理上限。 */
+  position:relative}
+.tab-ic::before{content:'';position:absolute;inset:-5px -3px}
 .tab-ic:hover{background:var(--p-bg);color:var(--p-dark)}
 .tab-item.on .tab-refresh{color:var(--p-dark)}
 .tab-item.on .tab-close{color:var(--t3)}

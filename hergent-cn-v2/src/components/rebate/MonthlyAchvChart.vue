@@ -651,14 +651,14 @@ function onHover(mo, i, key) {
 
 /* v185 C2：高度由 :style 给出（完整 200 / 紧凑 132），不写死 */
 .mac-svg { width: 100%; display: block; }
-.grid { stroke: var(--border-subtle, #e2e8f0); stroke-width: 1; stroke-dasharray: 3 3; }
+.grid { stroke: var(--border-subtle); stroke-width: 1; stroke-dasharray: 3 3; }
 .axis { stroke: var(--bd); stroke-width: 1; }
 .ax-lb { font-size: 11px; }
 .ax-mo { font-size: 11px; fill: var(--t3); }
 /* v159 柱两段：轨道（目标）+ 填充（达成）+ 超额加深段。
    两处文字均加白色描边（paint-order）—— 柱顶标签可能压到相邻更高的柱、时间进度线文字会横跨当月柱身，
    无描边则与柱色混在一起读不出来 */
-/* v186：轨道改用**明确灰 #cbd5e1**（原为 var(--border-subtle,#e2e8f0)）。
+/* v186：轨道改用**明确灰 #cbd5e1**（原为 var(--border-subtle)）。
    轨道＝「该月有目标」这件事的唯一可见证据：有目标就必须看得见一根柱子 ——
    未填报 / 未达成时它整根是灰的，达成部分再被彩色填充盖上去。
    #e2e8f0 是边框色，在白底上淡到"像没画"，用户会以为"有目标却没柱子"。
@@ -687,7 +687,7 @@ function onHover(mo, i, key) {
 .tp-v { color: var(--t1); font-variant-numeric: tabular-nums; }
 .tp-r { margin-left: auto; color: var(--t2); font-variant-numeric: tabular-nums; }
 .tp-r.warn { color: #dc2626; }
-.tp-ex { display: flex; gap: 8px; line-height: 1.9; border-top: 1px solid var(--border-subtle, #e2e8f0); margin-top: 4px; padding-top: 4px; }
+.tp-ex { display: flex; gap: 8px; line-height: 1.9; border-top: 1px solid var(--border-subtle); margin-top: 4px; padding-top: 4px; }
 .tp-ex .tp-v { color: var(--t2); }
 
 .mac-ft { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--t3); }

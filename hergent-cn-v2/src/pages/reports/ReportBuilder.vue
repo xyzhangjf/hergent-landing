@@ -2,7 +2,7 @@
   <div class="page rb-page">
     <div class="page-hd split">
       <div>
-        <h2>报表设计器</h2>
+        <h1>报表设计器</h1>
         <span class="page-sub">
           改一张报表的取数口径与列显示。<b>保存后所有人打开那张报表看到的都会变</b> ——
           这里改的是「数怎么算出来的」，不是「数长什么样」。
@@ -619,7 +619,7 @@ onMounted(loadList)
 
 <style scoped>
 .rb-acts { display: flex; gap: 8px; align-items: center }
-.rb-save { background: var(--pri, #2b6cb0); color: #fff; border: 1px solid var(--pri, #2b6cb0) }
+.rb-save { background: var(--pri); color: #fff; border: 1px solid var(--pri) }
 .rb-save:disabled { opacity: .45 }
 
 .rb-layout { display: grid; grid-template-columns: 268px minmax(0, 1fr); gap: 14px; align-items: start }
@@ -628,7 +628,7 @@ onMounted(loadList)
 .rb-list { position: sticky; top: 12px; max-height: calc(100vh - 150px); display: flex; flex-direction: column }
 .rb-list-hd {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 12px; border-bottom: 1px solid var(--line, #eef0f3);
+  padding: 10px 12px; border-bottom: 1px solid var(--line);
   font-size: 12px; font-weight: 600; color: var(--t1);
 }
 .rb-list-cnt { font-size: 12px; font-weight: 400; color: var(--t3) }
@@ -641,13 +641,13 @@ onMounted(loadList)
   background: transparent; cursor: pointer; text-align: left;
   font-size: 12px; color: var(--t1);
 }
-.rb-item:hover { background: var(--bg2, #f6f7f9) }
-.rb-item.on { background: var(--pri-w, #eaf1fb); color: var(--pri, #2b6cb0); font-weight: 600 }
+.rb-item:hover { background: var(--bg2) }
+.rb-item.on { background: var(--pri-w); color: var(--pri); font-weight: 600 }
 .rb-item-t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .rb-item-s { font-size: 11px; padding: 1px 5px; border-radius: 999px; flex-shrink: 0 }
-.s-ok { background: #e6f6ec; color: #1f7a3f }
-.s-warn { background: #fdf3e2; color: #a9741a }
-.s-off { background: var(--bg3, #eef0f3); color: var(--t3) }
+.s-ok { background: var(--suc-bg); color: var(--suc) }
+.s-warn { background: var(--war-bg); color: var(--war) }
+.s-off { background: var(--bg3); color: var(--t3) }
 
 .rb-edit { display: flex; flex-direction: column; gap: 12px; min-width: 0 }
 .rb-sec { padding: 14px 16px }
@@ -656,20 +656,20 @@ onMounted(loadList)
   font-size: 13px; font-weight: 600; color: var(--t1); margin-bottom: 10px; flex-wrap: wrap;
 }
 .rb-sec-note { font-size: 12px; font-weight: 400; color: var(--t3) }
-.rb-sec-note b { color: var(--war, #b8791a) }
+.rb-sec-note b { color: var(--war) }
 .rb-sec-note code, .rb-hint code, .rb-params-empty code {
   background: var(--bg2); padding: 1px 4px; border-radius: 3px; font-size: 11px;
 }
 
-.rb-badge { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--bg3, #eef0f3); color: var(--t3) }
-.rb-badge-manual { background: #fdf3e2; color: #a9741a }
+.rb-badge { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--bg3); color: var(--t3) }
+.rb-badge-manual { background: var(--war-bg); color: var(--war) }
 
 .rb-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
 @media (max-width: 760px) { .rb-grid2 { grid-template-columns: 1fr } }
 .rb-fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t3) }
 .rb-in {
   padding: 6px 8px; font-size: 12px; border-radius: 6px;
-  border: 1px solid var(--line, #dcdfe6); background: var(--bg1, #fff); color: var(--t1);
+  border: 1px solid var(--line); background: var(--bg1); color: var(--t1);
   min-width: 0;
 }
 .rb-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px }
@@ -677,7 +677,7 @@ onMounted(loadList)
 
 .rb-sql {
   width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px;
-  border: 1px solid var(--line, #dcdfe6); background: var(--bg2, #fafbfc); color: var(--t1);
+  border: 1px solid var(--line); background: var(--bg2); color: var(--t1);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.7;
   resize: vertical;
 }
@@ -695,8 +695,8 @@ onMounted(loadList)
 .rb-col-hd { font-size: 11px; color: var(--t3); padding: 0 2px 2px }
 .rb-col-ops { display: flex; gap: 2px }
 .rb-x {
-  width: 22px; height: 22px; line-height: 1; padding: 0; border: 1px solid var(--line, #dcdfe6);
-  background: var(--bg1, #fff); color: var(--t2); border-radius: 4px; cursor: pointer; font-size: 12px;
+  width: 22px; height: 22px; line-height: 1; padding: 0; border: 1px solid var(--line);
+  background: var(--bg1); color: var(--t2); border-radius: 4px; cursor: pointer; font-size: 12px;
 }
 .rb-x:disabled { opacity: .35; cursor: default }
 .rb-col input[type="checkbox"] { width: 15px; height: 15px }
@@ -716,19 +716,19 @@ onMounted(loadList)
 .rb-chk input { width: 15px; height: 15px }
 .rb-chart-warn {
   display: flex; align-items: center; gap: 6px; margin: 10px 0 0;
-  font-size: 12px; color: #a9741a; background: #fdf3e2; padding: 7px 10px; border-radius: 6px;
+  font-size: 12px; color: var(--war); background: var(--war-bg); padding: 7px 10px; border-radius: 6px;
 }
-.rb-fig-prev { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line, #dcdfe6) }
+.rb-fig-prev { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line) }
 .rb-fig-hd { font-size: 12px; color: var(--t3); margin-bottom: 8px }
 
 .rb-note {
   width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 8px;
-  border: 1px solid var(--line, #dcdfe6); background: var(--bg1, #fff); color: var(--t1);
+  border: 1px solid var(--line); background: var(--bg1); color: var(--t1);
   font-size: 12px; line-height: 1.9; resize: vertical;
 }
 
-.rb-err { padding: 12px 14px; border-left: 3px solid var(--danger, #d64545); background: var(--bg2) }
-.rb-err-hd { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--danger, #d64545) }
+.rb-err { padding: 12px 14px; border-left: 3px solid var(--danger); background: var(--bg2) }
+.rb-err-hd { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--danger) }
 .rb-err p { margin: 6px 0 0; font-size: 12px; line-height: 1.8; color: var(--t2); word-break: break-all }
 
 .rb-hollow { padding: 28px 24px; text-align: center }

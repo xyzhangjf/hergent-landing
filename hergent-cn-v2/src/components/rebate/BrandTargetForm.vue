@@ -86,6 +86,6 @@ defineEmits([
 
 <style scoped>
 .monthly-block .page-sub{font-size:12px;color:var(--t3);line-height:1.5}
-.ap-warn{font-size:12px;color:var(--danger,#c0392b);background:rgba(192,57,43,.08);border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.5}
+.ap-warn{font-size:12px;color:var(--danger);background:rgba(192,57,43,.08);border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.5}
 .mg-default{margin-top:10px;border-top:1px dashed var(--bd);padding-top:6px}
 </style>

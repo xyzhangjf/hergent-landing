@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>车辆库存查询</h2>
+        <h1>车辆库存查询</h1>
         <span class="page-sub">在车库存 · 按车辆查看，用于车销与配送核对</span>
       </div>
       <div class="wvs-acts">

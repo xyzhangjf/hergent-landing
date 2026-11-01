@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>{{ TITLE }}</h2>
+        <h1>{{ TITLE }}</h1>
         <span class="page-sub">{{ SUB }}</span>
       </div>
       <div class="woi-acts">

@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd split">
-      <div><h2>{{ title }}</h2><span class="page-sub">{{ sub }}</span></div>
+      <div><h1>{{ title }}</h1><span class="page-sub">{{ sub }}</span></div>
       <div class="fc-acts"><button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()"><Icon name="refresh" :size="14" />刷新</button></div>
     </div>
 
@@ -108,5 +108,5 @@ onMounted(load)
 .fc-grow { flex: 1 }
 .fc-card { padding: 0; overflow: hidden }
 .fc-foot { font-size: 12px; color: var(--t2); margin: 8px 2px 0 }
-.fc-bad { background: var(--danger-bg, #fef2f2) }
+.fc-bad { background: var(--danger-bg) }
 </style>

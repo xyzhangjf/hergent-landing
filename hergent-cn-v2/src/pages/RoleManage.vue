@@ -2,7 +2,7 @@
   <div :class="embed ? 'rm-embed' : 'page'">
     <div class="page-hd split">
       <div>
-        <h2>AI 团队</h2>
+        <h1>AI 团队</h1>
         <span class="page-sub">配置副驾的不同 AI 团队。切换后对话自动带上对应专家视角，让 AI 更贴你的业务。</span>
       </div>
       <button class="btn btn-primary rm-new" @click="openNew">+ 新建团队</button>
@@ -518,8 +518,8 @@ onMounted(() => { load(); loadCatalog() })
 .rm-ch-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t2)}
 .rm-ch-ic{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:4px;font-size:11px;color:#fff}
 .ch-wecom .rm-ch-ic, .rm-ch-ic.ch-wecom{background:var(--p-dark)}
-.ch-feishu .rm-ch-ic, .rm-ch-ic.ch-feishu{background:#1f6eff}
-.ch-dingtalk .rm-ch-ic, .rm-ch-ic.ch-dingtalk{background:#00a0e9}
+.ch-feishu .rm-ch-ic, .rm-ch-ic.ch-feishu{background:var(--plt-feishu)}
+.ch-dingtalk .rm-ch-ic, .rm-ch-ic.ch-dingtalk{background:var(--plt-dingtalk)}
 .rm-ch-edit{font-size:11px;color:var(--p-dark);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0}
 .rm-ch-add{font-size:12px;color:var(--t2);background:var(--bg2);border:1px dashed var(--bd);border-radius:8px;padding:3px 10px;cursor:pointer}
 .rm-ch-add:hover{border-color:var(--p-dark);color:var(--p-dark)}

@@ -10631,8 +10631,8 @@ const PRINT_CSS = `
   /* printable.js 的版式是「单栏文档」（max-width:820px）⇒ 宽表要自己撑开 */
   .doc{max-width:none;padding:20px 24px;}
   .doc-body table.pg{width:auto;min-width:100%;font-size:11px;}
-  .doc-body table.pg th,.doc-body table.pg td{padding:3px 6px;white-space:nowrap;border:1px solid #d7dbe0;}
-  .doc-body table.pg thead th{background:#f2f5f7;}
+  .doc-body table.pg th,.doc-body table.pg td{padding:3px 6px;white-space:nowrap;border:1px solid var(--bd);}
+  .doc-body table.pg thead th{background:var(--bg2);}
   @page{size:A4 landscape;margin:8mm;}
   @media print{
     .doc{padding:0 4mm;}
@@ -13591,7 +13591,7 @@ provide('sprintSummary', sprintSummary)
 .render-pending-td {
   padding: 6px 12px;
   vertical-align: top;      /* 文字贴顶：撑出来的是空白，居中会飘在那一大片空白中央 */
-  color: var(--fg-3, #8a8f98);
+  color: var(--fg-3);
   font-size: 12px;
   border: none;
 }
@@ -13608,12 +13608,12 @@ provide('sprintSummary', sprintSummary)
       **改挂 `.target-panel` 那条成例**：只藏 h2（与标签同名），保留副标题
       （「把系统全称 ↔ 报单简称(列头) ↔ 单型…」）—— 那句是业务口径，标签上看不出来。 */
 .rcfg-obj :deep(.page){padding:0;margin:0}
-.rcfg-obj :deep(.page-hd h2){display:none}
+.rcfg-obj :deep(.page-hd :is(h1,h2)){display:none}
 /* v265 商品目标嵌入为标签页：同 config-panel 成例收掉内边距与重复标题。
    与报单配置唯一的差别 —— **只藏 <h2>「商品目标」（与页签同名），保留副标题**
    「按月设总量 · 分解到人 · 期次自动认领」：那句是业务口径，页签上看不出来。 */
 .target-panel :deep(.page){padding:0;margin:0}
-.target-panel :deep(.page-hd h2){display:none}
+.target-panel :deep(.page-hd :is(h1,h2)){display:none}
 .toolbar{display:flex;align-items:center;justify-content:flex-start;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:8px}
 .tb-left,.tb-right,.toolbar>.tb-group{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .tb-left .btn,.tb-right .btn,.toolbar>.tb-group .btn{flex:0 0 auto;white-space:nowrap}

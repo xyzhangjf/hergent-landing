@@ -14,7 +14,7 @@
     </div>
     <div class="page-hd split">
       <div class="ipn-hd-t">
-        <h2>{{ pageTitle }}</h2>
+        <h1>{{ pageTitle }}</h1>
         <!-- v455：必填项图例（复刻舟谱创建页右上角那枚橙色小标）。
              表单头与明细表里的红 `*` 在这里得到统一解释 —— 不写这句，从舟谱迁来的
              用户会以为 `*` 是装饰，或者反过来以为「经办人没填不让存」。 -->
@@ -1649,7 +1649,7 @@ watch([copyId], () => { reinit() })
   display: inline-flex; align-items: center; gap: 3px;
   margin-left: 10px; padding: 2px 8px;
   border: 1px solid var(--border-subtle); border-radius: 999px;
-  background: var(--bg2, #f7f8fa);
+  background: var(--bg2);
   font-size: 12px; color: var(--t2); vertical-align: middle;
   transform: translateY(1px);
 }
@@ -1760,7 +1760,7 @@ watch([copyId], () => { reinit() })
   color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .ipn-prod-tier.is-muted { color: var(--t3) }
-.ipn-prod-tier.is-warn { color: var(--danger-txt, var(--war, #c0392b)) }
+.ipn-prod-tier.is-warn { color: var(--danger-txt, var(--war)) }
 .ipn-prod-bar { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
 .ipn-prod-empty {
   position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
@@ -1851,7 +1851,7 @@ watch([copyId], () => { reinit() })
   font-size: 12px; color: var(--t2); cursor: pointer; user-select: none;
   white-space: nowrap;
 }
-.ipn-unitsw input { width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--p, #1677ff) }
+.ipn-unitsw input { width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--p) }
 .ipn-unitsw:hover { color: var(--t1) }
 .ipn-unitsw.on { color: var(--t1) }
 .ipn-unitsw.on .ipn-unitsw-tx { font-weight: 500 }
@@ -2134,7 +2134,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 .ipn-kbd-hint kbd {
   display: inline-block; padding: 1px 5px;
   border: 1px solid var(--border-subtle); border-radius: 4px;
-  background: var(--bg2, #f7f8fa);
+  background: var(--bg2);
   font-family: inherit; font-size: 11px; line-height: 1.5; color: var(--t2);
 }
 .ipn-kbd-hint em { margin: 0 6px; font-style: normal; color: var(--t3) }

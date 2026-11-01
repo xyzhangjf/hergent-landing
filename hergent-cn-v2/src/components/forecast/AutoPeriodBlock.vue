@@ -225,7 +225,7 @@ onMounted(load)
 <style scoped>
 .ap-chip{font-size:11px;padding:1px 9px;border-radius:10px;font-weight:500}
 .ap-chip.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
-.ap-chip.off{background:var(--bg2, #f3f4f6);color:var(--t3)}
+.ap-chip.off{background:var(--bg2);color:var(--t3)}
 .ap-meta{font-size:12px;color:var(--t2)}
 .ap-strong{font-size:12px;color:var(--p-dark);font-weight:500}
 .ap-warnchip{font-size:12px;color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px 8px;border-radius:10px}
@@ -244,7 +244,7 @@ onMounted(load)
 .ap-mirror{margin:6px 0;font-size:12px;color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs, 6px);padding:6px 9px;line-height:1.55}
 .ap-mirror-warn{color:var(--war);background:rgba(var(--war-rgb),.08)}
 .ap-edit{margin-left:8px;color:var(--p-dark);text-decoration:none;border-bottom:1px dashed var(--p);font-size:12px;white-space:nowrap}
-.ap-warn{margin:6px 0;font-size:12px;color:var(--danger,#c0392b);background:rgba(192,57,43,.08);border-radius:var(--radius-xs, 6px);padding:6px 9px;line-height:1.55}
+.ap-warn{margin:6px 0;font-size:12px;color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs, 6px);padding:6px 9px;line-height:1.55}
 .ap-prev{margin-top:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px;background:var(--bg2)}
 .ap-prev-hd{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--t3);margin-bottom:8px}
 /* v365：被「不到货」排除的期次 —— 说明条 + 行内标记。颜色全走既有令牌，零硬编码色 */

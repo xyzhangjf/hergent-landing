@@ -39,6 +39,36 @@ const STRUCTURAL = new Set([
 
 const HEX = /#([0-9a-fA-F]{3,8})\b/g
 
+/* ── 剥离注释再扫 ──────────────────────────────────────────────────────────
+   🔴 v719 实测的假阳性：`<!-- #356：异常预警区 -->`、`// #357 目标分解` 这类**任务号**
+      是 3 位十六进制（356/354/355/357 全是合法 hex 字符），会被 HEX 当成颜色收进来 ——
+      单个文件就此虚报 4 条，而它一个颜色都没写。同理注释里"浅色 #854F0B / 深色 #e2b274"
+      这类说明文字也不是用色。
+   护栏的可信度取决于它不冤枉人：一条假阳性就会让人想整体关掉它。
+   ⇒ 先剥三类注释（HTML / 块 / 行），再匹配。行注释用 `(^|\s)//` 且排除 `://`（URL 不剥）。 */
+function stripComments(src) {
+  return src
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|\s)\/\/[^\n]*/g, '$1')
+}
+
+/* ── 豁免：图表调色板 ───────────────────────────────────────────────────────
+   护栏的目的是拦「随手写一个颜色当文字色/边界色」，不是拦「图表定义柱体配色」。
+   这两个文件里的色值是**配色数据**（一组同权重系列色），不是样式层绕过令牌：
+   - 它们是多色系列，天然不能收敛到单一语义令牌；
+   - 取的是「与 --war/--dan 警示语义分开」的大面积填色，用警示色铺柱体会刺眼；
+   - 两者都自带浅/深两套取值（LossDashboard 的 --c-* 在 html.dark 里重取），
+     各自的取舍在源码里都有成段注释。
+   🔴 豁免名单**只许缩小**：往这里加文件前先问「这是不是一组系列配色」，
+      单个颜色不许借这个口子进来。 */
+const EXEMPT = {
+  'src/components/LossDashboard.vue':
+    '图表调色板 --c-*(12 个)，html.dark 内另有整套深色取值，见文件头三段说明',
+  'src/components/rebate/MonthlyAchvChart.vue':
+    '图表调色板 C 常量(fill/deep/lbl 五组)，v491 已决策「高度调优过 12 轮、不碰配色避免回归」',
+}
+
 function walk(dir, out = []) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name)
@@ -55,7 +85,8 @@ function collect() {
   for (const abs of walk(SRC)) {
     const rel = relative(ROOT, abs).split('\\').join('/')
     if (rel === TOKEN_FILE) continue
-    const src = readFileSync(abs, 'utf8')
+    if (EXEMPT[rel]) continue
+    const src = stripComments(readFileSync(abs, 'utf8'))
     const vals = new Set()
     for (const m of src.matchAll(HEX)) {
       const v = m[1].toLowerCase()
@@ -88,6 +119,11 @@ if (args.has('--list')) {
   console.log('待清理的硬编码色（文件 → 色值数）：')
   for (const [f, c] of rows) console.log(`  ${String(c).padStart(3)}  ${f}`)
   console.log(`\n合计 ${rows.length} 个文件 / ${rows.reduce((a, b) => a + b[1], 0)} 条`)
+  const ex = Object.entries(EXEMPT)
+  if (ex.length) {
+    console.log(`\n豁免（图表调色板，不计入待清）：`)
+    for (const [f, why] of ex) console.log(`  ${f}\n    ${why}`)
+  }
   process.exit(0)
 }
 

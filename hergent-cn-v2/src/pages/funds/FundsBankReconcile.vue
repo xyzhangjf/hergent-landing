@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd split">
-      <div><h2>银行流水对账</h2><span class="page-sub">{{ sub }}</span></div>
+      <div><h1>银行流水对账</h1><span class="page-sub">{{ sub }}</span></div>
       <div class="fbk-acts"><button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()"><Icon name="refresh" :size="14" />刷新</button></div>
     </div>
 
@@ -111,8 +111,8 @@ onMounted(load)
 .fbk-frow > label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t2) }
 .fbk-accts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px }
 .fbk-acct { background: var(--bg1); border: 1px solid var(--bd); border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: border-color var(--dur-base), box-shadow var(--dur-base) }
-.fbk-acct:hover { border-color: var(--brand, #2f6bff) }
-.fbk-on { border-color: var(--brand, #2f6bff); box-shadow: 0 0 0 2px rgba(47,107,255,.12) }
+.fbk-acct:hover { border-color: var(--brand) }
+.fbk-on { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(47,107,255,.12) }
 .fbk-acct-n { font-size: 14px; font-weight: 600; color: var(--t1) }
 .fbk-acct-t { font-size: 12px; color: var(--t2); margin: 4px 0 8px }
 .fbk-acct-b { font-size: 16px; font-weight: 700 }

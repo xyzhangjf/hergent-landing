@@ -2,7 +2,7 @@
   <div class="inv-page">
     <div class="page-hd split">
       <div class="ipn-hd-t">
-        <h2>{{ cfg.title }}</h2>
+        <h1>{{ cfg.title }}</h1>
         <span v-if="cfg.sub" class="page-sub">{{ cfg.sub }}</span>
       </div>
       <div class="ipn-acts">

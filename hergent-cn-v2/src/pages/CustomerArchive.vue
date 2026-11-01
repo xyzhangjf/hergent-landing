@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>客户档案</h2>
+        <h1>客户档案</h1>
         <span class="page-sub">管理客户 / 门店主档 —— 支持<b>逐笔新建</b>、<b>Excel 批量导入</b>与外部 ERP 同步</span>
       </div>
       <div class="cas-actions">

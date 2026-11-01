@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>{{ meta.label }}</h2>
+        <h1>{{ meta.label }}</h1>
         <span class="page-sub">{{ subText }}</span>
       </div>
       <div class="fd-acts">

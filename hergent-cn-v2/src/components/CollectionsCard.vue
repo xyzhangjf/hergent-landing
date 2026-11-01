@@ -304,7 +304,7 @@ onMounted(load)
 .cr-ab-l{font-size:12px;color:var(--t2)}
 .cr-ab-v{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
 .cr-ab.warn .cr-ab-v{color:var(--war)}
-.cr-ab.bad .cr-ab-v{color:var(--err-red, #d9534f)}
+.cr-ab.bad .cr-ab-v{color:var(--err-red)}
 .cr-form{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px;border:1px solid var(--border-subtle);border-radius:12px;background:var(--bg2);margin-bottom:12px}
 .cr-fld{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
 .cr-fld .input{height:32px;font-size:13px}

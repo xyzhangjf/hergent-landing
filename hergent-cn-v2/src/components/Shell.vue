@@ -1636,7 +1636,7 @@ function stopResize() {
 <style scoped>
 .shell{display:flex;flex-direction:column;height:100vh;background:radial-gradient(1200px 420px at 72% -8%,rgba(6,182,212,.07),transparent 60%),var(--bg2)}
 .topbar{height:var(--topbar-h);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 20px;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--glass-border);flex-shrink:0;z-index:10}
-.tb-demo{margin-left:10px;font-size:11px;background:rgba(255,149,0,.15);color:#b76e00;padding:2px 10px;border-radius:8px}
+.tb-demo{margin-left:10px;font-size:11px;background:rgba(255,149,0,.15);color:var(--war);padding:2px 10px;border-radius:8px}
 /* v417f：标签栏插进顶栏中间 ⇒ 左右三组**都不许收缩**，否则标签一多就把
    右侧动作区（通知 / 主题 / 用户）挤没了。收缩只由中间的 `.tabbar` 承担。 */
 .tb-brand{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
@@ -1768,8 +1768,8 @@ function stopResize() {
   background:var(--p-bg);color:var(--p-dark);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-drill:hover{background:var(--p-solid);color:#fff}
 .sb-pop-badge{font-size:11px;line-height:1;padding:2px 6px;border-radius:6px;white-space:nowrap;flex-shrink:0}
-.sb-pop-badge.tone-warn{background:#fff4e5;color:#b45309}
-.sb-pop-badge.tone-danger{background:#fde8e8;color:#c0392b}
+.sb-pop-badge.tone-warn{background:var(--war-bg);color:var(--war)}
+.sb-pop-badge.tone-danger{background:var(--dan-bg);color:var(--dan)}
 .sb-pop-badge.tone-info{background:var(--p-bg);color:var(--p-dark)}
 /* v645 P2：最近打开（弹窗顶部一行 chip）+ 已打开小圆点。 */
 .sb-pop-recent{display:flex;align-items:center;gap:6px;flex-wrap:wrap;

@@ -1234,18 +1234,18 @@ onUnmounted(stopStatusPoll)
 .cc-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .cc-logo{width:38px;height:38px;border-radius:10px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--t2)}
 .cc-logo-wecom{background:var(--p-bg);color:var(--p-dark)}
-.cc-logo-chanjet{background:rgba(255,149,0,.14);color:#ff9500}
-.cc-logo-kingdee{background:rgba(14,165,183,.16);color:#0ea5b7}
+.cc-logo-chanjet{background:rgba(255,149,0,.14);color:var(--plt-chanjet)}
+.cc-logo-kingdee{background:rgba(14,165,183,.16);color:var(--plt-kingdee)}
 /* v274：舟谱 —— 与畅捷通（橙）、金蝶（青）取的色相都错开，避免三张卡看起来是同一家。
    这里**不声称**是舟谱的品牌色，只是个能区分开的标识色。 */
-.cc-logo-zhoupu{background:rgba(83,74,183,.16);color:#534ab7}
+.cc-logo-zhoupu{background:rgba(83,74,183,.16);color:var(--plt-zhoupu)}
 .cc-modal-tip.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .cc-modal-btns{display:flex;gap:10px;flex-wrap:wrap}
 .cc-modal-btns .btn{flex:1;min-width:120px}
 .cc-state{font-size:11px;padding:3px 9px;border-radius:10px;background:var(--bg2);color:var(--t3)}
 .cc-state.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
-.cc-state.warn{background:rgba(245,158,11,.14);color:#f59e0b}
-.cc-state.err{background:rgba(239,68,68,.14);color:#ef4444}
+.cc-state.warn{background:rgba(245,158,11,.14);color:var(--war)}
+.cc-state.err{background:rgba(239,68,68,.14);color:var(--dan)}
 .cc-ops{display:flex;gap:8px;margin-bottom:12px}
 .cc-op{height:28px;padding:0 12px;border-radius:7px;font-size:12px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
 .cc-op:hover:not(:disabled){border-color:var(--p-dark);color:var(--p-dark)}
@@ -1257,8 +1257,8 @@ onUnmounted(stopStatusPoll)
 .cc-action.primary{background:var(--p-dark);color:#fff}
 .cc-action.ghost{border:1px solid var(--bd);color:var(--t2)}
 
-.cc-logo-feishu{background:rgba(31,110,255,.16);color:#1f6eff}
-.cc-logo-dingtalk{background:rgba(0,160,233,.16);color:#00a0e9}
+.cc-logo-feishu{background:rgba(31,110,255,.16);color:var(--plt-feishu)}
+.cc-logo-dingtalk{background:rgba(0,160,233,.16);color:var(--plt-dingtalk)}
 .cc-roles{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
 .cc-role-tag{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--bg2);overflow:hidden}
 .cc-role-av{width:100%;height:100%;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:13px}
@@ -1267,7 +1267,7 @@ onUnmounted(stopStatusPoll)
 .cc-roles-pick-hd{font-size:13px;font-weight:500;color:var(--t1);margin-bottom:10px}
 .cc-roles-pick-sub{font-weight:400;color:var(--t2);font-size:12px;margin-left:4px}
 .cc-chips{display:flex;flex-wrap:wrap;gap:8px}
-.cc-roles-warn{margin:10px 0 0;font-size:12px;color:#b45309;line-height:1.5}
+.cc-roles-warn{margin:10px 0 0;font-size:12px;color:var(--war);line-height:1.5}
 .cc-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 6px;border-radius:20px;border:1px solid var(--border-subtle);background:var(--bg);color:var(--t1);cursor:pointer;font-size:12px;transition:var(--dur-base);line-height:1}
 .cc-chip:hover{border-color:var(--p)}
 .cc-chip.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark)}
@@ -1306,8 +1306,8 @@ onUnmounted(stopStatusPoll)
 .sk-title{font-size:14px;font-weight:600;color:var(--t1)}
 .sk-name{font-size:11px;color:var(--t3);font-family:var(--font-mono,monospace);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sk-badge{font-size:11px;padding:2px 7px;border-radius:8px;background:var(--bg3);color:var(--t3);flex-shrink:0;align-self:flex-start}
-.sk-card.infra{border-left:3px solid #3b82f6}
-.sk-card.infra .sk-ic{color:#3b82f6}
+.sk-card.infra{border-left:3px solid var(--chart-6)}
+.sk-card.infra .sk-ic{color:var(--chart-6)}
 .sk-badge.on{background:rgba(var(--suc-rgb),.14);color:var(--suc)}
 .sk-what{font-size:12px;color:var(--t2);line-height:1.65}
 .sk-when{font-size:12px;color:var(--p-dark);background:var(--p-bg);padding:6px 10px;border-radius:8px;line-height:1.5}
@@ -1367,7 +1367,7 @@ onUnmounted(stopStatusPoll)
 .ev-jump{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0 4px;padding:11px 14px;border:1px dashed var(--bd);border-radius:10px;background:var(--bg2);cursor:pointer}
 .ev-jump:hover{border-color:var(--p);background:var(--p-bg)}
 .ev-jump-txt{font-size:13px;color:var(--t1)}
-.ev-jump-go{font-size:13px;font-weight:500;color:#3b6cff;white-space:nowrap}
+.ev-jump-go{font-size:13px;font-weight:500;color:var(--p-dark);white-space:nowrap}
 .ev-runs{display:flex;flex-direction:column;gap:10px}
 .ev-run{border:1px solid var(--bd);border-radius:12px;padding:12px 14px}
 .ev-run-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -1396,8 +1396,8 @@ onUnmounted(stopStatusPoll)
 .cc-gateway{display:flex;align-items:center;gap:10px;padding:14px 18px;margin-top:16px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;font-size:13px}
 .gw-dot{width:9px;height:9px;border-radius:50%;background:var(--t3);flex-shrink:0;transition:background var(--dur-slow)}
 .gw-dot.on{background:var(--suc)}
-.gw-dot.warn{background:#f59e0b}
-.gw-dot.err{background:#ef4444}
+.gw-dot.warn{background:var(--war)}
+.gw-dot.err{background:var(--dan)}
 .gw-text{flex:1;color:var(--t2)}
 .gw-mcp{font-size:12px;color:var(--warn-amber);background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:8px;padding:4px 10px;white-space:nowrap}
 .gw-btn{font-size:12px;padding:5px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
@@ -1405,14 +1405,14 @@ onUnmounted(stopStatusPoll)
 .gw-btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* ===== 连接手机改版：应用凭证 + 引导词 + 配对审批 ===== */
-.cc-logo-qq{background:rgba(18,183,245,.16);color:#12b7f5}
+.cc-logo-qq{background:rgba(18,183,245,.16);color:var(--plt-qq)}
 
 .cc-unsupported{display:flex;align-items:flex-start;gap:8px;padding:12px 14px;margin-bottom:14px;
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:12px;
-  font-size:12px;color:#b45309;line-height:1.6}
+  font-size:12px;color:var(--war);line-height:1.6}
 
 .cc-field-hint{font-style:normal;color:var(--t3);font-size:11px;margin-left:2px}
-.cc-modal-tip.warn{background:rgba(245,158,11,.12);color:#b45309}
+.cc-modal-tip.warn{background:rgba(245,158,11,.12);color:var(--war)}
 
 /* 取证引导（复刻桌面四段引导词） */
 .cc-guide-box{margin:0 0 16px;border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden;background:var(--bg2)}

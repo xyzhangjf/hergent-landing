@@ -2,7 +2,7 @@
   <div class="page page-default">
     <div class="page-hd split">
       <div>
-        <h2>{{ title }}</h2>
+        <h1>{{ title }}</h1>
         <span class="page-sub">{{ area }} · 规划能力</span>
       </div>
     </div>

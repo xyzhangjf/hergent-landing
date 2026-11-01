@@ -4,7 +4,7 @@
       <div class="br-title">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
         <div>
-          <h2>招投标雷达</h2>
+          <h1>招投标雷达</h1>
           <span class="page-sub">中国政府采购网 · 全国公共资源交易平台 · 军队采购网 · 低温奶相关商机订阅（每日 07:10 自动抓取）</span>
           <span class="br-fresh">数据每日 07:10 自动更新 · 最新公告 {{ maxDate || '—' }}</span>
         </div>
@@ -408,15 +408,15 @@ onMounted(load)
 
 .src{display:inline-block;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:500;white-space:nowrap;cursor:default}
 .src-ccgp{color:var(--p-dark);background:var(--p-bg)}
-.src-ggzy{color:#7c3aed;background:rgba(139,92,246,.14)}
-.src-plap{color:#dc2626;background:rgba(220,38,38,.12);font-weight:600}
+.src-ggzy{color:var(--violet);background:rgba(139,92,246,.14)}
+.src-plap{color:var(--dan);background:rgba(220,38,38,.12);font-weight:600}
 .src-other{color:var(--t3);background:var(--bg3)}
 .c-title{color:var(--t1);min-width:280px}
 .c-link{white-space:nowrap}
 .br-link{color:var(--p-dark);text-decoration:none;font-weight:500}
 .br-link:hover{text-decoration:underline}
-.br-new{display:inline-block;margin-right:6px;font-size:11px;font-weight:700;color:#fff;background:#dc2626;padding:1px 6px;border-radius:6px;vertical-align:middle}
-.br-capex{display:inline-block;margin-right:6px;font-size:11px;font-weight:600;color:#b45309;background:rgba(245,158,11,.16);padding:1px 6px;border-radius:6px;vertical-align:middle}
+.br-new{display:inline-block;margin-right:6px;font-size:11px;font-weight:700;color:#fff;background:var(--dan);padding:1px 6px;border-radius:6px;vertical-align:middle}
+.br-capex{display:inline-block;margin-right:6px;font-size:11px;font-weight:600;color:var(--war);background:rgba(245,158,11,.16);padding:1px 6px;border-radius:6px;vertical-align:middle}
 
 .tag{display:inline-block;padding:2px 9px;border-radius:8px;font-size:12px;font-weight:500;white-space:nowrap}
 .tag-active{color:var(--p-dark);background:var(--p-bg)}

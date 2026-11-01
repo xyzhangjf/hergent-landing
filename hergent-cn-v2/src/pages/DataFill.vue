@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd">
       <div>
-        <h2>库存效期补录</h2>
+        <h1>库存效期补录</h1>
         <span class="page-sub">补齐库存批次效期 · 一次补录，长期受益</span>
       </div>
     </div>

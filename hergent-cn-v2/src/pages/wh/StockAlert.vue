@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>库存预警</h2>
+        <h1>库存预警</h1>
         <span class="page-sub">低于安全库存的在售商品 · 缺货 / 低于安全库存</span>
       </div>
       <div class="wsa-acts">

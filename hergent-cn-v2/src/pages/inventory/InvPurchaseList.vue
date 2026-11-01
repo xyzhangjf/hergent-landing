@@ -70,7 +70,7 @@
              行为不变：点一下自动填日期区间并重拉；高亮当前档；手动改日期框会清掉高亮。 -->
         <QuickRangeChips :range="quickRange" @pick="pickRange" />
         <div class="psi-fbtns">
-          <button class="btn btn-primary btn-sm" :disabled="loading" @click="load()">
+          <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
             <Icon name="search" :size="14" />查询
           </button>
           <button class="btn btn-ghost btn-sm" @click="resetFilter">重置</button>
@@ -306,7 +306,7 @@
             <tr v-for="(r, i) in rows" :key="r.id"
                 :class="{ 'print-target': printOnly === r.id, 'psi-on': selected.includes(r.id) }">
               <td class="psi-chk psi-frz psi-frz-1">
-                <input type="checkbox" :value="r.id" v-model="selected" />
+                <label class="cb-hit"><input type="checkbox" :value="r.id" v-model="selected" /></label>
               </td>
               <!-- §2.6.1「二、」：序号 = 服务端分页 ⇒ 必须 `offset + i + 1`（写 i+1 第 2 页会从 1 重来） -->
               <td class="seq-cell psi-frz psi-frz-2"><span class="seq-num">{{ offset + i + 1 }}</span></td>

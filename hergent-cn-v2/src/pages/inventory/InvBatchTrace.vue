@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>批次追溯</h2>
+        <h1>批次追溯</h1>
         <span class="page-sub">输入批次号，查看该批货的入库来源、出库去向与召回影响</span>
       </div>
     </div>

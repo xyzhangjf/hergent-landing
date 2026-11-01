@@ -346,6 +346,40 @@
   --radius-xs:6px;
   /* ProductTarget 弹窗用名 —— 此前 undefined ⇒ 该弹窗**圆角=0、无阴影**（两套主题都坏） */
   --radius:var(--radius-lg); --shadow:var(--shadow-lg);
+
+  /* ===== v719：补齐「引用了但全站从未定义」的别名令牌（第三批，12 个）=====
+     🔴 这些名字此前**全部带 hex 兜底出现** ⇒ 兜底一直在生效，等于「各页偷偷用自己发明的主色」：
+        · 报表中心 ReportBuilder 的主色是**蓝** `#2b6cb0`（`--pri`），
+        · 副驾与资金四页的主色是**另一个蓝** `#2f6bff`（`--brand`）、`#2f6fed`（`--c-primary`），
+        · 而站内主色是青 `#0e7490`。同屏出现两种"主色"，用户会以为来自两个产品。
+     一律指向既有 canonical 令牌（守「值的唯一源」铁律），于是这几处**自动收敛到青**。
+     新增的 `--war-bg/--war-border/--suc-bg` 是警告与成功三件套里此前缺的底/边
+     （文字色早有 `--war`/`--suc`，底色却靠各页硬编码 `#fff7e6/#e6f6ec`）。 */
+  --brand:var(--p-dark);         /* 主色别名（此前 7 处兜底蓝 #2563eb/#2f6bff） */
+  --pri:var(--p-dark);           /* 报表中心主色别名（此前 3 处兜底蓝 #2b6cb0） */
+  --pri-w:var(--p-bg);           /* 主色浅底（此前 #eaf1fb 浅蓝） */
+  --c-primary:var(--chart-1);    /* 图表主色系列位 */
+  --c-blue:var(--chart-6);       /* 图表蓝系列位 */
+  --line:var(--bd);              /* 分割线别名（此前 7 处兜底 #dcdfe6/#eef0f3） */
+  --bad:var(--dan);              /* 失败红别名（此前 3 处 #dc2626） */
+  --bg-2:var(--bg2);             /* 浅底别名（此前 #eee/#f3f4f6 两种，本就该是一档） */
+  --fg-3:var(--t3);              /* 三级文字别名（此前 #8a8f98） */
+  --war-bg:rgba(174,79,8,.10);     /* 警告浅底 —— 此前三个报表页各自硬编码 #fff7e6 */
+  --war-border:rgba(174,79,8,.32); /* 警告边框 —— 此前硬编码 #ffd591 */
+  --suc-bg:rgba(15,123,63,.10);    /* 成功浅底（与 --war-bg 对称）—— 此前 #e6f6ec */
+  --warn-bg:var(--war-bg); --warn-bd:var(--war-border); --warn-t:var(--war);
+
+  /* ===== v719：集成平台品牌色 =====
+     🔴 为什么进全局：飞书 `#1f6eff` / 钉钉 `#00a0e9` 在**连接中心与角色管理两处各写了一遍**
+        （同一平台的色在两份文件里是两份硬编码 ⇒ 改一处漂一处），畅捷通/金蝶/舟谱/QQ 同理。
+        品牌色属"第三方的识别色"，不随我方主题变化，故**只给浅色一套、深色沿用**
+        （深色下这几个色仍可读，且改色会让用户认不出平台）。 */
+  --plt-chanjet:#ff9500;   /* 畅捷通 */
+  --plt-kingdee:#0ea5b7;   /* 金蝶 */
+  --plt-zhoupu:#534ab7;    /* 舟谱 */
+  --plt-feishu:#1f6eff;    /* 飞书 */
+  --plt-dingtalk:#00a0e9;  /* 钉钉 */
+  --plt-qq:#12b7f5;        /* QQ */
 }
 
 :root.dark{
@@ -365,6 +399,11 @@
   --dan:#ff453a; --dan-rgb:255,69,58;
   --dan-bg:rgba(255,69,58,.16);
   --war:#ff9f0a; --war-rgb:255,159,10;
+  /* v719：警告/成功三件套的底与边（浅色见 :root 同名令牌）—— 深色下必须跟着提亮，
+     否则报表页那几块警告卡在深底上是一团圆角白斑。 */
+  --war-bg:rgba(255,159,10,.14);
+  --war-border:rgba(255,159,10,.34);
+  --suc-bg:rgba(48,209,88,.14);
 
   /* 扩展语义色（深色提亮） */
   --purple:#a5a0f0; --purple-rgb:165,160,240;
@@ -672,7 +711,10 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    堆叠式 <div><h2>标题</h2><span class="page-sub">…</span></div> → 标题在上、副标题在下。
    两种结构兼容同一套规则；带右侧操作区加 .split；下边距交由父容器 gap 控制时加 .flush。 */
 .page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
-.page-hd h2{font-size:var(--fs-h2);font-weight:600}
+/* v719 P2：页面标题改用 `<h1>`（每页唯一），同时保留 h2 兼容 —— 137 个页面里 62 处已改，
+   剩下的少数（弹窗式页面、登录页、导入页）仍是 h2；两代写法必须同观感，否则改一个漏一个就漂。
+   `margin:0` 是必须的：h1 的 UA 默认 margin 是 0.67em，会撑开页头且与 h2 不齐。 */
+.page-hd :is(h1,h2){font-size:var(--fs-h2);font-weight:600;margin:0;line-height:1.35}
 .page-hd.split{align-items:flex-start;justify-content:space-between;gap:12px}
 .page-hd.flush{margin-bottom:0}
 .page-sub{font-size:12px;color:var(--t3)}
@@ -982,6 +1024,16 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 .check-item{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-base);color:var(--t1);cursor:pointer;user-select:none}
 .check-item input{width:15px;height:15px;margin:0;cursor:pointer;accent-color:var(--p-dark)}
 .check-item input:disabled{cursor:not-allowed;opacity:.5}
+
+/* 🔴 v719 P2：单元格/表格内**裸 checkbox** 的热区（视觉 13~15px 不变，整格可点）。
+   用法：把 `<input type="checkbox">` 包进 `<label class="cb-hit">` 即可，无需 JS。
+   ⚠️ 为什么不能用评审建议的伪元素写法（`::before{inset:-8px}`）：原生 `<input>` 是
+      **replaced element**，`::before/::after` 根本不渲染 —— 那样写等于没写，还看不出没写。
+   必须包 label（原生关联行为，不会与 v-model 打架）。
+   与 `.check-item` 的分工：`.check-item` 用于「勾选框 + 文字」的表单项；`.cb-hit` 用于
+   **只有勾选框、外面还有一层可点格子**的场景（列表勾选列、表格内的开关列）。 */
+.cb-hit{display:flex;align-items:center;justify-content:center;width:100%;min-height:26px;cursor:pointer}
+.cb-hit input{width:15px;height:15px;margin:0;cursor:pointer;accent-color:var(--p-dark)}
 
 /* 价格矩阵表格：单元格里塞输入框 ⇒ 收紧内距、输入右对齐等宽数字 */
 .pm-wrap{overflow-x:auto;margin-bottom:var(--sp-3)}

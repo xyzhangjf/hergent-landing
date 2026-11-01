@@ -2,7 +2,7 @@
   <div class="inv-page">
     <div class="page-hd split">
       <div>
-        <h2>库存查询</h2>
+        <h1>库存查询</h1>
         <span class="page-sub">按批次看库存，最早到期的排在最上面</span>
       </div>
       <div class="is-acts">

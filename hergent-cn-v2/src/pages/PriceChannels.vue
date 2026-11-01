@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>渠道与价格</h2>
+        <h1>渠道与价格</h1>
         <span class="page-sub">一个渠道 = 一个下游系统（它自己的一套商品编码 + 一套价格）。你有几个系统就建几条。</span>
       </div>
       <div class="pc-act">

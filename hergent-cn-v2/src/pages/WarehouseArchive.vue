@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>仓库档案</h2>
+        <h1>仓库档案</h1>
         <span class="page-sub">内部仓主档</span>
       </div>
       <div class="wh-hd-right">

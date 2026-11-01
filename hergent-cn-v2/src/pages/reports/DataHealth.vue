@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>数据健康自检</h2>
+        <h1>数据健康自检</h1>
         <span class="page-sub">
           8 项不变量 · 每次改完账务或库存都来这一页看一眼
         </span>

@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd">
       <div>
-        <h2>品牌档案</h2>
+        <h1>品牌档案</h1>
         <span class="page-sub">维护品牌主档 · 支撑品牌目标与返利</span>
       </div>
     </div>

@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>告警规则</h2>
+        <h1>告警规则</h1>
         <span class="page-sub">系统级监控规则：命中后记入下方「告警历史」 · 只有老板 / 管理员可改</span>
       </div>
       <div class="ar-acts">
@@ -490,7 +490,7 @@ onMounted(loadAll)
 .ar-badge.on { background: var(--ok-green-bg); color: var(--ok) }
 .ar-badge.ok { background: var(--ok-green-bg); color: var(--ok) }
 .ar-badge.off { background: var(--bg2); color: var(--t3) }
-.ar-badge.warn { background: rgba(255, 149, 0, .14); color: #b26a00 }
+.ar-badge.warn { background: rgba(255, 149, 0, .14); color: var(--war) }
 .ar-badge.crit { background: rgba(255, 59, 48, .12); color: var(--dan) }
 .ar-badge.info { background: var(--bg2); color: var(--t2) }
 .ar-empty { padding: 28px 4px }

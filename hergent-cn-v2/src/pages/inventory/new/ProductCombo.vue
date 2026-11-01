@@ -125,7 +125,7 @@ function onBlur () { editing.value = false }
   color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .ipn-prod-tier.is-muted { color: var(--t3) }
-.ipn-prod-tier.is-warn { color: var(--danger-txt, var(--war, #c0392b)) }
+.ipn-prod-tier.is-warn { color: var(--danger-txt, var(--war)) }
 .ipn-prod-bar { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
 .ipn-prod-empty {
   position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 30;

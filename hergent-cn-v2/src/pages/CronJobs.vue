@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>定时任务</h2>
+        <h1>定时任务</h1>
         <span class="page-sub">AI 副驾的定时任务，到点自动执行 · 结论可推送企业微信</span>
       </div>
       <button class="btn btn-primary" @click="openCreate">新建任务</button>
@@ -357,8 +357,8 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .push-help ol{margin:4px 0 0;padding-left:18px}
 .push-set{display:flex;gap:8px;margin-top:12px}
 .push-set .input{flex:1;height:32px;padding:0 12px;font-size:13px}
-.push-test{margin-top:10px;font-size:12px;color:#2f9e44;font-weight:500}
-.push-test.err{color:#d0342c}
+.push-test{margin-top:10px;font-size:12px;color:var(--suc);font-weight:500}
+.push-test.err{color:var(--dan)}
 /* ④ cron 执行结果回流 */
 .exec-hd{display:flex;align-items:center;gap:12px}
 .exec-hd .btn{margin-left:auto;flex-shrink:0}
@@ -366,8 +366,8 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .exec-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
 .exec-item{display:flex;gap:10px;align-items:flex-start}
 .exec-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--t3);flex-shrink:0}
-.exec-dot.ok{background:#2f9e44}
-.exec-dot.bad{background:#d0342c}
+.exec-dot.ok{background:var(--suc)}
+.exec-dot.bad{background:var(--dan)}
 .exec-body{flex:1;min-width:0}
 .exec-top{display:flex;align-items:baseline;gap:10px}
 .exec-name{font-size:13px;color:var(--t1)}

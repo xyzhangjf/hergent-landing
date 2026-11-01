@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>买赠活动管理</h2>
+        <h1>买赠活动管理</h1>
         <span class="page-sub">买赠 / 满赠 / 折扣等让利政策的建、改、删与启停（只老板 / 管理员可操作）</span>
       </div>
       <div class="pm-acts">

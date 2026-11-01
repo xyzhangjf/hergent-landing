@@ -26,7 +26,7 @@
              手动改上面两个日期框会经 onDateManual 清掉芯片高亮。 -->
         <QuickRangeChips :range="quickRange" @pick="pickRange" />
         <div class="psi-fbtns">
-          <button class="btn btn-primary btn-sm" :disabled="loading" @click="load()">
+          <button class="btn btn-ghost btn-sm" :disabled="loading" @click="load()">
             <Icon name="search" :size="14" />查询
           </button>
           <button class="btn btn-ghost btn-sm" @click="resetFilter">重置</button>
@@ -151,7 +151,7 @@
                 class="isl-row">
               <!-- v532：行勾选列（批量操作逐行勾选，样式走共享 .psi-chk）。 -->
               <td class="psi-chk psi-frz psi-frz-1">
-                <input type="checkbox" :value="r.id" v-model="selected" />
+                <label class="cb-hit"><input type="checkbox" :value="r.id" v-model="selected" /></label>
               </td>
               <!-- 序号 = 服务端分页 ⇒ 必须 `offset + i + 1`。
                    v532：冻结位置改 2。 -->

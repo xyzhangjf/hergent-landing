@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>配送单</h2>
+        <h1>配送单</h1>
         <span class="page-sub">{{ scopeText }} · {{ rows.length }} 单</span>
       </div>
       <div class="dvo-acts">

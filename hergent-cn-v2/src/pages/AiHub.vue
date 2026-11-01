@@ -1,7 +1,7 @@
 <template>
   <div class="page">
     <div class="page-hd flush">
-      <h2>产出与用量</h2>
+      <h1>产出与用量</h1>
       <span class="page-sub">AI 干了什么活（报告 · 经营洞察 · 长期画像）· 花了多少（用量配额 · 价值账单）</span>
     </div>
     <div class="ops-hint">

@@ -2,7 +2,7 @@
   <div class="page">
     <div class="page-hd split">
       <div>
-        <h2>出库单</h2>
+        <h1>出库单</h1>
         <span class="page-sub">仓库侧出库 · 过账按 FEFO 扣减库存（过期批次不可售）</span>
       </div>
       <div class="wob-acts">

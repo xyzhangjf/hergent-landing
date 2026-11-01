@@ -259,7 +259,7 @@ onMounted(load)
 .vc-kpi .num{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
 .vc-kpi .num.ok{color:var(--ok-green)}
 .vc-kpi .num.warn{color:var(--war)}
-.vc-kpi .num.bad{color:var(--err-red, #d9534f)}
+.vc-kpi .num.bad{color:var(--err-red)}
 .vc-kpi .lbl{font-size:12px;color:var(--t2)}
 .vc-bar{display:flex;align-items:flex-start;gap:14px}
 .vc-tip{font-size:12px;color:var(--t2);line-height:1.75;margin:0;flex:1}
