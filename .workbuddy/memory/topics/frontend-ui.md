@@ -4605,3 +4605,33 @@ const m = r.getBoundingClientRect()   // 拿 m.top / m.bottom / 中心互比，�
 **`normal` → 0.00px**。
 ⇒ 跟邻居**用同一个关键字**而不是抄一个数值（数值必然要在字体度量上赌一次）；
 ⇒ 想让文字对齐，`line-height` **不能空着**（继承上层 19.2px 会偏）也不能写 `1`。
+
+### 🔴🔴 扫描器「全 0」必须先过阳性对照（v711）
+任何"没发现问题"的自动扫描，**先注入一个已知缺陷，确认它抓得到**。
+实例：24 页全 0，注入 `.bp-selall span{line-height:1}`（复现 v709）后**依然全 0**
+—— 阈值 `if (d <= 0.5) continue` 把实测的 **0.500** 吃掉了。改 `d < 0.4` 才抓到。
+⇒ **阈值不要取实测值的常见落点**（0.5px 正是最常见的错位量级）。
+⇒ 与 v710 同族：v710 量错对象、v711 判据边界吃掉临界值，都是「有证据的假 PASS」。
+
+### 🔴 图标与文字未居中 = 容器不是 flex（v711）
+`.btn` 早已 `inline-flex + align-items:center + gap:6px`，但**自行定义的容器没跟上**：
+`.grp-btn`、`.panel-hd b`、`.modal-hd b` 仍是 inline 上下文 ⇒ svg 走 `vertical-align:middle`
+（对齐「基线 + x-height/2」），中文汉字视觉中心在 baseline 上约 0.38em，更高 ⇒ 图标偏高 1.3~2px。
+定式：图标 + 文字的容器**照抄 `.btn` 那套**（inline-flex/center/gap 6），不新造视觉语言。
+
+### 🔴 「改参数但测量值纹丝不动」= 该属性在此上下文未生效（v711）
+想全局调 `svg.ico{vertical-align}`，做参数扫描（middle/-0.08em/-0.15em/calc）时，
+侧栏 `.sb-item` 的 Δ0.391px **一个都不变** —— 因为它是 flex 容器，svg 是 flex item，
+`vertical-align` 不参与计算。⇒ 立刻换思路，别继续调数值。
+⇒ 反推：只有 **inline 上下文**（标题 `<b>`、无 display 的自定义 button）需要处理。
+
+### 🔴 量测容器前必须跳过 h=0 的隐藏实例（v711）
+`document.querySelector('.panel-hd b')` 会命中 **v-if 未渲染分支的幽灵**（宽高全 0），
+svg 中心 0，与任何文字都差 >14px ⇒ 永远报「附近无文字」，看起来像选择器错了。
+定式：`[...querySelectorAll(sel)].find(e => { const r = e.getBoundingClientRect(); return r.width > 2 && r.height > 2 })`。
+
+### 🔴 浮层漫游扫描的两条纪律（v711）
+1. **元验证真的打开了**：点击前后比 DOM 节点数；没增加 ⇒ 判「未打开」，不能算 PASS。
+   （用 `[class*=modal]` 计数会漏判：131 个触发器里 95 个被误标为"没打开"。）
+2. **每个场景前 reload**：上一个浮层会吃掉下一次点击（第一次点击被用来"点外部关闭"），
+   表现是节点数**不增反减** ⇒ 会得出「面板打不开」的假故障。
