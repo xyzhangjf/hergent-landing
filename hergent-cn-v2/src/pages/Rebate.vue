@@ -3451,6 +3451,8 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000}
 .modal-card{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:580px;max-width:92vw;max-height:88vh;overflow-y:auto;background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:1001}
 .modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
+/* v711：标题内「图标 + 文字」flex 居中（同 .panel-hd b 的理由：inline 下图标偏高 2px） */
+.modal-hd b{display:inline-flex;align-items:center;gap:6px}
 .modal-hd b{font-size:16px}
 .btn-close{border:none;background:none;font-size:18px;color:var(--t3);cursor:pointer}
 .modal-body{padding:20px;display:flex;flex-direction:column;gap:14px}

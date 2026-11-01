@@ -725,7 +725,11 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 
 /* 面板标题行 */
 .panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.panel-hd b{font-size:var(--fs-h4);font-weight:600}
+/* v711：标题里的「图标 + 文字」必须 flex 居中。
+   裸 `<b><Icon/> 标题</b>` 是 inline 上下文，svg 走 `vertical-align:middle`
+   （对齐文字 x-height 中线），而中文汉字的视觉中心更高 ⇒ 图标实测偏高 2px。
+   与 .btn 用同一套写法（inline-flex + align-items:center + gap:6px），保持同构。 */
+.panel-hd b{font-size:var(--fs-h4);font-weight:600;display:inline-flex;align-items:center;gap:6px}
 
 /* 空态 */
 .state-empty{padding:48px 20px;text-align:center;color:var(--t3);font-size:13px}

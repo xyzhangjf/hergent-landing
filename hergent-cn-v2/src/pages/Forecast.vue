@@ -14875,7 +14875,7 @@ provide('sprintSummary', sprintSummary)
 :deep(.spark-td .muted){color:var(--t3);font-size:11px}
 .foot-row :deep( td){background:var(--bg3);font-weight:500}
 :deep(.foot-row td.frozen){background:var(--bg3);z-index:6}
-.grp-btn{font-size:12px;padding:5px 12px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;white-space:nowrap}
+.grp-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 12px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;white-space:nowrap;text-align:left}
 .grp-btn:hover{border-color:var(--p)}
 .grp-btn.on{background:var(--p);color:#fff;border-color:var(--p)}
 .grp-btn.danger{color:var(--dan);border-color:rgba(var(--dan-rgb),.4)}
