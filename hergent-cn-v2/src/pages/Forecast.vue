@@ -15068,7 +15068,14 @@ provide('sprintSummary', sprintSummary)
 .brand-pop .bp-selall:hover{background:var(--bg2);color:var(--p)}
 .brand-pop .bp-selall.is-off{cursor:not-allowed;color:var(--t3);opacity:.55}
 .brand-pop .bp-selall.is-off:hover{background:none;color:var(--t3)}
-.brand-pop .bp-selall span{line-height:1}
+/* 🔴 v709b：这里必须是 `line-height: normal`，**不能**写数值、更不能 `line-height: 1`。
+   实测（1440×900，Chrome）文字渲染中心与右侧「清空」的差：
+     line-height:1(12px) → 偏高 0.5px  ← 用户肉眼报「全选和清空没有对齐」
+     line-height:14px / 16px / 18px → 偏高 0.5px
+     line-height:19.2px（继承值）→ 偏低 0.31px
+     **normal → 0.00px**（与「清空」的 computed 值同为 `normal`、同 12px 字号 ⇒ 行盒同源）
+   ⇒ 跟邻居用**同一个关键字**，不去猜数值；显式写 normal 是因为不写会继承到 19.2px。 */
+.brand-pop .bp-selall span{line-height:normal}
 .brand-pop .bp-list{display:flex;flex-direction:column;gap:4px;max-height:42vh;overflow:auto;padding:2px 0}
 .brand-pop .bp-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);cursor:pointer;padding:2px 2px}
 .brand-pop .bp-item:hover{background:var(--bg2)}
