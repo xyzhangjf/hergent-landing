@@ -4589,3 +4589,19 @@ text-overflow: ellipsis; white-space: nowrap;
 量 `before` → 把新控件临时 `display:none` → 量 `after`，**相等即证明宽度不是它撑的**。
 实例：品牌面板 660 宽是底部 `.bp-tip` 长文案撑的（`.brand-pop` 只有 `min-width`、没有
 `max-width`；`.cycle-pop` 才有 `max-width:300`），新加的 52px label 完全没参与撑宽。
+
+### 🔴🔴 判「两个控件对齐」只能量**文字渲染矩形**，不能量盒子（v710）
+`getBoundingClientRect()` 的 top/center 差 0 ≠ 看起来对齐。
+反例（v709→v710）：label 盒子与「清空」盒子 top/center 差**都是 0**、头部高度不变、
+字号同为 12px，但用户一眼看出没对齐 —— 因为我给 span 写了 `line-height:1`，
+行盒被压到与字号同高，字形 ascent 溢出盒顶，**文字整体上浮 0.5px**。
+定式：
+```js
+const r = document.createRange(); r.selectNodeContents(el)
+const m = r.getBoundingClientRect()   // 拿 m.top / m.bottom / 中心互比，全 0 才算对齐
+```
+实测对照（12px 字，邻居是 `line-height:normal`）：
+`1`/`14px`/`16px`/`18px` → 偏高 0.5px；`19.2px`（不写时的继承值）→ 偏低 0.31px；
+**`normal` → 0.00px**。
+⇒ 跟邻居**用同一个关键字**而不是抄一个数值（数值必然要在字体度量上赌一次）；
+⇒ 想让文字对齐，`line-height` **不能空着**（继承上层 19.2px 会偏）也不能写 `1`。

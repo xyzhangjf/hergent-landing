@@ -1,6 +1,6 @@
 # Hergent 记忆索引（只放判据首句 + 去哪查；细节一律在 `topics/*.md`）
 
-> 编号已用到 **v709**，下一号 v710。域索引 → `topics/route-index.md`。**动手前按域 grep**。
+> 编号已用到 **v710**，下一号 v711。域索引 → `topics/route-index.md`。**动手前按域 grep**。
 > 只有 `main` 一个源（v705 `02a1b28` 合并完两条线）。留档分支 `line-a/v678`、`workbuddy/main-75f152be` 不再开发。
 > ⇒ 判「修过的 bug 又回来了」先 `git merge-base --is-ancestor <修复commit> HEAD`。
 > 🔴 合并/解冲突三教训（全文 `2026-10-31.md`「v705 合并」段）：冲突块**之外**也有假象（重复 `export`／重复对象键／整段模板被覆盖 ⇒ **构建不报错**）；合并后**必须** `npm test` + `npm run build`；同功能两份客户端 API 按**消费方**取舍。
@@ -8,7 +8,7 @@
 > 🔴 判产物不以「dist 存在」为准：`grep -o "v70x" dist/assets/index-*.js`。`mv dist-vNNN dist` 会嵌套 ⇒ 闭包全 200 也能骗过（v637）。
 
 ## 路由（🔴=硬判据）
-- 前端→`topics/frontend-ui.md`：入口与门禁唯一源 `pages.js`（未登记=放行，删登记=放宽门禁）｜`permView.js` 唯一源、`module:null`=只读｜文案三禁⇒`hergent-ui-copy-guard`｜图表唯一源 `src/components/chart/`｜列表页冻结/密度/合计 `psi-list.css`｜侧栏系列只删菜单项。🔴 副驾快捷键 `⌘K`/`⌘⇧K` 已占用 ⇒ 新的用 `⌘⇧O`；外部触发「新建会话」必须用可消费计数器 `ui.copilotNewTick` + `takeNewTick()`（v649）。🔴 **用户报「没有 X 按钮」先核 X 是否已存在**（v709：八成不是缺功能而是不可发现——裸 13px 框无文字 ⇒ 在调用方包 `<label>`+`<span>`，别改共享件）；截图探针 `screenshot()` 返回值必须判空（clip 不带 `scale` 会静默返回空串）；浮层加宽先做显示/隐藏归因实验再下结论。
+- 前端→`topics/frontend-ui.md`：入口与门禁唯一源 `pages.js`（未登记=放行，删登记=放宽门禁）｜`permView.js` 唯一源、`module:null`=只读｜文案三禁⇒`hergent-ui-copy-guard`｜图表唯一源 `src/components/chart/`｜列表页冻结/密度/合计 `psi-list.css`｜侧栏系列只删菜单项。🔴 副驾快捷键 `⌘K`/`⌘⇧K` 已占用 ⇒ 新的用 `⌘⇧O`；外部触发「新建会话」必须用可消费计数器 `ui.copilotNewTick` + `takeNewTick()`（v649）。🔴 **用户报「没有 X 按钮」先核 X 是否已存在**（v709：八成不是缺功能而是不可发现——裸 13px 框无文字 ⇒ 在调用方包 `<label>`+`<span>`，别改共享件）；截图探针 `screenshot()` 返回值必须判空（clip 不带 `scale` 会静默返回空串）；浮层加宽先做显示/隐藏归因实验再下结论。🔴🔴 **判「两个控件对齐」只能量文字渲染矩形**（`Range.selectNodeContents().getBoundingClientRect()`），**盒子差 0 ≠ 对齐**（v710：盒子全 0 而文字差 0.5px，用户一眼看出；`line-height` 跟邻居用同一个关键字 `normal`，别抄数值也别写 `1`）。
 - 后端→`topics/backend-invariants.md`：路由遮蔽先注册者胜｜静默失效=恒空恒0⇒`undefined-call-scan.py`｜门禁用接口模块非页面模块｜FastAPI 未声明 query 被静默忽略｜意图路由按序首匹配｜`execute_tool` 返回键是 `success`。
 - 部署→`topics/deploy-ops.md`：后端 FLAT `/opt/hergent-erp/`（无 `server/` 前缀）｜前端 `/opt/hergent-cn-v2`｜服务 `hergent-erp.service`｜**rsync 绝不 `--delete`**（后端 `deploy.sh` 内联了它）｜🔴 `https://hergent.cn/` = ERP 前端，`/admin/` = 平台运营控制台（另一应用）⇒ 探针/部署一律用根路径（`/admin/assets/x.js` 永远 200 但返回 index.html，v636）。
 - 🔴🔴 **免密码做生产 UI 真机验证**（v707，最省事的正路）：生产后端**不是 git 仓**，改它要 `scp` 下来 → `.bak` → `install -o hergent -g hergent -m 644` → `systemctl restart`。登录态：主库 `sessions` join `users`(role='boss') 取 `token`，puppeteer `setCookie` 注入 `erp_token`(httpOnly)+`hergent_auth=1`+`csrf_token`(任意值)+`hergent_tenant` ⇒ 直接以老板身份跑生产页面。⚠️ `sessions` **没有 id 列**（用 `created_at`）、`users` **没有 tenant_id**。
