@@ -14,6 +14,9 @@
 - **预报主表** → `topics/forecast-order-domain.md`｜**成本/容量** → `topics/cost-and-capacity.md`｜**返利** → `topics/rebate-domain.md`｜**账务** → `topics/accounting-gl-v716-v717.md`｜**条码小程序** → `topics/miniprogram-and-brand-data.md`。
 
 ## 🔴 UI 判据（高频，全文 `topics/frontend-ui.md` 末 200 行）
+- 🔴🔴 **判对比度必须做 alpha 合成再算，且只看实测不走源码**（v716：直接把 `rgba(52,199,89,.12)` 当不透明会得出「1:1」的假结论）。现状：`#A1A1A6` 被当数据文字 = **2.57:1**（单页 245 处）、表头 2.36、状态标签 1.86~3.75、`.btn-primary` 白字 on `--p-dark` **3.68**、`--dan` 3.55、`--war` 当文字 2.06 —— **全站不达 AA**。正确答案早写在项目里（`--p-ink` 注释算过 §5.6）却没人用 ⇒ 改 `var(--p-deep)` 即 5.36。可复用探针 `tools/v716-contrast-audit.mjs`。
+- 🔴 **判「焦点不可用」必须先注入 `*{outline:none}` 过阳性对照**（v716：14 元素全「有指示」是真的，但全是浏览器 `outline:auto` —— 同屏 3 种宽度 3 种颜色、无 offset ⇒ 结论是「不受控」不是「没有」）。
+- 🔴 **组件造了没人用比没有组件更常见**（v716：`EmptyState` 6/169、`StatusBadge` **0**、`ConfirmDialog` 1 ⇒ 空态 12 种自定义类名、状态色失控）。修这类先查**采纳率**再谈重构。
 - 🔴 **报「没有 X 按钮」先核 X 是否已存在**（v709：多是不可发现而非缺功能）⇒ 调用方包 `<label>`+`<span>`，**别改共享件**。
 - 🔴🔴 **判对齐只能量文字渲染矩形** `Range.selectNodeContents().getBoundingClientRect()`，**盒子差 0 ≠ 对齐**（v710：盒子全 0 而文字差 0.5px）；`line-height` 跟邻居同用 `normal`，别抄数值别写 `1`。
 - 🔴🔴 **自动扫描报「全 0」先过阳性对照**（v711：阈值 `<=0.5` 吃掉实测 0.500 ⇒ 改 `<0.4`）；阈值别取实测常见落点。
