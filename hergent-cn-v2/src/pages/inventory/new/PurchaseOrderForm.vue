@@ -1826,7 +1826,7 @@ watch([copyId], () => { reinit() })
   border: 1px solid var(--danger); border-radius: var(--radius-md);
 }
 .ipn-copy-err-ico {
-  flex: 0 0 auto; width: 22px; height: 22px; line-height: 22px; text-align: center;
+  flex: 0 0 auto; width: 22px; height: 22px; line-height: var(--lh-none); display: flex; align-items: center; justify-content: center;
   font-weight: 700; color: #fff; background: var(--danger); border-radius: var(--radius-circle);
 }
 .ipn-copy-err-body { display: flex; flex-direction: column; gap: var(--sp-1) }

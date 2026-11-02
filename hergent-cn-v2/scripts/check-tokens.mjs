@@ -221,9 +221,38 @@ function checkFontSizes () {
 const LH_DECL = /(?<![\w-])line-height\s*:\s*([^;{}"'<>]+)/g
 const LH_TOKEN = /var\(\s*--lh-[A-Za-z0-9-]*\s*\)/g
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   v730 · 「用行高当高度」的冻结清单
+   -----------------------------------------------------------------------------
+   v728 起这条被判为技术债（靠 `height:15px;line-height:15px` 把单行文字撑到容器高），
+   但只"放行并计数" ⇒ 每次跑护栏都打印「放行 25 处，P1 应改 flex」，一年都还是 25。
+   v730 把它清到 0 待办：13 处改成 flex 居中，剩下 12 处是**真的不能改**，
+   按文件冻结数量（不是按选择器字符串 —— 提取选择器在 `:deep()` / 合并规则上不稳）。
+
+   🔴 为什么这 12 处不能改 flex 居中：
+     A. `.ipn-v` 文本态 × 10（明细格）—— 同块有 `white-space:nowrap` + `overflow:hidden`
+        + `text-overflow:ellipsis`。改成 flex 容器后文本成为**匿名 flex item**，
+        而 `text-overflow` 只作用于块容器自己的行盒 ⇒ **省略号消失**，长商品名被硬裁
+        （那正是 v417j 加 ellipsis 要解决的「把表格推出横向滚动」）。要改必须先包内层 span。
+     B. `<select>` 系 × 2（`.hd-sel` / `.cm-sel·.cm-in·.scheme-name-ipt`）——
+        原生下拉不吃 `align-items`（UA 内部渲染 popup，不参与 flex 布局），
+        `line-height` 本来就是它唯一的垂直居中手段。
+   🔴 新增的同类写法会被判失败 —— 冻结的是**这 12 处**，不是这个模式。 */
+const LH_AS_HEIGHT_FROZEN = new Map([
+  ['src/pages/inventory/InvPurchaseNew.vue', 2],   // A：.ipn-v 主档 18 + compact 16
+  ['src/pages/inventory/new/ProductCombo.vue', 2], // A
+  ['src/pages/inventory/new/PurchaseOrderForm.vue', 2], // A
+  ['src/pages/inventory/new/PurchaseReturnForm.vue', 2], // A
+  ['src/pages/wh/Strategy.vue', 1],  // A：:deep(.ipn-v) 覆盖成输入框外观
+  ['src/pages/wh/WhItems.vue', 1],   // A：同上
+  ['src/pages/EmployeeArchive.vue', 1], // B：.hd-sel
+  ['src/styles/col-menu.css', 1],       // B：.cm-sel / .cm-in / .scheme-name-ipt 合并规则
+])
+
 function checkLineHeights () {
   const bad = []
-  let asHeight = 0
+  const frozenSeen = new Map()
+  const overFrozen = []
   for (const abs of walk(SRC)) {
     if (!/\.(vue|css)$/.test(abs)) continue
     const rel = relative(ROOT, abs).split('\\').join('/')
@@ -252,12 +281,26 @@ function checkLineHeights () {
          常见于输入框、圆形图标、紧凑密度档单元格。放行并计数，P1 应改成 flex 居中。 */
       const hn = /(?:^|;|\s)(?:min-)?height\s*:\s*(\d+(?:\.\d+)?)px/.exec(body)
       const ln = /^(\d+(?:\.\d+)?)px$/.exec(val.replace(/!\s*important/i, '').trim())
-      if (hn && ln && Math.abs(parseFloat(hn[1]) - parseFloat(ln[1])) <= 2) { asHeight++; continue }
+      if (hn && ln && Math.abs(parseFloat(hn[1]) - parseFloat(ln[1])) <= 2) {
+        const seen = (frozenSeen.get(rel) || 0) + 1
+        frozenSeen.set(rel, seen)
+        const cap = LH_AS_HEIGHT_FROZEN.get(rel) || 0
+        if (seen > cap) overFrozen.push({ rel, val: `${hn[0].trim()} 撑 ${ln[1]}px（同块 height 与 line-height 等值）` })
+        continue
+      }
 
       bad.push({ rel, val })
     }
   }
-  if (asHeight) console.log(`  · 行高护栏放行 ${asHeight} 处「用 line-height 当高度」（输入框/圆形图标/紧凑档单元格，P1 应改 flex 居中）`)
+  /* 冻结清单里**用不满**也算问题：说明那处被顺手删了或写法变了，
+     清单该同步收缩，否则它会慢慢变成"允许这个文件里出现 N 处"的空白支票。 */
+  const shrunk = [...LH_AS_HEIGHT_FROZEN].filter(([rel, cap]) => (frozenSeen.get(rel) || 0) < cap)
+  if (shrunk.length) bad.push({ rel: shrunk.map(([r]) => r).join(', '), val: `冻结清单数量对不上（实际少了，请同步收缩 LH_AS_HEIGHT_FROZEN）` })
+  for (const o of overFrozen) {
+    bad.push({ rel: o.rel, val: `${o.val} —— 靠 line-height 撑高度，改 flex：display:flex;align-items:center;justify-content:center + line-height:var(--lh-none)` })
+  }
+  const frozenTotal = [...frozenSeen].reduce((a, [, n]) => a + n, 0)
+  if (frozenTotal) console.log(`  · 行高：${frozenTotal} 处「用 line-height 当高度」已冻结（10 处明细格文本态有 ellipsis、2 处原生 select，见 LH_AS_HEIGHT_FROZEN）`)
   return bad
 }
 

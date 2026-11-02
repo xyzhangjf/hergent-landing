@@ -612,7 +612,8 @@ onBeforeUnmount(() => {
        不裁切、不压到相邻卡片（第一版曾把徽标做成 13px 并挂卡片右上角，
        那会落在「周X」同一行、"周日 班" 会被读成周日的属性，已改掉）。 */
 .wx-hb{position:absolute;top:-6px;right:-10px;min-width:11px;height:11px;box-sizing:border-box;
-  padding:0 1px;border-radius:var(--radius-pill);font-size:var(--fs-xs);font-weight:600;line-height:11px;text-align:center;
+  padding:0 1px;border-radius:var(--radius-pill);font-size:var(--fs-xs);font-weight:600;line-height:var(--lh-none);
+display:flex;align-items:center;justify-content:center;
   color:#fff;font-style:normal;pointer-events:none}
 .wx-hb.off{background:var(--hd-off)}
 .wx-hb.work{background:var(--hd-work)}

@@ -1796,7 +1796,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 /* 到货逾期标识（纯前端，基于 expected_date + 状态） */
 .ipl-overdue {
-  display: inline-block; margin-left: var(--sp-h6); padding: 0 var(--sp-h6); height: 16px; line-height: 16px;
+  display: inline-flex; align-items: center; justify-content: center; margin-left: var(--sp-h6); padding: 0 var(--sp-h6); height: 16px; line-height: var(--lh-none);
   font-size:var(--fs-xs); font-weight: 600; border-radius: var(--radius-sm); vertical-align: middle;
   color: var(--danger-txt); background: var(--danger-bg);
 }

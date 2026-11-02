@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
   height:20px;padding:0 9px;
   border:1px solid var(--bd);border-radius:var(--radius-pill);
   background:var(--bg2);color:var(--t2);
-  font-size:var(--fs-sm);line-height:18px;white-space:nowrap;
+  font-size:var(--fs-sm);line-height:var(--lh-none);white-space:nowrap;
   cursor:pointer;user-select:none;
   transition:background var(--dur-base) ease,border-color var(--dur-base) ease,color var(--dur-base) ease;
 }

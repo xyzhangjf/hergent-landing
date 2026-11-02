@@ -1274,7 +1274,7 @@ onUnmounted(stopStatusPoll)
 .cc-health{font-size:var(--fs-xs);color:var(--t3);margin-bottom:var(--sp-3);line-height:var(--lh-normal)}
 .cc-name{font-size:var(--fs-h4);font-weight:500;color:var(--t1);margin-bottom:var(--sp-1)}
 .cc-desc{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-h14);min-height:18px}
-.cc-action{display:inline-block;height:32px;padding:0 var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:32px;text-align:center}
+.cc-action{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:var(--lh-none)}
 .cc-action.primary{background:var(--p-solid);color:#fff}
 .cc-action.ghost{border:1px solid var(--bd);color:var(--t2)}
 

@@ -1696,7 +1696,7 @@ function stopResize() {
 .tb-bell{position:relative}
 /* v723：底色 `--dan` → `--dan-solid`。11px 白字在深色提亮红 #ff453a 上只有 3.41:1（需 4.5），
    徽标数字是本条最要紧的信息，不能是整页最淡的字。 */
-.tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--dan-solid);color:#fff;font-size:var(--fs-xs);line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
+.tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--dan-solid);color:#fff;font-size:var(--fs-xs);line-height:var(--lh-none);display:flex;align-items:center;justify-content:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
 .tb-user{height:32px;display:flex;align-items:center;padding:0 var(--sp-3);border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-base);font-weight:500;cursor:pointer;flex-shrink:0;max-width:180px}
 /* v708：名字单行 + 过长省略（hover 有 title 看全）。`min-width:0` 是让 ellipsis 真正生效的前提
    —— flex item 默认 min-width:auto，内容多长就多长，省略号永远不出现。 */

@@ -14308,7 +14308,7 @@ provide('sprintSummary', sprintSummary)
 /* v672：筛选**来源**（品牌 2/3 个 · 到货周期 +3天…）—— 比主题色再弱一档，
    它解释「为什么只有 N 行」，不该和「筛选后 177」抢读。 */
 .pin .pin-src{color:var(--t3);font-size:var(--fs-sm);font-weight:400}
-.pin .pin-clr{margin-left:5px;padding:0 var(--sp-1);height:16px;line-height:16px;font-size:var(--fs-sm);
+.pin .pin-clr{margin-left:5px;padding:0 var(--sp-1);height:16px;line-height:var(--lh-none);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-sm);
   color:var(--p-ink);background:none;border:1px solid color-mix(in srgb,var(--p) 35%,transparent);
   border-radius:var(--radius-2xs);cursor:pointer}
 .pin .pin-clr:hover{background:color-mix(in srgb,var(--p) 12%,transparent)}
@@ -14850,16 +14850,16 @@ provide('sprintSummary', sprintSummary)
 .name-badges :deep(>span){margin-left:0;pointer-events:auto}
 /* v613：「待上架」角标。沿用 v606 那条纪律 —— 格内行内控件的尺寸必须自己钉死，
    否则它会按基线/默认行高把 21px 数据行顶高（`.btn-del` 30×30 就是这么把表撑到 31px 的）。 */
-:deep(.listadd-badge){display:inline-block;height:14px;line-height:14px;padding:0 var(--sp-1);border-radius:var(--radius-2xs);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-xs);white-space:nowrap;vertical-align:middle}
+:deep(.listadd-badge){display:inline-flex;align-items:center;justify-content:center;height:14px;line-height:var(--lh-none);padding:0 var(--sp-1);border-radius:var(--radius-2xs);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-xs);white-space:nowrap;vertical-align:middle}
 /* v614：撤下角标 —— 与上架角标同尺寸（14 高 / 10 号字），只换配色，避免行内出现两种高度 */
-:deep(.listdel-badge){display:inline-block;height:14px;line-height:14px;padding:0 var(--sp-1);border-radius:var(--radius-2xs);background:var(--danger-bg);color:var(--danger-txt);font-size:var(--fs-xs);white-space:nowrap;vertical-align:middle}
+:deep(.listdel-badge){display:inline-flex;align-items:center;justify-content:center;height:14px;line-height:var(--lh-none);padding:0 var(--sp-1);border-radius:var(--radius-2xs);background:var(--danger-bg);color:var(--danger-txt);font-size:var(--fs-xs);white-space:nowrap;vertical-align:middle}
 :deep(.warn-badge){display:inline-block;margin-left:3px;font-size:var(--fs-xs);color:var(--danger-txt);vertical-align:middle}
 :deep(.warn-badge.short){color:var(--warn-amber)}
 :deep(.diff-chg){outline:2px solid var(--p);outline-offset:-2px}
 :deep(.mini-btn){margin-left:var(--sp-1);font-size:var(--fs-xs);padding:1px var(--sp-h6);border:1px solid var(--p);color:var(--p-dark);background:transparent;border-radius:var(--radius-sm);cursor:pointer}
 /* v606：编辑表里所有「格内的行内控件」都必须 ≤ `--fc-cell`，否则它们会按基线把行盒顶高
    （同 `.btn-del` 那个坑）。这里把「采纳」压到 16px 内容高并改中线对齐。 */
-:deep(.edit-tbl .mini-btn){height:16px;line-height:14px;padding:0 5px;font-size:var(--fs-xs);vertical-align:middle}
+:deep(.edit-tbl .mini-btn){display:inline-flex;align-items:center;justify-content:center;height:16px;line-height:var(--lh-none);padding:0 5px;font-size:var(--fs-xs);vertical-align:middle}
 :deep(.mini-btn:disabled){opacity:.4;cursor:default}
 :deep(.suggest){color:var(--p-dark);font-weight:500}
 /* v662：建议为 0 但到货前会断货 —— 显示缺口，别让「0」看着像"不用管" */

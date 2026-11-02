@@ -1,11 +1,11 @@
 {
  "set": "baseline",
- "tookAt": "2026-11-02T10:57:06.814Z",
+ "tookAt": "2026-11-02T11:19:25.687Z",
  "viewport": [
   1440,
   900
  ],
- "build": "v729",
+ "build": "v730",
  "pages": [
   {
    "theme": "light",
@@ -14,7 +14,7 @@
    "route": "/workbench",
    "nodes": 392,
    "h1": "经营工作台",
-   "bytes": 152300
+   "bytes": 152282
   },
   {
    "theme": "light",
@@ -23,7 +23,7 @@
    "route": "/dashboard",
    "nodes": 606,
    "h1": "经营趋势",
-   "bytes": 88193
+   "bytes": 88171
   },
   {
    "theme": "light",
@@ -32,7 +32,7 @@
    "route": "/inventory/purchase",
    "nodes": 1167,
    "h1": "采购订单",
-   "bytes": 200352
+   "bytes": 200332
   },
   {
    "theme": "light",
@@ -41,7 +41,7 @@
    "route": "/inventory/sale",
    "nodes": 1310,
    "h1": "自提订单",
-   "bytes": 215994
+   "bytes": 215976
   },
   {
    "theme": "light",
@@ -50,7 +50,7 @@
    "route": "/archive/products",
    "nodes": 1679,
    "h1": "商品档案",
-   "bytes": 212791
+   "bytes": 212777
   },
   {
    "theme": "light",
@@ -59,7 +59,7 @@
    "route": "/reports/gross-profit",
    "nodes": 525,
    "h1": "毛利分析",
-   "bytes": 171658
+   "bytes": 171636
   },
   {
    "theme": "light",
@@ -68,7 +68,7 @@
    "route": "/reports/inventory-turnover",
    "nodes": 2021,
    "h1": "库存周转",
-   "bytes": 183319
+   "bytes": 183299
   },
   {
    "theme": "light",
@@ -77,7 +77,7 @@
    "route": "/rebate",
    "nodes": 419,
    "h1": "仪表盘",
-   "bytes": 149641
+   "bytes": 149617
   },
   {
    "theme": "light",
@@ -86,7 +86,7 @@
    "route": "/funds/flow",
    "nodes": 2251,
    "h1": "资金流水账",
-   "bytes": 253683
+   "bytes": 253665
   },
   {
    "theme": "light",
@@ -95,7 +95,7 @@
    "route": "/funds/party-reconcile",
    "nodes": 705,
    "h1": "往来核销",
-   "bytes": 62414
+   "bytes": 62393
   },
   {
    "theme": "light",
@@ -104,7 +104,7 @@
    "route": "/inventory/purchase/new",
    "nodes": 876,
    "h1": "新建采购订单",
-   "bytes": 110591
+   "bytes": 110571
   },
   {
    "theme": "light",
@@ -113,7 +113,7 @@
    "route": "/settings",
    "nodes": 204,
    "h1": "账号与组织",
-   "bytes": 63190
+   "bytes": 63172
   },
   {
    "theme": "dark",
@@ -122,7 +122,7 @@
    "route": "/workbench",
    "nodes": 392,
    "h1": "经营工作台",
-   "bytes": 152044
+   "bytes": 152022
   },
   {
    "theme": "dark",
@@ -131,7 +131,7 @@
    "route": "/dashboard",
    "nodes": 606,
    "h1": "经营趋势",
-   "bytes": 91636
+   "bytes": 91613
   },
   {
    "theme": "dark",
@@ -140,7 +140,7 @@
    "route": "/inventory/purchase",
    "nodes": 1167,
    "h1": "采购订单",
-   "bytes": 200328
+   "bytes": 200303
   },
   {
    "theme": "dark",
@@ -149,7 +149,7 @@
    "route": "/inventory/sale",
    "nodes": 1310,
    "h1": "自提订单",
-   "bytes": 214910
+   "bytes": 214888
   },
   {
    "theme": "dark",
@@ -158,7 +158,7 @@
    "route": "/archive/products",
    "nodes": 1679,
    "h1": "商品档案",
-   "bytes": 212860
+   "bytes": 212837
   },
   {
    "theme": "dark",
@@ -167,7 +167,7 @@
    "route": "/reports/gross-profit",
    "nodes": 525,
    "h1": "毛利分析",
-   "bytes": 173281
+   "bytes": 173257
   },
   {
    "theme": "dark",
@@ -176,7 +176,7 @@
    "route": "/reports/inventory-turnover",
    "nodes": 2021,
    "h1": "库存周转",
-   "bytes": 186261
+   "bytes": 186238
   },
   {
    "theme": "dark",
@@ -185,7 +185,7 @@
    "route": "/rebate",
    "nodes": 419,
    "h1": "仪表盘",
-   "bytes": 150282
+   "bytes": 150258
   },
   {
    "theme": "dark",
@@ -194,7 +194,7 @@
    "route": "/funds/flow",
    "nodes": 2251,
    "h1": "资金流水账",
-   "bytes": 253734
+   "bytes": 253716
   },
   {
    "theme": "dark",
@@ -203,7 +203,7 @@
    "route": "/funds/party-reconcile",
    "nodes": 705,
    "h1": "往来核销",
-   "bytes": 63588
+   "bytes": 63563
   },
   {
    "theme": "dark",
@@ -212,7 +212,7 @@
    "route": "/inventory/purchase/new",
    "nodes": 876,
    "h1": "新建采购订单",
-   "bytes": 109831
+   "bytes": 109810
   },
   {
    "theme": "dark",
@@ -221,7 +221,7 @@
    "route": "/settings",
    "nodes": 204,
    "h1": "账号与组织",
-   "bytes": 64241
+   "bytes": 64218
   }
  ]
 }

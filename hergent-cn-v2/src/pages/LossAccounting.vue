@@ -1188,7 +1188,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-chip-quiet{color:var(--t3)}
 .la-pricing{display:flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t2)}
 .la-hint{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:var(--radius-circle);background:var(--bg4);color:var(--t3);font-size:var(--fs-xs);font-style:normal;cursor:help;flex:0 0 auto}
-.la-badge{display:inline-block;margin-left:5px;min-width:15px;height:15px;line-height:15px;padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--war-solid);color:#fff;font-size:var(--fs-xs);text-align:center}
+.la-badge{display:inline-flex;align-items:center;justify-content:center;margin-left:5px;min-width:15px;height:15px;line-height:var(--lh-none);padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--war-solid);color:#fff;font-size:var(--fs-xs)}
 
 /* ── 编辑态提示条 ── */
 .la-editbar{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;padding:9px var(--sp-h14);margin-bottom:var(--sp-3);border-radius:var(--radius-sm);border:1px solid color-mix(in srgb,var(--p) 30%,transparent);background:var(--p-bg)}

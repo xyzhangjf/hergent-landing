@@ -619,7 +619,7 @@ html.dark .dsh {
   padding: 3px var(--sp-h6); border-radius: var(--radius-sm); transition: background var(--dur-fast) ease;
 }
 .rk-row:hover { background: var(--bg2); }
-.rk-tag { width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: var(--radius-xs);
+.rk-tag { width: 20px; height: 20px; line-height: var(--lh-none); display: flex; align-items: center; justify-content: center; border-radius: var(--radius-xs);
   font-size:var(--fs-xs); background: var(--bg4); color: var(--t2); }
 .rk-tag.k-store { background: var(--p-bg); color: var(--p-deep); }
 .rk-tag.k-operator { background: var(--warn-amber-bg); color: var(--warn-amber); }

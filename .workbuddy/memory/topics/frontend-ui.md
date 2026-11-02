@@ -5533,3 +5533,37 @@ WorkBuddy 是「每档字号绑一个绝对行高」（12/18、13/20、14/22…�
 
 **回滚点惯例（本次起）**：部署前 `cp index.html index.html.bak-v728`。因为 rsync 不 `--delete`、旧 chunk 全在，
 所以**还原一个 index.html 就等于回滚整站**，不必备份 1.5G assets。
+
+## 十一、v730 「用行高当高度」清零（2026-11-02）
+
+**债的形态**：`height:15px;line-height:15px` —— 靠行高把单行文字撑到容器高，本质是**垂直居中**，不是文字行距。
+v728 的迁移脚本一度把它当行距换算成倍数（`.tb-bell-n` 15 → 15.4px），那是「迁移改错 + 护栏放行」同时发生。
+
+**13 处改 flex**：`display:flex|inline-flex` + `align-items:center` + `justify-content:center` + `line-height:var(--lh-none)`。
+`--lh-none`（1）让行盒 = 字号高，flex 居中后文字视觉位置与「行高=容器高」**数学等价**（只有半行距的亚像素舍入差）。
+
+### 🔴 改 flex 的三个坑
+
+1. **`text-align:center` 在 flex 容器里对匿名 flex item 无效** —— 只把 `inline-block` 换成 `inline-flex` 会让文字左贴，必须同时换 `justify-content:center`。
+2. **同块有 `text-overflow:ellipsis` 的一律不能改**：`.ipn-v` 明细格文本态（10 处）有 `white-space:nowrap;overflow:hidden;text-overflow:ellipsis`，
+   改 flex 后文本成为匿名 flex item，而 `text-overflow` 只作用于块容器自己的行盒 ⇒ **省略号消失、长商品名被硬裁**，
+   正是 v417j 加 ellipsis 要解决的「把表格推出横向滚动」。要改必须先包内层 `span`。
+3. **`<select>` 不吃 `align-items`**（UA 内部渲染 popup，不参与 flex 布局），`line-height` 是它唯一的垂直居中手段 ⇒ `.hd-sel` / `.cm-*` 保留。
+4. 附带：加 `display:flex` 前必查元素原本的 display 来源。`.rk-tag` 没有 display 声明，但父级 `.rk-row` 是 `display:grid` ⇒ 作为 grid item 被 blockify，`width:20px` 才生效。
+   **如果它是普通 inline span，加 flex 会让它从「按内容宽」变成「固定 20px 宽」，视觉会变。**
+
+### 🔴 护栏第三态：冻结清单用不满也要报错
+
+`LH_AS_HEIGHT_FROZEN` 按**文件冻结数量**（不按选择器字符串 —— 提取选择器在 `:deep()` / 合并规则上不稳）：
+命中且不超 ⇒ 放行；新增或超出 ⇒ 报错并给出改法；**用不满 ⇒ 也报错**（说明那处被删或写法变了，清单该同步收缩）。
+只写「上限」的清单会慢慢变成「允许这个文件里出现 N 处」的空白支票。
+
+### 🔴 视觉回归：区分「布局位移」与「数据变化」
+
+v730 全部 24 页都报 94 像素、bbox **恒为 `(1269,12,1284,22)`** —— 放大看是未读数 `68 → 69`。
+**证据链该这么写**：若徽标因 flex 位移，红色圆角矩形的边缘必然跟着变，bbox 会**远大于**数字所在区域；
+实测 bbox 只包住数字 ⇒ 徽标边界逐像素相同。**「边界逐像素相同」比「差异百分比小」有力得多**。
+排除该矩形后 24/24 页 0 像素差异。
+
+代表页覆盖不到的 3 处用 `Range.getBoundingClientRect()` 补量文字渲染矩形：
+`.tb-bell-n` 盒 15 / 字 13 / 上 1 下 1；`.rk-tag` 20 / 13 / 3.5·3.5；`.cc-action` 32 / 15 / 8·9（0.5px 亚像素舍入）。
