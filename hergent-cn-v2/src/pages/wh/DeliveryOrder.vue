@@ -258,7 +258,7 @@ onMounted(loadRows)
 .dvo-op-cell { white-space: nowrap }
 .dvo-op {
   border: none; background: none; padding: 0; font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  color: var(--p-ink); cursor: pointer; white-space: nowrap;
 }
 .dvo-op:hover { text-decoration: underline }
 .dvo-op:disabled { color: var(--t3); cursor: not-allowed; text-decoration: none }

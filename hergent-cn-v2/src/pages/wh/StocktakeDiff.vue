@@ -373,7 +373,7 @@ defineExpose({ load: loadList })
 
 .std-op {
   border: none; background: none; padding: 0; font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  color: var(--p-ink); cursor: pointer; white-space: nowrap;
 }
 .std-op:hover { text-decoration: underline }
 .std-op:disabled { color: var(--t3); cursor: not-allowed; text-decoration: none }

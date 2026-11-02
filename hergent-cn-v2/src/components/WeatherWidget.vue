@@ -540,7 +540,7 @@ onBeforeUnmount(() => {
    320px 级机型再隐藏品牌文字（`.tb-brand b`），见 Shell.vue 的 360 断点。 */
 @media(max-width:768px){ .wx{display:none} }
 .wx-now{display:flex;align-items:center;gap:var(--sp-h6);height:34px;padding:0 var(--sp-3);border-radius:var(--radius-pill);
-  background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-base);font-weight:500;cursor:pointer;border:1px solid transparent;transition:all var(--dur-base);white-space:nowrap}
+  background:var(--p-bg);color:var(--p-ink);font-size:var(--fs-base);font-weight:500;cursor:pointer;border:1px solid transparent;transition:all var(--dur-base);white-space:nowrap}
 .wx-now:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .wx-now.dim{opacity:.6}
 .wx-ic{font-size:var(--fs-lg);line-height:var(--lh-none)}
@@ -554,7 +554,7 @@ onBeforeUnmount(() => {
 .wx-where{display:flex;align-items:center;gap:var(--sp-h6);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t2)}
 .wx-where-ic{color:var(--p-ink);flex:0 0 auto}
 .wx-where-city{font-size:var(--fs-base);font-weight:600;color:var(--t1)}
-.wx-where-tag{flex:0 0 auto;padding:1px var(--sp-h6);border-radius:var(--radius-xs);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-xs);line-height:var(--lh-normal)}
+.wx-where-tag{flex:0 0 auto;padding:1px var(--sp-h6);border-radius:var(--radius-xs);background:var(--p-bg);color:var(--p-ink);font-size:var(--fs-xs);line-height:var(--lh-normal)}
 .wx-where-desc{font-variant-numeric:tabular-nums;white-space:nowrap}
 .wx-where-desc::before{content:'·';margin-right:var(--sp-h6);color:var(--t3)}
 /* 面板由 Teleport 挂在 <body> 上、position:fixed，坐标由 placePop() 写入。

@@ -1686,24 +1686,24 @@ function stopResize() {
 .tb-brand{display:flex;align-items:center;gap:var(--sp-2);flex:1;min-width:0}
 .tb-brand-logo{width:22px;height:22px;border-radius:var(--radius-xs);display:block}
 .tb-brand b{font-size:var(--fs-lg);font-weight:600;letter-spacing:.2px}
-.tb-sub{font-size:var(--fs-sm);color:var(--t3);padding:3px var(--sp-2);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark)}
+.tb-sub{font-size:var(--fs-sm);color:var(--t3);padding:3px var(--sp-2);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-ink)}
 .tb-right{display:flex;align-items:center;gap:var(--sp-2);flex:1;min-width:0;justify-content:flex-end}
 /* v708：`.tb-btn` 与 `.tb-user` 都不许收缩 —— 顶栏空间不够时，宁可让空间从
    `.tb-brand`（有 flex:1 且 min-width:0）那里让出来，也不要挤压图标和名字。 */
 .tb-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);flex-shrink:0}
-.tb-btn:hover{background:var(--bg2);color:var(--p-dark)}
+.tb-btn:hover{background:var(--bg2);color:var(--p-ink)}
 /* 通知铃铛：未读数用中文数目直接显示，不用英文缩写 */
 .tb-bell{position:relative}
 /* v723：底色 `--dan` → `--dan-solid`。11px 白字在深色提亮红 #ff453a 上只有 3.41:1（需 4.5），
    徽标数字是本条最要紧的信息，不能是整页最淡的字。 */
 .tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--dan-solid);color:#fff;font-size:var(--fs-xs);line-height:var(--lh-none);display:flex;align-items:center;justify-content:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
-.tb-user{height:32px;display:flex;align-items:center;padding:0 var(--sp-3);border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-base);font-weight:500;cursor:pointer;flex-shrink:0;max-width:180px}
+.tb-user{height:32px;display:flex;align-items:center;padding:0 var(--sp-3);border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-ink);font-size:var(--fs-base);font-weight:500;cursor:pointer;flex-shrink:0;max-width:180px}
 /* v708：名字单行 + 过长省略（hover 有 title 看全）。`min-width:0` 是让 ellipsis 真正生效的前提
    —— flex item 默认 min-width:auto，内容多长就多长，省略号永远不出现。 */
 .tb-user-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
 .tb-ai{display:flex;align-items:center;gap:var(--sp-3);flex-shrink:0}
-.tb-copilot{display:flex;align-items:center;gap:var(--sp-2);height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-base);font-weight:500;cursor:pointer;transition:all var(--dur-base)}
+.tb-copilot{display:flex;align-items:center;gap:var(--sp-2);height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-ink);font-size:var(--fs-base);font-weight:500;cursor:pointer;transition:all var(--dur-base)}
 .tb-copilot:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .tb-cp-ic{display:flex;align-items:center;justify-content:center}
 
@@ -1732,9 +1732,19 @@ function stopResize() {
    🔴 高度**不写死**：加 `height:38px` 会在字号/行高一变时把文字挤出去
       （`.psi-tbl` 就踩过"内容盒 8px < 复选框 13px"的同类坑）。
    🔴 纵向 padding 下限 5px：再小 16px 图标会贴上下边、圆角 10px 会吃到图标。 */
-.sb-item{display:flex;align-items:center;gap:var(--sp-h10);width:100%;padding:9px var(--sp-h10);border-radius:var(--radius-sm);color:var(--t2);text-decoration:none;font-size:var(--fs-base);line-height:var(--lh-normal);transition:all var(--dur-base)}
-.sb-item:hover{background:var(--bg);color:var(--t1)}
-.sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
+/* 🔴 v735：侧栏一级项由 `--t2` 改 `--t1`。
+   判据：侧栏是**一级导航**，不是"次要文字"。v717 把两级灰合并成 `--t2`(AA 安全) 时，
+   判的是"能被读的次要文字"，导航根本不在这个类别里 —— 它每天被点几十次，
+   却借了次要文字的灰。实测（v734 线上，1440×900）：
+     浅色 `#6a6a70` on `#fcfcfd` = 5.25:1，而同屏 h1 是 16.83 ⇒ 落差 3.2 倍；
+     深色 `#b4b4b8` on `#202022` = 7.83，数值不低，但它**是灰不是白**，挨着近白标题就显脏。
+   改后 16.83 / 15.63 —— 与正文同级（Finder / Notion / Linear 都这么做）。
+   🔴 必须与下一行同批上线：原来 hover 的**唯一**可见变化就是"字从灰变黑"，
+      默认字色一改黑，hover 就毫无反应 ⇒ 底色同时由 `--bg`(纯白) 换 `--bg2`。
+      （原来 `--bg` 与侧栏底 `#fcfcfd` 只差 3/255，本来就看不见。） */
+.sb-item{display:flex;align-items:center;gap:var(--sp-h10);width:100%;padding:9px var(--sp-h10);border-radius:var(--radius-sm);color:var(--t1);text-decoration:none;font-size:var(--fs-base);line-height:var(--lh-normal);transition:all var(--dur-base)}
+.sb-item:hover{background:var(--bg2);color:var(--t1)}
+.sb-item.router-link-active{background:var(--p-bg);color:var(--p-ink);font-weight:500}
 /* ⚠️ v390（2026-10-07）：原 `.sb-grp`（分组标题：经营 / 核算 / 配置）**已随分组一起删除**
    —— 它是 v311 为「3 组 10 项」加的，v390 改成 8 项平铺后模板里已无引用，
    留着就是一条**永不命中的死规则**（本项目纪律：死 CSS 与死代码同罪，会被后人当成"还在用"）。
@@ -1758,11 +1768,11 @@ function stopResize() {
    只继承字体族（button 的 UA 字体必须换掉），字号/行高交回 `.sb-item` 统一定义。
    ⚠️ 别再写回 `font:` 简写，也别在这里补 `font-size` —— 那是第二个来源，改一处必漏一处。 */
 .sb-area-btn{font-family:inherit;border:none;background:none;cursor:pointer;text-align:left}
-.sb-area.open>.sb-area-btn{background:var(--p-bg);color:var(--p-dark);font-weight:500}
+.sb-area.open>.sb-area-btn{background:var(--p-bg);color:var(--p-ink);font-weight:500}
 .sb-area.pinned>.sb-area-btn{box-shadow:inset 0 0 0 1px var(--bd)}
 /* v390：一级项「当前页高亮」（§七 要求）—— 与扁平项的 `.router-link-active`
    **视觉完全一致**，否则同一屏上两种"当前页"长得不一样。判定见 `areaCur()`。 */
-.sb-area.cur>.sb-area-btn{background:var(--p-bg);color:var(--p-dark);font-weight:500}
+.sb-area.cur>.sb-area-btn{background:var(--p-bg);color:var(--p-ink);font-weight:500}
 .sb-caret{margin-left:auto;opacity:.55;transition:transform var(--dur-base)}
 .sb-area.open .sb-caret{transform:rotate(90deg)}
 
@@ -1794,29 +1804,29 @@ function stopResize() {
 .sb-pop-row{display:flex;align-items:center;gap:var(--sp-1)}
 .sb-pop-row>.sb-pop-item{flex:1;min-width:0;width:auto}
 .sb-pop-item{display:flex;align-items:center;gap:9px;width:100%;padding:var(--sp-2) var(--sp-h10);border-radius:var(--radius-sm);
-  color:var(--t2);text-decoration:none;font-size:var(--fs-base);white-space:nowrap;transition:all var(--dur-base)}
-.sb-pop-item:hover{background:var(--bg);color:var(--t1)}
+  color:var(--t1);text-decoration:none;font-size:var(--fs-base);white-space:nowrap;transition:all var(--dur-base)}
+.sb-pop-item:hover{background:var(--bg2);color:var(--t1)}
 /* 🔴 v390：高亮判据由 `.router-link-active` 换成 `.cur`（判定见 `isCur()` 段注释）——
    「历史期次 / 报单配置 / 商品目标」三条的 `to` 是**同一 path、不同 query**，
    vue-router 按 matched 路由记录判 active ⇒ 不加改动会**三条一起亮**（真机可见）。
    `.cur` 由我们自己算（path 与 tab 都比），因此它是弹窗里**唯一**的高亮来源。 */
-.sb-pop-item.cur{background:var(--p-bg);color:var(--p-dark);font-weight:500}
+.sb-pop-item.cur{background:var(--p-bg);color:var(--p-ink);font-weight:500}
 /* 行尾「创建」（L1 双入口的右半区）。桌面用**文字**而非纯图标：横向空间够，
    「创建」不需要学习成本（§七：手机端横向紧才改用 `＋`，那随批次 5 一起做）。 */
 .sb-pop-new{display:flex;align-items:center;gap:3px;flex-shrink:0;padding:var(--sp-h6) 9px;border-radius:var(--radius-sm);
-  background:var(--p-bg);color:var(--p-dark);text-decoration:none;font-size:var(--fs-sm);
+  background:var(--p-bg);color:var(--p-ink);text-decoration:none;font-size:var(--fs-sm);
   white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-new:hover{background:var(--p-solid);color:#fff}
 /* v640（2026-10-22）：借鉴舟谱弹窗内「明细」次级入口 + 状态标签。
    两者都 `flex-shrink:0` 右对齐（行内 `.sb-pop-item` 是 `flex:1` 吃掉剩余宽度）；
    与 `.sb-pop-new`（L1 双入口右半区）同一套版式语言。 */
 .sb-pop-drill{font-size:var(--fs-xs);line-height:var(--lh-none);padding:3px 7px;border-radius:var(--radius-xs);
-  background:var(--p-bg);color:var(--p-dark);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all var(--dur-base)}
+  background:var(--p-bg);color:var(--p-ink);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-drill:hover{background:var(--p-solid);color:#fff}
 .sb-pop-badge{font-size:var(--fs-xs);line-height:var(--lh-none);padding:var(--sp-h2) var(--sp-h6);border-radius:var(--radius-xs);white-space:nowrap;flex-shrink:0}
 .sb-pop-badge.tone-warn{background:var(--war-bg);color:var(--war)}
 .sb-pop-badge.tone-danger{background:var(--dan-bg);color:var(--dan)}
-.sb-pop-badge.tone-info{background:var(--p-bg);color:var(--p-dark)}
+.sb-pop-badge.tone-info{background:var(--p-bg);color:var(--p-ink)}
 /* v645 P2：最近打开（弹窗顶部一行 chip）+ 已打开小圆点。 */
 .sb-pop-recent{display:flex;align-items:center;gap:var(--sp-h6);flex-wrap:wrap;
   padding:var(--sp-1) var(--sp-2) var(--sp-2);margin:var(--sp-h2) 0 var(--sp-h6);border-bottom:1px solid var(--bd);width:100%}
@@ -1824,7 +1834,7 @@ function stopResize() {
 .sb-pop-recent-chip{font-size:var(--fs-sm);padding:3px var(--sp-2);border-radius:var(--radius-pill);background:var(--bg);
   color:var(--t2);text-decoration:none;white-space:nowrap;max-width:160px;overflow:hidden;
   text-overflow:ellipsis;transition:all var(--dur-base)}
-.sb-pop-recent-chip:hover{background:var(--p-bg);color:var(--p-dark)}
+.sb-pop-recent-chip:hover{background:var(--p-bg);color:var(--p-ink)}
 /* 已打开：条目名右侧一个小圆点（不占额外行高，避免改动行节奏）。 */
 .sb-pop-dot{width:5px;height:5px;border-radius:var(--radius-circle);background:var(--p);flex-shrink:0;margin-left:auto}
 
@@ -1871,7 +1881,7 @@ function stopResize() {
 .md-item:active{background:var(--bg4)}
 /* 手机端「＋」（L1 双入口的右半区）：横向紧 ⇒ 纯图标（桌面 `.sb-pop-new` 用「＋ 创建」文字）。
    ⚠️ 命中区靠 36×36 撑住，别缩成 16px 图标本身；`margin-right` 与条目右侧留白对齐。 */
-.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:var(--sp-4);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);text-decoration:none}
+.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:var(--sp-4);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-ink);text-decoration:none}
 .md-item-new:active{background:var(--p-solid);color:#fff}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
@@ -1920,8 +1930,16 @@ function stopResize() {
   .tb-right{gap:var(--sp-h6)}
   .tb-user{max-width:96px;padding:0 var(--sp-h10)}
   .mnav{display:flex;position:fixed;bottom:0;left:0;right:0;height:calc(56px + env(safe-area-inset-bottom));background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-top:1px solid var(--glass-border);z-index:800;padding-bottom:env(safe-area-inset-bottom)}
-  .mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;color:var(--t3);font-size:var(--fs-xs)}
-  .mnav-item.router-link-active{color:var(--p-dark)}
+  /* 🔴 v735：手机底栏与桌面侧栏是**同一层级的导航**，同一个病。
+     原来写 `--t3`，而 `--t3` 与 `--t2` 是**同值**（v717 两级灰合并的结果）⇒ 改 `--t2` 等于没改。
+     这里 12px 字比桌面 13px 还小、笔画更密，要压到 `--t1` 才看得清。 */
+  /* 🔴 v735：必须显式 `text-decoration:none` —— `.mnav-item` 是 `<router-link>`(#201)
+     ⇒ 渲染成 `<a>`，而本仓没有全局 `a{text-decoration:none}` 重置。
+     原来文字是 `--t3` 的灰，下划线跟着淡到几乎看不见；本轮把字压到 `--t1` 后
+     下划线同步变黑，**深色下尤其刺眼**（白底线）。这是本轮的改动"放大"出来的既有缺陷，
+     不补就等于用一次修对比度换来一次视觉退步。 */
+  .mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;color:var(--t1);text-decoration:none;font-size:var(--fs-xs)}
+  .mnav-item.router-link-active{color:var(--p-ink)}
   /* v311b：底部栏名字改回与侧栏**同源**（「工作台」→「经营工作台」等）后变长，
      窄屏（320px / 4 格 ≈ 80px）下不许换行把图标顶歪；也防「预报订货管理」挤出格。 */
   .mnav-item span{white-space:nowrap}

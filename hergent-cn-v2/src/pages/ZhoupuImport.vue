@@ -340,7 +340,7 @@ onMounted(async () => {
 .zp-bar-idle{width:35%;animation:zp-slide 1.2s ease-in-out infinite}
 @keyframes zp-slide{0%{margin-left:-35%}100%{margin-left:100%}}
 .zp-prog-txt{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;margin-top:var(--sp-h10);font-size:var(--fs-base);color:var(--t2)}
-.zp-prog-txt b{color:var(--p-dark)}
+.zp-prog-txt b{color:var(--p-ink)}
 .zp-running{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .zp-done{background:var(--ok-green-bg);color:var(--ok-green)}
 .zp-fold{margin-top:var(--sp-4);font-size:var(--fs-base);color:var(--t2)}
@@ -351,6 +351,6 @@ onMounted(async () => {
 .zp-tbl td{padding:7px var(--sp-h10);border-bottom:1px solid var(--bd);color:var(--t1)}
 .zp-tbl .zp-num{text-align:right}
 .zp-miss,.zp-warnbox{margin-top:var(--sp-4)}
-.zp-link{margin-top:var(--sp-2);background:none;border:none;color:var(--p-dark);
+.zp-link{margin-top:var(--sp-2);background:none;border:none;color:var(--p-ink);
   font-size:var(--fs-base);cursor:pointer;padding:0}
 </style>

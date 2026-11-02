@@ -1163,20 +1163,20 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .al-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .al-tag{flex:none;font-size:var(--fs-xs);padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3)}
 .al-tag.war{background:rgba(var(--war-rgb),.14);color:var(--war)}
-.al-tag.mine{background:var(--p-bg);color:var(--p-dark)}
+.al-tag.mine{background:var(--p-bg);color:var(--p-ink)}
 /* 输入框下方那行判定：绿=接管既有列 / 黄=会新增一列 / 红=撞名会被拒 */
 /* v317：报单人下拉下方的引导行（「还没有外部客户账号？去员工档案开通」）。
    中性灰而不是告警色 —— 它描述的是"还没有这种数据"，不是配置出错。 */
 .al-note{font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t3)}
 .lnk-btn{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:var(--fs-sm);padding:0 var(--sp-h2);font-family:inherit;text-decoration:underline}
-.lnk-btn:hover{color:var(--p-dark)}
+.lnk-btn:hover{color:var(--p-ink)}
 .al-hint{font-size:var(--fs-sm);line-height:var(--lh-normal);padding:var(--sp-h6) 9px;border-radius:var(--radius-sm)}
 .al-hint.ok{color:var(--suc);background:rgba(var(--suc-rgb),.10)}
 .al-hint.warn{color:var(--war);background:rgba(var(--war-rgb),.10)}
 .al-hint.err{color:var(--dan);background:rgba(var(--dan-rgb),.10)}
 /* v295：相近列头的一键改选（把"会新增一列"的警告变成一个可点的动作，而不是光提示） */
 .al-near{display:flex;align-items:center;gap:var(--sp-h6);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-loose)}
-.al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:var(--radius-sm);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);cursor:pointer}
+.al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-ink);border-radius:var(--radius-sm);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);cursor:pointer}
 .al-near-btn:hover{background:var(--p-solid);color:#fff}
 .al-near-tip{color:var(--t3)}
 .upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-4) var(--sp-5);font-size:var(--fs-base);color:var(--p-ink);cursor:pointer;text-align:center}

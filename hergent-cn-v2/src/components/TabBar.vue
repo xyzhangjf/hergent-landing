@@ -200,8 +200,8 @@ function close(t) {
      结论：热区从 16×16 提到 22×26（面积 2.2 倍），是这条 26px 标签栏的物理上限。 */
   position:relative}
 .tab-ic::before{content:'';position:absolute;inset:-5px -3px}
-.tab-ic:hover{background:var(--p-bg);color:var(--p-dark)}
-.tab-item.on .tab-refresh{color:var(--p-dark)}
+.tab-ic:hover{background:var(--p-bg);color:var(--p-ink)}
+.tab-item.on .tab-refresh{color:var(--p-ink)}
 .tab-item.on .tab-close{color:var(--t3)}
 
 .tab-more{flex:0 0 auto;position:relative}
@@ -210,7 +210,7 @@ function close(t) {
   font-size:var(--fs-sm);cursor:pointer;transition:background var(--dur-base),color var(--dur-base)}
 .tab-more-btn:hover{background:var(--bg3);color:var(--t1)}
 .tab-more-n{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;
-  padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-xs);font-weight:600}
+  padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-ink);font-size:var(--fs-xs);font-weight:600}
 .tab-more-menu{position:absolute;top:32px;right:0;min-width:180px;max-height:320px;overflow-y:auto;
   background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:var(--sp-h6);
   box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:40}
@@ -218,7 +218,7 @@ function close(t) {
 .tab-more-row:hover{background:var(--bg2)}
 .tab-more-item{flex:1;min-width:0;display:flex;align-items:center;height:26px;border:none;
   background:none;color:var(--t2);font-size:var(--fs-sm);cursor:pointer;text-align:left;padding:0}
-.tab-more-item.on{color:var(--p-dark);font-weight:600}
+.tab-more-item.on{color:var(--p-ink);font-weight:600}
 .tab-more-mask{position:fixed;inset:0;z-index:30}
 
 /* Q6 A：手机端维持现状 —— 不出标签栏（抽屉 + 底部栏不变）。 */

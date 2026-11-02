@@ -383,7 +383,7 @@ onMounted(async () => {
 <style scoped>
 .pr-steps{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-4)}
 .pr-step{font-size:var(--fs-base);color:var(--t3);padding:var(--sp-h6) var(--sp-4);border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
-.pr-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
+.pr-step.on{background:var(--p-bg);color:var(--p-ink);border-color:var(--p);font-weight:500}
 .pr-arrow{color:var(--t3);font-size:var(--fs-sm)}
 .pr-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:var(--fs-md);font-weight:500;color:var(--t1);padding:0}
 

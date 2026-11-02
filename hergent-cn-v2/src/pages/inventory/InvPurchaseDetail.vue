@@ -2351,7 +2351,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   display: flex; align-items: center; gap: var(--sp-h10); margin-bottom: var(--sp-3);
   border-left: 3px solid var(--p); font-size:var(--fs-base); color: var(--t1);
 }
-.ipd-hint svg { color: var(--p-dark); flex: none }
+.ipd-hint svg { color: var(--p-ink); flex: none }
 
 .ipd-recv { margin-bottom: var(--sp-3) }
 .ipd-recv-hd { display: flex; align-items: baseline; gap: var(--sp-h10); margin-bottom: var(--sp-h10); flex-wrap: wrap }
@@ -2372,7 +2372,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* 行内「填写 / 修改」链接：体量与 `.ipd-lb` 同档，不抢信息卡的视线 */
 .ipd-cf-edit {
   border: none; background: none; padding: 0 0 0 var(--sp-h6); margin-left: var(--sp-h2);
-  font-size:var(--fs-sm); color: var(--p-dark); cursor: pointer;
+  font-size:var(--fs-sm); color: var(--p-ink); cursor: pointer;
 }
 .ipd-cf-edit:hover { text-decoration: underline }
 /* 字段可能很多（上限 30 个）⇒ 弹层限高可滚，否则「保存」会被顶出屏幕 */

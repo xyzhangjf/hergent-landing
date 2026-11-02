@@ -1,227 +1,227 @@
 {
- "set": "baseline",
- "tookAt": "2026-11-02T20:55+08:00",
- "viewport": [
-  1440,
-  900
- ],
- "build": "v734",
- "pages": [
-  {
-   "theme": "light",
-   "slug": "workbench",
-   "label": "工作台",
-   "route": "/workbench",
-   "nodes": 392,
-   "h1": "经营工作台",
-   "bytes": 152586
-  },
-  {
-   "theme": "light",
-   "slug": "dashboard",
-   "label": "看板",
-   "route": "/dashboard",
-   "nodes": 606,
-   "h1": "经营趋势",
-   "bytes": 88171
-  },
-  {
-   "theme": "light",
-   "slug": "inv-purchase",
-   "label": "采购单列表",
-   "route": "/inventory/purchase",
-   "nodes": 1167,
-   "h1": "采购订单",
-   "bytes": 200332
-  },
-  {
-   "theme": "light",
-   "slug": "inv-sale",
-   "label": "销售单列表",
-   "route": "/inventory/sale",
-   "nodes": 1310,
-   "h1": "自提订单",
-   "bytes": 215976
-  },
-  {
-   "theme": "light",
-   "slug": "arch-products",
-   "label": "商品档案",
-   "route": "/archive/products",
-   "nodes": 1679,
-   "h1": "商品档案",
-   "bytes": 212777
-  },
-  {
-   "theme": "light",
-   "slug": "rp-gross-profit",
-   "label": "毛利分析",
-   "route": "/reports/gross-profit",
-   "nodes": 525,
-   "h1": "毛利分析",
-   "bytes": 171483
-  },
-  {
-   "theme": "light",
-   "slug": "rp-turnover",
-   "label": "库存周转",
-   "route": "/reports/inventory-turnover",
-   "nodes": 2021,
-   "h1": "库存周转",
-   "bytes": 183791
-  },
-  {
-   "theme": "light",
-   "slug": "rebate",
-   "label": "目标与返利",
-   "route": "/rebate",
-   "nodes": 419,
-   "h1": "仪表盘",
-   "bytes": 149617
-  },
-  {
-   "theme": "light",
-   "slug": "funds-flow",
-   "label": "资金流水",
-   "route": "/funds/flow",
-   "nodes": 2251,
-   "h1": "资金流水账",
-   "bytes": 253665
-  },
-  {
-   "theme": "light",
-   "slug": "funds-party",
-   "label": "往来对账",
-   "route": "/funds/party-reconcile",
-   "nodes": 705,
-   "h1": "往来核销",
-   "bytes": 62393
-  },
-  {
-   "theme": "light",
-   "slug": "inv-purchase-new",
-   "label": "采购建单",
-   "route": "/inventory/purchase/new",
-   "nodes": 876,
-   "h1": "新建采购订单",
-   "bytes": 110571
-  },
-  {
-   "theme": "light",
-   "slug": "settings",
-   "label": "设置",
-   "route": "/settings",
-   "nodes": 204,
-   "h1": "账号与组织",
-   "bytes": 63180
-  },
-  {
-   "theme": "dark",
-   "slug": "workbench",
-   "label": "工作台",
-   "route": "/workbench",
-   "nodes": 392,
-   "h1": "经营工作台",
-   "bytes": 152584
-  },
-  {
-   "theme": "dark",
-   "slug": "dashboard",
-   "label": "看板",
-   "route": "/dashboard",
-   "nodes": 606,
-   "h1": "经营趋势",
-   "bytes": 91613
-  },
-  {
-   "theme": "dark",
-   "slug": "inv-purchase",
-   "label": "采购单列表",
-   "route": "/inventory/purchase",
-   "nodes": 1167,
-   "h1": "采购订单",
-   "bytes": 200303
-  },
-  {
-   "theme": "dark",
-   "slug": "inv-sale",
-   "label": "销售单列表",
-   "route": "/inventory/sale",
-   "nodes": 1310,
-   "h1": "自提订单",
-   "bytes": 214888
-  },
-  {
-   "theme": "dark",
-   "slug": "arch-products",
-   "label": "商品档案",
-   "route": "/archive/products",
-   "nodes": 1679,
-   "h1": "商品档案",
-   "bytes": 212837
-  },
-  {
-   "theme": "dark",
-   "slug": "rp-gross-profit",
-   "label": "毛利分析",
-   "route": "/reports/gross-profit",
-   "nodes": 525,
-   "h1": "毛利分析",
-   "bytes": 173191
-  },
-  {
-   "theme": "dark",
-   "slug": "rp-turnover",
-   "label": "库存周转",
-   "route": "/reports/inventory-turnover",
-   "nodes": 2021,
-   "h1": "库存周转",
-   "bytes": 186763
-  },
-  {
-   "theme": "dark",
-   "slug": "rebate",
-   "label": "目标与返利",
-   "route": "/rebate",
-   "nodes": 419,
-   "h1": "仪表盘",
-   "bytes": 150258
-  },
-  {
-   "theme": "dark",
-   "slug": "funds-flow",
-   "label": "资金流水",
-   "route": "/funds/flow",
-   "nodes": 2251,
-   "h1": "资金流水账",
-   "bytes": 253716
-  },
-  {
-   "theme": "dark",
-   "slug": "funds-party",
-   "label": "往来对账",
-   "route": "/funds/party-reconcile",
-   "nodes": 705,
-   "h1": "往来核销",
-   "bytes": 63563
-  },
-  {
-   "theme": "dark",
-   "slug": "inv-purchase-new",
-   "label": "采购建单",
-   "route": "/inventory/purchase/new",
-   "nodes": 876,
-   "h1": "新建采购订单",
-   "bytes": 109810
-  },
-  {
-   "theme": "dark",
-   "slug": "settings",
-   "label": "设置",
-   "route": "/settings",
-   "nodes": 204,
-   "h1": "账号与组织",
-   "bytes": 64226
-  }
- ]
+  "set": "baseline",
+  "tookAt": "2026-11-02T15:18:49.563Z",
+  "viewport": [
+    1440,
+    900
+  ],
+  "build": "v735",
+  "pages": [
+    {
+      "theme": "light",
+      "slug": "workbench",
+      "label": "工作台",
+      "route": "/workbench",
+      "nodes": 392,
+      "h1": "经营工作台",
+      "bytes": 152261
+    },
+    {
+      "theme": "light",
+      "slug": "dashboard",
+      "label": "看板",
+      "route": "/dashboard",
+      "nodes": 606,
+      "h1": "经营趋势",
+      "bytes": 87753
+    },
+    {
+      "theme": "light",
+      "slug": "inv-purchase",
+      "label": "采购单列表",
+      "route": "/inventory/purchase",
+      "nodes": 1167,
+      "h1": "采购订单",
+      "bytes": 201012
+    },
+    {
+      "theme": "light",
+      "slug": "inv-sale",
+      "label": "销售单列表",
+      "route": "/inventory/sale",
+      "nodes": 1310,
+      "h1": "自提订单",
+      "bytes": 219117
+    },
+    {
+      "theme": "light",
+      "slug": "arch-products",
+      "label": "商品档案",
+      "route": "/archive/products",
+      "nodes": 1679,
+      "h1": "商品档案",
+      "bytes": 212244
+    },
+    {
+      "theme": "light",
+      "slug": "rp-gross-profit",
+      "label": "毛利分析",
+      "route": "/reports/gross-profit",
+      "nodes": 525,
+      "h1": "毛利分析",
+      "bytes": 173114
+    },
+    {
+      "theme": "light",
+      "slug": "rp-turnover",
+      "label": "库存周转",
+      "route": "/reports/inventory-turnover",
+      "nodes": 2021,
+      "h1": "库存周转",
+      "bytes": 184632
+    },
+    {
+      "theme": "light",
+      "slug": "rebate",
+      "label": "目标与返利",
+      "route": "/rebate",
+      "nodes": 419,
+      "h1": "仪表盘",
+      "bytes": 145273
+    },
+    {
+      "theme": "light",
+      "slug": "funds-flow",
+      "label": "资金流水",
+      "route": "/funds/flow",
+      "nodes": 2251,
+      "h1": "资金流水账",
+      "bytes": 253534
+    },
+    {
+      "theme": "light",
+      "slug": "funds-party",
+      "label": "往来对账",
+      "route": "/funds/party-reconcile",
+      "nodes": 705,
+      "h1": "往来核销",
+      "bytes": 62910
+    },
+    {
+      "theme": "light",
+      "slug": "inv-purchase-new",
+      "label": "采购建单",
+      "route": "/inventory/purchase/new",
+      "nodes": 876,
+      "h1": "新建采购订单",
+      "bytes": 111155
+    },
+    {
+      "theme": "light",
+      "slug": "settings",
+      "label": "设置",
+      "route": "/settings",
+      "nodes": 204,
+      "h1": "账号与组织",
+      "bytes": 63761
+    },
+    {
+      "theme": "dark",
+      "slug": "workbench",
+      "label": "工作台",
+      "route": "/workbench",
+      "nodes": 392,
+      "h1": "经营工作台",
+      "bytes": 151944
+    },
+    {
+      "theme": "dark",
+      "slug": "dashboard",
+      "label": "看板",
+      "route": "/dashboard",
+      "nodes": 606,
+      "h1": "经营趋势",
+      "bytes": 90278
+    },
+    {
+      "theme": "dark",
+      "slug": "inv-purchase",
+      "label": "采购单列表",
+      "route": "/inventory/purchase",
+      "nodes": 1167,
+      "h1": "采购订单",
+      "bytes": 199861
+    },
+    {
+      "theme": "dark",
+      "slug": "inv-sale",
+      "label": "销售单列表",
+      "route": "/inventory/sale",
+      "nodes": 1310,
+      "h1": "自提订单",
+      "bytes": 216361
+    },
+    {
+      "theme": "dark",
+      "slug": "arch-products",
+      "label": "商品档案",
+      "route": "/archive/products",
+      "nodes": 1679,
+      "h1": "商品档案",
+      "bytes": 211841
+    },
+    {
+      "theme": "dark",
+      "slug": "rp-gross-profit",
+      "label": "毛利分析",
+      "route": "/reports/gross-profit",
+      "nodes": 525,
+      "h1": "毛利分析",
+      "bytes": 174678
+    },
+    {
+      "theme": "dark",
+      "slug": "rp-turnover",
+      "label": "库存周转",
+      "route": "/reports/inventory-turnover",
+      "nodes": 2021,
+      "h1": "库存周转",
+      "bytes": 187488
+    },
+    {
+      "theme": "dark",
+      "slug": "rebate",
+      "label": "目标与返利",
+      "route": "/rebate",
+      "nodes": 419,
+      "h1": "仪表盘",
+      "bytes": 144232
+    },
+    {
+      "theme": "dark",
+      "slug": "funds-flow",
+      "label": "资金流水",
+      "route": "/funds/flow",
+      "nodes": 2251,
+      "h1": "资金流水账",
+      "bytes": 253649
+    },
+    {
+      "theme": "dark",
+      "slug": "funds-party",
+      "label": "往来对账",
+      "route": "/funds/party-reconcile",
+      "nodes": 705,
+      "h1": "往来核销",
+      "bytes": 64064
+    },
+    {
+      "theme": "dark",
+      "slug": "inv-purchase-new",
+      "label": "采购建单",
+      "route": "/inventory/purchase/new",
+      "nodes": 876,
+      "h1": "新建采购订单",
+      "bytes": 109983
+    },
+    {
+      "theme": "dark",
+      "slug": "settings",
+      "label": "设置",
+      "route": "/settings",
+      "nodes": 204,
+      "h1": "账号与组织",
+      "bytes": 64711
+    }
+  ]
 }

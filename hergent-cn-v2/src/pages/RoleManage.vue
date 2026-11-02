@@ -520,9 +520,9 @@ onMounted(() => { load(); loadCatalog() })
 .ch-wecom .rm-ch-ic, .rm-ch-ic.ch-wecom{background:var(--p-dark)}
 .ch-feishu .rm-ch-ic, .rm-ch-ic.ch-feishu{background:var(--plt-feishu)}
 .ch-dingtalk .rm-ch-ic, .rm-ch-ic.ch-dingtalk{background:var(--plt-dingtalk)}
-.rm-ch-edit{font-size:var(--fs-xs);color:var(--p-dark);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0}
+.rm-ch-edit{font-size:var(--fs-xs);color:var(--p-ink);background:none;border:none;cursor:pointer;text-decoration:underline;padding:0}
 .rm-ch-add{font-size:var(--fs-sm);color:var(--t2);background:var(--bg2);border:1px dashed var(--bd);border-radius:var(--radius-sm);padding:3px var(--sp-h10);cursor:pointer}
-.rm-ch-add:hover{border-color:var(--p-dark);color:var(--p-dark)}
+.rm-ch-add:hover{border-color:var(--p-dark);color:var(--p-ink)}
 
 .rm-bind-tip{font-size:var(--fs-sm);color:var(--t3);margin:0 0 var(--sp-4);line-height:var(--lh-normal)}
 .rm-bind-row{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-3) 0;border-bottom:1px solid var(--border-subtle)}

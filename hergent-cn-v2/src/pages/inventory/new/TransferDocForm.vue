@@ -638,7 +638,7 @@ onMounted(() => { resetAll(); loadRefs() })
 .isn-bar { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin-bottom: var(--sp-2) }
 .isn-cnt { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
 .isn-tip { display: flex; align-items: flex-start; gap: var(--sp-h6); font-size:var(--fs-sm); color: var(--t2); margin: 0 0 var(--sp-h10) }
-.isn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
+.isn-tip svg { color: var(--p-ink); flex: none; margin-top: 1px }
 .isn-tip b { color: var(--t1) }
 /* 退货明细的工具条（全部可退 / 清零）：推到右侧，不与标题挤在一起 */
 .isn-ret-quick { display: flex; gap: var(--sp-2); margin-left: auto }

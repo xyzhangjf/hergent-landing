@@ -1091,7 +1091,7 @@ async function save() {
 .dup-warn .dup-tip{color:var(--t3)}
 /* v128：同年份已存在提示（蓝底，与「月份被占用」的黄底区分 —— 这个可以一键跳编辑） */
 .year-hit{background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.45)}
-.year-hit svg,.year-hit .icon{color:var(--p-dark)}
+.year-hit svg,.year-hit .icon{color:var(--p-ink)}
 .yh-act{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-2)}
 .cf-tbl{width:100%;margin-bottom:var(--sp-3)}
 .cf-sol{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h10) var(--sp-3);margin:0}

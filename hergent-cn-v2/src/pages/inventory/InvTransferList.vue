@@ -715,17 +715,17 @@ onMounted(load)
 .isl-no { font-variant-numeric: tabular-nums; font-weight: 500 }
 /* v478：可排序列表头 —— 手型 + 指示器（对齐销售列表 v473） */
 .isl-tbl thead th.isl-sh { cursor: pointer; user-select: none; white-space: nowrap }
-.isl-tbl thead th.isl-sh:hover { color: var(--p-dark) }
+.isl-tbl thead th.isl-sh:hover { color: var(--p-ink) }
 .isl-sort-ind { display: inline-flex; vertical-align: middle; margin-left: 3px; color: var(--t3) }
 .isl-tbl thead th.isl-sh:hover .isl-sort-ind { color: var(--p-ink) }
 .isl-sort-ind svg.ico { width: 12px; height: 12px }
-.isl-op { color: var(--p-dark); white-space: nowrap }
+.isl-op { color: var(--p-ink); white-space: nowrap }
 /* v525：待他人审批时的占位提示（无按钮、纯信息） */
 .isl-appr-wait { font-size:var(--fs-sm); color: var(--t3); padding: var(--sp-h2) var(--sp-h6); border: 1px dashed var(--bd); border-radius: var(--radius-xs) }
 /* v496：删 `.isl-op-hd{width:1%}` —— 操作列宽进 colgroup（OP_W=120），宽度唯一权威。 */
 .isl-ops { display: inline-flex; align-items: center; gap: var(--sp-h6) }
 .isl-op-btn {
-  border: 1px solid var(--bd); background: var(--bg); color: var(--p-dark);
+  border: 1px solid var(--bd); background: var(--bg); color: var(--p-ink);
   border-radius: var(--radius-sm); padding: var(--sp-h2) var(--sp-2); font-size:var(--fs-sm); cursor: pointer; white-space: nowrap;
 }
 .isl-op-btn:hover:not(:disabled) { border-color: var(--p); color: var(--p-ink) }

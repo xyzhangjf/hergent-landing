@@ -133,7 +133,7 @@ onBeforeUnmount(() => {
 .ito-sec{display:inline-block;min-width:1.6em;font-variant-numeric:tabular-nums;color:var(--war)}
 .ito-actions{display:flex;gap:var(--sp-h10);margin-top:var(--sp-5)}
 .ito-btn{flex:1;height:38px;border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:var(--radius-sm);font-size:var(--fs-base);cursor:pointer;transition:all var(--dur-base)}
-.ito-btn:hover{border-color:var(--p);color:var(--p-dark)}
+.ito-btn:hover{border-color:var(--p);color:var(--p-ink)}
 .ito-btn.primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .ito-btn.primary:hover{filter:brightness(1.06);color:#fff}
 

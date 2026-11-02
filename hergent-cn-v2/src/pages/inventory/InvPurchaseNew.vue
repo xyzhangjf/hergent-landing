@@ -1904,11 +1904,11 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
   display: flex; align-items: flex-start; gap: var(--sp-h6);
   font-size:var(--fs-sm); color: var(--t2); margin: 0 0 var(--sp-h10);
 }
-.ipn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
+.ipn-tip svg { color: var(--p-ink); flex: none; margin-top: 1px }
 /* v417：库存口径「展开/收起」链接按钮（无边框、像文字链接，对齐舟谱一行小字的疏朗感） */
 .ipn-tip-link {
   margin-left: auto; padding: 0 var(--sp-h2); border: 0; background: none; cursor: pointer;
-  font-size:var(--fs-sm); color: var(--p-dark); text-decoration: underline dotted;
+  font-size:var(--fs-sm); color: var(--p-ink); text-decoration: underline dotted;
   white-space: nowrap;
 }
 .ipn-tip-link:hover { color: var(--p-ink) }
@@ -2111,7 +2111,7 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 .ipn-unit.none { color: var(--t3) }
 .ipn-link {
   border: none; background: none; padding: 0; font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer;
+  color: var(--p-ink); cursor: pointer;
 }
 .ipn-link + .ipn-link { margin-left: var(--sp-h10) }
 .ipn-link:hover { text-decoration: underline }

@@ -430,7 +430,7 @@ defineExpose({ load })
 .wob-op { display: flex; flex-wrap: wrap; gap: var(--sp-h2) var(--sp-h10); justify-content: flex-end }
 .wob-op-btn {
   border: none; background: none; padding: 0; font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  color: var(--p-ink); cursor: pointer; white-space: nowrap;
 }
 .wob-op-btn:hover { text-decoration: underline }
 .wob-op-btn.danger { color: var(--danger-txt) }
@@ -447,7 +447,7 @@ defineExpose({ load })
   border: 1px solid var(--bd); border-radius: var(--radius-sm);
   background: var(--bg); color: var(--t1); font-size:var(--fs-base); font-variant-numeric: tabular-nums;
 }
-.wob-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
+.wob-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-ink) }
 .wob-pg:disabled { opacity: .45; cursor: not-allowed }
 .wob-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
 .wob-pg-size { width: auto; height: 28px; padding: 0 var(--sp-2); font-size:var(--fs-base); border-radius: var(--radius-sm) }

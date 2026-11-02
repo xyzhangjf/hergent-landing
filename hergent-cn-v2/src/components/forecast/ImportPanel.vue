@@ -364,7 +364,7 @@ function reload() { emit('reload') }
 .imp-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-subtle)}
 .imp-hd b{font-size:var(--fs-md)}
 .imp-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
-.imp-x:hover{color:var(--p-dark);background:var(--bg2);border-radius:var(--radius-sm)}
+.imp-x:hover{color:var(--p-ink);background:var(--bg2);border-radius:var(--radius-sm)}
 .imp-body{padding:var(--sp-4) var(--sp-5);overflow-y:auto}
 .imp-actions{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin-bottom:var(--sp-4)}

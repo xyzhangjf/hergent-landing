@@ -621,7 +621,7 @@ html.dark .dsh {
 .rk-row:hover { background: var(--bg2); }
 .rk-tag { width: 20px; height: 20px; line-height: var(--lh-none); display: flex; align-items: center; justify-content: center; border-radius: var(--radius-xs);
   font-size:var(--fs-xs); background: var(--bg4); color: var(--t2); }
-.rk-tag.k-store { background: var(--p-bg); color: var(--p-deep); }
+.rk-tag.k-store { background: var(--p-bg); color: var(--p-ink); }
 .rk-tag.k-operator { background: var(--warn-amber-bg); color: var(--warn-amber); }
 .rk-nm { color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rk-bar { height: 14px; background: var(--bg2); border-radius: var(--radius-sm); overflow: hidden; }

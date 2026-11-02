@@ -1538,7 +1538,7 @@ onMounted(() => {
 
 /* 全局无定义的类，本页补齐（沿用各页面统一口径） */
 .btn-mini{border:1px solid var(--bd);background:none;border-radius:var(--radius-xs);padding:3px var(--sp-h10);font-size:var(--fs-sm);color:var(--t2);cursor:pointer}
-.btn-mini:hover{border-color:var(--p);color:var(--p-dark)}
+.btn-mini:hover{border-color:var(--p);color:var(--p-ink)}
 
 /* 通用行 / 描述：允许换行 + 子项可收缩，避免长文本/输入框顶破卡片 */
 .set-row{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-2) 0;flex-wrap:wrap}
@@ -1557,7 +1557,7 @@ onMounted(() => {
 /* 权限矩阵 */
 /* v326：使用说明默认收起（原先 8 段实现说明常驻在表格上方，见模板里的注释）。 */
 .pm-help-tb{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--t2);background:none;border:0;padding:0;margin:0 0 var(--sp-h10);cursor:pointer}
-.pm-help-tb:hover{color:var(--p-dark)}
+.pm-help-tb:hover{color:var(--p-ink)}
 /* ---- v479：操作日志（只读弹窗）—— 复用本页表格的视觉语言，不新造一套 ---- */
 .pa-table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
 .pa-table th,.pa-table td{padding:7px var(--sp-h10);border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
@@ -1639,7 +1639,7 @@ onMounted(() => {
    且两者都只是"角色类型"的注脚，不需要抢眼到干扰扫读。 */
 .pr-type{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-xs);
          background:var(--bg3);color:var(--t2)}
-.pr-type.custom{background:var(--p-bg);color:var(--p-dark)}
+.pr-type.custom{background:var(--p-bg);color:var(--p-ink)}
 .pr-end{color:var(--t2)}
 .pr-empty{color:var(--t3);text-align:center;padding:22px 0}
 .pr-tip{margin:var(--sp-h10) var(--sp-h2) var(--sp-h2);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
@@ -1696,12 +1696,12 @@ onMounted(() => {
 .domtabs{display:flex;gap:var(--sp-h6);flex-wrap:wrap;margin:0 0 var(--sp-4)}
 .domtabs button{border:1px solid var(--bd);background:var(--bg);color:var(--t2);
   border-radius:var(--radius-pill);padding:5px var(--sp-4);font-size:var(--fs-base);cursor:pointer;transition:all var(--dur-base)}
-.domtabs button:hover{border-color:var(--p);color:var(--p-dark)}
-.domtabs button.on{background:var(--p-bg);border-color:var(--p);color:var(--p-dark);font-weight:600}
+.domtabs button:hover{border-color:var(--p);color:var(--p-ink)}
+.domtabs button.on{background:var(--p-bg);border-color:var(--p);color:var(--p-ink);font-weight:600}
 /* 页签上的数字：没搜索时 = 该域有几行；搜索时 = 命中几个。
    无命中的域会自然露出 0 ⇒ 用户知道该点哪个，不会以为"搜索没反应"。 */
 .domtabs .cnt{color:var(--t3);font-weight:400;margin-left:3px;font-size:var(--fs-sm)}
-.domtabs button.on .cnt{color:var(--p-dark);opacity:.75}
+.domtabs button.on .cnt{color:var(--p-ink);opacity:.75}
 
 /* ---- 只读对比弹窗（原「批量总览」的"看"那一半）----
    🔴 里面**只有 ✓ / —**，没有任何 input / 写绑定 —— 结构上不可能从第二个地方改权限。
@@ -1730,7 +1730,7 @@ onMounted(() => {
 .mem-block{margin:var(--sp-4) 0}
 .mem-hd{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-2)}
 .mem-tag{font-size:var(--fs-sm);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm)}
-.mem-tag.user{background:var(--p-bg);color:var(--p-dark)}
+.mem-tag.user{background:var(--p-bg);color:var(--p-ink)}
 .mem-tag.agent{background:var(--bg3);color:var(--t2)}
 .mem-count{font-size:var(--fs-sm);color:var(--t3)}
 .mem-empty{font-size:var(--fs-sm);color:var(--t3);padding:var(--sp-2) 0}

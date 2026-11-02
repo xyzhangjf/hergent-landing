@@ -272,7 +272,7 @@ function capOf(ch) {
 .rc-title{font-size:var(--fs-md);font-weight:600;color:var(--t1);flex:1;line-height:var(--lh-tight)}
 .rc-badge{display:inline-flex;align-items:center;height:20px;padding:0 var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-xs);font-weight:500;flex-shrink:0}
 .badge-red{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
-.badge-blue{background:var(--p-bg);color:var(--p-dark)}
+.badge-blue{background:var(--p-bg);color:var(--p-ink)}
 .badge-amber{background:rgba(var(--war-rgb),.15);color:var(--war)}
 .badge-green{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 
@@ -308,7 +308,7 @@ function capOf(ch) {
 .rc-foot{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-top:var(--sp-h2)}
 .rc-status{display:inline-flex;align-items:center;height:20px;padding:0 var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-xs);font-weight:500}
 .st-draft{background:rgba(var(--war-rgb),.15);color:var(--war)}
-.st-confirmed{background:var(--p-bg);color:var(--p-dark)}
+.st-confirmed{background:var(--p-bg);color:var(--p-ink)}
 .st-executed{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .st-rejected{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
 .rc-actions{margin-left:auto;display:flex;gap:var(--sp-h6)}

@@ -253,13 +253,13 @@ onMounted(loadBoard)
 .dbd-cust { font-weight: 600; margin-top: var(--sp-1) }
 .dbd-addr { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h2) }
 .dbd-card-ft { display: flex; align-items: center; margin-top: var(--sp-2); gap: var(--sp-2) }
-.dbd-amt { font-weight: 600; color: var(--p-dark) }
+.dbd-amt { font-weight: 600; color: var(--p-ink) }
 .dbd-btns { margin-left: auto }
 
 .dbd-btn {
   display: inline-flex; align-items: center; gap: var(--sp-1);
   border: 1px solid var(--bd); background: none; border-radius: var(--radius-xs);
-  padding: 3px var(--sp-2); font-size:var(--fs-sm); color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  padding: 3px var(--sp-2); font-size:var(--fs-sm); color: var(--p-ink); cursor: pointer; white-space: nowrap;
 }
 .dbd-btn:hover { background: var(--p-bg) }
 .dbd-btn:disabled { color: var(--t3); cursor: not-allowed; background: none }

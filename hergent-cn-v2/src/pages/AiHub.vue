@@ -796,7 +796,7 @@ async function refreshProfile() {
 /* T1-3 指标级溯源表 */
 .prov{margin-top:var(--sp-3);border-top:1px dashed var(--border-subtle);padding-top:11px}
 .prov-hd{font-size:var(--fs-sm);color:var(--t2);margin-bottom:var(--sp-2)}
-.prov-hd b{color:var(--p-dark);font-size:var(--fs-md)}
+.prov-hd b{color:var(--p-ink);font-size:var(--fs-md)}
 .prov-tb{display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);overflow:hidden}
 .prov-tr{display:grid;grid-template-columns:112px 1fr 52px 108px;gap:var(--sp-2);padding:7px var(--sp-h10);font-size:var(--fs-sm);color:var(--t2);border-top:1px solid var(--border-subtle)}
 .prov-tr:first-child{border-top:none}
@@ -827,16 +827,16 @@ async function refreshProfile() {
 .prop-item.done{opacity:.62}
 .prop-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .prop-title{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
-.prop-mod{font-size:var(--fs-xs);padding:1px var(--sp-2);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
+.prop-mod{font-size:var(--fs-xs);padding:1px var(--sp-2);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-ink);flex-shrink:0}
 .prop-name{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .prop-st{font-size:var(--fs-xs);padding:1px var(--sp-2);border-radius:var(--radius-sm);flex-shrink:0}
-.prop-st.st-pending{background:var(--p-bg);color:var(--p-dark)}
+.prop-st.st-pending{background:var(--p-bg);color:var(--p-ink)}
 .prop-st.st-accepted{color:var(--suc);background:var(--dan-bg)}
 .prop-st.st-rejected{color:var(--dan);background:var(--dan-bg)}
 .prop-why{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .prop-chg{font-size:var(--fs-sm);color:var(--t1);background:var(--bg2);border-radius:var(--radius-sm);padding:5px 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
 .prop-meta{font-size:var(--fs-xs);color:var(--t3)}
-.prop-fuel{font-size:var(--fs-xs);color:var(--p-dark)}
+.prop-fuel{font-size:var(--fs-xs);color:var(--p-ink)}
 .prop-ops{display:flex;gap:var(--sp-h6);align-items:center;flex-shrink:0}
 /* T1-5 记录一次口径（与审核台同卡） */
 .cal-hint{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-h10);line-height:var(--lh-normal)}

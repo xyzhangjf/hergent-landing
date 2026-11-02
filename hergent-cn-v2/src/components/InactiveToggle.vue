@@ -83,7 +83,7 @@ const title = computed(() => {
    🔴 这里**不写 line-height 数值**：写 1 会让字形上浮 0.5px，写 px 等于赌字体度量（v710）。 */
 .tb-toggle-txt{white-space:nowrap}
 /* 打开态高亮：那颗 14px 复选框太小，不额外染色的话「现在开着还是关着」要靠找勾 */
-.tb-toggle.on{background:var(--p-bg);border-color:var(--p);color:var(--p-dark)}
+.tb-toggle.on{background:var(--p-bg);border-color:var(--p);color:var(--p-ink)}
 
 /* 靠右推。🔴 窄屏换行后 `margin-left:auto` 会把控件推到第二行的**最右边**孤零零浮着
    （v712 实测 375 下左边空出 205px）—— 换行即意味着「右对齐」已失效，改左对齐。 */

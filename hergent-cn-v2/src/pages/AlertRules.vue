@@ -507,8 +507,8 @@ onMounted(loadAll)
 .ar-row .ar-fld { flex: 1; min-width: 0 }
 .ar-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2) }
 .ar-chip { padding: 5px var(--sp-3); border: 1px solid var(--bd); border-radius: var(--radius-lg); background: var(--bg2); color: var(--t2); font-size:var(--fs-sm); cursor: pointer; transition: all var(--dur-base) }
-.ar-chip:hover { border-color: var(--p-dark); color: var(--p-dark) }
-.ar-chip.on { background: var(--p-bg); border-color: var(--p-dark); color: var(--p-dark); font-weight: 500 }
+.ar-chip:hover { border-color: var(--p-dark); color: var(--p-ink) }
+.ar-chip.on { background: var(--p-bg); border-color: var(--p-dark); color: var(--p-ink); font-weight: 500 }
 .ar-chk { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; font-size:var(--fs-sm); color: var(--t1) }
 .ar-chk input { accent-color: var(--p) }
 </style>

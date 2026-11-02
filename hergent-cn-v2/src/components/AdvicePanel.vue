@@ -88,7 +88,7 @@ defineExpose({ load })
 .adv-item{padding:var(--sp-3) var(--sp-4);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);transition:border-color var(--dur-base)}
 .adv-item.pending{border-color:rgba(var(--war-rgb),.35)}
 .adv-item-top{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-h6)}
-.adv-type{font-size:var(--fs-sm);font-weight:500;color:var(--p-dark);background:var(--p-bg);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-xs)}
+.adv-type{font-size:var(--fs-sm);font-weight:500;color:var(--p-ink);background:var(--p-bg);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-xs)}
 .adv-status{font-size:var(--fs-xs);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm)}
 .adv-status.pending{background:rgba(var(--war-rgb),.15);color:var(--war)}
 .adv-status.confirmed,.adv-status.approved,.adv-status.executed{background:rgba(var(--suc-rgb),.12);color:var(--suc)}

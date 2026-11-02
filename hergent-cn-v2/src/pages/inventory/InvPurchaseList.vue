@@ -1771,7 +1771,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 .ipl-link {
   border: none; background: none; padding: 0; font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer;
+  color: var(--p-ink); cursor: pointer;
 }
 .ipl-link:hover { text-decoration: underline }
 .ipl-link.strong { font-weight: 500; font-variant-numeric: tabular-nums }
@@ -1787,7 +1787,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-op { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-h6); justify-content: flex-end }
 .ipl-op-btn {
   border: none; background: none; padding: 0; font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  color: var(--p-ink); cursor: pointer; white-space: nowrap;
 }
 .ipl-op-btn:hover { text-decoration: underline }
 .ipl-op-btn.danger { color: var(--danger-txt) }
@@ -1887,7 +1887,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   border: none; background: none; color: var(--t3); cursor: pointer;
   font-size:var(--fs-xs); padding: 1px var(--sp-1); border-radius: var(--radius-sm); flex: none;
 }
-.ipl-cm-i:hover { color: var(--p-dark); background: var(--bg2) }
+.ipl-cm-i:hover { color: var(--p-ink); background: var(--bg2) }
 /* 读定义失败 / 无权限的说明：**必须显式**（藏起来用户会以为这页没有这个功能） */
 .ipl-cm-err { font-size:var(--fs-xs); color: var(--danger-txt); line-height: var(--lh-tight); flex-basis: 100% }
 

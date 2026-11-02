@@ -2228,7 +2228,7 @@ onMounted(() => {
 /* v312：角色默认端的出处说明 / 内联小按钮 / 「与角色配置不一致」提示条 */
 .df-scope-src{margin:0 0 var(--sp-3)}
 .df-mini-lnk{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:var(--fs-sm);padding:0 var(--sp-h2);text-decoration:underline}
-.df-mini-lnk:hover{color:var(--p-dark)}
+.df-mini-lnk:hover{color:var(--p-ink)}
 .df-mismatch{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-h2) 0 var(--sp-h10);padding:7px var(--sp-h10);border-radius:var(--radius-md);background:var(--bg3)}
 .df-mismatch-tag{font-size:var(--fs-sm);font-weight:600;padding:1px var(--sp-2);border-radius:var(--radius-pill);background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
 .df-mismatch-txt{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);min-width:0;flex:1 1 240px}

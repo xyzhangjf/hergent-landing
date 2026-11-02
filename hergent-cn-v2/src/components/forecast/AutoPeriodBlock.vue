@@ -227,7 +227,7 @@ onMounted(load)
 .ap-chip.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .ap-chip.off{background:var(--bg2);color:var(--t3)}
 .ap-meta{font-size:var(--fs-sm);color:var(--t2)}
-.ap-strong{font-size:var(--fs-sm);color:var(--p-dark);font-weight:500}
+.ap-strong{font-size:var(--fs-sm);color:var(--p-ink);font-weight:500}
 .ap-warnchip{font-size:var(--fs-sm);color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px var(--sp-2);border-radius:var(--radius-sm)}
 .ap-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:var(--sp-3) 0}
 .ap-grid{display:grid;grid-template-columns:max-content minmax(180px,1fr) repeat(3,140px);gap:var(--sp-3);padding:var(--sp-h2) 0 var(--sp-h6)}
@@ -241,14 +241,14 @@ onMounted(load)
 .seg-btn{padding:var(--sp-h6) var(--sp-4);border:0;background:transparent;cursor:pointer;font-size:var(--fs-base);color:var(--t2);font-family:inherit}
 .seg-btn.on{background:var(--p-solid);color:#fff}
 .seg-btn:disabled{opacity:.6;cursor:not-allowed}
-.ap-mirror{margin:var(--sp-h6) 0;font-size:var(--fs-sm);color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-normal)}
+.ap-mirror{margin:var(--sp-h6) 0;font-size:var(--fs-sm);color:var(--p-ink);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-normal)}
 .ap-mirror-warn{color:var(--war);background:rgba(var(--war-rgb),.08)}
-.ap-edit{margin-left:var(--sp-2);color:var(--p-dark);text-decoration:none;border-bottom:1px dashed var(--p);font-size:var(--fs-sm);white-space:nowrap}
+.ap-edit{margin-left:var(--sp-2);color:var(--p-ink);text-decoration:none;border-bottom:1px dashed var(--p);font-size:var(--fs-sm);white-space:nowrap}
 .ap-warn{margin:var(--sp-h6) 0;font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-normal)}
 .ap-prev{margin-top:var(--sp-h10);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h10);background:var(--bg2)}
 .ap-prev-hd{display:flex;gap:var(--sp-4);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-2)}
 /* v365：被「不到货」排除的期次 —— 说明条 + 行内标记。颜色全走既有令牌，零硬编码色 */
-.ap-excl{margin:0 0 var(--sp-2);font-size:var(--fs-sm);color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-normal)}
+.ap-excl{margin:0 0 var(--sp-2);font-size:var(--fs-sm);color:var(--p-ink);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-normal)}
 .ap-row-off td{color:var(--t3);text-decoration:line-through}
 .ap-row-off .ap-offchip{text-decoration:none}
 .ap-offchip{display:inline-block;margin-left:var(--sp-h6);font-size:var(--fs-xs);padding:1px var(--sp-h6);border-radius:var(--radius-xs);background:rgba(var(--war-rgb),.14);color:var(--war);text-decoration:none}
@@ -256,7 +256,7 @@ onMounted(load)
 .ap-tbl th{text-align:left;color:var(--t3);font-weight:500;padding:var(--sp-1) var(--sp-h6);border-bottom:1px solid var(--border-subtle)}
 .ap-tbl td{padding:5px var(--sp-h6);border-bottom:1px solid var(--border-subtle);vertical-align:middle}
 .ap-dim{color:var(--t3);font-size:var(--fs-xs)}
-.ap-brand{display:inline-block;background:rgba(var(--p-rgb),.12);color:var(--p-dark);border-radius:var(--radius-xs);padding:1px var(--sp-h6);margin:1px var(--sp-1) 1px 0;font-size:var(--fs-xs)}
+.ap-brand{display:inline-block;background:rgba(var(--p-rgb),.12);color:var(--p-ink);border-radius:var(--radius-xs);padding:1px var(--sp-h6);margin:1px var(--sp-1) 1px 0;font-size:var(--fs-xs)}
 .ap-brand i{font-style:normal;opacity:.7;margin-left:var(--sp-h2)}
 .ap-actions{display:flex;align-items:center;gap:var(--sp-h10);margin-top:var(--sp-3)}
 @media(max-width:900px){ .ap-grid{grid-template-columns:1fr 1fr} }

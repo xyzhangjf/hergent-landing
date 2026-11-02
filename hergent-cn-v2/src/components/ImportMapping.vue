@@ -226,14 +226,14 @@ function confLabel(r) {
 .im{display:flex;flex-direction:column;gap:var(--sp-2)}
 .im-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h10)}
 .im-st{font-size:var(--fs-sm);color:var(--t2)}
-.im-st b{color:var(--p-dark);font-size:var(--fs-base)}
+.im-st b{color:var(--p-ink);font-size:var(--fs-base)}
 .im-st b.off{color:var(--war)}
 .im-acts{display:flex;align-items:center;gap:var(--sp-3)}
 .im-inc{display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--t2);cursor:pointer;white-space:nowrap}
 .im-inc input{cursor:pointer;margin:0}
-.im-reset{border:none;background:none;padding:0;font-size:var(--fs-sm);color:var(--p-dark);text-decoration:underline;cursor:pointer}
+.im-reset{border:none;background:none;padding:0;font-size:var(--fs-sm);color:var(--p-ink);text-decoration:underline;cursor:pointer}
 .im-note{font-size:var(--fs-sm);color:var(--warn-amber);background:var(--warn-amber-bg);border-radius:var(--radius-sm);padding:var(--sp-h6) var(--sp-h10)}
-.im-mem{font-size:var(--fs-sm);color:var(--p-dark);background:var(--p-bg);border-radius:var(--radius-sm);padding:var(--sp-h6) var(--sp-h10)}
+.im-mem{font-size:var(--fs-sm);color:var(--p-ink);background:var(--p-bg);border-radius:var(--radius-sm);padding:var(--sp-h6) var(--sp-h10)}
 .im-mem b{font-size:var(--fs-base)}
 .im-mem-t{color:var(--t2)}
 /* v346 危险列提示条 —— 用最重的颜色，因为这类列原本"看起来一切正常" */
@@ -243,7 +243,7 @@ function confLabel(r) {
 .im-risk-l li{line-height:var(--lh-normal)}
 /* v346 收起态：一行把话说清，按钮永远在 */
 .im-fold{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--ok-green);background:var(--ok-green-bg);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-h10);flex-wrap:wrap}
-.im-fold-btn{display:inline-flex;align-items:center;gap:3px;border:none;background:none;padding:0;font-size:var(--fs-sm);color:var(--p-dark);text-decoration:underline;cursor:pointer}
+.im-fold-btn{display:inline-flex;align-items:center;gap:3px;border:none;background:none;padding:0;font-size:var(--fs-sm);color:var(--p-ink);text-decoration:underline;cursor:pointer}
 .im-unfold{display:flex;justify-content:flex-end;padding:5px var(--sp-2) 0}
 .im-wrap{max-height:320px;overflow:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
 .im-tbl{font-size:var(--fs-base)}
@@ -260,7 +260,7 @@ function confLabel(r) {
 .im-cc{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-sm);white-space:nowrap;background:var(--bg2);color:var(--t3)}
 .im-cc-high{background:var(--ok-green-bg);color:var(--ok-green)}
 .im-cc-ai{background:var(--info-blue-bg);color:var(--info-blue)}
-.im-cc-cross{background:var(--p-bg);color:var(--p-dark)}
+.im-cc-cross{background:var(--p-bg);color:var(--p-ink)}
 .im-cc-low{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .im-cc-edit{background:var(--violet-bg);color:var(--violet)}
 .im-cc-memory{background:var(--violet-bg);color:var(--violet)}

@@ -127,8 +127,8 @@ onBeforeUnmount(() => {
   width: 18px; height: 18px; padding: 0; border: none; background: none;
   border-radius: var(--radius-2xs); color: var(--t3); cursor: pointer; line-height: var(--lh-none);
 }
-.row-more-btn:hover { color: var(--p-dark); background: var(--bg3) }
-.row-more-btn.on { color: var(--p-dark); background: var(--bg3) }
+.row-more-btn:hover { color: var(--p-ink); background: var(--bg3) }
+.row-more-btn.on { color: var(--p-ink); background: var(--bg3) }
 </style>
 
 <style>

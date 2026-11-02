@@ -576,7 +576,7 @@ defineExpose({ load: loadList })
 
 .wl-op {
   border: none; background: none; padding: 0; font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  color: var(--p-ink); cursor: pointer; white-space: nowrap;
 }
 .wl-op:hover { text-decoration: underline }
 

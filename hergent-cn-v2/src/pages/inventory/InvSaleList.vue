@@ -897,7 +897,7 @@ onMounted(load)
       排序提示（`.isl-selinfo` / `.isl-sortinfo`）经 #status 插槽注入，仍由本页提供。 */
 .isl-link {
   border: none; background: none; padding: 0 var(--sp-h2); cursor: pointer;
-  color: var(--p-dark); font-size:var(--fs-sm); text-decoration: underline;
+  color: var(--p-ink); font-size:var(--fs-sm); text-decoration: underline;
 }
 
 .isl-card { padding-bottom: 0 }
@@ -909,14 +909,14 @@ onMounted(load)
 /* v496：单号是链接（进详情页）。isl-no 保留等宽数字，补 500 字重对齐基准页
    `.ipl-link.strong` 的观感。 */
 .isl-no { font-variant-numeric: tabular-nums; font-weight: 500 }
-.isl-op { color: var(--p-dark); white-space: nowrap }
+.isl-op { color: var(--p-ink); white-space: nowrap }
 /* v496：删 `.isl-op-hd{width:1%}` —— 操作列宽进 colgroup（OP_W=76），
    宽度唯一权威，不在这里留第二份（基准页 v408 同款纪律）。 */
 /* 行内操作按钮（v473：单张打印）。⚠️ 销售单**没有**审核 / 取消 / 复制这类行内动作
    —— 后端没有对应接口，摆出来就是点了会报错的假按钮。 */
 .isl-ops { display: inline-flex; align-items: center; gap: var(--sp-h6) }
 .isl-op-btn {
-  border: 1px solid var(--bd); background: var(--bg); color: var(--p-dark);
+  border: 1px solid var(--bd); background: var(--bg); color: var(--p-ink);
   border-radius: var(--radius-sm); padding: var(--sp-h2) var(--sp-2); font-size:var(--fs-sm); cursor: pointer;
   white-space: nowrap;
 }
@@ -925,7 +925,7 @@ onMounted(load)
 
 /* v473：可排序列的表头 —— 手型 + 指示器 */
 .isl-tbl thead th.isl-sh { cursor: pointer; user-select: none; white-space: nowrap }
-.isl-tbl thead th.isl-sh:hover { color: var(--p-dark) }
+.isl-tbl thead th.isl-sh:hover { color: var(--p-ink) }
 .isl-sort-ind { display: inline-flex; vertical-align: middle; margin-left: 3px; color: var(--t3) }
 .isl-tbl thead th.isl-sh:hover .isl-sort-ind { color: var(--p-ink) }
 .isl-sort-ind svg.ico { width: 12px; height: 12px }

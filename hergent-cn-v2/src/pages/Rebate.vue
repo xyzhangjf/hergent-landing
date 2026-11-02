@@ -315,7 +315,7 @@
                 <button v-if="canDo('sales', 'create')" class="btn-mini" @click="dup(r)">复制</button>
                 <!-- v112 R5：停用/启用三态 —— 停用=软删可恢复；启用=重新生效 -->
                 <button v-if="r.is_active && canDo('sales', 'update')" class="btn-mini" @click="toggleActive(r)">停用</button>
-                <button v-else-if="canDo('sales', 'update')" class="btn-mini" style="color:var(--p-dark);border-color:rgba(var(--p-rgb),.4)" @click="toggleActive(r)">启用</button>
+                <button v-else-if="canDo('sales', 'update')" class="btn-mini" style="color:var(--p-ink);border-color:rgba(var(--p-rgb),.4)" @click="toggleActive(r)">启用</button>
                 <button v-if="canDo('sales', 'delete')" class="btn-mini btn-danger" @click="del(r)">删除</button>
               </td>
             </tr>
@@ -3514,22 +3514,22 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .ap-sec{display:flex;align-items:center;gap:var(--sp-2);margin:var(--sp-3) 0 var(--sp-2);font-size:var(--fs-sm);font-weight:600;color:var(--t1)}
 .ap-sec:first-child{margin-top:0}
 .ap-sec-note{font-weight:400;font-size:var(--fs-sm);color:var(--t3)}
-.ap-derive{margin:var(--sp-h2) 0 0;font-size:var(--fs-sm);color:var(--p-dark);background:rgba(6,182,212,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2)}
+.ap-derive{margin:var(--sp-h2) 0 0;font-size:var(--fs-sm);color:var(--p-ink);background:rgba(6,182,212,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2)}
 .ap-preview{margin-top:var(--sp-h10);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h10);background:var(--bg2)}
 .ap-head{display:flex;gap:var(--sp-4);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-2)}
 .ap-warn{font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2);margin-bottom:var(--sp-h6);line-height:var(--lh-normal)}
-.ap-warn-tip{color:var(--p-dark)}
-.ap-adopt{margin-left:var(--sp-2);border:1px solid var(--p);background:transparent;color:var(--p-dark);border-radius:var(--radius-xs);padding:1px var(--sp-h10);font-size:var(--fs-sm);cursor:pointer}
+.ap-warn-tip{color:var(--p-ink)}
+.ap-adopt{margin-left:var(--sp-2);border:1px solid var(--p);background:transparent;color:var(--p-ink);border-radius:var(--radius-xs);padding:1px var(--sp-h10);font-size:var(--fs-sm);cursor:pointer}
 .ap-adopt:hover{background:var(--p-solid);color:#fff}
 .ap-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
 .ap-tbl th{text-align:left;color:var(--t3);font-weight:500;padding:var(--sp-1) var(--sp-h6);border-bottom:1px solid var(--border-subtle)}
 .ap-tbl td{padding:5px var(--sp-h6);border-bottom:1px solid var(--border-subtle);vertical-align:middle}
 .ap-dim{color:var(--t3);font-size:var(--fs-xs)}
-.ap-brand{display:inline-block;background:rgba(6,182,212,.12);color:var(--p-dark);border-radius:var(--radius-2xs);padding:1px var(--sp-h6);margin:1px var(--sp-1) 1px 0;font-size:var(--fs-xs)}
+.ap-brand{display:inline-block;background:rgba(6,182,212,.12);color:var(--p-ink);border-radius:var(--radius-2xs);padding:1px var(--sp-h6);margin:1px var(--sp-1) 1px 0;font-size:var(--fs-xs)}
 .ap-brand i{font-style:normal;opacity:.7;margin-left:var(--sp-h2)}
 .sim-result{background:var(--bg2);border-radius:var(--radius-md);padding:var(--sp-4);margin-top:var(--sp-h6)}
 .sr-row{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-1) 0}
-.sr-val{font-size:var(--fs-stat);color:var(--p-dark)}
+.sr-val{font-size:var(--fs-stat);color:var(--p-ink)}
 .sr-note{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-2);padding-top:var(--sp-2);border-top:1px solid var(--border-subtle)}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
@@ -3555,7 +3555,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .dt-sec h4{margin:0 0 var(--sp-2);font-size:var(--fs-base);font-weight:600;color:var(--t2)}
 .dt-tier{width:100%;border-collapse:collapse;margin-top:var(--sp-2);font-size:var(--fs-sm)}
 .dt-tier th,.dt-tier td{border:1px solid var(--border-subtle);padding:var(--sp-h6) var(--sp-2);text-align:left}
-.dt-ok{color:var(--p-dark);font-weight:600}
+.dt-ok{color:var(--p-ink);font-weight:600}
 .dt-note{background:rgba(var(--war-rgb),.1);border:1px solid rgba(var(--war-rgb),.3);color:var(--war);border-radius:var(--radius-md);padding:9px var(--sp-3);font-size:var(--fs-sm);margin-top:var(--sp-3);line-height:var(--lh-normal)}
 
 /* 仪表盘 Tab（方案 A：KPI 置顶 + 条形达成列表） */
@@ -3572,7 +3572,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .kpi-hero.risk{background:linear-gradient(135deg,rgba(var(--dan-rgb),.16),rgba(var(--dan-rgb),.05));border-color:rgba(var(--dan-rgb),.45)}
 .kpi-sm{flex:1;min-width:130px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--sp-4) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-1);justify-content:center}
 .kpi-num{font-size:var(--fs-num-lg);font-weight:700;color:var(--t1);line-height:var(--lh-title)}
-.kpi-hero.money .kpi-num{color:var(--p-dark)}
+.kpi-hero.money .kpi-num{color:var(--p-ink)}
 .kpi-hero.risk .kpi-num{color:var(--dan)}
 .kpi-unit{font-size:var(--fs-md);font-weight:500;color:var(--t3);font-style:normal;margin-left:var(--sp-h2)}
 .kpi-lb{font-size:var(--fs-sm);color:var(--t3)}
@@ -3590,7 +3590,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .lg.behind{background:var(--dan)}
 .dash-legend-note{margin-left:auto;color:var(--t3)}
 /* v154 A1：达成列表标题行的跨页导航（原页头副标题第 3 分句下沉至此） */
-.rank-hd-link{font-size:var(--fs-sm);color:var(--p-dark);text-decoration:none;white-space:nowrap}
+.rank-hd-link{font-size:var(--fs-sm);color:var(--p-ink);text-decoration:none;white-space:nowrap}
 .rank-hd-link:hover{text-decoration:underline}
 
 /* 条形达成列表 */
@@ -3608,14 +3608,14 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
    序号圈一并删除 —— 不留死 CSS。 */
 .rr-name{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .rr-scope{font-size:var(--fs-sm);color:var(--t3)}
-.rr-ach{margin-left:auto;font-size:var(--fs-lg);font-weight:700;color:var(--p-dark)}
+.rr-ach{margin-left:auto;font-size:var(--fs-lg);font-weight:700;color:var(--p-ink)}
 .rr-ach.val-warn{color:var(--dan)}
 .rr-bar{height:14px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);overflow:hidden;position:relative;cursor:help}
 .rr-bar-fill{height:100%;border-radius:var(--radius-sm);transition:width .35s ease;background:var(--p-dark)}
 
 /* #354：rank-row 算式入口 + 进度条百分比 */
 /* v132：行内「算式」按钮样式已移除（双入口收敛为「看算式」链接） */
-.rr-calc-link{margin-left:var(--sp-h6);border:none;background:none;color:var(--p-dark);cursor:pointer;font-size:var(--fs-sm);text-decoration:underline;padding:0}
+.rr-calc-link{margin-left:var(--sp-h6);border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:var(--fs-sm);text-decoration:underline;padding:0}
 .rr-calc-link:hover{opacity:.8}
 /* v154 G10：预计返利为 0 时「看算式」降为次级 —— 保持占位（不跳动），仅在行 hover 时显形 */
 .rr-calc-link.dim{opacity:0;pointer-events:none}
@@ -3635,7 +3635,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .da-clickable{cursor:pointer;border-radius:var(--radius-sm);padding:5px 7px;margin:-5px -7px;transition:background var(--dur-base)}
 .da-clickable:hover{background:rgba(var(--dan-rgb),.07)}
 .da-clickable:focus-visible{outline:2px solid var(--p);outline-offset:1px}
-.da-act{margin-left:auto;flex:0 0 auto;font-size:var(--fs-sm);color:var(--p-dark);white-space:nowrap}
+.da-act{margin-left:auto;flex:0 0 auto;font-size:var(--fs-sm);color:var(--p-ink);white-space:nowrap}
 .da-clickable:hover .da-act{text-decoration:underline}
 .da-ic{flex:none;width:18px;text-align:center;color:var(--dan);font-weight:700}
 .da-text{flex:none;font-weight:500}
@@ -3652,7 +3652,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .calc-sec h4{margin:0 0 var(--sp-2);font-size:var(--fs-base);font-weight:600;color:var(--t2)}
 .calc-steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--sp-h6)}
 .cs-step{display:flex;align-items:center;gap:var(--sp-h10);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3)}
-.cs-key{flex:none;min-width:84px;font-size:var(--fs-sm);font-weight:600;color:var(--p-dark);background:rgba(6,182,212,.1);border-radius:var(--radius-xs);padding:var(--sp-h2) var(--sp-2);text-align:center}
+.cs-key{flex:none;min-width:84px;font-size:var(--fs-sm);font-weight:600;color:var(--p-ink);background:rgba(6,182,212,.1);border-radius:var(--radius-xs);padding:var(--sp-h2) var(--sp-2);text-align:center}
 .cs-text{flex:1;font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-tight)}
 .cs-val{flex:none;font-size:var(--fs-base);font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums}
 .calc-tiers th,.calc-tiers td{text-align:left}
@@ -3701,7 +3701,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 
 /* v111: 月度构成 */
 .cc-mo{margin-top:var(--sp-3);padding-top:var(--sp-h10);border-top:1px solid var(--border-subtle)}
-.cc-mo-toggle{display:inline-flex;align-items:center;gap:var(--sp-h6);background:none;border:none;color:var(--p-dark);font-size:var(--fs-sm);font-weight:600;cursor:pointer;padding:var(--sp-1) 0}
+.cc-mo-toggle{display:inline-flex;align-items:center;gap:var(--sp-h6);background:none;border:none;color:var(--p-ink);font-size:var(--fs-sm);font-weight:600;cursor:pointer;padding:var(--sp-1) 0}
 .cc-mo-toggle svg{transition:transform var(--dur-base)}
 .cc-months{margin-top:var(--sp-h10)}
 .cc-months-save{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h10);margin-bottom:var(--sp-2)}
@@ -3753,7 +3753,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .cf-mo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-2);margin-top:var(--sp-h6)}
 /* v112 R13：月度网格折叠/展开 */
 .cf-mo-label{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
-.cf-mo-toggle{background:none;border:1px solid var(--bd);border-radius:var(--radius-xs);padding:var(--sp-h2) var(--sp-2);font-size:var(--fs-sm);color:var(--p-dark);cursor:pointer;margin-left:auto}
+.cf-mo-toggle{background:none;border:1px solid var(--bd);border-radius:var(--radius-xs);padding:var(--sp-h2) var(--sp-2);font-size:var(--fs-sm);color:var(--p-ink);cursor:pointer;margin-left:auto}
 .cf-mo-toggle:hover{background:var(--bg2)}
 .cf-mo-collapsed-tip{font-size:var(--fs-sm);color:var(--t3);background:var(--bg2);border:1px dashed var(--border-subtle);border-radius:var(--radius-xs);padding:var(--sp-2) var(--sp-h10);margin-top:var(--sp-1)}
 /* v112 R14：达成填报行级保存状态 */
@@ -3761,16 +3761,16 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .achv-fail{font-size:var(--fs-sm);color:var(--dan);margin-left:var(--sp-h6);cursor:pointer;text-decoration:underline}
 .cf-mo-cell label{display:block;font-size:var(--fs-sm);color:var(--t2);margin-bottom:3px}
 .cf-mo-sum{display:flex;justify-content:space-between;align-items:center;margin-top:var(--sp-3);padding:var(--sp-h10) var(--sp-4);background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.18);border-radius:var(--radius-sm)}
-.cf-mo-sum span{font-size:var(--fs-base);color:var(--p-dark)}
+.cf-mo-sum span{font-size:var(--fs-base);color:var(--p-ink)}
 .cf-mo-sum b{font-size:var(--fs-stat);color:var(--p-ink);font-weight:600}
 .cf-tip b{color:var(--t1)}
 /* v387（2026-10-06）：「档案管理 › xx」指路文案里的跳转按钮。
    原先是死文本（一句指向当时不存在的页面）⇒ 做成真入口。
    ⚠️ 因为这两句 .cf-hint 是**内联设色**（--dan / --war），按钮不能再跟着变色，
       否则出现两种红/橙互相打架 —— 固定用主交互色 + 下划线，视觉上明确"这里能点"。 */
-.cf-jump{background:none;border:none;padding:0;margin:0;font:inherit;color:var(--p-dark);
+.cf-jump{background:none;border:none;padding:0;margin:0;font:inherit;color:var(--p-ink);
   text-decoration:underline;cursor:pointer}
-.cf-jump:hover{color:var(--p-deep)}
+.cf-jump:hover{color:var(--p-ink)}
 .cf-jump:focus-visible{outline:2px solid var(--p-dark);outline-offset:2px;border-radius:var(--radius-hair)}
 /* §1.1 向导步骤条 + 引用按钮 + 预览 */
 .cf-wizard-actions{display:flex;gap:var(--sp-h6);margin-left:auto}

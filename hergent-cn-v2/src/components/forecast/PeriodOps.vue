@@ -217,12 +217,12 @@ async function confirmClose() {
 .close-nf-tbl tr.not-full td{background:var(--warn-amber-bg)}
 .cn-name{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cn-exp{font-size:var(--fs-xs);padding:1px var(--sp-h6);border:1px solid var(--bd);border-radius:var(--radius-2xs);background:var(--bg);color:var(--t3);cursor:pointer}
-.cn-exp:hover{border-color:var(--p-dark);color:var(--p-dark)}
+.cn-exp:hover{border-color:var(--p-dark);color:var(--p-ink)}
 .cn-detail td{background:var(--bg3)}
 .cn-p{display:flex;gap:var(--sp-3);flex-wrap:wrap;font-size:var(--fs-xs);color:var(--t2);padding:var(--sp-h2) 0;line-height:var(--lh-normal)}
 .cn-p.bad{color:var(--danger-txt)}
 .cn-pname{min-width:64px;font-weight:600;color:var(--t1)}
-.cn-add{color:var(--p-dark);font-weight:600}
+.cn-add{color:var(--p-ink);font-weight:600}
 .cn-cut{color:var(--danger-txt);font-weight:600}
 .close-nf-sum{margin:7px 0 0;font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 </style>

@@ -423,7 +423,7 @@ defineExpose({ load })
 .win-op { display: flex; flex-wrap: wrap; gap: var(--sp-h2) var(--sp-h10); justify-content: flex-end }
 .win-op-btn {
   border: none; background: none; padding: 0; font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  color: var(--p-ink); cursor: pointer; white-space: nowrap;
 }
 .win-op-btn:hover { text-decoration: underline }
 .win-op-btn.danger { color: var(--danger-txt) }
@@ -440,7 +440,7 @@ defineExpose({ load })
   border: 1px solid var(--bd); border-radius: var(--radius-sm);
   background: var(--bg); color: var(--t1); font-size:var(--fs-base); font-variant-numeric: tabular-nums;
 }
-.win-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
+.win-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-ink) }
 .win-pg:disabled { opacity: .45; cursor: not-allowed }
 .win-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
 .win-pg-size { width: auto; height: 28px; padding: 0 var(--sp-2); font-size:var(--fs-base); border-radius: var(--radius-sm) }

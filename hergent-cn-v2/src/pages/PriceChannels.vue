@@ -1022,6 +1022,6 @@ onMounted(async () => {
 /* 「恢复自动」是个**可点的操作**（清手工价、改回按换算比算），字号比旁边只读的
    单位名/标记略大，否则在真机上小到看不见（v229 实测：10.5px 在整页截图里几乎认不出）。 */
 .pc-cust .pc-clear{display:block;margin-top:var(--sp-h2);padding:0;border:0;background:none;
-  font-size:var(--fs-sm);color:var(--p-dark);cursor:pointer;text-decoration:underline}
+  font-size:var(--fs-sm);color:var(--p-ink);cursor:pointer;text-decoration:underline}
 .pc-cust .pc-clear:hover{opacity:.75}
 </style>

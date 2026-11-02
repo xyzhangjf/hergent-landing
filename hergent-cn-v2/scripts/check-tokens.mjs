@@ -449,6 +449,103 @@ function checkMobileBodyOnly () {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   v735 · 强调色语义护栏（三条判据，全部来自同一句反馈「侧边栏字体不够黑」）
+   ─────────────────────────────────────────────────────────────────────────────
+   ① `--p-dark` 不许当**文字**色。它 5.36:1 只是"刚好过 AA"，却同时承载链接 / 主按钮 /
+      选中态三种"用户要主动去看"的语义；而它在 `--p-bg` 上只有 **4.96** ——
+      **比侧栏未选中项 5.25 还低**，层级是倒的。文字一律走 `--p-ink`（浅 7.39 / 深 8.12）。
+      边框(54 处) / `accent-color`(7 处) / SVG 描边 / outline 是**图形**（门槛 3:1），
+      5.36 够用、加深反而让边框变粗重 ⇒ 这些**保留** `--p-dark`，别一刀切。
+   ② 导航项不许用"次要文字"色。侧栏 `.sb-item`、弹窗二级项 `.sb-pop-item`、
+      手机底栏 `.mnav-item` 都是**一级导航**，不是说明文字 —— 它们每天被点几十次，
+      却借了 v717 里"能被读的次要文字"那一档。
+      🔴 这条必须拦的原因：`--t2` 与 `--t3` 在 v717 合并后**同值**，所以
+      "把 --t3 改成 --t2"是**零变化**，肉眼与截图都看不出 ⇒ 下一个人会以为改了。
+   ③ `--p-ink` 的值必须扛得住最暗的强调底：对 `--p-bg` ≥ 7:1（可点文字按 AAA）。
+      只拦"有人手工把它改浅"，不拦"改深"；也拦 `--p-deep` 复活（它就是 `--p-ink`
+      的第二个名字，深色下同值 #22d3ee）。
+   ───────────────────────────────────────────────────────────────────────────── */
+const NAV_SELECTORS = ['.sb-item', '.sb-pop-item', '.mnav-item']
+/* 图形语义的 *color* 属性：门槛是 UI 组件 3:1，不是文字 7:1 ⇒ 放行 --p-dark */
+const GRAPHIC_COLOR_PROP = /^(border|outline|accent|caret|scrollbar|column|tap-highlight)/
+
+function toRgb (v) {
+  if (!v) return null
+  v = v.trim()
+  let m = v.match(/^#([0-9a-fA-F]{6})$/)
+  if (m) {
+    const n = parseInt(m[1], 16)
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: 1 }
+  }
+  m = v.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/)
+  if (m) return { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] }
+  return null
+}
+function relLum (c) {
+  const ch = (x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4) }
+  return 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b)
+}
+function flatten (fg, bg) {
+  return { r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a), a: 1 }
+}
+function contrast (fg, bg) {
+  const a = relLum(fg), b = relLum(bg)
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+}
+
+function checkAccentText () {
+  const out = { wordBad: [], navBad: [], inkBad: [] }
+
+  /* ---- ① color 位不许 --p-dark ---- */
+  const WORD_DARK = /(?<![\w-])([a-z-]*color)\s*:\s*([^;}]*var\(--p-dark\)[^;}]*)/g
+  for (const abs of walk(SRC)) {
+    const rel = relative(ROOT, abs).split('\\').join('/')
+    for (const m of stripComments(readFileSync(abs, 'utf8')).matchAll(WORD_DARK)) {
+      if (GRAPHIC_COLOR_PROP.test(m[1])) continue
+      out.wordBad.push({ rel, prop: m[1], text: m[0].slice(0, 90) })
+    }
+  }
+
+  /* ---- ② 导航项不许 --t2 / --t3 ---- */
+  for (const abs of walk(SRC)) {
+    const rel = relative(ROOT, abs).split('\\').join('/')
+    const src = stripComments(readFileSync(abs, 'utf8'))
+    for (const sel of NAV_SELECTORS) {
+      const re = new RegExp(sel.replace(/\./g, '\\.') + '(?![\\w-])[^{,]*\\{[^}]*\\}', 'g')
+      for (const m of src.matchAll(re)) {
+        const cm = m[0].match(/[{;]\s*color\s*:\s*([^;}]+)/)
+        if (cm && /var\(--t[23]\)/.test(cm[1])) out.navBad.push({ rel, sel, rule: m[0].replace(/\s+/g, ' ').slice(0, 110) })
+      }
+    }
+  }
+
+  /* ---- ③ --p-ink 对比度自检（浅/深两套） ---- */
+  const css = stripComments(readFileSync(join(ROOT, TOKEN_FILE), 'utf8'))
+  if (/--p-deep\s*:/.test(css)) {
+    out.inkBad.push({ theme: '—', why: '--p-deep 又定义回来了：它是 --p-ink 的第二个名字（深色下同值），别再制造第二个文字色令牌' })
+  }
+  const di = css.indexOf(':root.dark{')
+  const blocks = di > 0 ? [['浅色', css.slice(0, di)], ['深色', css.slice(di)]] : [['浅色', css]]
+  for (const [theme, blk] of blocks) {
+    const get = (n) => {
+      const m = blk.match(new RegExp('--' + n + '\\s*:\\s*([^;]+);'))
+      return m ? m[1].trim() : null
+    }
+    const ink = toRgb(get('p-ink'))
+    const bgBase = toRgb(get('bg'))
+    const pbg = toRgb(get('p-bg'))
+    if (!ink || !bgBase || !pbg) {
+      out.inkBad.push({ theme, why: `令牌读不到（--p-ink=${get('p-ink')} / --bg=${get('bg')} / --p-bg=${get('p-bg')}）—— 改名了还是写坏了？` })
+      continue
+    }
+    /* 用最亮的 --bg 当基底：底色越亮、深前景对比越低 ⇒ 这是**保守下界** */
+    const r = contrast(ink, flatten(pbg, bgBase))
+    if (r < 7) out.inkBad.push({ theme, why: `--p-ink 对 --p-bg 只有 ${r.toFixed(2)}:1（可点文字需 ≥7）`, hex: get('p-ink') })
+  }
+  return out
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    v727 · 间距护栏
    ─────────────────────────────────────────────────────────────────────────────
    由来：`gap/padding/margin` 的间距字面量共 **5037 处 / 43 个值**，其中
@@ -514,6 +611,7 @@ const lhRampBad = checkLineHeightRamp()
 const fontRampBad = checkFontRamp()
 const spaceRampBad = checkSpacingRamp()
 const mobileBodyBad = checkMobileBodyOnly()
+const accentBad = checkAccentText()
 if (args.has('--update')) {
   const obj = {}
   for (const k of [...current.keys()].sort()) obj[k] = [...current.get(k)].sort()
@@ -552,7 +650,7 @@ for (const [file, vals] of current) {
   if (added.length) violations.push({ file, kind: 'new-color', vals: added })
 }
 
-if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length && !lhRampBad.length && !fontRampBad.length && !spaceRampBad.length && !mobileBodyBad.length) {
+if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length && !lhRampBad.length && !fontRampBad.length && !spaceRampBad.length && !mobileBodyBad.length && !accentBad.wordBad.length && !accentBad.navBad.length && !accentBad.inkBad.length) {
   const files = Object.keys(base).length
   const total = Object.values(base).reduce((a, b) => a + b.length, 0)
   console.log(`✓ 设计令牌护栏通过（存量待清：${files} 个文件 / ${total} 条，见 --list）`)
@@ -565,6 +663,7 @@ if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length 
   console.log(`✓ 字号阶梯通过（11 档：11 / 12 / 13 / 14 / 15 / 16 / 18 / 20 / 22 / 24 / 26，无同值重名）`)
   console.log(`✓ 间距阶梯通过（10 档：2 / 4 / 6 / 8 / 10 / 12 / 16 / 20 / 24 / 32，-hN 名字即值）`)
   console.log(`✓ 移动端正文隔离通过（--fs-body-m 只出现在 @media 的 body 规则里）`)
+  console.log(`✓ 强调色语义通过（文字走 --p-ink；导航走 --t1；--p-ink 对 --p-bg ≥ 7:1）`)
   process.exit(0)
 }
 
@@ -615,6 +714,32 @@ if (mobileBodyBad.length) {
   console.error('  @media(max-width:768px){ body{font-size:var(--fs-body-m)} }')
   console.error('UI 用途请用 --fs-md 14（正文/输入框）或 --fs-lg 16（标题/行内数值）。')
   console.error('这条守的是 v732 把 --fs-h4 拆开的成果 —— 一旦 body-m 回到 UI 规则里，「一个名字两个语义」就复活了。\n')
+}
+
+if (accentBad.wordBad.length) {
+  console.error('\n✗ 强调文字色：`color` 用了 --p-dark\n')
+  for (const b of accentBad.wordBad.slice(0, 15)) console.error(`  ${b.rel}  ${b.prop}: ${b.text}`)
+  if (accentBad.wordBad.length > 15) console.error(`  …… 另有 ${accentBad.wordBad.length - 15} 处`)
+  console.error('\n--p-dark(#0e7490) 对白底 5.36、对 --p-bg 只有 4.96 —— 比"次要文字"还淡，')
+  console.error('用户会直接说「字不够黑」。**文字一律用 var(--p-ink)**（浅 7.39 / 深 8.12）。')
+  console.error('保留 --p-dark 的场合只有**图形**：border-color / accent-color / SVG stroke·fill / outline。')
+  console.error('判据是门槛不同：文字要 7:1（AAA），UI 图形 3:1 就够；加深边框只会让它显得粗重。\n')
+}
+
+if (accentBad.navBad.length) {
+  console.error('\n✗ 导航项用了"次要文字"色（--t2 / --t3）\n')
+  for (const b of accentBad.navBad) console.error(`  ${b.rel}  ${b.sel}\n    ${b.rule}`)
+  console.error('\n侧栏 / 弹窗二级项 / 手机底栏是**一级导航**，不是说明文字 —— 必须用 --t1。')
+  console.error('🔴 --t2 与 --t3 在 v717 合并后**同值**，所以「把 --t3 改成 --t2」是零变化，')
+  console.error('   截图和肉眼都看不出，只有这条护栏能拦住。\n')
+}
+
+if (accentBad.inkBad.length) {
+  console.error('\n✗ --p-ink 自身不达标 / 被重新拆成两个名字\n')
+  for (const b of accentBad.inkBad) console.error(`  [${b.theme}] ${b.why}${b.hex ? '  ' + b.hex : ''}`)
+  console.error('\n--p-ink 是**唯一**的强调文字色，浅色须对 --p-bg ≥ 7:1（可点文字按 AAA）。')
+  console.error('要调就调深；要新增名字先想想它和 --p-ink 的区别说不说得清 ——')
+  console.error('说不清就是 v735 删掉 --p-deep 的那类"同值两个名字"，它能骗过所有视觉回归。\n')
 }
 
 if (spaceRampBad.length) {

@@ -19,9 +19,20 @@
         **组件一行都不用改**；`.btn-primary` 也自动从 3.68 变 5.36。
         `--p-rgb`/`--p-bg`/`--p-border` 不动（浅青底观感保持原样）。 */
   --p:#06b6d4;            /* 品牌青 — 装饰/高亮 */
-  --p-dark:#0e7490;       /* 主交互（白字可读 5.36:1；v717 原 #0891b2 仅 3.68） */
-  --p-deep:#0b5f75;       /* hover/按下（白字 7.22:1；v717 原 #0e7490） */
-  --p-ink:#0e7490;        /* P0(v376)：强调态**文字色** —— 对选中青底 4.87:1；勿用于白字背景 */
+  --p-dark:#0e7490;       /* 主交互（白字可读 5.36:1；v717 原 #0891b2 仅 3.68）
+                             🔴 v735：它**只当实心底 / 边框 / accent-color / SVG 描边**，不再当文字。
+                             理由：5.36 比侧栏未选中项（当时 5.25）只高一点点，一屏里找不到"深"的锚点。
+                             文字侧 247 处已全部迁 `--p-ink`；剩下的 54 处边框(css) + 7 处 accent-color
+                             是**图形**（UI 组件门槛 3:1），5.36 够用且加深会让边框变粗重，故保留。 */
+  /* v735：`--p-deep` 已并入 `--p-ink` 并删除 —— 它那 10 处用法**全部**是 `color` on `--p-bg`，
+     与 `--p-ink` 的语义完全重合，深色下两者本来就同值 #22d3ee（又一个"同值两个名字"）。
+     浅色原值 #0b5f75 → 并入后取 #0a5a6d（更暗一档，方向一致）。 */
+  /* 🔴 v735：`--p-ink` 是全站唯一的「强调文字色」，值由 #0e7490 压深到 #0a5a6d。
+     判据不是"更黑更好看"，是**它压在最差的底上够不够**：`--p-ink` 最常在 `--p-bg`
+     (rgba(6,182,212,.06) 叠白 ≈ #f0fbfc) 上当"选中态文字"，而 #0e7490 在那块底上只有 **4.96:1**
+     —— 比侧栏**未选中**项的 5.25 还低，层级是倒的。
+     实测目标（可点文字按 AAA 7:1）：#0a5a6d 在 --p-bg 上 7.39、白底 7.79。 */
+  --p-ink:#0a5a6d;        /* v735：强调态**文字色** —— 对选中青底 7.39 / 白底 7.79；勿用于白字背景 */
   /* v717：**实心选中底**（chip/seg-btn 选中、小圆形序号、主色按钮 hover）。
      原写法是 background:var(--p-solid) + color:#fff —— #06b6d4 上白字只有 2.43:1，
      看板「近 7 天」、销售单「全部」都属于这一类。深浅两套同取 #0e7490（白字 5.36），
@@ -527,13 +538,13 @@
      选区一并转为深色（见上方 :root 处的说明）。此前缺这一条 ⇒ 深色下所有日期选择弹窗白底。 */
   color-scheme:dark;
   --p:#22d3ee;            /* 深色下品牌青提亮 */
-  --p-dark:#06b6d4;
-  /* v723：深色下由 #0891b2 提亮到 #22d3ee。它只当「淡青底(--p-bg)上的青字」用
-     （btn-badge / pin-more / err-grp.on / la-ml-badge 等 10 处），#0891b2 对 10% 青底
+  --p-dark:#06b6d4;       /* v735：深色下同样只当实心底/边框/SVG 描边，文字一律走 --p-ink */
+  /* v723：`--p-ink`(原 --p-deep) 深色下由 #0891b2 提亮到 #22d3ee —— 它只当「淡青底(--p-bg)
+     上的青字」用（btn-badge / pin-more / err-grp.on / la-ml-badge 等 10 处），#0891b2 对 10% 青底
      只有 3.7~4.0:1，11~12px 小字读不清。提亮后 7.6:1。
-     🔴 前提：它**不再当白字底** —— 原先 3 处 hover 底已一并改为 --p-solid-h。 */
-  --p-deep:#22d3ee;
-  --p-ink:#22d3ee;        /* P0(v376)：深色下强调态文字色 —— 对选中青底约 7:1 */
+     🔴 前提：它**不再当白字底** —— 原先 3 处 hover 底已一并改为 --p-solid-h。
+     浅色侧 v735 已从 #0e7490 压深到 #0a5a6d（原 4.96 不达标），见 :root 处说明。 */
+  --p-ink:#22d3ee;        /* v376 建；v735 起是**唯一的强调文字色**（--p-deep 已并入）—— 对选中青底约 7:1 */
   --p-solid:#0e7490;      /* v717：实心选中底，白字 5.36:1（深色下也不用亮青 --p） */
   --p-solid-h:#0b5f75;    /* v723：实心底 hover，白字 7.22:1 */
 
@@ -768,7 +779,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
   font:inherit;font-weight:500;color:var(--p-ink);
   text-decoration:underline;text-underline-offset:2px;
 }
-.lnk-btn:hover{color:var(--p-dark)}
+.lnk-btn:hover{color:var(--p-ink)}
 .lnk-btn:disabled{opacity:.45;cursor:not-allowed}
 
 /* 🔴 v264b 补齐：`.btn:disabled` 此前**全站没有定义** —— 只有 `.btn-icon:disabled` 与
@@ -836,7 +847,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
 .menu-item:active,
 .isl-op-btn:active,
 .ipl-op-btn:active{background:var(--bg4)}
-.lnk-btn:active{color:var(--p-deep)}
+.lnk-btn:active{color:var(--p-ink)}
 /* 触摸设备上没有 hover 可言，按下态就是唯一的即时反馈 ⇒ 保持同样规则即可；
    但**去掉** 300ms 点击延迟带来的延迟感由 `touch-action` 兜（浏览器默认已无延迟）。 */
 @media (prefers-reduced-motion:reduce){
@@ -859,7 +870,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    渲染成「品牌 2 ⌄」这种与相邻按钮不同构的排版，且计数与标签之间只靠文本空格分隔。
    这里给成一个 18px 高的小胶囊：字号降一档以示「这是计数不是标签」，主色系与站内
    .confirm-badge 同源；高度写死使它在 32px 按钮内不参与撑高。 */
-.btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-deep);font-size:var(--fs-xs);font-weight:600;line-height:var(--lh-none);white-space:nowrap}
+.btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-ink);font-size:var(--fs-xs);font-weight:600;line-height:var(--lh-none);white-space:nowrap}
 .btn-badge.err{background:var(--danger-bg);color:var(--danger-txt)}
 .btn-icon{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background var(--dur-base),color var(--dur-base)}
 .btn-icon svg{width:16px;height:16px}
@@ -958,7 +969,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
 .main-tabs{display:flex;gap:var(--sp-h6);margin-bottom:var(--sp-4);border-bottom:1px solid var(--border-subtle)}
 .main-tab{padding:var(--sp-h10) var(--sp-5);border:none;background:none;font-size:var(--fs-md);color:var(--t2);cursor:pointer;position:relative;font-weight:500}
 .main-tab:hover{color:var(--t1)}
-.main-tab.on{color:var(--p-dark)}
+.main-tab.on{color:var(--p-ink)}
 .main-tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:var(--radius-hair)}
 
 /* 通用卡片 */
@@ -1105,7 +1116,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    ⚠️ 不动 `--dan` 本身（被大量用作文字色），改指 `--dan-ink`。 */
 .badge-red{color:var(--dan-ink)}
 .badge-amber{background:rgba(var(--war-rgb),.15);color:var(--war)}
-.badge-blue{background:var(--p-bg);color:var(--p-dark)}
+.badge-blue{background:var(--p-bg);color:var(--p-ink)}
 
 /* 进度条 */
 .progress{height:6px;border-radius:var(--radius-pill);background:var(--bg4);overflow:hidden}
@@ -1122,7 +1133,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    新写空态请直接用 components/EmptyState.vue，别在页面里再写一遍 .state-empty。 */
 .state-empty,.state-error{padding:48px var(--sp-5);text-align:center;color:var(--t3);font-size:var(--fs-base)}
 .state-empty.sm,.state-error.sm{padding:var(--sp-3) var(--sp-1);font-size:var(--fs-sm)}
-.state-empty .se-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)}
+.state-empty .se-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-ink);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)}
 
 /* 表格 */
 .table-wrap{overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-subtle)}
@@ -1186,7 +1197,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 .tag.ok,.tag.suc{background:rgba(var(--suc-rgb),.12);color:var(--st-ok-txt)}
 .tag.warn{background:rgba(var(--war-rgb),.15);color:var(--st-warn-txt)}
 .tag.bad,.tag.danger,.tag.risk{background:rgba(var(--dan-rgb),.12);color:var(--st-off-txt)}
-.tag.info{background:var(--p-bg);color:var(--p-dark)}
+.tag.info{background:var(--p-bg);color:var(--p-ink)}
 .tag.purple{background:rgba(var(--purple-rgb),.14);color:var(--st-cust-txt)}
 .tag.teal{background:rgba(var(--teal-rgb),.14);color:var(--st-teal-txt)}
 .tag.hot{background:var(--dan-bg);color:var(--st-off-txt);font-weight:600}

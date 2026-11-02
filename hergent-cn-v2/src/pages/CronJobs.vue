@@ -343,8 +343,8 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .field textarea{height:auto;resize:vertical;padding:var(--sp-h10) var(--sp-4);line-height:var(--lh-normal)}
 .chips{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-bottom:var(--sp-h6)}
 .chip{padding:var(--sp-h6) var(--sp-3);border:1px solid var(--bd);border-radius:var(--radius-lg);background:var(--bg3);color:var(--t2);font-size:var(--fs-sm);cursor:pointer;transition:all var(--dur-base)}
-.chip:hover{border-color:var(--p-dark);color:var(--p-dark)}
-.chip.on{background:var(--p-bg);border-color:var(--p-dark);color:var(--p-dark);font-weight:500}
+.chip:hover{border-color:var(--p-dark);color:var(--p-ink)}
+.chip.on{background:var(--p-bg);border-color:var(--p-dark);color:var(--p-ink);font-weight:500}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
 /* 推送状态卡（占宽已在顶部声明；grid 里由 gap 控距，不再用 margin） */

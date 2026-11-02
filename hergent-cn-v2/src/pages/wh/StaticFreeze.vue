@@ -474,7 +474,7 @@ defineExpose({ load: loadList })
 .sfz-op-cell { white-space: nowrap }
 .sfz-op {
   border: none; background: none; padding: 0; margin-right: var(--sp-h10); font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  color: var(--p-ink); cursor: pointer; white-space: nowrap;
 }
 .sfz-op:last-child { margin-right: 0 }
 .sfz-op:hover { text-decoration: underline }

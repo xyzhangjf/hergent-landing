@@ -262,7 +262,7 @@ onMounted(load)
 /* v368④：「本期少了 N 期」说明条 —— 颜色全走既有令牌（零硬编码色，深色自动跟随）。
    与 `.ap-excl`（报单自动化面板里那条）同族：都用主色 6% 底 + 主深字。 */
 .hist-skip {
-  margin: 0 0 var(--sp-3); font-size:var(--fs-sm); line-height: var(--lh-normal); color: var(--p-dark);
+  margin: 0 0 var(--sp-3); font-size:var(--fs-sm); line-height: var(--lh-normal); color: var(--p-ink);
   background: rgba(var(--p-rgb), .06); border-radius: var(--radius-xs); padding: 7px var(--sp-h10);
 }
 .history-loading, .history-empty { color: var(--t3); padding: 40px 0; text-align: center; font-size:var(--fs-base); }

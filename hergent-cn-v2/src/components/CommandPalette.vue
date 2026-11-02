@@ -205,7 +205,7 @@ watch(q, () => { activeIndex.value = 0 })
 .cmd-item{display:flex;align-items:center;gap:var(--sp-h10);width:100%;text-align:left;padding:9px var(--sp-3);border:none;background:none;border-radius:var(--radius-sm);color:var(--t1);font-size:var(--fs-md);cursor:pointer}
 .cmd-item.active{background:var(--p-bg)}
 .cmd-ic{color:var(--t2);display:flex;flex-shrink:0}
-.cmd-item.active .cmd-ic{color:var(--p-dark)}
+.cmd-item.active .cmd-ic{color:var(--p-ink)}
 .cmd-title{flex:1;line-height:var(--lh-tight)}
 .cmd-hint{font-size:var(--fs-xs);color:var(--t3);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-xs);padding:var(--sp-h2) var(--sp-h6)}
 .cmd-empty{font-size:var(--fs-base);color:var(--t3);text-align:center;padding:var(--sp-6) 0}

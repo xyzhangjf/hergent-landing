@@ -199,10 +199,10 @@ function wkLabel(iso) {
 .ap-sec:first-child{margin-top:0}
 .ap-sec-note{font-weight:400;font-size:var(--fs-sm);color:var(--t3)}
 .ap-moved{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
-.ap-moved a{color:var(--p-dark);text-decoration:none;border-bottom:1px dashed var(--p)}
-.ap-derive{margin:var(--sp-h2) 0 0;font-size:var(--fs-sm);color:var(--p-dark);background:rgba(6,182,212,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2)}
+.ap-moved a{color:var(--p-ink);text-decoration:none;border-bottom:1px dashed var(--p)}
+.ap-derive{margin:var(--sp-h2) 0 0;font-size:var(--fs-sm);color:var(--p-ink);background:rgba(6,182,212,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2)}
 .ap-warn{font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2);margin-bottom:var(--sp-h6);line-height:var(--lh-normal)}
-.ap-adopt{margin-left:var(--sp-2);border:1px solid var(--p);background:transparent;color:var(--p-dark);border-radius:var(--radius-xs);padding:1px var(--sp-h10);font-size:var(--fs-sm);cursor:pointer}
+.ap-adopt{margin-left:var(--sp-2);border:1px solid var(--p);background:transparent;color:var(--p-ink);border-radius:var(--radius-xs);padding:1px var(--sp-h10);font-size:var(--fs-sm);cursor:pointer}
 .ap-adopt:hover{background:var(--p-solid);color:#fff}
 /* v364：② 本月到货 —— 三个数字 + 一排可点的到货日。
    颜色一律走既有令牌（--p / --t1..t3 / --bg1..2 / --bd2），不新增硬编码色：
@@ -211,7 +211,7 @@ function wkLabel(iso) {
 .arr-stat-i{display:flex;align-items:baseline;gap:var(--sp-1);flex-wrap:wrap;background:var(--bg1);border:1px solid var(--bd2);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-h10)}
 .arr-stat-k{font-size:var(--fs-sm);color:var(--t3);flex-basis:100%}
 .arr-stat-i b{font-size:var(--fs-stat);color:var(--t1);font-variant-numeric:tabular-nums;line-height:var(--lh-title)}
-.arr-stat-i b.on{color:var(--p-dark)}
+.arr-stat-i b.on{color:var(--p-ink)}
 .arr-stat-i b.cut{color:var(--t2)}
 .arr-stat-u{font-size:var(--fs-sm);color:var(--t3)}
 .arr-days{display:flex;flex-wrap:wrap;gap:var(--sp-h6);margin:var(--sp-h2) 0 var(--sp-2)}
@@ -223,7 +223,7 @@ function wkLabel(iso) {
 .arr-day.off .arr-day-d{text-decoration:line-through;color:var(--t3)}
 .ap-skip-note{margin:var(--sp-h2) 0 0;font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 /* v365：影响说明。颜色全走既有令牌（--p-dark/--p-rgb 本文件已在用），零硬编码色 */
-.ap-skip-effect{margin:var(--sp-h6) 0;font-size:var(--fs-sm);color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-normal)}
+.ap-skip-effect{margin:var(--sp-h6) 0;font-size:var(--fs-sm);color:var(--p-ink);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-normal)}
 .ap-skip-effect p{margin:0}
 .ap-skip-effect p+p{margin-top:var(--sp-1)}
 @media(max-width:768px){ .arr-stat{grid-template-columns:1fr} }

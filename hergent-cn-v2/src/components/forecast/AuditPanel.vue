@@ -196,7 +196,7 @@ onMounted(loadAudit)
 .audit-erp-note .link-btn{background:none;border:none;color:var(--p-ink);font:inherit;font-weight:600;padding:0 var(--sp-h2);cursor:pointer;text-decoration:underline}
 .audit-sum{display:flex;gap:var(--sp-4);align-items:baseline;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t2);padding:var(--sp-2) 0 var(--sp-3)}
 .audit-sum b{color:var(--t1)}
-.audit-sug{color:var(--p-dark);font-weight:600}
+.audit-sug{color:var(--p-ink);font-weight:600}
 .audit-name{font-weight:500;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .audit-verdict{font-size:var(--fs-sm);color:var(--t2);max-width:260px}
 .audit-modal .qty-input{width:72px;height:28px;padding:0 var(--sp-h6);border:1px solid var(--bd);border-radius:var(--radius-sm);text-align:right;background:var(--bg3);color:var(--t1);font-size:var(--fs-sm)}

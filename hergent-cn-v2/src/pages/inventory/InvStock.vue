@@ -276,7 +276,7 @@ onMounted(load)
 
 /* 批次号下钻（v529 P1-5）：有批次号即可点击进追溯页。
    品牌色走 --p-dark（与 .btn-primary / .main-tab.on 同源；不写死色值，深色模式自动跟随） */
-.ibt-link { color: var(--p-dark); cursor: pointer; text-decoration: none; border-bottom: 1px dashed currentColor }
+.ibt-link { color: var(--p-ink); cursor: pointer; text-decoration: none; border-bottom: 1px dashed currentColor }
 .ibt-link:hover { opacity: .8 }
 
 @media (max-width: 640px) {

@@ -1021,7 +1021,7 @@ onMounted(() => { reset(); loadRefs() })
 }
 .isn-c-reason { min-width: 132px }
 .isn-reason-na { color: var(--t3); font-size:var(--fs-sm) }
-.isn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
+.isn-tip svg { color: var(--p-ink); flex: none; margin-top: 1px }
 .isn-tip b { color: var(--t1) }
 /* 退货明细的工具条（全部可退 / 清零）：推到右侧，不与标题挤在一起 */
 .isn-ret-quick { display: flex; gap: var(--sp-2); margin-left: auto }

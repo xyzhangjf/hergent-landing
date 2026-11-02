@@ -378,7 +378,7 @@ onMounted(load)
 .dl-tag.empty,.dl-tag.err{background:rgba(var(--dan-rgb),.12);color:var(--danger-txt)}
 .dl-btn{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 var(--sp-3);
   border-radius:var(--radius-sm);font-size:var(--fs-sm);border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer}
-.dl-btn:hover{border-color:var(--p-dark);color:var(--p-dark)}
+.dl-btn:hover{border-color:var(--p-dark);color:var(--p-ink)}
 .dl-btn.primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .dl-foot{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin:var(--sp-h10) 0 0}
 .dl-err{display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-md);

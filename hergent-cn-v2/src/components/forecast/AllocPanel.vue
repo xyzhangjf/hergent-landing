@@ -1060,7 +1060,7 @@ onMounted(() => { loadAllocSetup() })
 .alloc-empty{text-align:center;color:var(--t3);padding:var(--sp-4) 0}
 .alloc-neg{color:var(--danger-txt);font-weight:600}
 .alloc-sum{display:flex;gap:var(--sp-4);flex-wrap:wrap;margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t2)}
-.alloc-sum .ok{color:var(--p-dark);font-weight:600}
+.alloc-sum .ok{color:var(--p-ink);font-weight:600}
 .alloc-sum .bad{color:var(--danger-txt);font-weight:600}
 .alloc-actions{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-3);padding-top:var(--sp-h10);border-top:1px solid var(--bd)}
 .alloc-spacer{flex:1}

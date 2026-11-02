@@ -265,7 +265,7 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 }
 .psi-bres-close {
   border: none; background: none; padding: 0; cursor: pointer;
-  color: var(--p-dark); font-size:var(--fs-sm); text-decoration: underline;
+  color: var(--p-ink); font-size:var(--fs-sm); text-decoration: underline;
 }
 
 /* 排序 / 选中提示（经 #status 插槽注入，保留文本观感） */
@@ -287,7 +287,7 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
   background: var(--bg); color: var(--t1); font-size:var(--fs-base);
   cursor: pointer; font-variant-numeric: tabular-nums;
 }
-.psi-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
+.psi-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-ink) }
 .psi-pg:disabled { opacity: .45; cursor: not-allowed }
 /* v723：底色 `--p-dark` → `--p-solid`。深色下 `--p-dark` 是亮青 #06b6d4，白字只有 2.43:1，
    当前页码反而比别的页码难读。`--p-solid` 深浅都是 #0e7490（白字 5.36）。 */

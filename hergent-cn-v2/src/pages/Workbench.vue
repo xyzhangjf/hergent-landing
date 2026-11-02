@@ -511,7 +511,7 @@ function renderMd(t) {
   return stripAllFences(t)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/^- /gm, '<span style="color:var(--p-dark)">•</span> ')
+    .replace(/^- /gm, '<span style="color:var(--p-ink)">•</span> ')
     .replace(/\n/g, '<br>')
 }
 
@@ -781,13 +781,13 @@ onMounted(loadData)
 .task-row.prio-amber::before{background:var(--war)}
 .task-row.prio-blue::before{background:var(--p)}
 .task-row .tag{flex-shrink:0;margin-top:1px;white-space:nowrap}
-.task-ic{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:var(--fs-lg);font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
+.task-ic{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:var(--fs-lg);font-weight:500;background:var(--bg2);color:var(--p-ink);flex-shrink:0}
 .task-main{flex:1;min-width:0}
 .task-title{font-size:var(--fs-md);font-weight:500;color:var(--t1);margin-bottom:3px;letter-spacing:.1px}
 .task-sub{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .task-acts{flex-shrink:0;display:flex;gap:var(--sp-h6);align-items:center}
 .task-acts .btn{height:28px;padding:0 var(--sp-3);font-size:var(--fs-sm);border-radius:var(--radius-sm)}
-.task-go{font-size:var(--fs-sm);color:var(--p-dark);cursor:pointer;white-space:nowrap}
+.task-go{font-size:var(--fs-sm);color:var(--p-ink);cursor:pointer;white-space:nowrap}
 
 /* G · AI 洞察 tab 区（v496 P0-3）：三张整行卡收敛为一卡三页签 */
 .ai-insight{grid-column:1/-1}
@@ -823,7 +823,7 @@ onMounted(loadData)
 
 /* 空账套导入引导 —— 占整行，横向三段：图标 / 文案 / 操作 */
 .import-guide{grid-column:1/-1;display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;border:1px dashed var(--bd)}
-.ig-ic{width:40px;height:40px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
+.ig-ic{width:40px;height:40px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-ink);flex-shrink:0}
 .ig-txt{flex:1;min-width:220px}
 .ig-title{font-size:var(--fs-md);font-weight:500;color:var(--t1)}
 .ig-sub{font-size:var(--fs-sm);color:var(--t3);margin-top:3px;line-height:var(--lh-normal)}
@@ -831,7 +831,7 @@ onMounted(loadData)
 .ig-pick{display:inline-flex;align-items:center;cursor:pointer}
 .ig-pick.busy{opacity:.7;cursor:default}
 .ig-msg{font-size:var(--fs-sm);color:var(--dan)}
-.ig-msg.ok{color:var(--p-dark)}
+.ig-msg.ok{color:var(--p-ink)}
 
 .ai-report{font-size:var(--fs-base);color:var(--t1);line-height:var(--lh-loose);max-height:none;overflow-y:auto}
 .ai-loading{padding:var(--sp-3) 0}

@@ -332,7 +332,7 @@ onMounted(async () => {
 <style scoped>
 .lf-steps{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-4)}
 .lf-step{font-size:var(--fs-base);color:var(--t3);padding:var(--sp-h6) var(--sp-4);border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
-.lf-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
+.lf-step.on{background:var(--p-bg);color:var(--p-ink);border-color:var(--p);font-weight:500}
 .lf-arrow{color:var(--t3);font-size:var(--fs-sm)}
 .lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:var(--fs-md);font-weight:500;color:var(--t1);padding:0}
 
@@ -348,7 +348,7 @@ onMounted(async () => {
 .lf-radios.inline{gap:var(--sp-3)}
 .lf-radio{display:flex;align-items:center;gap:var(--sp-h6);padding:7px var(--sp-4);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:var(--fs-base);color:var(--t2);cursor:pointer;transition:all var(--dur-base);background:var(--bg)}
 .lf-radio input{display:none}
-.lf-radio.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark);font-weight:500}
+.lf-radio.on{border-color:var(--p);background:var(--p-bg);color:var(--p-ink);font-weight:500}
 
 .lf-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
 .lf-input-suffix{position:relative;display:flex;align-items:center}

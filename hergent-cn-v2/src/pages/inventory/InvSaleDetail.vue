@@ -345,7 +345,7 @@ onMounted(load)
   display: flex; align-items: center; gap: var(--sp-h10); margin-bottom: var(--sp-3);
   border-left: 3px solid var(--p); font-size:var(--fs-base); color: var(--t1);
 }
-.isd-hint svg { color: var(--p-dark); flex: none }
+.isd-hint svg { color: var(--p-ink); flex: none }
 
 .isd-bar { display: flex; align-items: baseline; gap: var(--sp-h10); margin-bottom: var(--sp-h10); flex-wrap: wrap }
 .isd-note { font-size:var(--fs-sm); color: var(--t3) }

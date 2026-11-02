@@ -525,7 +525,7 @@ onMounted(loadAll)
 
 .rts-op {
   border: none; background: none; padding: 0; font-size:var(--fs-base);
-  color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  color: var(--p-ink); cursor: pointer; white-space: nowrap;
 }
 .rts-op:hover { text-decoration: underline }
 .rts-op:disabled { color: var(--t3); cursor: not-allowed; text-decoration: none }

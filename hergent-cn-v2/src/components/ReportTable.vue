@@ -311,7 +311,7 @@ function exportCsv() {
   color: var(--p); cursor: pointer; text-align: left; line-height: var(--lh-normal);
   border-bottom: 1px dashed currentColor;
 }
-.rpt-drill:hover { color: var(--p-dark); border-bottom-style: solid }
+.rpt-drill:hover { color: var(--p-ink); border-bottom-style: solid }
 .rpt-drill:focus-visible { outline: 2px solid var(--p); outline-offset: 2px; border-radius: var(--radius-hair) }
 
 /* ===== v701 移动端（≤760px） =====
