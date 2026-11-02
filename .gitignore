@@ -78,3 +78,6 @@ desktop-app/*.tar.gz
 /hergent-admin/*.timestamp-*.mjs
 # 工具的 HEAD 快照临时文件
 /hergent-cn-v2/tools/.v*-head-*.vue
+
+# 视觉回归：临时抓图与 diff 产物不入库（基线 .workbuddy/visual-baseline/ 要入库）
+/.workbuddy/visual-run/
