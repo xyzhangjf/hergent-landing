@@ -122,13 +122,13 @@ onMounted(load)
 <style scoped>
 /* 仅保留仍被引用的私有类（警示条 / 合计卡挂在 #extra 插槽，插槽内容在本页作用域编译）。 */
 .warn-banner {
-  margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-sm);
+  margin-top: var(--sp-h14); padding: var(--sp-h10) var(--sp-h14); border-radius: var(--radius-sm);
   background: var(--warn-bg); color: var(--warn-t);
-  border: 1px solid var(--warn-bd); font-size: 12px; line-height: 1.8;
+  border: 1px solid var(--warn-bd); font-size:var(--fs-sm); line-height: 1.8;
 }
-.rpt-tot { margin-top: 14px; padding: 12px 14px; }
-.rpt-tot-row { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 8px; }
-.rpt-tot-i { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.rpt-tot { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); }
+.rpt-tot-row { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2); }
+.rpt-tot-i { display: flex; align-items: baseline; gap: var(--sp-h6); font-size:var(--fs-base); }
 .rpt-tot-i i { font-style: normal; color: var(--t2); }
 .rpt-tot-i b { color: var(--t1); }
 </style>

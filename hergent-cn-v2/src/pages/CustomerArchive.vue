@@ -505,51 +505,51 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 </script>
 
 <style scoped>
-.cas-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
-.cas-stat{font-size:12px;color:var(--t2)}
-.cas-stat b{font-size:15px;color:var(--t1)}
-.sync-state{font-size:12px;padding:3px 10px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
+.cas-actions{display:flex;align-items:center;gap:var(--sp-2);flex-shrink:0;flex-wrap:wrap}
+.cas-stat{font-size:var(--fs-sm);color:var(--t2)}
+.cas-stat b{font-size:var(--fs-h4);color:var(--t1)}
+.sync-state{font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
-.cas-panel{padding:18px;margin-bottom:14px}
-.cas-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.cas-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
+.cas-filters{display:flex;gap:var(--sp-h10);flex-wrap:wrap;align-items:center;margin-bottom:var(--sp-3)}
 .cas-search{position:relative;display:flex;align-items:center;flex:0 1 280px;min-width:180px}
 .cas-search-ico{position:absolute;left:10px;width:15px;height:15px;color:var(--t3);pointer-events:none}
-.cas-kw{width:100%;padding-left:32px}
+.cas-kw{width:100%;padding-left:var(--sp-7)}
 .cas-filters select{flex:0 0 150px;width:150px}
 
 .tbl td.cas-name{font-weight:600;color:var(--t1)}
 .cas-miss{color:var(--t3)}
-.cas-phone{display:block;font-size:12px;color:var(--t3);font-variant-numeric:tabular-nums}
+.cas-phone{display:block;font-size:var(--fs-sm);color:var(--t3);font-variant-numeric:tabular-nums}
 .cas-ar{color:var(--dan);font-weight:600}
 .cas-ops{text-align:right;white-space:nowrap}
 
-.cas-pager{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
-.cas-pageinfo{font-size:12px;color:var(--t2)}
+.cas-pager{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-h14);flex-wrap:wrap}
+.cas-pageinfo{font-size:var(--fs-sm);color:var(--t2)}
 .cas-size{height:30px;width:auto}
 
 /* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画统一由 components/Modal.vue 提供，
    本页只保留弹窗内部排版 —— 这些 class 都挂在 slot 内的元素上） */
-.cas-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 12px;background:var(--bg2);padding:8px 12px;border-radius:var(--radius-sm)}
+.cas-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin:0 0 var(--sp-3);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
 
-.cas-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
-.cas-form-more{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-subtle)}
-.cas-f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
-.cas-f>span{display:flex;align-items:baseline;gap:6px}
+.cas-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h14)}
+.cas-form-more{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px dashed var(--border-subtle)}
+.cas-f{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-sm);color:var(--t2)}
+.cas-f>span{display:flex;align-items:baseline;gap:var(--sp-h6)}
 .cas-f i{color:var(--dan);font-style:normal}
-.cas-f em{font-size:11px;color:var(--t3);font-style:normal}
-.cas-f .input{height:32px;padding:0 10px}
+.cas-f em{font-size:var(--fs-xs);color:var(--t3);font-style:normal}
+.cas-f .input{height:32px;padding:0 var(--sp-h10)}
 .cas-f-full{grid-column:1 / -1}
-.cas-ta{height:auto;min-height:60px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
-.cas-more{width:100%;margin-top:12px;padding:8px;border:1px dashed var(--border-subtle);border-radius:var(--radius-sm);
-  background:none;color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.cas-ta{height:auto;min-height:60px;padding:var(--sp-2) var(--sp-h10);line-height:1.6;resize:vertical;font-family:inherit}
+.cas-more{width:100%;margin-top:var(--sp-3);padding:var(--sp-2);border:1px dashed var(--border-subtle);border-radius:var(--radius-sm);
+  background:none;color:var(--t2);font-size:var(--fs-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:var(--sp-h6)}
 .cas-more:hover{color:var(--p-ink);border-color:var(--p)}
-.cas-caret{font-size:11px}
+.cas-caret{font-size:var(--fs-xs)}
 
-.cas-imp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cas-imp-row{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .cas-file-btn{position:relative;overflow:hidden}
-.cas-fname{font-size:12px;color:var(--t2)}
+.cas-fname{font-size:var(--fs-sm);color:var(--t2)}
 
 @media (max-width:640px){
   .cas-form{grid-template-columns:1fr}

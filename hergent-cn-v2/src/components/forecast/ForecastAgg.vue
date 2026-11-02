@@ -106,8 +106,8 @@ const disp = computed(() => {
 /* 🔴 v655：box-miss 原属父组件 scoped 样式，移入本组件（其父容器已无该规则可命中）。
    与父组件 .box-miss 规则逐字一致，保证渲染指纹 0 差异。 */
 .box-miss {
-  margin-left: 4px;
-  font-size: 11px;
+  margin-left: var(--sp-1);
+  font-size:var(--fs-xs);
   font-weight: 400;
   color: var(--war);
 }

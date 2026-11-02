@@ -112,12 +112,12 @@ defineExpose({ load })
 
 <style scoped>
 /* 仅保留仍被引用的私有类（警示卡 / 合计卡挂在 #extra 插槽，插槽内容在本页作用域编译）。 */
-.cpf-warn { border-left: 3px solid var(--war); margin-top: 14px; }
-.cpf-warn-hd { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--warn); margin-bottom: 6px; }
-.cpf-warn p { font-size: 12px; color: var(--t2); line-height: 1.7; margin: 0; }
-.rpt-tot { margin-top: 14px; padding: 12px 14px; }
-.rpt-tot-row { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 8px; }
-.rpt-tot-i { display: flex; align-items: baseline; gap: 6px; font-size: 13px; }
+.cpf-warn { border-left: 3px solid var(--war); margin-top: var(--sp-h14); }
+.cpf-warn-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; color: var(--warn); margin-bottom: var(--sp-h6); }
+.cpf-warn p { font-size:var(--fs-sm); color: var(--t2); line-height: 1.7; margin: 0; }
+.rpt-tot { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); }
+.rpt-tot-row { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2); }
+.rpt-tot-i { display: flex; align-items: baseline; gap: var(--sp-h6); font-size:var(--fs-base); }
 .rpt-tot-i i { font-style: normal; color: var(--t2); }
 .rpt-tot-i b { color: var(--t1); }
 </style>

@@ -1,13 +1,13 @@
 <template>
   <!-- v126：品牌目标 = 一张 12 行月表。年度只是「铺满 12 格」，单期只是「只填 1 格」 -->
-  <div class="monthly-block" style="margin:8px 0 4px;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:10px 12px;background:rgba(var(--p-rgb),.04)">
-    <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+  <div class="monthly-block" style="margin:var(--sp-2) 0 var(--sp-1);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3);background:rgba(var(--p-rgb),.04)">
+    <div style="display:flex;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap">
       <b>品牌目标</b>
       <span class="page-sub" style="flex:1;min-width:220px">
         给了全年目标就在「全年目标 / 全年返利率」填一次自动铺 12 个月；没给就哪个月有政策填哪个月 —— 底层是同一张表
       </span>
     </div>
-    <div v-if="legacyNotice" class="ap-warn" style="margin-top:6px">⚠ {{ legacyNotice }}</div>
+    <div v-if="legacyNotice" class="ap-warn" style="margin-top:var(--sp-h6)">⚠ {{ legacyNotice }}</div>
 
     <MonthlySplitBlock
       :form="form" :rows="monthlyRows" :sum-wan="monthlySumWan"
@@ -85,7 +85,7 @@ defineEmits([
 </script>
 
 <style scoped>
-.monthly-block .page-sub{font-size:12px;color:var(--t3);line-height:1.5}
-.ap-warn{font-size:12px;color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:6px 8px;margin-bottom:6px;line-height:1.5}
-.mg-default{margin-top:10px;border-top:1px dashed var(--bd);padding-top:6px}
+.monthly-block .page-sub{font-size:var(--fs-sm);color:var(--t3);line-height:1.5}
+.ap-warn{font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2);margin-bottom:var(--sp-h6);line-height:1.5}
+.mg-default{margin-top:var(--sp-h10);border-top:1px dashed var(--bd);padding-top:var(--sp-h6)}
 </style>

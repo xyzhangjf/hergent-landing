@@ -15,7 +15,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <template v-else>
@@ -350,25 +350,25 @@ onMounted(load)
 
 <style scoped>
 /* v691：弹窗骨架统一由 components/Modal.vue 提供，本页只保留弹窗内排版 */
-.fd-body { display: flex; flex-direction: column; gap: 12px }
+.fd-body { display: flex; flex-direction: column; gap: var(--sp-3) }
 /* 私有类一律 fd- 前缀；全局件（.page/.page-hd/.card/.kpi-strip/.tbl/.tag/.state-*）不重定义。 */
-.fd-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.fd-filter { margin: 14px 0 }
-.fd-frow { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.fd-frow > label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t2) }
+.fd-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
+.fd-filter { margin: var(--sp-h14) 0 }
+.fd-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.fd-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
 .fd-grow { flex: 1; min-width: 160px }
-.fd-frow .input { margin-top: 2px }
+.fd-frow .input { margin-top: var(--sp-h2) }
 .fd-card { padding: 0; overflow: hidden }
 .fd-op { white-space: nowrap; width: 1% }
-.fd-items { margin-top: 12px }
-.fd-items-hd { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--t1); margin-bottom: 6px }
-.fd-items-sum { text-align: right; font-size: 13px; color: var(--t1); margin-top: 6px; font-weight: 600 }
-.fd-i { padding: 4px 6px; font-size: 13px }
-.fd-full { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t2); margin-top: 12px }
-.fd-err { color: var(--danger-txt); font-size: 12px; margin-top: 8px }
+.fd-items { margin-top: var(--sp-3) }
+.fd-items-hd { display: flex; align-items: center; justify-content: space-between; font-size:var(--fs-base); font-weight: 600; color: var(--t1); margin-bottom: var(--sp-h6) }
+.fd-items-sum { text-align: right; font-size:var(--fs-base); color: var(--t1); margin-top: var(--sp-h6); font-weight: 600 }
+.fd-i { padding: var(--sp-1) var(--sp-h6); font-size:var(--fs-base) }
+.fd-full { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3) }
+.fd-err { color: var(--danger-txt); font-size:var(--fs-sm); margin-top: var(--sp-2) }
 
 /* 弹窗（页面私有 UI，fd- 前缀，不造全局第二份） */
-.fd-dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px }
-.fd-dl > div { display: flex; gap: 8px; font-size: 13px; color: var(--t1); align-items: center }
+.fd-dl { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-h10) var(--sp-h18) }
+.fd-dl > div { display: flex; gap: var(--sp-2); font-size:var(--fs-base); color: var(--t1); align-items: center }
 .fd-dl span { color: var(--t2); min-width: 48px }
 </style>

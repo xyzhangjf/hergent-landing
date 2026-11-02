@@ -143,20 +143,20 @@ defineExpose({ addRow, validItems, validCount })
 
 <style scoped>
 .whi { display: block }
-.whi-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 8px }
-.whi-title { font-size: 13px; font-weight: 600; color: var(--t2) }
-.whi-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
+.whi-hd { display: flex; align-items: center; gap: var(--sp-h10); margin-bottom: var(--sp-2) }
+.whi-title { font-size:var(--fs-base); font-weight: 600; color: var(--t2) }
+.whi-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
 .whi-hd .btn { margin-left: auto }
 .whi-cnt + .btn { margin-left: 0 }
 
 .whi-tbl { table-layout: fixed }
 .whi-tbl th { white-space: nowrap }
 /* 输入框在表格里要**贴满格子**并矮一档（默认 34px 会把 6 行明细撑成两屏） */
-.whi-in { width: 100%; height: 30px; padding: 0 8px; font-size: 13px }
+.whi-in { width: 100%; height: 30px; padding: 0 var(--sp-2); font-size:var(--fs-base) }
 .whi-num { text-align: right; font-variant-numeric: tabular-nums }
 .whi-unit {
-  display: inline-block; margin-top: 2px;
-  font-size: 11px; color: var(--t3); line-height: 1.2;
+  display: inline-block; margin-top: var(--sp-h2);
+  font-size:var(--fs-xs); color: var(--t3); line-height: 1.2;
 }
 /* 🔴 `ProductCombo` 在「未选中」时渲染的是一个**空 `<span class="ipn-v">`**（它没有 placeholder
    prop，只有 `Supplier`/`Customer` 那两个组合框有）⇒ 在本表里看着就是一个**空白单元格**，
@@ -165,9 +165,9 @@ defineExpose({ addRow, validItems, validCount })
    ⚠️ **不改 `ProductCombo.vue` 本体**：它被进销存 4 个建单页共用（采购/退货/调拨/自提），
       给它加 prop 属于跨模块共享件变更，与本轮「避免跨模块冲突」相冲 —— 就地覆盖样式即可达到同样效果。 */
 .whi :deep(.ipn-v) {
-  min-height: 30px; line-height: 28px; padding: 0 8px;
+  min-height: 30px; line-height: 28px; padding: 0 var(--sp-2);
   border: 1px solid var(--bd); border-radius: var(--radius-md);
-  background: var(--bg3); font-size: 13px;
+  background: var(--bg3); font-size:var(--fs-base);
 }
 .whi :deep(.ipn-v.is-ph)::before { content: '选择商品'; color: var(--t3) }
 .whi-del {
@@ -179,6 +179,6 @@ defineExpose({ addRow, validItems, validCount })
 .whi-del:hover:not(:disabled) { background: var(--dan-bg, rgba(220, 60, 60, .1)); color: var(--dan) }
 .whi-del:disabled { opacity: .35; cursor: not-allowed }
 .whi-foot {
-  margin-top: 8px; font-size: 12px; color: var(--t3); line-height: 1.7;
+  margin-top: var(--sp-2); font-size:var(--fs-sm); color: var(--t3); line-height: 1.7;
 }
 </style>

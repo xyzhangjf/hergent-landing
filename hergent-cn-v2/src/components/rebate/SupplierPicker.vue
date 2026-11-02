@@ -179,52 +179,52 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 </script>
 
 <style scoped>
-.sp { display: flex; flex-direction: column; gap: 8px; }
+.sp { display: flex; flex-direction: column; gap: var(--sp-2); }
 
-.sp-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.sp-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
-  padding: 3px 4px 3px 9px; border-radius: var(--radius-lg); font-size: 12px;
+.sp-chips { display: flex; flex-wrap: wrap; gap: var(--sp-h6); align-items: center; }
+.sp-chip { display: inline-flex; align-items: center; gap: var(--sp-1); max-width: 100%;
+  padding: 3px var(--sp-1) 3px 9px; border-radius: var(--radius-lg); font-size:var(--fs-sm);
   background: rgba(0, 122, 255, .1); border: 1px solid rgba(0, 122, 255, .28); color: var(--t1); }
 .sp-chip-nm { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-chip-x { flex: none; width: 17px; height: 17px; line-height: 1; border: 0; border-radius: var(--radius-circle);
-  background: transparent; color: var(--t2); cursor: pointer; font-size: 14px; }
+  background: transparent; color: var(--t2); cursor: pointer; font-size:var(--fs-md); }
 .sp-chip-x:hover { background: rgba(0, 0, 0, .08); color: var(--dan); }
-.sp-clear { border: 0; background: transparent; color: var(--t3); font-size: 12px; cursor: pointer; padding: 2px 4px; }
+.sp-clear { border: 0; background: transparent; color: var(--t3); font-size:var(--fs-sm); cursor: pointer; padding: var(--sp-h2) var(--sp-1); }
 .sp-clear:hover { color: var(--dan); }
 
-.sp-trigger { display: flex; align-items: center; gap: 7px; width: 100%; height: 34px; padding: 0 10px;
+.sp-trigger { display: flex; align-items: center; gap: 7px; width: 100%; height: 34px; padding: 0 var(--sp-h10);
   border: 1px solid var(--bd); border-radius: var(--radius-sm); background: var(--bg); color: var(--t1);
-  font-size: 13px; cursor: pointer; text-align: left; }
+  font-size:var(--fs-base); cursor: pointer; text-align: left; }
 .sp-trigger:hover { border-color: var(--t3); }
 .sp-trigger:disabled { opacity: .55; cursor: not-allowed; }
 .sp-trigger-t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.sp-panel { display: flex; flex-direction: column; gap: 8px; padding: 10px;
+.sp-panel { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-h10);
   border: 1px solid var(--bd); border-radius: var(--radius-sm); background: var(--bg2); }
-.sp-hd { display: grid; grid-template-columns: 1fr 170px; gap: 8px; }
-.sp-search, .sp-cat { height: 32px; font-size: 12px; }
+.sp-hd { display: grid; grid-template-columns: 1fr 170px; gap: var(--sp-2); }
+.sp-search, .sp-cat { height: 32px; font-size:var(--fs-sm); }
 
 .sp-list { max-height: 210px; overflow-y: auto; border: 1px solid var(--bd); border-radius: var(--radius-sm);
   background: var(--bg); }
-.sp-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 13px;
+.sp-item { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-h6) var(--sp-h10); font-size:var(--fs-base);
   cursor: pointer; border-bottom: 1px solid var(--bd); }
 .sp-item:last-child { border-bottom: 0; }
 .sp-item:hover { background: var(--bg2); }
 .sp-item.on { background: rgba(0, 122, 255, .08); }
 .sp-item input { flex: none; width: 14px; height: 14px; accent-color: var(--p-dark); cursor: pointer; }
 .sp-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-code { flex: none; font-size: 12px; color: var(--t3); }
-.sp-catb { flex: none; font-size: 11px; color: var(--t3); padding: 1px 6px;
+.sp-code { flex: none; font-size:var(--fs-sm); color: var(--t3); }
+.sp-catb { flex: none; font-size:var(--fs-xs); color: var(--t3); padding: 1px var(--sp-h6);
   border-radius: var(--radius-sm); background: var(--bg2); border: 1px solid var(--bd); }
-.sp-empty { padding: 14px 10px; font-size: 12px; color: var(--t3); text-align: center; line-height: 1.6; }
+.sp-empty { padding: var(--sp-h14) var(--sp-h10); font-size:var(--fs-sm); color: var(--t3); text-align: center; line-height: 1.6; }
 
-.sp-ft { display: flex; align-items: center; gap: 8px; }
-.sp-cnt { flex: 1; font-size: 12px; color: var(--t2); white-space: nowrap; }
+.sp-ft { display: flex; align-items: center; gap: var(--sp-2); }
+.sp-cnt { flex: 1; font-size:var(--fs-sm); color: var(--t2); white-space: nowrap; }
 
 @media (max-width: 760px) {
   .sp-hd { grid-template-columns: 1fr; }
   .sp-list { max-height: 180px; }
-  .sp-item { padding: 9px 10px; }
+  .sp-item { padding: 9px var(--sp-h10); }
   /* 移动端：计数独占一行（否则「已选 0 个」会断成两行），控件各占一半 */
   .sp-ft { flex-wrap: wrap; }
   .sp-cnt { width: 100%; flex: none; }

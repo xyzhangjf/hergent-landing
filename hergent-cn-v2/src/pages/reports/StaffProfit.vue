@@ -133,8 +133,8 @@ defineExpose({ load })
 
 <style scoped>
 /* 仅保留仍被引用的私有类（页签卡挂在 #extra 插槽，插槽内容在本页作用域编译）。 */
-.spf-sec { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.spf-tabs { display: flex; gap: 6px }
+.spf-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-h10); flex-wrap: wrap; }
+.spf-tabs { display: flex; gap: var(--sp-h6) }
 .spf-tabs .spf-on { background: var(--bg2); color: var(--t1); font-weight: 600 }
-.spf-tabs-card { margin-top: 14px }
+.spf-tabs-card { margin-top: var(--sp-h14) }
 </style>

@@ -80,21 +80,21 @@ defineExpose({ load })
 </script>
 
 <style scoped>
-.adv-wrap{display:flex;flex-direction:column;gap:12px}
+.adv-wrap{display:flex;flex-direction:column;gap:var(--sp-3)}
 .adv-hd{display:flex;justify-content:space-between;align-items:center}
-.adv-hd-right{display:flex;gap:8px;align-items:center}
+.adv-hd-right{display:flex;gap:var(--sp-2);align-items:center}
 
-.adv-list{display:flex;flex-direction:column;gap:10px}
-.adv-item{padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);transition:border-color var(--dur-base)}
+.adv-list{display:flex;flex-direction:column;gap:var(--sp-h10)}
+.adv-item{padding:var(--sp-3) var(--sp-h14);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);transition:border-color var(--dur-base)}
 .adv-item.pending{border-color:rgba(var(--war-rgb),.35)}
-.adv-item-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.adv-type{font-size:12px;font-weight:500;color:var(--p-dark);background:var(--p-bg);padding:2px 8px;border-radius:var(--radius-xs)}
-.adv-status{font-size:11px;padding:2px 8px;border-radius:var(--radius-sm)}
+.adv-item-top{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-h6)}
+.adv-type{font-size:var(--fs-sm);font-weight:500;color:var(--p-dark);background:var(--p-bg);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-xs)}
+.adv-status{font-size:var(--fs-xs);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm)}
 .adv-status.pending{background:rgba(var(--war-rgb),.15);color:var(--war)}
 .adv-status.confirmed,.adv-status.approved,.adv-status.executed{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .adv-status.rejected,.adv-status.undone{background:rgba(var(--dan-rgb),.1);color:var(--dan)}
-.adv-time{font-size:11px;color:var(--t3);margin-left:auto}
-.adv-text{font-size:13px;color:var(--t1);line-height:1.6}
-.adv-meta{font-size:12px;color:var(--t3);margin-top:4px}
-.adv-ops{display:flex;gap:8px;margin-top:10px}
+.adv-time{font-size:var(--fs-xs);color:var(--t3);margin-left:auto}
+.adv-text{font-size:var(--fs-base);color:var(--t1);line-height:1.6}
+.adv-meta{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-1)}
+.adv-ops{display:flex;gap:var(--sp-2);margin-top:var(--sp-h10)}
 </style>

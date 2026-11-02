@@ -11,7 +11,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load">重试</button>
     </div>
 
     <template v-else>
@@ -148,19 +148,19 @@ onMounted(load)
 
 <style scoped>
 .inv-page { display: block }
-.page-hd { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px }
-.page-sub { font-size: 12px; color: var(--t3) }
-.fc-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px }
-.fc-tab { padding: 7px 14px; border: 1px solid var(--bd); background: var(--bg); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--t1) }
+.page-hd { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: var(--sp-3) }
+.page-sub { font-size:var(--fs-sm); color: var(--t3) }
+.fc-tabs { display: flex; gap: var(--sp-h6); flex-wrap: wrap; margin-bottom: var(--sp-3) }
+.fc-tab { padding: 7px var(--sp-h14); border: 1px solid var(--bd); background: var(--bg); border-radius: var(--radius-sm); cursor: pointer; font-size:var(--fs-base); color: var(--t1) }
 .fc-tab.on { border-color: var(--p); color: var(--p-ink); background: var(--p-bg) }
-.card { padding: 16px }
-.fc-hd { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px }
-.fc-sub { font-size: 12px; color: var(--t3) }
-.fc-nodes { display: flex; flex-direction: column; gap: 10px }
-.fc-node { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
-.fc-idx { width: 64px; font-size: 13px; color: var(--t2) }
+.card { padding: var(--sp-4) }
+.fc-hd { display: flex; flex-direction: column; gap: var(--sp-1); margin-bottom: var(--sp-h14) }
+.fc-sub { font-size:var(--fs-sm); color: var(--t3) }
+.fc-nodes { display: flex; flex-direction: column; gap: var(--sp-h10) }
+.fc-node { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap }
+.fc-idx { width: 64px; font-size:var(--fs-base); color: var(--t2) }
 .fc-node .input { flex: 1; min-width: 140px }
-.fc-empty { font-size: 13px; color: var(--t3) }
-.fc-actions { display: flex; gap: 10px; margin-top: 16px }
-.fc-note { margin: 14px 0 0; font-size: 12px; color: var(--t3); line-height: 1.6 }
+.fc-empty { font-size:var(--fs-base); color: var(--t3) }
+.fc-actions { display: flex; gap: var(--sp-h10); margin-top: var(--sp-4) }
+.fc-note { margin: var(--sp-h14) 0 0; font-size:var(--fs-sm); color: var(--t3); line-height: 1.6 }
 </style>

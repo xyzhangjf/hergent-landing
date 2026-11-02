@@ -1884,31 +1884,31 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.pa-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-.pa-stat{font-size:13px;color:var(--t2);flex-shrink:0}
-.pa-stat b{color:var(--p-ink);font-size:16px}
+.pa-actions{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;justify-content:flex-end}
+.pa-stat{font-size:var(--fs-base);color:var(--t2);flex-shrink:0}
+.pa-stat b{color:var(--p-ink);font-size:var(--fs-lg)}
 
 /* v157 「补进价」入口：仅当有商品未录进价时出现，补完自动消失（不是常驻按钮） */
 .pa-fp-btn{color:var(--war);border-color:rgba(var(--war-rgb),.35);gap:5px}
 .pa-fp-btn:hover{background:rgba(var(--war-rgb),.1);color:var(--war)}
-.pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:var(--radius-pill);background:rgba(var(--war-rgb),.16);font-size:12px;font-weight:600;line-height:16px;text-align:center}
+.pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:var(--radius-pill);background:rgba(var(--war-rgb),.16);font-size:var(--fs-sm);font-weight:600;line-height:16px;text-align:center}
 
 /* v157 进价列（行内可编） */
 .pa-fp-cell{white-space:nowrap}
 .pa-fp-val{cursor:pointer;border-bottom:1px dashed transparent}
 .pa-fp-val:hover{border-bottom-color:var(--p);color:var(--p-ink)}
-.pa-fp-from{cursor:pointer;color:var(--txt-3);font-size:12px;border-bottom:1px dashed transparent}
+.pa-fp-from{cursor:pointer;color:var(--txt-3);font-size:var(--fs-sm);border-bottom:1px dashed transparent}
 .pa-fp-from:hover{border-bottom-color:var(--p);color:var(--p-ink)}
-.pa-fp-miss{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);background:rgba(var(--war-rgb),.14);color:var(--war);font-size:12px;cursor:pointer}
+.pa-fp-miss{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);background:rgba(var(--war-rgb),.14);color:var(--war);font-size:var(--fs-sm);cursor:pointer}
 .pa-fp-miss:hover{background:rgba(var(--war-rgb),.24)}
-.pa-fp-input{width:92px;height:32px;text-align:right;padding:0 8px}
+.pa-fp-input{width:92px;height:32px;text-align:right;padding:0 var(--sp-2)}
 /* v241：11px + --t3 的实测对比度只有 **2.5:1**（WCAG AA 正文要求 4.5:1，11px 不属
    「大字」无豁免）⇒ 说明性文字对弱视用户基本不可读。字号提到 --fs-sm(12px)、
    颜色换 --t2(#6e6e73 ≈ 5.0:1 达标)。--t3 今后只用于**装饰性/非说明性**文字。 */
-.pa-hint{font-size:var(--fs-sm);color:var(--t2);font-weight:400;margin-left:4px}
+.pa-hint{font-size:var(--fs-sm);color:var(--t2);font-weight:400;margin-left:var(--sp-1)}
 /* v683：默认开单单位配错时的提示条。用告警色而不是错误红框 —— 它是"保存前先提醒"，
    还没发生提交失败；红框会让人以为已经存坏了。 */
-.pa-warn{margin:6px 0 0;padding:6px 10px;border-radius:var(--radius-sm);
+.pa-warn{margin:var(--sp-h6) 0 0;padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);
   background:var(--warn-bg);color:var(--warn);
   font-size:var(--fs-sm);line-height:1.5}
 
@@ -1920,13 +1920,13 @@ onMounted(() => {
 /* 「未设」用**灰**（--t3）而不是进价列那种琥珀（--war）：
    缺进价是**问题**（闸门开启后该商品在报单导入/小程序报单时会被拒收），缺到货周期只是「未设置」。
    本租户 285 个在售商品里 274 个为空 —— 用警示色会变成满屏噪音，反而盖掉真正要看的缺价提示。 */
-.pa-cyc-none{cursor:pointer;color:var(--t3);font-size:12px;border-bottom:1px dashed transparent}
+.pa-cyc-none{cursor:pointer;color:var(--t3);font-size:var(--fs-sm);border-bottom:1px dashed transparent}
 .pa-cyc-none:hover{border-bottom-color:var(--p);color:var(--p-ink)}
 /* v233：报单单位列 —— 「已指定」「跟随」两态。**不用破折号**：留空是一等状态（跟随档案单位），
    破折号说不清「这是有意的跟随」还是「这格没数据」（同 .pa-cyc-none 的三态道理）。 */
 .pa-ou-val{font-variant-numeric:tabular-nums}
-.pa-ou-follow{color:var(--t3);font-size:12px}
-.pa-cyc-input{width:74px;height:32px;text-align:center;padding:0 6px}
+.pa-ou-follow{color:var(--t3);font-size:var(--fs-sm)}
+.pa-cyc-input{width:74px;height:32px;text-align:center;padding:0 var(--sp-h6)}
 
 /* ---- v674 下单日列 + 编辑弹层 ----
    视觉语言与左邻「到货周期」逐条同构（虚线下划 + hover 变品牌色、未设用灰不警示），
@@ -1946,7 +1946,7 @@ onMounted(() => {
    固定宽度后，长文案由 span 的 max-width + ellipsis 兜（完整值在 title 与弹层里）。 */
 .pa-od-cell,.col-od-th{white-space:nowrap;text-align:center;width:112px;min-width:112px}
 .pa-od-val,.pa-od-none{display:inline-block;max-width:96px;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap;vertical-align:bottom;font-size:12px;border-bottom:1px dashed transparent}
+  white-space:nowrap;vertical-align:bottom;font-size:var(--fs-sm);border-bottom:1px dashed transparent}
 .pa-od-val{cursor:pointer;color:var(--t1);font-variant-numeric:tabular-nums}
 .pa-od-none{cursor:pointer;color:var(--t3)}
 .pa-od-val:hover,.pa-od-none:hover{border-bottom-color:var(--p);color:var(--p-ink)}
@@ -1960,46 +1960,46 @@ onMounted(() => {
 .pa-overlay.pa-ord-ov{z-index:var(--z-page-modal-overlay)}
 .pa-modal.pa-ord{z-index:var(--z-page-modal)}
 .pa-ord-nm{color:var(--t2);font-weight:400}
-.pa-od-now{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0 2px;
-  padding:10px 12px;background:var(--bg2);border-radius:var(--radius-md)}
+.pa-od-now{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin:var(--sp-3) 0 var(--sp-h2);
+  padding:var(--sp-h10) var(--sp-3);background:var(--bg2);border-radius:var(--radius-md)}
 .pa-od-k{font-size:var(--fs-sm);color:var(--t2)}
 .pa-od-v{font-size:var(--fs-base);color:var(--t1);font-weight:600}
 .pa-od-hit{margin-left:auto;font-size:var(--fs-sm);color:var(--ok);white-space:nowrap}
 .pa-od-hit.off{color:var(--t3)}
-.pa-od-warn{margin:8px 0 0;font-size:var(--fs-sm);color:var(--war)}
-.pa-ord-modes{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-.ord-mode,.ord-wd{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-base);color:var(--t1);
-  padding:6px 10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);cursor:pointer}
+.pa-od-warn{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--war)}
+.pa-ord-modes{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-h14)}
+.ord-mode,.ord-wd{display:inline-flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t1);
+  padding:var(--sp-h6) var(--sp-h10);border:1px solid var(--border-subtle);border-radius:var(--radius-md);cursor:pointer}
 .ord-mode:hover,.ord-wd:hover{background:var(--bg2)}
 .ord-mode input,.ord-wd input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
-.pa-ord-sub{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.pa-ord-sub{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;margin-top:var(--sp-h10)}
 .pa-ord-month{max-width:360px}
 .pa-ord-month.bad{border-color:var(--danger)}
-.pa-ord-preview{margin:14px 0 4px;font-size:var(--fs-base);color:var(--t1)}
+.pa-ord-preview{margin:var(--sp-h14) 0 var(--sp-1);font-size:var(--fs-base);color:var(--t1)}
 .pa-ord-preview b{color:var(--p-ink)}
 .pa-ord-hint{font-size:var(--fs-sm);color:var(--t2)}
 /* `.pa-ft-note` 全局是警告橙（既有用法是「N 个字段已改，未保存」= 真提醒）。
    本弹窗里「与当前设置一致，无需修改」是**正常态**，用橙会让人以为哪里错了 ⇒ 压成灰。 */
 .pa-ord .pa-ft-note.calm{color:var(--t2);font-weight:400}
 
-.pa-panel{padding:18px;margin-bottom:14px}
-.pa-filters{display:flex;gap:10px;flex-wrap:nowrap;align-items:center;overflow-x:auto;padding-bottom:2px}
+.pa-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
+.pa-filters{display:flex;gap:var(--sp-h10);flex-wrap:nowrap;align-items:center;overflow-x:auto;padding-bottom:var(--sp-h2)}
 .pa-search{position:relative;display:flex;align-items:center;flex:0 1 260px;min-width:170px;max-width:300px}
 .pa-search-ico{position:absolute;left:10px;width:15px;height:15px;color:var(--t3);pointer-events:none}
-.pa-kw{width:100%;padding-left:32px}
+.pa-kw{width:100%;padding-left:var(--sp-7)}
 .pa-filters select{flex:0 0 140px;width:140px}
 .pa-filters .btn{flex:0 0 auto}
 
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
 .pa-name{font-weight:600;color:var(--t1)}
-.pa-mono{font-size:12px;color:var(--t3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.pa-brand{display:inline-block;min-width:48px;padding:2px 8px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;transition:var(--dur-base)}
+.pa-mono{font-size:var(--fs-sm);color:var(--t3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.pa-brand{display:inline-block;min-width:48px;padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;transition:var(--dur-base)}
 .pa-brand:hover{background:rgba(var(--p-rgb,6,182,212),.14);color:var(--p-ink)}
 .pa-brand-input{height:32px;min-width:120px}
 /* v717：前景色改用状态胶囊令牌 —— 原 --suc(#34c759) 对本浅绿底仅 2.01:1，
    商品档案单页 46 个「启用」是浅字印浅纸，老板核对时读不出来。底色不动。 */
 .pa-ops{white-space:nowrap}
-.pa-ops .btn{margin-left:6px}
+.pa-ops .btn{margin-left:var(--sp-h6)}
 
 /* 🔴 v675：分页条移到滚动容器外面后，滚动区高度要**减掉它**（按钮 32 + 上下间距 ≈ 46，取 52 稳妥），
    否则卡片总高会顶出一屏、页面多出一条整页滚动条（两条滚动条 = 用户分不清该滚哪个）。 */
@@ -2021,8 +2021,8 @@ onMounted(() => {
 .pa-panel > .pa-pager,
 .pa-panel > .state-empty { flex: 0 0 auto }
 .pa-panel .table-wrap.freeze-list { max-height: none; flex: 1 1 0; min-height: 0; overflow: auto }
-.pa-pager{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
-.pa-pageinfo{font-size:12px;color:var(--t2)}
+.pa-pager{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-h10);flex-wrap:wrap}
+.pa-pageinfo{font-size:var(--fs-sm);color:var(--t2)}
 .pa-size{height:30px;width:auto}
 
 /* 弹窗 */
@@ -2031,12 +2031,12 @@ onMounted(() => {
    后者比规范 --shadow-lg(0 12px 40px .10) 明显更重 —— 与站内 ReportMapping /
    TargetFormModal 的观感对不上（那两处早已用令牌）。 */
 .pa-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(520px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-modal);box-shadow:var(--shadow-lg)}
-.pa-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.pa-modal-hd b{font-size:15px;color:var(--t1)}
-.pa-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
-.pa-modal-body{padding:18px 20px}
-.pa-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
-.pa-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 14px;background:var(--bg2);padding:8px 12px;border-radius:var(--radius-sm)}
+.pa-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-subtle)}
+.pa-modal-hd b{font-size:var(--fs-h4);color:var(--t1)}
+.pa-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer}
+.pa-modal-body{padding:var(--sp-h18) var(--sp-5)}
+.pa-modal-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-5);border-top:1px solid var(--border-subtle)}
+.pa-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin:0 0 var(--sp-h14);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
 
 /* 详情网格 */
 /* ---- v184c 商品编辑弹窗（原 .pa-detail-* 只读样式随弹窗改造一并删除，避免死 CSS）----
@@ -2046,27 +2046,27 @@ onMounted(() => {
 .pa-modal.pa-edit .pa-modal-body{overflow-y:auto}
 /* 分组小标题：把 14 个字段切成「身份 / 品牌 / 价格 / 库存效期 / 描述 / 状态 / 记录」。
    没有分隔时就是一长条输入框，找「进价」和找「保质期」都得靠扫。 */
-.pa-sec{font-size:12px;font-weight:600;color:var(--t2);margin:16px 0 8px;padding-bottom:5px;
-  border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:6px}
-.pa-modal-body>.pa-sec:first-of-type{margin-top:2px}
+.pa-sec{font-size:var(--fs-sm);font-weight:600;color:var(--t2);margin:var(--sp-4) 0 var(--sp-2);padding-bottom:5px;
+  border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:var(--sp-h6)}
+.pa-modal-body>.pa-sec:first-of-type{margin-top:var(--sp-h2)}
 .pa-sec-click{cursor:pointer;user-select:none}
 .pa-sec-click:hover{color:var(--p-ink)}
-.pa-caret{margin-left:auto;font-size:12px;color:var(--p-ink);font-weight:400}
+.pa-caret{margin-left:auto;font-size:var(--fs-sm);color:var(--p-ink);font-weight:400}
 .pa-f-full{grid-column:1 / -1}
-.pa-ta{height:auto;min-height:66px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
+.pa-ta{height:auto;min-height:66px;padding:var(--sp-2) var(--sp-h10);line-height:1.6;resize:vertical;font-family:inherit}
 /* 状态行：徽标 + 说明 + 按钮排一行；说明占满剩余宽度，长句不撑破弹窗。 */
-.pa-active{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pa-active{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .pa-active .pa-hint{margin-left:0;flex:1 1 220px;min-width:0}
 /* v241：.btn-danger 已**上提到全局层**（variables.css 三档按钮之一）——
    它此前只存在于本页 scoped，其他页需要「停用/删除」这类危险动作时只能再抄一份，
    违反「第二份拷贝＝静默漂移」。这里删除本地定义，改由全局提供。 */
 /* 底部左侧未保存提示：margin-right:auto 把它顶到左边，按钮组留在原位（不跳位）。 */
-.pa-ft-note{margin-right:auto;font-size:12px;color:var(--war)}
+.pa-ft-note{margin-right:auto;font-size:var(--fs-sm);color:var(--war)}
 /* 修改记录：时间 / 人 / 字段 / 改前→改后，前三列不换行、末列自适应。 */
 /* v241：10px 在规范圆角档位（8/12/16/22）里**不存在** ⇒ 改 --radius-md(12px)。 */
 .pa-log{border:1px solid var(--border-subtle);border-radius:var(--radius-md);max-height:210px;overflow-y:auto}
-.pa-log-empty{padding:14px;text-align:center;font-size:12px;color:var(--t3)}
-.pa-log-row{display:flex;align-items:baseline;gap:10px;padding:7px 12px;font-size:12px;
+.pa-log-empty{padding:var(--sp-h14);text-align:center;font-size:var(--fs-sm);color:var(--t3)}
+.pa-log-row{display:flex;align-items:baseline;gap:var(--sp-h10);padding:7px var(--sp-3);font-size:var(--fs-sm);
   border-bottom:1px solid var(--border-subtle)}
 .pa-log-row:last-child{border-bottom:0}
 .pa-log-t{color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -2077,42 +2077,42 @@ onMounted(() => {
 .pa-log-v b{font-weight:600}
 
 /* 新增表单 */
-.pa-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
-.pa-f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
+.pa-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h14)}
+.pa-f{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-sm);color:var(--t2)}
 .pa-f i{color:var(--dan);font-style:normal}
 /* v241：34px 是全站**独有的第三档**（全局只有 .input=40px 与 .fld=32px 两档）。
    弹窗表单密集 ⇒ 取紧凑档 32px，内距对齐 .fld(0 10px)，消除第三档。 */
-.pa-f .input{height:32px;padding:0 10px}
+.pa-f .input{height:32px;padding:0 var(--sp-h10)}
 
 /* 导入 */
-.pa-imp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pa-imp-row{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .pa-file-btn{position:relative;overflow:hidden}
-.pa-fname{font-size:12px;color:var(--t2)}
-.pa-imp-result{margin-top:12px;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc)}
+.pa-fname{font-size:var(--fs-sm);color:var(--t2)}
+.pa-imp-result{margin-top:var(--sp-3);padding:var(--sp-h10) var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-base);background:rgba(var(--suc-rgb),.1);color:var(--suc)}
 .pa-imp-result.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
-.pa-errs{display:flex;flex-direction:column;gap:2px;margin-top:6px}
-.pa-err{font-size:12px;color:var(--t2)}
+.pa-errs{display:flex;flex-direction:column;gap:var(--sp-h2);margin-top:var(--sp-h6)}
+.pa-err{font-size:var(--fs-sm);color:var(--t2)}
 
 /* v157 批量补进价面板 */
 .pa-modal.pa-wide{width:min(880px,96vw)}
 /* v178 列映射确认步：表格要横向空间，且行数可能几十行 → 加宽 + 限高内滚（不撑出视口） */
 .pa-modal.pa-map{width:min(880px,96vw);max-height:88vh;display:flex;flex-direction:column}
 .pa-modal.pa-map .pa-modal-body{overflow-y:auto}
-.pa-fp-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.pa-fp-filters{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap;margin-bottom:var(--sp-h10)}
 .pa-fp-filters select{flex:0 0 140px;width:140px;height:32px}
 .pa-fp-wrap{max-height:46vh;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md)}
-.pa-fp-tbl{font-size:12px;margin:0}
+.pa-fp-tbl{font-size:var(--fs-sm);margin:0}
 .pa-fp-tbl thead th{position:sticky;top:0;z-index:1;background:var(--bg3)}
-.pa-fp-tbl td,.pa-fp-tbl th{padding:5px 8px}
+.pa-fp-tbl td,.pa-fp-tbl th{padding:5px var(--sp-2)}
 .pa-fp-ck{width:34px;text-align:center}
 .pa-fp-ref{color:var(--t3)}
 tr.pa-row-off td{opacity:.5}
-.pa-fp-more{margin:8px 0 0;font-size:12px;color:var(--t2)}
-.pa-fp-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
-.pa-fp-count{font-size:12px;color:var(--t2);margin-right:auto}
+.pa-fp-more{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t2)}
+.pa-fp-foot{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-top:var(--sp-3)}
+.pa-fp-count{font-size:var(--fs-sm);color:var(--t2);margin-right:auto}
 .pa-fp-count b{color:var(--t1)}
 /* v158 进价闸门开关：默认（未开启）走中性底色，开启后转成功色 —— 开关状态一眼可辨 */
-.pa-fp-gate{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd);font-size:12px;line-height:1.6}
+.pa-fp-gate{display:flex;align-items:flex-start;gap:var(--sp-3);flex-wrap:wrap;margin:0 0 var(--sp-3);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd);font-size:var(--fs-sm);line-height:1.6}
 .pa-fp-gate.on{background:rgba(var(--suc-rgb),.08);border-color:rgba(var(--suc-rgb),.35)}
 .pa-fp-switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;color:var(--t1);white-space:nowrap;user-select:none}
 .pa-fp-switch input{width:15px;height:15px;margin:0;cursor:pointer;accent-color:var(--suc)}
@@ -2123,7 +2123,7 @@ tr.pa-row-off td{opacity:.5}
 
 /* v241：校验错误汇总条（弹窗顶部）。列出全部错误，点条目跳到出错字段 ——
    数值字段分散在 3 个 Tab，没有它时「填错了但提示在看不见的地方」。 */
-.pa-errbar{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:0 0 12px;padding:8px 12px;
+.pa-errbar{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:0 0 var(--sp-3);padding:var(--sp-2) var(--sp-3);
   border:1px solid var(--dan);border-radius:var(--radius-sm);background:var(--danger-bg)}
 .pa-errbar-hd{font-size:var(--fs-sm);font-weight:600;color:var(--danger-txt)}
 .pa-errbar-item{border:none;background:none;padding:0;font-family:inherit;font-size:var(--fs-sm);

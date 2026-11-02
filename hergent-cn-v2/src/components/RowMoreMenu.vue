@@ -140,15 +140,15 @@ onBeforeUnmount(() => {
    ⚠️ 副驾抽屉打开时本件要"让位"（z-index:auto），见 `styles/app-layers.css`。 */
 .row-more-pop {
   position: fixed; z-index: var(--z-page-menu, 1101);
-  display: flex; flex-direction: column; min-width: 96px; padding: 4px;
+  display: flex; flex-direction: column; min-width: 96px; padding: var(--sp-1);
   background: var(--bg2); border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md); box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, .12));
-  font-size: 13px;
+  font-size:var(--fs-base);
 }
 .row-more-mi {
-  display: block; width: 100%; padding: 6px 10px; border: none; background: none;
+  display: block; width: 100%; padding: var(--sp-h6) var(--sp-h10); border: none; background: none;
   text-align: left; white-space: nowrap; color: var(--t1); cursor: pointer;
-  border-radius: var(--radius-xs); font-size: 13px; line-height: 18px;
+  border-radius: var(--radius-xs); font-size:var(--fs-base); line-height: 18px;
 }
 .row-more-mi:hover { background: var(--bg3) }
 .row-more-mi.danger { color: var(--danger-txt) }

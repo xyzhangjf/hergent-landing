@@ -84,7 +84,7 @@
 
     <!-- 步骤 2/3：结果 -->
     <div v-else class="lf-result-wrap" ref="printArea">
-      <div style="text-align:right;margin-bottom:12px">
+      <div style="text-align:right;margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-ghost" @click="exportPrintable('货损计算')">导出成品</button>
       </div>
       <!-- 概要 -->
@@ -130,8 +130,8 @@
         </div>
         <div v-else class="state-empty">
           <p>按当前配方没有命中临期/过期库存。</p>
-          <p style="margin-top:6px;color:var(--t3)">如果库存里有数据却没结果，多半是库存缺批次/效期信息。</p>
-          <button class="btn btn-primary btn-sm" style="margin-top:12px" @click="goDataFill">去补录库存效期 →</button>
+          <p style="margin-top:var(--sp-h6);color:var(--t3)">如果库存里有数据却没结果，多半是库存缺批次/效期信息。</p>
+          <button class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)" @click="goDataFill">去补录库存效期 →</button>
         </div>
       </div>
 
@@ -178,12 +178,12 @@
       </div>
 
       <!-- AI 留痕记录 -->
-      <div class="card lf-panel" style="margin-top:14px">
+      <div class="card lf-panel" style="margin-top:var(--sp-h14)">
         <button class="lf-adv-toggle" @click="showAdvice = !showAdvice">
           <span><Icon name="receipt"/> AI 留痕记录</span>
           <span class="tag" :class="advicePending ? 'warn' : 'info'">{{ advicePending ? advicePending + ' 待确认' : '查看历史' }}</span>
         </button>
-        <div v-if="showAdvice" style="margin-top:14px">
+        <div v-if="showAdvice" style="margin-top:var(--sp-h14)">
           <AdvicePanel :key="adviceKey" @confirmed="refreshAdviceBadge" />
         </div>
       </div>
@@ -330,51 +330,51 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.lf-steps{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-.lf-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
+.lf-steps{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-4)}
+.lf-step{font-size:var(--fs-base);color:var(--t3);padding:var(--sp-h6) var(--sp-h14);border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
 .lf-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
-.lf-arrow{color:var(--t3);font-size:12px}
-.lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:14px;font-weight:500;color:var(--t1);padding:0}
+.lf-arrow{color:var(--t3);font-size:var(--fs-sm)}
+.lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:var(--fs-md);font-weight:500;color:var(--t1);padding:0}
 
 .lf-panel{}
-.lf-tip{font-size:12px;color:var(--t2);margin:4px 0 16px;line-height:1.6}
-.lf-form{display:flex;flex-direction:column;gap:18px}
+.lf-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-4);line-height:1.6}
+.lf-form{display:flex;flex-direction:column;gap:var(--sp-h18)}
 
-.lf-field{display:flex;flex-direction:column;gap:8px}
-.lf-label{font-size:13px;font-weight:500;color:var(--t1)}
-.lf-label em{font-style:normal;font-size:12px;color:var(--t3);font-weight:400;margin-left:8px}
+.lf-field{display:flex;flex-direction:column;gap:var(--sp-2)}
+.lf-label{font-size:var(--fs-base);font-weight:500;color:var(--t1)}
+.lf-label em{font-style:normal;font-size:var(--fs-sm);color:var(--t3);font-weight:400;margin-left:var(--sp-2)}
 
-.lf-radios{display:flex;flex-wrap:wrap;gap:8px}
-.lf-radios.inline{gap:12px}
-.lf-radio{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:13px;color:var(--t2);cursor:pointer;transition:all var(--dur-base);background:var(--bg)}
+.lf-radios{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
+.lf-radios.inline{gap:var(--sp-3)}
+.lf-radio{display:flex;align-items:center;gap:var(--sp-h6);padding:7px var(--sp-h14);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:var(--fs-base);color:var(--t2);cursor:pointer;transition:all var(--dur-base);background:var(--bg)}
 .lf-radio input{display:none}
 .lf-radio.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark);font-weight:500}
 
-.lf-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.lf-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
 .lf-input-suffix{position:relative;display:flex;align-items:center}
 .lf-input-suffix .input{padding-right:44px}
-.lf-suffix{position:absolute;right:14px;font-size:13px;color:var(--t3)}
+.lf-suffix{position:absolute;right:14px;font-size:var(--fs-base);color:var(--t3)}
 
-.lf-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+.lf-actions{display:flex;gap:var(--sp-h10);justify-content:flex-end;margin-top:22px}
 
-.lf-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
-.lf-kpi{padding:16px 18px}
+.lf-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-h14);margin-bottom:var(--sp-h14)}
+.lf-kpi{padding:var(--sp-4) var(--sp-h18)}
 .lf-kpi-total{border-color:var(--p);background:linear-gradient(180deg,var(--p-bg),transparent 130%)}
-.lf-kpi-label{font-size:12px;color:var(--t3);margin-bottom:6px}
-.lf-kpi-val{font-size:22px;font-weight:600;margin-bottom:4px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.lf-kpi-label{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-h6)}
+.lf-kpi-val{font-size:var(--fs-num);font-weight:600;margin-bottom:var(--sp-1);font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 .lf-kpi-val.val-warn{color:var(--war)}
 .lf-kpi-val.val-bad{color:var(--dan)}
-.lf-kpi-sub{font-size:12px;color:var(--t3)}
+.lf-kpi-sub{font-size:var(--fs-sm);color:var(--t3)}
 
-.lf-groups{display:flex;flex-direction:column;gap:12px}
-.lf-group-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;margin-bottom:6px}
+.lf-groups{display:flex;flex-direction:column;gap:var(--sp-3)}
+.lf-group-top{display:flex;justify-content:space-between;align-items:baseline;gap:var(--sp-h10);font-size:var(--fs-base);margin-bottom:var(--sp-h6)}
 .lf-group-name{font-weight:500;color:var(--t1)}
-.lf-group-meta{font-size:12px;color:var(--t2);white-space:nowrap}
+.lf-group-meta{font-size:var(--fs-sm);color:var(--t2);white-space:nowrap}
 .lf-group-bar{height:8px;border-radius:var(--radius-2xs);background:var(--bg4);overflow:hidden}
 .lf-group-fill{height:100%;border-radius:var(--radius-2xs);background:linear-gradient(90deg,var(--war),var(--dan));transition:width .5s}
 
-.lf-spec{display:inline-block;margin-left:6px;font-size:11px;color:var(--t3)}
-.lf-footnote{font-size:12px;color:var(--t3)}
+.lf-spec{display:inline-block;margin-left:var(--sp-h6);font-size:var(--fs-xs);color:var(--t3)}
+.lf-footnote{font-size:var(--fs-sm);color:var(--t3)}
 
 @media(max-width:768px){
   .lf-grid{grid-template-columns:1fr}

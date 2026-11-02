@@ -2332,7 +2332,7 @@
       </Teleport>
 
       <!-- 草稿表格 -->
-      <div v-if="draft.length" class="table-wrap" style="margin-top:12px">
+      <div v-if="draft.length" class="table-wrap" style="margin-top:var(--sp-3)">
         <table class="tbl">
           <thead>
             <tr>
@@ -2394,7 +2394,7 @@
          + purchase_orders（目标额 / 已采额 / 达成率），是**合同采购进度**，不是「达成填报」里
          人工或 Hermes 回写的实际返利金额 —— 叫「实际返利」会指鹿为马，故只去掉与全站重名的
          「达成」二字，「达成率」列按指标名保留。 -->
-    <div class="card rebate-section" style="margin-top:14px" v-if="rebateSummary.length">
+    <div class="card rebate-section" style="margin-top:var(--sp-h14)" v-if="rebateSummary.length">
       <div class="panel-hd"><b><Icon name="coins"/> 厂家返利</b><span class="tag info">{{ rebateSummary.length }} 个合同</span></div>
       <div class="table-wrap">
         <table class="tbl">
@@ -10629,14 +10629,14 @@ function applyBatch() {
       否则用户会拿着两份不同的单子去对账。此前打印用的是另一套（缺 4 个汇总列、空格写 0），已一并收口。 */
 const PRINT_CSS = `
   /* printable.js 的版式是「单栏文档」（max-width:820px）⇒ 宽表要自己撑开 */
-  .doc{max-width:none;padding:20px 24px;}
-  .doc-body table.pg{width:auto;min-width:100%;font-size:11px;}
-  .doc-body table.pg th,.doc-body table.pg td{padding:3px 6px;white-space:nowrap;border:1px solid var(--bd);}
+  .doc{max-width:none;padding:var(--sp-5) var(--sp-6);}
+  .doc-body table.pg{width:auto;min-width:100%;font-size:var(--fs-xs);}
+  .doc-body table.pg th,.doc-body table.pg td{padding:3px var(--sp-h6);white-space:nowrap;border:1px solid var(--bd);}
   .doc-body table.pg thead th{background:var(--bg2);}
   @page{size:A4 landscape;margin:8mm;}
   @media print{
     .doc{padding:0 4mm;}
-    .doc-body table.pg{font-size:11px;}
+    .doc-body table.pg{font-size:var(--fs-xs);}
     .doc-body thead{display:table-header-group;}
     .doc-body tr{break-inside:avoid;}
   }
@@ -10763,7 +10763,7 @@ function namePadStyle(r) {
   if (rowNote(r)) n++
   if (gapSet.value.has(r.product_id)) n++
   if (hsMap[r.product_id] !== undefined && hsMap[r.product_id] < 60) n++
-  return n ? `padding-right:${n * 18 + 8}px` : 'padding-right:6px'
+  return n ? `padding-right:${n * 18 + 8}px` : 'padding-right:var(--sp-h6)'
 }
 // setRowNote 已抽到 src/composables/useCloudNotes.js（唯一实现）
 
@@ -13589,10 +13589,10 @@ provide('sprintSummary', sprintSummary)
    以为「商品变少了」。补齐完成后这一行自动消失。 */
 .render-pending { background: transparent; }
 .render-pending-td {
-  padding: 6px 12px;
+  padding: var(--sp-h6) var(--sp-3);
   vertical-align: top;      /* 文字贴顶：撑出来的是空白，居中会飘在那一大片空白中央 */
   color: var(--fg-3);
-  font-size: 12px;
+  font-size:var(--fs-sm);
   border: none;
 }
 /* v405（2026-10-08）：`.module-tabs` 的样式块已随页签条一起删除（净删除，无迁移遗漏）。
@@ -13614,8 +13614,8 @@ provide('sprintSummary', sprintSummary)
    「按月设总量 · 分解到人 · 期次自动认领」：那句是业务口径，页签上看不出来。 */
 .target-panel :deep(.page){padding:0;margin:0}
 .target-panel :deep(.page-hd :is(h1,h2)){display:none}
-.toolbar{display:flex;align-items:center;justify-content:flex-start;padding:14px 16px;margin-bottom:14px;flex-wrap:wrap;gap:8px}
-.tb-left,.tb-right,.toolbar>.tb-group{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.toolbar{display:flex;align-items:center;justify-content:flex-start;padding:var(--sp-h14) var(--sp-4);margin-bottom:var(--sp-h14);flex-wrap:wrap;gap:var(--sp-2)}
+.tb-left,.tb-right,.toolbar>.tb-group{display:flex;align-items:center;gap:var(--sp-2);flex:0 0 auto}
 .tb-left .btn,.tb-right .btn,.toolbar>.tb-group .btn{flex:0 0 auto;white-space:nowrap}
 /* 工具栏单行布局（2026-09-12）：分三段，段间以 .tb-sep 分隔、段内 gap 8
    段1 .tb-ctx  期次上下文（期次选择 / 新建期次 / 审批状态徽标）
@@ -13634,13 +13634,13 @@ provide('sprintSummary', sprintSummary)
    v209：本组自 v209 起**同时被全屏表格工具行复用**（.grid-ctl-row 内那份，见 fsRowHosting）。
    故必须拆成「共用布局 + 上下文修饰」—— 原为单条 `.toolbar>.tb-edit-group` 同时管这两件事，
    若直接复用会连带继承「独占整行」(flex:0 0 100%)，在表格工具行里立刻被强制折行。 */
-.tb-edit-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tb-edit-group{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .tb-edit-group>.btn{flex:0 0 auto;white-space:nowrap}
 /* v201：编辑工具行的**常驻保存状态**（未修改 / 有未保存的改动 / 已保存 HH:MM）。
    放在「保存」按钮之后 ⇒ 阅读顺序自然变成「点保存 → 往右看结果」。
    三态用「小圆点 + 中文文案」，不依赖图标字体；底色用半透明 ⇒ 浅色与深色主题都可读。 */
-.tb-edit-group>.save-state{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;
-  padding:0 10px;height:28px;border-radius:var(--radius-lg);font-size:12px;white-space:nowrap;line-height:1}
+.tb-edit-group>.save-state{flex:0 0 auto;display:inline-flex;align-items:center;gap:var(--sp-h6);
+  padding:0 var(--sp-h10);height:28px;border-radius:var(--radius-lg);font-size:var(--fs-sm);white-space:nowrap;line-height:1}
 /* ① 工具栏内：独占整行（工具栏最末一段，视觉上紧贴下方表格） */
 .toolbar>.tb-edit-group{flex:0 0 100%}
 /* ② 表格工具行内：与同行控件并列 —— 不占满行、自身也不换行
@@ -13650,14 +13650,14 @@ provide('sprintSummary', sprintSummary)
 .save-state.clean{color:var(--t3);background:var(--bg4)}
 .save-state.saved{color:var(--ok-green);background:var(--ok-green-bg)}
 .save-state.dirty{color:var(--warn-amber);background:var(--warn-amber-bg)}
-.toolbar.tb-dense,.toolbar.tb-dense>.tb-edit-group{gap:6px}
+.toolbar.tb-dense,.toolbar.tb-dense>.tb-edit-group{gap:var(--sp-h6)}
 .toolbar.tb-dense .tb-sep{margin:0 3px}
 /* 窄屏（<1460）：收紧段间距、AI 按钮只留图标 → 单行仍成立。
    v619 断点由 1439 提到 1459：**1440 正好落在旧断点之外**（不触发收紧）⇒ 胶囊放宽到 208 后
    1440 视口实测工具栏折行（tbH 62 → 102），而 1366 因为走了收紧档反而单行 —— 断点前后行为
    倒挂。提到 1459 让 1440 也吃收紧档，并同时把胶囊收到实测值 192（1440 下 200 起折行）。 */
 @media(max-width:1459px){
-  .toolbar,.toolbar>.tb-group,.toolbar>.tb-edit-group{gap:6px}
+  .toolbar,.toolbar>.tb-group,.toolbar>.tb-edit-group{gap:var(--sp-h6)}
   .toolbar .tb-sep{margin:0 3px}
   .tb-ai-txt{display:none}
   .toolbar .sel-period{max-width:192px}
@@ -13709,16 +13709,16 @@ provide('sprintSummary', sprintSummary)
    max-width 208 只作兜底：实测最长历史期次名「9月20日报单9月25日到货」=163.3px，
    +padding16 +箭头预留 ≈ 203px，208 留 5px 余量。宽度由最长名决定、切换期次**不抖动**。
    分档见下方 @media：窄屏优先保「工具栏不折行」，宽屏优先保「期次名显示全」。 */
-.sel-period{width:auto;max-width:208px;height:32px;padding:0 8px;flex-shrink:0;appearance:auto;-webkit-appearance:auto;cursor:pointer;position:relative;z-index:2}
+.sel-period{width:auto;max-width:208px;height:32px;padding:0 var(--sp-2);flex-shrink:0;appearance:auto;-webkit-appearance:auto;cursor:pointer;position:relative;z-index:2}
 
 /* ---- P0-1 交叉表视图 ---- */
 /* v621：视图切换整行撤销 —— 组件化到 components/forecast/ViewSeg.vue（骨架 + 提示浮层 + 样式
    全在那儿，两个落点共用一份）。这里只留「报单草稿卡标题栏」那一份的定位微调：
    卡片标题栏是 .panel-hd，右侧 .ph-actions 靠 margin-left:auto 推右，切换器就贴在计数后面。 */
-.draft-seg{margin-left:4px}
-.ph-actions{margin-left:auto;display:inline-flex;gap:8px}
+.draft-seg{margin-left:var(--sp-1)}
+.ph-actions{margin-left:auto;display:inline-flex;gap:var(--sp-2)}
 /* 2026-08-27 期次确认徽标（经理保存汇总表=审批定稿） */
-.confirm-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:var(--radius-sm);font-weight:500;white-space:nowrap}
+.confirm-badge{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-sm);font-weight:500;white-space:nowrap}
 .confirm-badge.ok{background:rgba(var(--suc-rgb),.14);color:var(--confirm-green)}
 .confirm-badge.draft{background:var(--bg3);color:var(--t3)}
 .confirm-badge.filter{background:var(--p-bg);color:var(--p-deep)}
@@ -13737,7 +13737,7 @@ provide('sprintSummary', sprintSummary)
    也就是 title 里一直写着的那个手工动作 —— 现在直接点它就做了。
    ⚠️ 这三处在只读与改单两个分支各出现一次，模板必须同步改（否则改单里还是旧形态）。 */
 .confirm-badge.filter.filter-act{
-  height:32px;padding:0 12px;font-size:13px;font-weight:500;
+  height:32px;padding:0 var(--sp-3);font-size:var(--fs-base);font-weight:500;
   background:transparent;color:var(--t1);
   border:1px solid var(--bd);
   cursor:pointer;user-select:none;
@@ -13753,9 +13753,9 @@ provide('sprintSummary', sprintSummary)
 /* P0-1 工具栏语义分隔条（筛选/数据/编辑/AI/设置 五簇） */
 .tb-sep{display:inline-block;width:1px;height:20px;background:var(--bd);margin:0 5px;flex:0 0 auto;opacity:.65;align-self:center}
 /* P0-2 状态徽标曾独立成行（.tb-status-row 已废弃：现直接挂在 .tb-ctx 段内，紧随期次选择器） */
-.cross-area{margin-bottom:14px}
-.cross-card{padding:0 14px 14px;overflow:hidden}
-.cross-tbl{min-width:100%;font-size:12px}
+.cross-area{margin-bottom:var(--sp-h14)}
+.cross-card{padding:0 var(--sp-h14) var(--sp-h14);overflow:hidden}
+.cross-tbl{min-width:100%;font-size:var(--fs-sm)}
 /* 🔴 v579：表头与合计行走**同一条高度链** —— 都取 --fc-cell（=20px 内容盒）。
    原实现 th 是 `padding:8px 7px` + 继承 body 的 line-height(1.6×12=19.2) ⇒ 38px，
    加上序号列表头那个 30×30 齿轮按钮撑到 **47px**，比合计行(22px)高一倍多。
@@ -13799,7 +13799,7 @@ provide('sprintSummary', sprintSummary)
    ⚠️ 别把 min-width 写回模板的 inline style：inline 优先级最高，会盖掉这条。 */
 :deep(.cross-tbl .frozen.fc-cycle){min-width:88px}
 :deep(.cross-tbl thead .frozen){background:var(--bg3)}
-:deep(.fc-code){min-width:96px;font-variant-numeric:tabular-nums;color:var(--t2);font-size:11px}
+:deep(.fc-code){min-width:96px;font-variant-numeric:tabular-nums;color:var(--t2);font-size:var(--fs-xs)}
 :deep(.fc-num){min-width:72px;text-align:right;font-variant-numeric:tabular-nums;color:var(--t2)}
 :deep(.fc-text){min-width:70px;color:var(--t2)}
 :deep(.fc-name){min-width:200px}
@@ -13835,14 +13835,14 @@ provide('sprintSummary', sprintSummary)
      · 行高 = `--fc-cell` 20px + 表格分割线 ≈ **21px**，编辑态输入框同为 20px ⇒ 严丝合缝
      · 密度开关此后**只影响横向留白**（舒适 8px / 紧凑 6px），不再拉开行高
    ⚠️ 不要再给任一密度档单独加垂直 padding —— 那会重新把两档拉开。 */
-.cross-tbl :deep( tbody td){padding:0 8px;white-space:nowrap;line-height:var(--fc-cell)}
+.cross-tbl :deep( tbody td){padding:0 var(--sp-2);white-space:nowrap;line-height:var(--fc-cell)}
 /* 🔴 v571：本表此前**无视全站密度开关**（设置页「紧凑/舒适」对这一页不生效）。
    原因不是没写，而是**同分被后者覆盖**：页面 scoped 的 `.cross-tbl tbody td[data-v-x]` = (0,2,2)，
    全局 `[data-density=compact] table.tbl td` 也是 (0,2,2)；而页面 CSS 属懒加载 chunk、在
    全球样式表之后注入 ⇒ 恒由 7px 胜出（已在产物里同时确认两条规则存在）。
    修法：本表**自己**显式声明紧凑档，特异性 (0,3,2) 稳压基础档 ⇒ 不依赖样式表加载顺序。
    ⚠️ 别改成 `.grid-area .cross-tbl td` 那种"加一层父类"的写法 —— 那同样会把全局紧凑档压死。 */
-[data-density="compact"] .cross-tbl :deep( tbody td){padding:0 6px}
+[data-density="compact"] .cross-tbl :deep( tbody td){padding:0 var(--sp-h6)}
 [data-density="compact"] .cross-tbl{--cell-pad-h:6px}
 [data-density="compact"] .cross-tbl :deep( thead th){padding:1px 7px 0}
 .qty-th{text-align:center;min-width:52px}
@@ -13858,19 +13858,19 @@ provide('sprintSummary', sprintSummary)
 .calc-th.final{background:var(--p-bg);color:var(--p-dark)}
 .calc-th.final .th-sub{font-weight:400;font-size:var(--fs-xs);opacity:.7}
 /* 表体优化 P1/P2/P3：斑马纹/排序/分组/吸底合计 */
-.tb-toolbar{display:flex;gap:12px;align-items:center;margin:4px 0 8px;flex-wrap:wrap}
-.tb-toolbar .hint{color:var(--t3);font-size:12px}
+.tb-toolbar{display:flex;gap:var(--sp-3);align-items:center;margin:var(--sp-1) 0 var(--sp-2);flex-wrap:wrap}
+.tb-toolbar .hint{color:var(--t3);font-size:var(--fs-sm)}
 :deep(.cross-tbl tbody tr.data-row.zebra){background:var(--bg2)}
 :deep(.cross-tbl tbody tr.data-row:hover){background:var(--bg3)}
 .cross-tbl.edit-tbl :deep( tbody tr:nth-child(even)){background:var(--bg2)}
 .cross-tbl.edit-tbl :deep( tbody tr:hover){background:var(--bg3)}
 :deep(th.sortable){cursor:pointer;user-select:none}
 :deep(th.sortable:hover){color:var(--p-dark)}
-.sort-ind{font-size:var(--fs-xs);margin-left:2px;color:var(--p-ink)}
+.sort-ind{font-size:var(--fs-xs);margin-left:var(--sp-h2);color:var(--p-ink)}
 .grp-head{background:var(--bg3);cursor:pointer}
-.grp-head :deep( td){padding:6px 8px;border-bottom:1px solid var(--border-subtle)}
+.grp-head :deep( td){padding:var(--sp-h6) var(--sp-2);border-bottom:1px solid var(--border-subtle)}
 .grp-toggle{display:inline-block;width:14px;color:var(--p-dark)}
-.grp-sub-info{margin-left:10px;color:var(--t2);font-size:12px;font-weight:400}
+.grp-sub-info{margin-left:var(--sp-h10);color:var(--t2);font-size:var(--fs-sm);font-weight:400}
 
 /* 选区统计状态栏 */
 /* 🔴 `position:fixed` 是**功能的一部分**，不是装饰。这条为什么必须浮起来：
@@ -13885,30 +13885,30 @@ provide('sprintSummary', sprintSummary)
    `left:var(--sidebar-w)` 让开左侧栏（该变量由 Shell 写在 documentElement 上，
    且侧栏可拖拽调宽 ⇒ 跟随自动生效）。
    `z-index:40` > 粘性列的 6；又远低于各类浮层（ctx-menu 1091 / modal 1130），不抢层级。 */
-.sel-stat{display:flex;align-items:center;gap:16px;padding:7px 14px;background:var(--bg3);border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--t2);position:fixed;left:var(--sidebar-w,248px);right:0;bottom:0;z-index:40;box-shadow:0 -2px 8px rgba(0,0,0,.07)}
+.sel-stat{display:flex;align-items:center;gap:var(--sp-4);padding:7px var(--sp-h14);background:var(--bg3);border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--t2);position:fixed;left:var(--sidebar-w,248px);right:0;bottom:0;z-index:40;box-shadow:0 -2px 8px rgba(0,0,0,.07)}
 /* 全屏层 `.grid-area.is-fs` 是 `position:fixed;inset:0`，把整个视口（含侧栏位）都占了
    ⇒ 那里必须让统计条铺满全宽，否则左边缘会凭空缺一块。 */
 .grid-area.is-fs .sel-stat{left:0}
 .sel-stat-label{font-weight:600;color:var(--t1)}
-.sel-stat b{color:var(--p-dark);font-weight:600;margin-left:2px}
+.sel-stat b{color:var(--p-dark);font-weight:600;margin-left:var(--sp-h2)}
 .sel-stat-x{margin-left:auto;width:22px;height:22px;border:none;background:var(--bg);border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .sel-stat-x:hover{background:var(--dan-bg);color:var(--dan)}
 /* v212（P2-3）：选区统计条上的「批量填入」可见入口。放在 `margin-left:auto` 的关闭按钮
    **之前** ⇒ 它留在左侧统计数字那一簇里，跟「计数/求和/平均」同一组心智（都作用于选区）。 */
-.sel-fill{display:inline-flex;align-items:center;gap:6px;padding-left:14px;border-left:1px solid var(--bd)}
+.sel-fill{display:inline-flex;align-items:center;gap:var(--sp-h6);padding-left:var(--sp-h14);border-left:1px solid var(--bd)}
 .sel-fill-label{color:var(--t2)}
 .sel-fill-ipt{width:88px;padding:3px 7px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-sm);outline:none}
 .sel-fill-ipt:focus{border-color:var(--p)}
 .sel-fill-ipt::placeholder{color:var(--t3)}
-.sel-fill-go{padding:3px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-sm);cursor:pointer}
+.sel-fill-go{padding:3px var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-sm);cursor:pointer}
 .sel-fill-go:hover:not(:disabled){background:var(--bg3)}
 .sel-fill-go:disabled{opacity:.45;cursor:default}
 
 /* 商品档案弹层 */
 .profile-modal{max-width:480px}
 .pf-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--bd);border-radius:var(--radius-sm);overflow:hidden}
-.pf-item{display:flex;flex-direction:column;gap:3px;padding:10px 12px;background:var(--bg)}
-.pf-item span{font-size:11px;color:var(--t3)}
+.pf-item{display:flex;flex-direction:column;gap:3px;padding:var(--sp-h10) var(--sp-3);background:var(--bg)}
+.pf-item span{font-size:var(--fs-xs);color:var(--t3)}
 .pf-item b{font-size:var(--fs-base);color:var(--t1);font-weight:600;word-break:break-all}
 .pf-item.pf-note{grid-column:1 / -1}
 .pf-warn{color:var(--dan) !important}
@@ -13992,12 +13992,12 @@ provide('sprintSummary', sprintSummary)
   border:0;border-radius:var(--radius-circle);background:none;color:var(--t3);cursor:pointer;vertical-align:middle}
 .caliber-q:hover{color:var(--p-dark);background:var(--bg2)}
 .caliber-q[aria-expanded="true"]{color:var(--p-dark);background:var(--p-bg)}
-.caliber-pop{position:absolute;z-index:30;left:0;right:0;bottom:100%;margin-bottom:6px;padding:10px 12px;max-width:760px;
+.caliber-pop{position:absolute;z-index:30;left:0;right:0;bottom:100%;margin-bottom:var(--sp-h6);padding:var(--sp-h10) var(--sp-3);max-width:760px;
   background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius);
-  box-shadow:0 8px 24px rgba(15,23,42,.14);font-size:12px;line-height:1.6;color:var(--t3);
+  box-shadow:0 8px 24px rgba(15,23,42,.14);font-size:var(--fs-sm);line-height:1.6;color:var(--t3);
   max-height:40vh;overflow:auto;overscroll-behavior:contain}
 .caliber-pop b{color:var(--t1)}
-.caliber-pop-hd{font-weight:600;color:var(--t1);margin-bottom:4px}
+.caliber-pop-hd{font-weight:600;color:var(--t1);margin-bottom:var(--sp-1)}
 /* v247：档案列空值（—）淡显，与数量格空格子同一套语言 */
 .cell-dash{color:var(--t3);opacity:.55}
 :deep(.col-total-bar .frozen){background:var(--bg3)}
@@ -14011,7 +14011,7 @@ provide('sprintSummary', sprintSummary)
 /* v207：表尾/汇总条里「有几行没被算进合计(箱)」的补充说明。
    小字 + 警示色，挂在主数字**之后** —— 不抢主数字，但也不允许静默省略。
    （单元格级的「缺规格」直接复用上面的 .miss-price —— 同一个视觉语言：「数据缺」，不另立类。） */
-.box-miss{margin-left:4px;font-size:11px;font-weight:400;color:var(--war)}
+.box-miss{margin-left:var(--sp-1);font-size:var(--fs-xs);font-weight:400;color:var(--war)}
 .calc-th.amount{min-width:80px}
 :deep(.calc){text-align:right;font-variant-numeric:tabular-nums}
 :deep(.calc.sum){background:var(--sum-bg);color:var(--sum-txt);font-weight:500}
@@ -14065,8 +14065,8 @@ provide('sprintSummary', sprintSummary)
    ⚠️ display:none 不影响 Vue 的渲染与 computed 求值；只有"拿尺寸"的逻辑会量到 0
       （RebateSprint 的 paceFits 只影响它自己那份不显示的明细，浮层里是独立实例、自己量）。 */
 .sprint-src{display:none}
-.grid-area{position:relative;display:flex;flex-direction:column;gap:10px}
-.grid-area.is-fs{position:fixed;inset:0;z-index:var(--z-page-fs);background:var(--bg);padding:12px;display:flex;flex-direction:column;gap:10px}
+.grid-area{position:relative;display:flex;flex-direction:column;gap:var(--sp-h10)}
+.grid-area.is-fs{position:fixed;inset:0;z-index:var(--z-page-fs);background:var(--bg);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-h10)}
 /* 🔴 v578：全屏态**不再让表体强制撑满**（flex 1 1 ⇒ 0 1 auto）。
    原 `flex:1 1 auto` 把 `.cross-viewport` 拉到剩余全部高度，而商品行数不足时表格只占
    内容高度 ⇒ 空白全落在**表体容器内部**，视觉上就是「最后一行与合计之间大幅留白」
@@ -14078,7 +14078,7 @@ provide('sprintSummary', sprintSummary)
 .grid-area.is-fs .cross-viewport,
 .grid-area.is-fs .edit-grid-wrap{flex:0 1 auto;min-height:0;max-height:none}
 /* 表体控制条：筛选开关 + 行尾「缩放 + 全屏」整合为一行，置于表体上方（flex 流），与表格主体保持间距、互不遮挡（非全屏/全屏均成立） */
-.grid-ctl-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-height:30px;padding:1px 0}
+.grid-ctl-row{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-2);min-height:30px;padding:1px 0}
 /* v631：行尾视图组。
    成因：全屏按钮原先是 `position:absolute;top:8px;right:8px` 的**浮空元素**，靠本行 padding-right
    留洞避让 —— 那种写法有两个隐性代价：① 洞的宽度是猜的（留 46px 时按钮左缘在视口−40px，靠人工对数字）；
@@ -14087,7 +14087,7 @@ provide('sprintSummary', sprintSummary)
    结构关系成立后，"挨着"这件事不再依赖像素计算。
    🔴 `margin-left:auto` 必须挂在本容器上，不能挂带 v-if 的组件（v604：v-if 为假时推手一起没了，整组左移）。
    🔴 本组 `flex:0 0 auto`：宁可让它折到下一行，也不许它被压缩 —— 滑杆被压窄会先失去精度感。 */
-.grid-tail{display:flex;align-items:center;gap:6px;margin-left:auto;flex:0 0 auto}
+.grid-tail{display:flex;align-items:center;gap:var(--sp-h6);margin-left:auto;flex:0 0 auto}
 .grid-fs-btn{
   width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
   border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;
@@ -14109,7 +14109,7 @@ provide('sprintSummary', sprintSummary)
       直接落到表头下面被表格盖住 —— 实测全屏 1366 的「缩放 + 全屏」组 top=51、表头 top=53，
       截图里整组**完全看不见**（零报错，只是没了）。原来浮空按钮不占流宽，所以这个坑一直没被踩到。
       写法必须是 `0 0 auto`：宁可让表格少 30px 也要让控件可见（控件没了就没法操作）。 */
-.grid-area.is-fs .grid-ctl-row{flex:0 0 auto;gap:6px}
+.grid-area.is-fs .grid-ctl-row{flex:0 0 auto;gap:var(--sp-h6)}
 /* ③ v602：`badge-slim`（全屏收成图标形态）**已整体废弃** —— 三个徽标在 v602 去掉了图标，
    没有图标可收，再 slim 就是空框。现在三个徽标全屏也显示完整文案（与 v570 的取向一致），
    行宽不足由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切，故这里不再需要任何徽标专属规则。 */
@@ -14125,7 +14125,7 @@ provide('sprintSummary', sprintSummary)
    故上面这条结论不变。 */
 .page.grid-fs-on .tb-pop{z-index:auto}
 /* ④ 编辑组在全屏再收一档：按钮横向内边距 12→9、组内间距 8→6。仅外观微调，不删任何按钮。 */
-.grid-area.is-fs .grid-ctl-row>.tb-edit-group{gap:6px}
+.grid-area.is-fs .grid-ctl-row>.tb-edit-group{gap:var(--sp-h6)}
 .grid-area.is-fs .grid-ctl-row>.tb-edit-group>.btn{padding-left:9px;padding-right:9px}
 /* v135 修复（**v673 已迁走**）：AI 副驾抽屉（.copilot z-index:950）打开时，主工具栏 .tb-pop 的常态
    z-index（v704 起是 --z-page-trigger 1101，此前 --z-page-bar 1120）仍高于抽屉，会浮在抽屉之上——
@@ -14142,9 +14142,9 @@ provide('sprintSummary', sprintSummary)
    光晕不贴合胶囊边界，变成凭空浮在胶囊内部的一圈淡青方框（且 input 高 32px 溢出
    容器 30px 内容区，光晕上下还会顶出胶囊）。修法：焦点反馈上移到胶囊整体，
    对齐 CopilotDrawer 的 .cp-composer:focus-within 范式。 */
-.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--radius-sm);color:var(--t2);flex:0 0 auto;transition:border-color var(--dur-slow),box-shadow var(--dur-slow)}
+.tb-search{display:inline-flex;align-items:center;gap:var(--sp-h6);padding:0 var(--sp-h10);height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--radius-sm);color:var(--t2);flex:0 0 auto;transition:border-color var(--dur-slow),box-shadow var(--dur-slow)}
 .tb-search:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
-.tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
+.tb-search .fld{border:none;background:transparent;outline:none;font-size:var(--fs-base);color:var(--t1);width:150px;height:100%}
 .tb-search .fld:focus{box-shadow:none}
 .tb-search .fld::placeholder{color:var(--t3)}
 /* 🔴 v705（两线同源修复：A 线 v678 / B 线 v704，合并后只此一份）：触发按钮 1120 → 1101
@@ -14158,13 +14158,13 @@ provide('sprintSummary', sprintSummary)
    🔴 这条修过一次却复发了（源码线被整体回退）⇒ 已配静态护栏
    `tests/zorder-trigger-below-panel.guard.mjs`，改这两个值前先跑它。 */
 .tb-pop{position:relative;display:inline-flex;z-index:var(--z-page-trigger)}/* > .pop-overlay(1100)：弹层开着时仍可直接点触发按钮做互斥切换；< 面板本体 */
-.tb-pop-panel{position:fixed;z-index:var(--z-page-pop);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:12px;display:flex;flex-direction:column;gap:10px;min-width:220px;max-height:calc(100vh - 16px);overflow-y:auto}/* max-height/overflow：兜底，矮视口下宁可内部滚动，也不许溢出视口到点不到 */
-.zp-sep{height:1px;background:var(--bd);margin:2px 0}
-.zp-hd{font-size:12px;font-weight:600;color:var(--t3);margin-top:2px}
+.tb-pop-panel{position:fixed;z-index:var(--z-page-pop);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-h10);min-width:220px;max-height:calc(100vh - 16px);overflow-y:auto}/* max-height/overflow：兜底，矮视口下宁可内部滚动，也不许溢出视口到点不到 */
+.zp-sep{height:1px;background:var(--bd);margin:var(--sp-h2) 0}
+.zp-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t3);margin-top:var(--sp-h2)}
 .zp-hd-sub{font-weight:400;color:var(--t3);margin-left:5px}
 .pop-overlay{position:fixed;inset:0;z-index:var(--z-page-overlay)}
-.tb-pop-sep{height:1px;background:var(--bd);margin:2px 0}
-.filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.tb-pop-sep{height:1px;background:var(--bd);margin:var(--sp-h2) 0}
+.filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-2)}
 .cross-tbl :deep( thead th){position:sticky;top:0;z-index:7}
 :deep(.cross-tbl thead th.frozen){z-index:8}
 .cross-tbl :deep( td){position:relative}
@@ -14172,7 +14172,7 @@ provide('sprintSummary', sprintSummary)
 :deep(.cross-tbl td.cell-active){outline:2px solid var(--p);outline-offset:-2px;background:var(--p-bg);z-index:4}
 .cross-tbl :deep( td:focus){outline:2px solid var(--p);outline-offset:-2px}
 :deep(.cross-tbl tr.data-row.row-loading){opacity:.6}
-.cross-tbl tr.data-row.row-loading .pname::after{content:' 加载中…';font-size:11px}
+.cross-tbl tr.data-row.row-loading .pname::after{content:' 加载中…';font-size:var(--fs-xs)}
 :deep(.cross-tbl tr.data-row.row-error){background:var(--danger-bg)}
 .cross-tbl tr.data-row.row-error .pname{color:var(--danger-txt)}
 :deep(.cross-tbl tr.data-row.row-disabled){opacity:.45;filter:grayscale(.6)}
@@ -14181,36 +14181,36 @@ provide('sprintSummary', sprintSummary)
    箭头自占一整行，把只读行高从 ~37px 顶到 ~55px（这是「只读比编辑还高」的第二层原因）。
    改为 float:left：箭头与品名同行（.pname 是 overflow:hidden 的 BFC，会自动绕开浮动，
    省略号仍正常工作）；.pspec 在浮动下方本就与 16px 无重叠，故补左内边距保持两行左对齐。 */
-.exp-chev{float:left;cursor:pointer;color:var(--p-dark);width:14px;line-height:1;user-select:none;margin:1px 2px 0 0}
+.exp-chev{float:left;cursor:pointer;color:var(--p-dark);width:14px;line-height:1;user-select:none;margin:1px var(--sp-h2) 0 0}
 .cross-tbl td.fc-name>.pspec,
-.cross-tbl td.fc-name>.ai-hint{padding-left:16px}
-.row-ops{position:absolute;top:1px;right:4px;display:none;gap:2px;z-index:5}
+.cross-tbl td.fc-name>.ai-hint{padding-left:var(--sp-4)}
+.row-ops{position:absolute;top:1px;right:4px;display:none;gap:var(--sp-h2);z-index:5}
 .cross-tbl tr.data-row:hover .row-ops{display:flex}
-.row-ops .rop{border:none;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;font-size:12px;line-height:18px;padding:0 4px;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.row-ops .rop{border:none;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;font-size:var(--fs-sm);line-height:18px;padding:0 var(--sp-1);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .row-ops .rop:hover{background:var(--p-bg);color:var(--p-dark)}
 .row-ops .rop.danger:hover{background:var(--dan-bg,rgba(239,68,68,.12));color:var(--dan)}
 .det-row{background:var(--bg2)}
-.det-grid{display:grid;grid-template-columns:64px 1fr;gap:3px 12px;padding:8px 10px;font-size:12px}
+.det-grid{display:grid;grid-template-columns:64px 1fr;gap:3px var(--sp-3);padding:var(--sp-2) var(--sp-h10);font-size:var(--fs-sm)}
 .det-row2{display:contents}
 .det-row2>span{color:var(--t3)}
 .det-row2>b{font-weight:500}
 .det-row2 b.ok{color:var(--suc)}
 :deep(.det-row2 b.warn){color:var(--dan)}
-.det-i{font-style:normal;color:var(--t3);font-size:11px}
-.det-units{display:flex;flex-wrap:wrap;gap:4px 10px}
-.det-unit{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:1px 6px}
+.det-i{font-style:normal;color:var(--t3);font-size:var(--fs-xs)}
+.det-units{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-h10)}
+.det-unit{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:1px var(--sp-h6)}
 .det-units-row{grid-column:1 / -1}
 .vs-spacer :deep( td){border:none;padding:0;height:0;line-height:0;background:transparent;font-size:0}
 .qty-num{display:inline-block;min-width:18px}
-.tbl-state{padding:40px 16px;text-align:center}
+.tbl-state{padding:40px var(--sp-4);text-align:center}
 /* v267→v651：无汇总权限时的中性空态头部 —— 用琥珀（--warn-amber）而**不是**红（--dan）：
    这不是错误。用红会让人以为系统坏了。明/暗两套主题下 --warn-amber / --warn-amber-bg
    都由 variables.css 成对给出，不写死 rgba。（v651 删去 .denied-body 的角色说明文案，只留中性头部。） */
-.tbl-state.denied-state{padding:48px 24px}
-.denied-state .denied-hd{display:inline-flex;align-items:center;gap:6px;
-  padding:4px 12px;border-radius:var(--radius-sm);background:var(--warn-amber-bg);color:var(--warn-amber);
-  font-weight:600;font-size:14px;line-height:1.9}
-.tbl-skeleton .sk-row{display:flex;gap:10px;padding:7px 4px;border-bottom:1px solid var(--border-subtle)}
+.tbl-state.denied-state{padding:48px var(--sp-6)}
+.denied-state .denied-hd{display:inline-flex;align-items:center;gap:var(--sp-h6);
+  padding:var(--sp-1) var(--sp-3);border-radius:var(--radius-sm);background:var(--warn-amber-bg);color:var(--warn-amber);
+  font-weight:600;font-size:var(--fs-md);line-height:1.9}
+.tbl-skeleton .sk-row{display:flex;gap:var(--sp-h10);padding:7px var(--sp-1);border-bottom:1px solid var(--border-subtle)}
 .tbl-skeleton .sk-bar{flex:1;height:14px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 37%,var(--bg2) 63%);background-size:400% 100%;animation:sk 1.2s ease-in-out infinite}
 @keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
 /* v251：原写死 max-width:200px —— 列宽由 colgroup（拖宽/拖窄）决定，而这条硬上限把
@@ -14222,10 +14222,10 @@ provide('sprintSummary', sprintSummary)
    收紧到 1.25 / 1.2 并去掉 1px 外边距后：紧凑档约 36px、舒适档约 42px，且与编辑态基本齐平。
    ⚠️ 别再退回 1.6：这是**行内文本**不是正文段落，1.6 是给长文阅读留的，网格里只会把行撑高。 */
 .pname{font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:var(--fc-cell,20px)}
-.pspec{color:var(--t3);font-size:11px;margin-top:0;line-height:13px}
-.ai-hint{color:var(--p-dark);font-size:11px;margin-top:1px;font-weight:500;line-height:1.2}
+.pspec{color:var(--t3);font-size:var(--fs-xs);margin-top:0;line-height:13px}
+.ai-hint{color:var(--p-dark);font-size:var(--fs-xs);margin-top:1px;font-weight:500;line-height:1.2}
 .tip-wrap{position:relative;cursor:help;border-bottom:1px dashed var(--bd)}
-:deep(.tip){display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);color:var(--t1);font-size:11px;padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);white-space:nowrap;z-index:20;box-shadow:var(--shadow-md)}
+:deep(.tip){display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--bg);color:var(--t1);font-size:var(--fs-xs);padding:7px var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-sm);white-space:nowrap;z-index:20;box-shadow:var(--shadow-md)}
 .tip :deep( b){color:var(--p-dark)}
 :deep(.tip-wrap:hover .tip){display:block}
 /* ── v277（需求 4 / 需求 6）：「加单(箱)」列的角标 + 多行悬浮算路 ──
@@ -14233,17 +14233,17 @@ provide('sprintSummary', sprintSummary)
      若可点会把「点进这一格输数字」挡住（那是这一列最常用的动作）⇒ 只给视觉，
      悬停的触发面交给**整格**（`.pt-xmtd:hover`），符合「鼠标悬停时展示计算逻辑」。
    · `.tip` 本体是 `white-space:nowrap`（单行 ¥金额 用的）—— 这里要多行算路，必须覆盖。 */
-:deep(.pt-xm-b){font-size:11px;font-weight:600;line-height:1;letter-spacing:-.2px}
-:deep(.pt-xm .pt-xm-b){vertical-align:super;margin-left:2px}
+:deep(.pt-xm-b){font-size:var(--fs-xs);font-weight:600;line-height:1;letter-spacing:-.2px}
+:deep(.pt-xm .pt-xm-b){vertical-align:super;margin-left:var(--sp-h2)}
 :deep(.pt-xm.has-gap .pt-xm-b){color:var(--warn-amber)}
 :deep(.pt-xm.has-done .pt-xm-b){color:var(--p-dark)}
 .pt-xm.has-gap{border-bottom-color:var(--warn-amber)}
 .pt-xm.has-done{border-bottom-color:var(--p-dark)}
 :deep(.pt-xmtd){position:relative}
 :deep(.pt-xm-abs){position:absolute;top:0;right:1px;z-index:3;pointer-events:none}
-:deep(.pt-tip){white-space:normal;text-align:left;max-width:430px;min-width:240px;line-height:1.55;font-size:11px}
+:deep(.pt-tip){white-space:normal;text-align:left;max-width:430px;min-width:240px;line-height:1.55;font-size:var(--fs-xs)}
 .pt-tip :deep( i){display:block;font-style:normal}
-.pt-tip :deep( i+i){margin-top:2px}
+.pt-tip :deep( i+i){margin-top:var(--sp-h2)}
 /* 编辑格里 tip 挂在 td 上（不在 `.tip-wrap` 内）⇒ 悬停面自己声明；定位沿用 `.tip` 本体 */
 .pt-xmtd:hover :deep( .pt-tip-abs){display:block}
 /* ── v318（一键分摊 + 分不满点名）────────────────────────────────────────────
@@ -14253,7 +14253,7 @@ provide('sprintSummary', sprintSummary)
    · 第四态角标 `has-short`（**分不满** = 经理填的 > 实际分出去的）用危险色：
      它是**要人去处理的告警**，不是"已完成"那种回执，两者必须一眼能分开。 */
 :deep(.pt-alloc-btn){position:absolute;bottom:0;right:1px;z-index:4;
-  font-size:11px;line-height:1;padding:1px 3px;letter-spacing:-.2px;
+  font-size:var(--fs-xs);line-height:1;padding:1px 3px;letter-spacing:-.2px;
   border:1px solid var(--bd);border-radius:var(--radius-2xs);background:var(--bg);color:var(--t3);cursor:pointer}
 :deep(.pt-alloc-btn:hover){border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
 .pt-xm-b.has-short{color:var(--danger-txt)}
@@ -14286,11 +14286,11 @@ provide('sprintSummary', sprintSummary)
    现在与编辑态 `.edit-summary` **同一档**（标签 13 / 数字 15），两态不再一大一小；
    间距 14/12 收到 10/8。⚠️ 别再把 `.big` 单独放大：它和右侧 12px 的「下单金额」是同一行信息，
    字号拉开只会让这一行的高度由最大那个字决定，省不下来。 */
-.pin{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px solid var(--bd)}
+.pin{display:flex;align-items:baseline;gap:var(--sp-4);flex-wrap:wrap;margin-top:var(--sp-h10);padding-top:var(--sp-2);border-top:1px solid var(--bd)}
 /* v621：「另有 N 个在售商品未显示」从工具行挪到合计行。页脚是 baseline 对齐，胶囊要 align-self:center
    才不会把行高顶歪；尺寸比工具行那版小一号（24 高），因为这里挨着的都是 12px 小字。 */
 .pin .pin-more,.edit-summary .pin-more{align-self:center;display:inline-flex;align-items:center;
-  font-size:12px;line-height:18px;padding:2px 9px;border-radius:var(--radius-sm);
+  font-size:var(--fs-sm);line-height:18px;padding:var(--sp-h2) 9px;border-radius:var(--radius-sm);
   background:var(--p-bg);color:var(--p-deep);cursor:pointer;white-space:nowrap}
 .pin .pin-more:hover,.edit-summary .pin-more:hover{color:var(--p-dark);text-decoration:underline}
 /* v621：这条计数有两个落点，按视口宽度二选一（见模板里 .row-more 的注释）：
@@ -14298,21 +14298,21 @@ provide('sprintSummary', sprintSummary)
      ≤1461 → 工具行（合计行在 1440 已只剩 ~130px，塞不下；工具行那一档本来就要折行） */
 @media(min-width:1462px){ .grid-ctl-row .row-more{display:none} }
 @media(max-width:1461px){ .pin .pin-more,.edit-summary .pin-more{display:none} }
-.pin .big{font-size:13px;font-weight:500}
-.pin .big b{color:var(--p-dark);font-size:15px}
-.pin .mini{font-size:12px;color:var(--t2)}
+.pin .big{font-size:var(--fs-base);font-weight:500}
+.pin .big b{color:var(--p-dark);font-size:var(--fs-h4)}
+.pin .mini{font-size:var(--fs-sm);color:var(--t2)}
 .pin .mini b{color:var(--t1)}
 /* v666：「筛选后 N / 共 M 行」用主题色（这是本轮新增的口径说明），
    「全期」对照用 t3 弱化 —— 两者都在解释左边那三个数，不能抢主数字的视觉权重。 */
 .pin .pin-filtered{color:var(--p-ink)}
 /* v672：筛选**来源**（品牌 2/3 个 · 到货周期 +3天…）—— 比主题色再弱一档，
    它解释「为什么只有 N 行」，不该和「筛选后 177」抢读。 */
-.pin .pin-src{color:var(--t3);font-size:12px;font-weight:400}
-.pin .pin-clr{margin-left:5px;padding:0 4px;height:16px;line-height:16px;font-size:12px;
+.pin .pin-src{color:var(--t3);font-size:var(--fs-sm);font-weight:400}
+.pin .pin-clr{margin-left:5px;padding:0 var(--sp-1);height:16px;line-height:16px;font-size:var(--fs-sm);
   color:var(--p-ink);background:none;border:1px solid color-mix(in srgb,var(--p) 35%,transparent);
   border-radius:var(--radius-2xs);cursor:pointer}
 .pin .pin-clr:hover{background:color-mix(in srgb,var(--p) 12%,transparent)}
-.pin .pin-all{color:var(--t3);font-size:12px}
+.pin .pin-all{color:var(--t3);font-size:var(--fs-sm)}
 /* v585：冲刺胶囊靠页脚最右。align-self:center 抵消 .pin 的 baseline 对齐 ——
    胶囊是定高 20px 的 inline-flex，按文字基线对齐会被 Icon 的基线带偏 1~2px。
    🔴 v620：这条 v585 的规则**从来没生效过**（真机量：胶囊 margin-left 恒 0px，
@@ -14329,7 +14329,7 @@ provide('sprintSummary', sprintSummary)
    移进 grid-area 后参与 flex 流，同一份 DOM、同一处文案。
    ⚠️ 间距补偿：grid-area 是 `display:flex;gap:10px`，gap 会与元素自身的 margin-top 叠加 ⇒
       非全屏间距凭空多 10px。用 margin-top:4px / 6px 抵消回原值（10+4+12=26 = 原 14+12）。 */
-.grid-area>.pin{margin-top:4px}
+.grid-area>.pin{margin-top:var(--sp-1)}
 /* v606：6px → **0**。改单页的诉求是「把表体让出来、页脚贴紧合计栏」——那 6px 是为了凑回
    v584 之前的旧的 26px 间距，纯装饰性留白，在 913 高的笔记本上等于少半行。flex gap 10px
    已经足以把两条分开（全屏态另有 -10px 贴合成一整条，不受这里影响）。 */
@@ -14337,18 +14337,18 @@ provide('sprintSummary', sprintSummary)
 /* 全屏：汇总条紧贴合计栏下方（与 v580「合计接回表格」同一口径）—— margin -10 抵消 gap，
    同底色 bg3 连成一整条，不再出现 26px 断口 + 多一条分隔线。 */
 .grid-area.is-fs>.pin,
-.grid-area.is-fs>.edit-summary{margin-top:-10px;padding:6px 8px;border-top:0;background:var(--bg3)}
+.grid-area.is-fs>.edit-summary{margin-top:-10px;padding:var(--sp-h6) var(--sp-2);border-top:0;background:var(--bg3)}
 
 /* ---- 交叉表编辑模式 ---- */
 .edit-tbl{min-width:100%}
 .edit-tbl :deep( thead th){background:var(--bg3)}
-.cust-hd{display:flex;align-items:center;gap:4px}
+.cust-hd{display:flex;align-items:center;gap:var(--sp-1)}
 /* v184：只读单元格（edit:'ro'，目前只有「到货周期」）—— 视觉口径与同排的 input 对齐
    （同字号、居中、tabular-nums 让 +3天 / +12天 的数字对齐），但**不是**输入框，
    以免暗示「这里能改」。它只出现于编辑网格的只读列；查看态走 masterVal 的纯文本路径。 */
 /* v575：只读列（edit:'ro'）也必须落在同一个内容盒 20px 内 —— 原来它靠 padding 撑
    （2px 上下 + 继承的 20.8px 行高 = 24.8px），比旁边 20px 的输入框高，会把整行顶到 30px。 */
-:deep(.cell-ro){display:block;height:var(--fc-cell,20px);line-height:calc(var(--fc-cell,20px) - 4px);box-sizing:border-box;padding:2px 6px;color:var(--t2);font-size:12px;text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
+:deep(.cell-ro){display:block;height:var(--fc-cell,20px);line-height:calc(var(--fc-cell,20px) - 4px);box-sizing:border-box;padding:var(--sp-h2) var(--sp-h6);color:var(--t2);font-size:var(--fs-sm);text-align:center;font-variant-numeric:tabular-nums;white-space:nowrap}
 /* 🔴 v575：输入框高度 = 行高唯一源 `--fc-cell`（见 `.cross-tbl{--fc-cell:20px}` 段注释）。
    原来这里写死 26px，而全局紧凑档 `[data-density=compact] table.tbl input{height:24px}`
    特异性 (0,2,2) 压过本条的 (0,2,0) ⇒ 实际渲染 24px，与只读态的 20.8px 文本行**不相等**，
@@ -14366,7 +14366,7 @@ provide('sprintSummary', sprintSummary)
      · 高度仍取 `--fc-cell`（行高唯一源，见 v575 段注释），不影响 21px 行高。
    ⚠️ 出血量必须由 `--cell-pad-h` 推导（舒适 8 / 紧凑 6），不能写死 -8px：
       紧凑档 td 是 `padding:0 6px`，写死 8 会让输入框**外溢 2px 盖到邻格**（v592 实测）。 */
-:deep(.cross-tbl .cell-input){height:var(--fc-cell,20px);padding:0 6px;margin:0 calc(-1 * var(--cell-pad-h, 8px));width:calc(100% + var(--cell-pad-h, 8px) * 2);border:0;border-radius:0;background:transparent;color:var(--t1);font-size:12px;outline:none;display:block;min-width:0;box-sizing:border-box;text-align:center}
+:deep(.cross-tbl .cell-input){height:var(--fc-cell,20px);padding:0 var(--sp-h6);margin:0 calc(-1 * var(--cell-pad-h, 8px));width:calc(100% + var(--cell-pad-h, 8px) * 2);border:0;border-radius:0;background:transparent;color:var(--t1);font-size:var(--fs-sm);outline:none;display:block;min-width:0;box-sizing:border-box;text-align:center}
 /* v597（B2）：数量 / 加单这类**纯数字**输入框右对齐，与单元格本身、与 Excel 一致。
    特异性 (0,3,0) > 上面 `.cross-tbl .cell-input` 的 (0,2,0)，不需要 !important。
    `tabular-nums` 让 1 和 7 同宽 —— 否则右对齐后小数点位仍在跳。 */
@@ -14377,7 +14377,7 @@ provide('sprintSummary', sprintSummary)
 /* v592：**表头的客户名输入框例外** —— 它不是"格内编辑"，而是表头里一个可改的名字。
    表头底色本身就是 `--bg3`，若也做成无框，用户完全看不出「这列名字能改」⇒ 这里保留方框外观。
    （th 的内边距是 `1px 7px 0`，与 td 的 8px 不同，所以负 margin 必须归零、宽度回 100%。） */
-:deep(.cross-tbl thead .cell-input){height:var(--fc-cell,20px);margin:0;width:100%;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg)}
+:deep(.cross-tbl thead .cell-input){height:var(--fc-cell,20px);margin:0;width:100%;padding:0 var(--sp-h6);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg)}
 /* v579：序号列表头那个 **列设置齿轮**（全局 `.col-cfg.gear` 是 30×30 + inline-flex，见
    styles/col-menu.css）是表头被撑高的最后一处 —— 30+8×2+1 = 47px；而即便压到 20×20，
    inline-flex 仍按**基线**参与行盒，把整行顶到 26px。所以这里同时改 display:flex
@@ -14392,29 +14392,29 @@ provide('sprintSummary', sprintSummary)
    ② checkbox 尺寸必须显式写：`input[type=checkbox]` 在 flex 容器里会被 stretch，
       且 Chrome 默认 13px 与 Safari 不一致 ⇒ 写死 13px + `flex:0 0 auto`。
    ③ `accent-color` 让勾选态用品牌青（系统主题色在深色模式下会和底撞）。 */
-.cross-tbl .seq-hd-in{display:flex;align-items:center;justify-content:center;gap:2px}
+.cross-tbl .seq-hd-in{display:flex;align-items:center;justify-content:center;gap:var(--sp-h2)}
 .cross-tbl thead .seq-hd-in .col-cfg.gear{margin:0}
-:deep(.cross-tbl td.seq-cell .seq-in){display:flex;align-items:center;justify-content:center;gap:2px}
+:deep(.cross-tbl td.seq-cell .seq-in){display:flex;align-items:center;justify-content:center;gap:var(--sp-h2)}
 :deep(.cross-tbl .row-pick){width:13px;height:13px;margin:0;padding:0;flex:0 0 auto;cursor:pointer;accent-color:var(--p)}
 :deep(.cross-tbl .row-pick:disabled){cursor:not-allowed;opacity:.35}
 /* 批量操作面板：与 .tb-pop-panel 同壳，只覆盖宽度与条目样式。
    ⚠️ 面板里**不要再放 fixed/sticky 子元素** —— 它自己就是 position:fixed。 */
 /* v618：多了一条动作 + 两条说明 ⇒ 限高滚动（否则窄屏/小屏会顶出视口下边）。
    视口 70vh 与 440px 取小：屏幕上永远看得全，内容多时在面板内滚。 */
-.batch-pop{width:312px;min-width:312px;gap:8px;max-height:min(70vh,440px);overflow:auto}
-.batch-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--t2)}
-.batch-item{display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 10px;
+.batch-pop{width:312px;min-width:312px;gap:var(--sp-2);max-height:min(70vh,440px);overflow:auto}
+.batch-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--t2)}
+.batch-item{display:flex;align-items:center;gap:var(--sp-2);width:100%;height:32px;padding:0 var(--sp-h10);
   border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);
-  font-size:13px;cursor:pointer;text-align:left}
+  font-size:var(--fs-base);cursor:pointer;text-align:left}
 .batch-item:hover:not(:disabled){background:var(--bg3);border-color:var(--p)}
 .batch-item:disabled{opacity:.4;cursor:not-allowed}
 .batch-item .bi-t{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.batch-item b{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--p-dark)}
+.batch-item b{font-size:var(--fs-sm);font-weight:600;font-variant-numeric:tabular-nums;color:var(--p-dark)}
 .batch-item.danger b{color:var(--danger-txt)}
 .batch-item.danger:hover:not(:disabled){background:var(--danger-bg);border-color:var(--danger-txt)}
 /* `.bp-tip` / `.bp-head` 的基础样式只挂在 `.brand-pop` 下（见下方品牌面板那段），
    批量面板是另一个容器 ⇒ 必须自己写全，否则提示文字会没字号/没行距/没边距。 */
-.batch-pop .bp-tip{margin:0;font-size:12px;line-height:1.5;color:var(--t3)}
+.batch-pop .bp-tip{margin:0;font-size:var(--fs-sm);line-height:1.5;color:var(--t3)}
 .batch-pop .bp-tip.warn{color:var(--danger-txt)}
 /* v592：输入框已无边框（见 `.cross-tbl .cell-input`）⇒ 焦点视觉交给**单元格自身**
    （`.cross-tbl td.selected{outline:2px solid var(--p)}` + 青底）。这正是 Excel 的表现：
@@ -14437,11 +14437,11 @@ provide('sprintSummary', sprintSummary)
 :deep(.cell-qty){background:transparent}
 :deep(.edit-tbl .fc-code .cell-wide){width:100%}
 :deep(.edit-tbl .fc-num .cell-num){width:100%}
-.col-del{border:none;background:none;color:var(--t3);font-size:11px;cursor:pointer;padding:2px;border-radius:var(--radius-sm);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
+.col-del{border:none;background:none;color:var(--t3);font-size:var(--fs-xs);cursor:pointer;padding:var(--sp-h2);border-radius:var(--radius-sm);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .col-del:hover{color:var(--dan);background:var(--dan-bg)}
 .col-del:hover{color:var(--dan)}
 :deep(.op-th){text-align:center;min-width:34px}
-.edit-hint{font-size:12px;color:var(--t3);margin-top:10px;line-height:1.7;border-top:1px dashed var(--bd);padding-top:8px}
+.edit-hint{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h10);line-height:1.7;border-top:1px dashed var(--bd);padding-top:var(--sp-2)}
 
 /* ---- Excel 式交互视觉（选中/行列高亮/填充柄/右键菜单） ---- */
 .edit-tbl :deep( td){position:relative}
@@ -14481,72 +14481,72 @@ provide('sprintSummary', sprintSummary)
 :deep(.fill-handle:hover){background:var(--p-dark)}
 .ctx-overlay{position:fixed;inset:0;z-index:var(--z-ctx-overlay)}
 .ctx-menu{position:fixed;z-index:var(--z-ctx-menu);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:5px;min-width:172px;font-size:var(--fs-sm);max-height:calc(100vh - 16px);overflow-y:auto}
-.ctx-menu button{display:flex;width:100%;align-items:center;gap:8px;padding:7px 10px;border:none;background:none;color:var(--t1);cursor:pointer;text-align:left;border-radius:var(--radius-sm);font-size:var(--fs-sm)}
+.ctx-menu button{display:flex;width:100%;align-items:center;gap:var(--sp-2);padding:7px var(--sp-h10);border:none;background:none;color:var(--t1);cursor:pointer;text-align:left;border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 .ctx-menu button:hover{background:var(--bg3)}
 .ctx-menu button:disabled{opacity:.4;cursor:default}
 .ctx-menu button.danger:hover{background:var(--dan-bg,rgba(239,68,68,.1));color:var(--dan)}
 .ctx-menu kbd{margin-left:auto;padding:0 5px;border:1px solid var(--bd);border-bottom-width:2px;border-radius:var(--radius-2xs);background:var(--bg2);font-family:var(--mono,ui-monospace,monospace);font-size:var(--fs-xs);color:var(--t2);font-weight:400}
-.ctx-menu .ctx-sep{height:1px;background:var(--border-subtle);margin:4px 2px}
-.ctx-menu .ctx-note{padding:6px 10px;color:var(--t3);font-size:11px}
-.ctx-menu .ctx-ipt-row{display:flex;gap:6px;padding:6px 8px}
+.ctx-menu .ctx-sep{height:1px;background:var(--border-subtle);margin:var(--sp-1) var(--sp-h2)}
+.ctx-menu .ctx-note{padding:var(--sp-h6) var(--sp-h10);color:var(--t3);font-size:var(--fs-xs)}
+.ctx-menu .ctx-ipt-row{display:flex;gap:var(--sp-h6);padding:var(--sp-h6) var(--sp-2)}
 .ctx-menu .ctx-ipt{flex:1;min-width:0;padding:5px 7px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-sm);outline:none}
 .ctx-menu .ctx-ipt:focus{border-color:var(--p)}
-.ctx-menu .ctx-sel{padding:5px 4px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-sm);outline:none}
-.ctx-menu .ctx-ipt-actions{display:flex;gap:6px;padding:0 8px 7px}
-.ctx-menu .ctx-ipt-actions button{flex:1;justify-content:center;padding:5px 8px;border:none;background:var(--bg3);color:var(--t1);cursor:pointer;border-radius:var(--radius-sm);font-size:var(--fs-sm)}
+.ctx-menu .ctx-sel{padding:5px var(--sp-1);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-sm);outline:none}
+.ctx-menu .ctx-ipt-actions{display:flex;gap:var(--sp-h6);padding:0 var(--sp-2) 7px}
+.ctx-menu .ctx-ipt-actions button{flex:1;justify-content:center;padding:5px var(--sp-2);border:none;background:var(--bg3);color:var(--t1);cursor:pointer;border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 .ctx-menu .ctx-ipt-actions button.btn-primary{background:var(--p-solid);color:#fff}
 .ctx-menu .ctx-ipt-actions button.btn-primary:hover{filter:brightness(.95)}
 .ctx-menu .ctx-ipt-actions button:hover{background:var(--bg2)}
 .ctx-menu button.ctx-on{background:color-mix(in srgb,var(--p) 14%,var(--bg));color:var(--p-ink)}
 /* 表头右键：唯一值筛选列表 */
-.ctx-uniq-hd{padding:7px 10px 4px;font-size:12px;color:var(--t1);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ctx-uniq-hd{padding:7px var(--sp-h10) var(--sp-1);font-size:var(--fs-sm);color:var(--t1);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2)}
 /* v666：Excel 式筛选面板（比普通菜单宽 —— 值清单要能读全；高度由内容决定，超出则菜单自身滚动）
    v667：改成「勾选即生效」的下拉：贴列头掉下来、勾完就关，不再有「应用筛选」。 */
 .ctx-fx-menu{width:268px;min-width:268px;padding:0}
-.ctx-fx-hd{display:flex;align-items:center;gap:6px;padding:8px 8px 3px 10px;font-size:12px;font-weight:600;color:var(--t1)}
+.ctx-fx-hd{display:flex;align-items:center;gap:var(--sp-h6);padding:var(--sp-2) var(--sp-2) 3px var(--sp-h10);font-size:var(--fs-sm);font-weight:600;color:var(--t1)}
 .ctx-fx-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ⚠️ 必须覆盖 `.ctx-menu button`（width:100%/display:flex）—— 关闭钮要的是 22px 小方块，不是整行 */
 .ctx-menu .ctx-fx-x{flex:0 0 auto;width:22px;height:22px;padding:0;display:inline-flex;
   align-items:center;justify-content:center;border-radius:var(--radius-sm);color:var(--t3)}
 .ctx-menu .ctx-fx-x:hover{background:var(--bg3);color:var(--t1)}
 .ctx-fx-x .ico{width:12px;height:12px}
-.ctx-fx-tools{display:flex;align-items:center;gap:10px;padding:2px 10px 4px}
-.ctx-fx-cnt{margin-left:auto;color:var(--t3);font-size:11px;font-variant-numeric:tabular-nums}
+.ctx-fx-tools{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-h2) var(--sp-h10) var(--sp-1)}
+.ctx-fx-cnt{margin-left:auto;color:var(--t3);font-size:var(--fs-xs);font-variant-numeric:tabular-nums}
 /* 「清空选择」是同排里的小号文字钮：不能长成整行按钮，否则和「全选」抢视线 */
 .ctx-menu .ctx-fx-link{width:auto;display:inline-flex;padding:0;background:none;border:none;
-  color:var(--p-ink);font-size:11px;line-height:1;cursor:pointer}
+  color:var(--p-ink);font-size:var(--fs-xs);line-height:1;cursor:pointer}
 .ctx-menu .ctx-fx-link:hover{background:none;text-decoration:underline}
-.ctx-uniq-all{display:flex;align-items:center;gap:4px;color:var(--t2);font-size:var(--fs-sm);cursor:pointer}
-.ctx-uniq-list{max-height:200px;overflow:auto;padding:2px 6px}
+.ctx-uniq-all{display:flex;align-items:center;gap:var(--sp-1);color:var(--t2);font-size:var(--fs-sm);cursor:pointer}
+.ctx-uniq-list{max-height:200px;overflow:auto;padding:var(--sp-h2) var(--sp-h6)}
 .ctx-fx-list{max-height:240px}
-.ctx-uniq-item{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:var(--radius-sm);cursor:pointer}
+.ctx-uniq-item{display:flex;align-items:center;gap:7px;padding:var(--sp-1) var(--sp-h6);border-radius:var(--radius-sm);cursor:pointer}
 .ctx-uniq-item:hover{background:var(--bg3)}
 .ctx-uniq-val{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 「一个值都不勾」的告警条：必须点明「表现在是空的」，否则会被当成数据丢了 */
-.ctx-fx-warn{margin:4px 10px 6px;padding:5px 8px;border-radius:var(--radius-sm);
-  background:var(--warn-amber-bg);color:var(--warn-amber);font-size:11px;line-height:1.6}
+.ctx-fx-warn{margin:var(--sp-1) var(--sp-h10) var(--sp-h6);padding:5px var(--sp-2);border-radius:var(--radius-sm);
+  background:var(--warn-amber-bg);color:var(--warn-amber);font-size:var(--fs-xs);line-height:1.6}
 /* 条件筛选：二级折叠，默认收起，只留一行入口（Excel 的「数字筛选」同理） */
-.ctx-fx-cond{margin-top:4px;border-top:1px solid var(--border-subtle);padding-top:2px}
-.ctx-menu .ctx-fx-cond-hd{width:100%;padding:6px 10px;color:var(--t2);font-size:11px;gap:6px;align-items:center}
+.ctx-fx-cond{margin-top:var(--sp-1);border-top:1px solid var(--border-subtle);padding-top:var(--sp-h2)}
+.ctx-menu .ctx-fx-cond-hd{width:100%;padding:var(--sp-h6) var(--sp-h10);color:var(--t2);font-size:var(--fs-xs);gap:var(--sp-h6);align-items:center}
 .ctx-fx-cond-hd .ico{margin-left:auto;width:12px;height:12px;color:var(--t3)}
-.ctx-fx-cond-on{margin-left:6px;padding:0 6px;border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-ink);font-size:11px;line-height:16px}
+.ctx-fx-cond-on{margin-left:var(--sp-h6);padding:0 var(--sp-h6);border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-ink);font-size:var(--fs-xs);line-height:16px}
 .ctx-fx-foot{border-top:1px solid var(--border-subtle);padding-top:7px}
 .ctx-ipt-unit{color:var(--t2)}
 /* 条件格式：库存<安全库存 整行高亮 */
 .edit-tbl tr.cond-warn :deep( > td), .cross-tbl tr.cond-warn :deep( > td){background:color-mix(in srgb,var(--dan) 14%,var(--bg))!important}
 .edit-tbl tr.cond-warn:hover :deep( > td), .cross-tbl tr.cond-warn:hover :deep( > td){background:color-mix(in srgb,var(--dan) 20%,var(--bg))!important}
 /* 列统计弹层 */
-.stats-body{padding:6px 12px 12px}
-.stat-row{display:flex;justify-content:space-between;gap:16px;padding:5px 2px;border-bottom:1px dashed var(--border-subtle)}
+.stats-body{padding:var(--sp-h6) var(--sp-3) var(--sp-3)}
+.stat-row{display:flex;justify-content:space-between;gap:var(--sp-4);padding:5px var(--sp-h2);border-bottom:1px dashed var(--border-subtle)}
 .stat-row:last-child{border-bottom:none}
 .stat-row span{color:var(--t2)}
 .stat-row b{color:var(--t1);font-variant-numeric:tabular-nums}
 .stat-sample b{font-weight:600;white-space:pre-wrap;text-align:right}
 
 /* 表头右键「筛选」激活提示 */
-.filter-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--p);background:color-mix(in srgb,var(--p) 12%,var(--bg));color:var(--p-ink);border-radius:var(--radius-pill);font-size:12px;white-space:nowrap;max-width:280px}
+.filter-chip{display:inline-flex;align-items:center;gap:var(--sp-h6);padding:3px var(--sp-2);border:1px solid var(--p);background:color-mix(in srgb,var(--p) 12%,var(--bg));color:var(--p-ink);border-radius:var(--radius-pill);font-size:var(--fs-sm);white-space:nowrap;max-width:280px}
 .filter-chip{overflow:hidden;text-overflow:ellipsis}
-.filter-chip .chip-x{border:none;background:transparent;color:var(--p-ink);cursor:pointer;font-size:12px;line-height:1;padding:0 2px;border-radius:var(--radius-circle)}
+.filter-chip .chip-x{border:none;background:transparent;color:var(--p-ink);cursor:pointer;font-size:var(--fs-sm);line-height:1;padding:0 var(--sp-h2);border-radius:var(--radius-circle)}
 .filter-chip .chip-x:hover{background:color-mix(in srgb,var(--p) 22%,var(--bg));color:var(--p-ink)}
 
 /* ---- P0-2 Excel 导入弹窗 ---- */
@@ -14561,16 +14561,16 @@ provide('sprintSummary', sprintSummary)
    不要再改回 < 1121，也不要为此抬高 .tb-pop（会破坏「弹层开着直接点别的触发按钮」）。 */
 .imp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-page-modal-overlay)}
 .imp-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(560px,94vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-page-modal);box-shadow:var(--shadow-lg);max-height:86vh;display:flex;flex-direction:column}
-.imp-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle)}
-.imp-hd b{font-size:14px}
-.imp-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.imp-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-h14) var(--sp-h18);border-bottom:1px solid var(--border-subtle)}
+.imp-hd b{font-size:var(--fs-md)}
+.imp-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .imp-x:hover{color:var(--p-dark);background:var(--bg2);border-radius:var(--radius-sm)}
-.imp-body{padding:16px 18px;overflow-y:auto}
-.imp-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin-bottom:14px}
+.imp-body{padding:var(--sp-4) var(--sp-h18);overflow-y:auto}
+.imp-actions{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
+.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin-bottom:var(--sp-h14)}
 .del-modal{width:min(440px,92vw)}
 .warn-text{color:var(--dan);font-weight:500}
-.del-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.del-actions{display:flex;justify-content:flex-end;gap:var(--sp-h10);margin-top:var(--sp-4)}
 .btn.danger{color:var(--dan)}
 .btn.danger:hover{filter:brightness(.95)}
 /* v367：`.btn-retry` 此前**全仓无定义** —— 模板在保存失败时给「保存」主按钮挂上这个类
@@ -14580,35 +14580,35 @@ provide('sprintSummary', sprintSummary)
    补一条危险实心底：底色走 `--danger-solid`（深浅两态同值，配白字 5.0:1）。 */
 .btn-primary.btn-retry{background:var(--danger-solid);color:#fff}
 .btn-primary.btn-retry:hover:not(:disabled){filter:brightness(.94)}
-.imp-file{font-size:12px;color:var(--t3);margin-top:10px}
+.imp-file{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h10)}
 /* v178：原 `.imp-ident*` / `.imp-customers` / `.imp-miss` 一组样式随只读识别摘要一并移除
    —— 那组回显已被 ImportMapping 组件的可编辑映射表取代，留着就是死 CSS。 */
 /* 列映射确认步要横向空间（文件列 / 识别为 / 依据 / 样例值四列） */
 .imp-modal.imp-wide{width:min(880px,94vw)}
 /* 进价列未识别时的提示：不是「说明文字」而是风险提示（闸门开启会整行拒收），且指明了去哪改 */
-.imp-gate{margin:10px 0 12px;padding:8px 12px;border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:1.6;background:var(--warn-amber-bg);color:var(--warn-amber)}
-.imp-matrix{max-height:180px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md);margin-bottom:12px}
+.imp-gate{margin:var(--sp-h10) 0 var(--sp-3);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:1.6;background:var(--warn-amber-bg);color:var(--warn-amber)}
+.imp-matrix{max-height:180px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-md);margin-bottom:var(--sp-3)}
 .imp-matrix table{font-size:var(--fs-sm)}
-:deep(.imp-matrix th), :deep(.imp-matrix td){padding:5px 8px;border-bottom:1px solid var(--border-subtle);white-space:nowrap}
+:deep(.imp-matrix th), :deep(.imp-matrix td){padding:5px var(--sp-2);border-bottom:1px solid var(--border-subtle);white-space:nowrap}
 :deep(.imp-matrix thead th){position:sticky;top:0;background:var(--bg3)}
-.imp-ft{display:flex;justify-content:flex-end;gap:10px;padding-top:6px}
-.imp-ok{color:var(--suc);font-size:13px;margin-bottom:12px}
-.imp-warn{color:var(--war);font-size:var(--fs-sm);margin-bottom:8px}
+.imp-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding-top:var(--sp-h6)}
+.imp-ok{color:var(--suc);font-size:var(--fs-base);margin-bottom:var(--sp-3)}
+.imp-warn{color:var(--war);font-size:var(--fs-sm);margin-bottom:var(--sp-2)}
 /* v179：「建档成功但没有数量」与「真的什么都没有」两个中性结局（信息蓝，不是错误色）。
    旧实现把前者渲染成绿色的「导入成功：0 个客户」，正是用户误判导入成功的直接原因。 */
-.imp-none{color:var(--info-blue);font-size:13px;line-height:1.75;margin-bottom:12px}
-.imp-errs{margin:0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.8}
+.imp-none{color:var(--info-blue);font-size:var(--fs-base);line-height:1.75;margin-bottom:var(--sp-3)}
+.imp-errs{margin:0;padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:1.8}
 
 /* v157 零档案建档结果块 */
-.imp-arch{margin-top:12px;padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
-.imp-arch-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin-bottom:8px}
-.imp-arch-line{display:flex;gap:10px;flex-wrap:wrap}
-.imp-arch-tag{font-size:var(--fs-sm);color:var(--t2);padding:3px 10px;border-radius:var(--radius-pill);background:var(--bg3)}
-.imp-arch-tag b{color:var(--t1);font-size:14px;margin-left:2px}
+.imp-arch{margin-top:var(--sp-3);padding:var(--sp-3) var(--sp-h14);border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
+.imp-arch-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin-bottom:var(--sp-2)}
+.imp-arch-line{display:flex;gap:var(--sp-h10);flex-wrap:wrap}
+.imp-arch-tag{font-size:var(--fs-sm);color:var(--t2);padding:3px var(--sp-h10);border-radius:var(--radius-pill);background:var(--bg3)}
+.imp-arch-tag b{color:var(--t1);font-size:var(--fs-md);margin-left:var(--sp-h2)}
 .imp-arch-tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .imp-arch-tag.ok b{color:var(--suc)}
-.imp-arch-list{margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--t2);line-height:1.75}
-.imp-arch-note{margin:10px 0 0;font-size:var(--fs-sm);line-height:1.7;color:var(--t2)}
+.imp-arch-list{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:1.75}
+.imp-arch-note{margin:var(--sp-h10) 0 0;font-size:var(--fs-sm);line-height:1.7;color:var(--t2)}
 .imp-arch-note.warn{color:var(--war)}
 .imp-arch-note.bad{color:var(--dan)}
 .imp-arch-note.bad b{color:var(--dan)}
@@ -14620,7 +14620,7 @@ provide('sprintSummary', sprintSummary)
    原先只写了两个具体户头名的类（`.oe-<户头名>`），后果有二：
    ① 真实户头名随产品交付到客户机器；② 其它租户的主体徽标匹配不到任何类 → 永远没有配色（只有裸徽标）。
    现改为通用色板 oe-c0..oe-c5，同名恒定同色，与主体名具体叫什么无关。 */
-.oe-badge{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:var(--radius-pill);font-size:var(--fs-xs);margin-left:6px;vertical-align:1px}
+.oe-badge{display:inline-flex;align-items:center;height:16px;padding:0 var(--sp-h6);border-radius:var(--radius-pill);font-size:var(--fs-xs);margin-left:var(--sp-h6);vertical-align:1px}
 /* v179：本批导入角标（信息蓝，与户头徽标的彩色系区分开 —— 户头是"谁下单"，这个是"哪来的"） */
 /* v250：「导入」来源标已撤（用户反馈徽章形似按钮、看着像要点击）；原 .imp-tag 样式随之删除，不留死 CSS */
 /* v179：不在「在售档案」里的行（已停用/已删除）—— 琥珀色，与「导入」蓝明确区分 */
@@ -14641,7 +14641,7 @@ provide('sprintSummary', sprintSummary)
   /* v575：`vertical-align:1px`（相对基线上移）会让 15px 的 inline-flex 把品名行盒从 20px 顶到
      20.4px ⇒ 表格取整后整行 25px，比不带角标的 24px 高 1px、也比编辑态高。
      改成 `middle` 后角标在 20px 行盒内居中，行高与「无角标 / 编辑态」完全一致。 */
-  font-size:var(--fs-xs);font-weight:400;margin-left:6px;vertical-align:middle;
+  font-size:var(--fs-xs);font-weight:400;margin-left:var(--sp-h6);vertical-align:middle;
   background:var(--bg2);color:var(--t2);white-space:nowrap}
 
 /* v193（既定方案 §五 阶段 0）：无「进行中期次」时的**常驻通告条**。
@@ -14649,20 +14649,20 @@ provide('sprintSummary', sprintSummary)
    不用 danger —— 这是「还差一步」而不是「出错了」。
    ⚠️ 布局影响：期次就绪时整条**不在 DOM 里**（v-if），故对既有用户零位移；
    出现时是页面纵向流的第一个块，不挤压工具栏那一行（不参与 .tb-group 的宽度竞争）。 */
-.gate-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 14px;
+.gate-bar{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-3);padding:var(--sp-h10) var(--sp-h14);
   border-radius:var(--radius-md);font-size:var(--fs-sm);line-height:1.6;
   background:var(--warn-amber-bg);color:var(--warn-amber)}
 .gate-bar .gate-txt{flex:1}
 .gate-bar b{font-weight:600}
-.new-period{margin-bottom:14px}
+.new-period{margin-bottom:var(--sp-h14)}
 /* v242h（用户定）：**行内标签**（label 在输入框左侧）+ 输入框本地降到 32px + 收窄宽度。
    为什么 32px：与 .btn-sm / 本页工具栏（期次选择器 32 + 新建期次按钮 32）齐平，整行一个高度。
    为什么要收窄：原 `.np-fld{flex:1}` 把 4 个字段各拉到卡片 1/4，日期框被撑到 200px+ ——
    一个「2026-09-22」用不了那么宽，纯浪费。现在日期固定 140px、名称 240px，行内不抢空间。 */
-.np-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.np-fld{display:flex;align-items:center;gap:6px;flex:0 0 auto}
-.np-fld>span{font-size:12px;color:var(--t2);white-space:nowrap}
-.np-fld .input{flex:none;width:130px;height:32px;min-width:0;padding:0 10px}
+.np-row{display:flex;gap:var(--sp-h10);flex-wrap:wrap;align-items:center}
+.np-fld{display:flex;align-items:center;gap:var(--sp-h6);flex:0 0 auto}
+.np-fld>span{font-size:var(--fs-sm);color:var(--t2);white-space:nowrap}
+.np-fld .input{flex:none;width:130px;height:32px;min-width:0;padding:0 var(--sp-h10)}
 /* v273：新建期次表单里「沿用上一期商品清单」的勾选开关。
    刻意**不复用** `.np-fld>span` 的灰字 —— 那是字段标签的样式；这里是可操作的选择项，
    字体要能看出「可以点」。高度与同排 32px 输入框对齐，避免整行高低不齐。
@@ -14672,36 +14672,36 @@ provide('sprintSummary', sprintSummary)
    藏住尾部。改成**允许换行 + 可收缩**：文字永远完整，行宽不够时自己折行，不挤按钮。 */
 .np-fld-chk{cursor:pointer;user-select:none;min-height:32px}
 .np-fld-chk>input{flex:none;width:14px;height:14px;margin:0;cursor:pointer}
-.np-fld-chk>span{font-size:12px;color:var(--t1);white-space:normal;line-height:1.35;max-width:420px;min-width:0;overflow-wrap:anywhere}
+.np-fld-chk>span{font-size:var(--fs-sm);color:var(--t1);white-space:normal;line-height:1.35;max-width:420px;min-width:0;overflow-wrap:anywhere}
 /* 名称要比日期宽（「9月20日报单9月25日到货」这类名字装得下） */
 .np-fld-name .input{width:210px}
 /* v180 期次软警告（同名 / 窗口重叠）—— 非阻塞提示；硬规则由后端 period_validate 拦截 */
-.np-hint-warn{font-size:12px;color:var(--warn-amber);background:rgba(245,158,11,.1);border-left:3px solid rgba(245,158,11,.5);border-radius:var(--radius-sm);padding:6px 9px;margin:8px 0 0;line-height:1.55}
-.np-warn{margin:10px 0 0;padding-left:18px;font-size:var(--fs-sm);line-height:1.7;color:var(--war)}
+.np-hint-warn{font-size:var(--fs-sm);color:var(--warn-amber);background:rgba(245,158,11,.1);border-left:3px solid rgba(245,158,11,.5);border-radius:var(--radius-sm);padding:var(--sp-h6) 9px;margin:var(--sp-2) 0 0;line-height:1.55}
+.np-warn{margin:var(--sp-h10) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-sm);line-height:1.7;color:var(--war)}
 /* v180 导入弹窗「本期归属」行 —— 归属由后端在导入那一刻定死，故必须前置展示 */
-.imp-own{margin:0 0 12px;font-size:var(--fs-sm);line-height:1.7;color:var(--t2)}
+.imp-own{margin:0 0 var(--sp-3);font-size:var(--fs-sm);line-height:1.7;color:var(--t2)}
 .imp-own b{color:var(--t1)}
 .imp-own.warn{color:var(--war)}
 .imp-own.warn :deep( b){color:var(--war)}
-.imp-own .btn{margin-left:6px;vertical-align:middle}
+.imp-own .btn{margin-left:var(--sp-h6);vertical-align:middle}
 /* v180 改期次弹窗 */
 .pe-modal{width:min(520px,94vw)}
-.pc-shift{display:flex;align-items:center;gap:8px;margin:12px 0 10px;flex-wrap:wrap}
+.pc-shift{display:flex;align-items:center;gap:var(--sp-2);margin:var(--sp-3) 0 var(--sp-h10);flex-wrap:wrap}
 .pc-shift-lab{font-size:var(--fs-sm);color:var(--t2)}
 .pc-shift-tip{font-size:var(--fs-sm);color:var(--t3)}
 /* v184 空期次的表内引导行：表头保留（列与列右键可达），只替换表体 */
-.empty-row :deep( td){background:transparent;border-bottom:none;padding:34px 16px!important;text-align:center}
-.empty-row .er-t{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:6px}
-.empty-row .er-s{font-size:var(--fs-sm);color:var(--t3);line-height:1.7;margin-bottom:14px}
-.empty-row .er-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.empty-row :deep( td){background:transparent;border-bottom:none;padding:34px var(--sp-4)!important;text-align:center}
+.empty-row .er-t{font-size:var(--fs-md);font-weight:600;color:var(--t1);margin-bottom:var(--sp-h6)}
+.empty-row .er-s{font-size:var(--fs-sm);color:var(--t3);line-height:1.7;margin-bottom:var(--sp-h14)}
+.empty-row .er-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-h14)}
 .empty-row .er-ic svg{width:24px;height:24px}
-.empty-row .er-ops{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
-.pe-grid{display:grid;grid-template-columns:76px 1fr;gap:10px 12px;align-items:center}
+.empty-row .er-ops{display:flex;gap:var(--sp-2);justify-content:center;flex-wrap:wrap}
+.pe-grid{display:grid;grid-template-columns:76px 1fr;gap:var(--sp-h10) var(--sp-3);align-items:center}
 .pe-grid label{font-size:var(--fs-sm);color:var(--t2)}
 .draft-section{}
-.search-row{display:flex;gap:8px;position:relative}
+.search-row{display:flex;gap:var(--sp-2);position:relative}
 .search-dropdown{position:absolute;top:42px;left:0;right:60px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-md);max-height:280px;overflow-y:auto;z-index:100}
-.sd-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:10px}
+.sd-item{padding:var(--sp-h10) var(--sp-h14);cursor:pointer;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:var(--sp-h10)}
 .sd-item:hover{background:var(--bg2)}
 .sd-main{flex:1;min-width:0}
 .sd-alias{flex-shrink:0}
@@ -14709,20 +14709,20 @@ provide('sprintSummary', sprintSummary)
    → 一并提到 1125/1130，否则商品别名弹窗同样会被工具栏 .tb-pop（v678 起 1101，此前 1120）遮挡。 */
 .al-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-page-modal-overlay)}
 .al-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(400px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-page-modal);box-shadow:var(--shadow-lg)}
-.al-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle)}
-.al-hd b{font-size:14px}
-.al-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.al-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-h14) var(--sp-h18);border-bottom:1px solid var(--border-subtle)}
+.al-hd b{font-size:var(--fs-md)}
+.al-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .al-x:hover{color:var(--p-dark);background:var(--bg2);border-radius:var(--radius-sm)}
-.al-body{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
-.al-tip{font-size:12px;color:var(--t2);line-height:1.6}
-.al-input{width:100%;padding:10px;font-size:13px}
-.al-current{font-size:12px;color:var(--t3)}
-.al-ft{display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--border-subtle)}
-.sd-name{font-size:13px;font-weight:500}
-.sd-spec{font-size:12px;color:var(--t3);margin-left:6px}
-.sd-meta{font-size:12px;color:var(--t3);margin-top:2px}
+.al-body{padding:var(--sp-4) var(--sp-h18);display:flex;flex-direction:column;gap:var(--sp-h10)}
+.al-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.6}
+.al-input{width:100%;padding:var(--sp-h10);font-size:var(--fs-base)}
+.al-current{font-size:var(--fs-sm);color:var(--t3)}
+.al-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-3) var(--sp-h18);border-top:1px solid var(--border-subtle)}
+.sd-name{font-size:var(--fs-base);font-weight:500}
+.sd-spec{font-size:var(--fs-sm);color:var(--t3);margin-left:var(--sp-h6)}
+.sd-meta{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
 .sd-bc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;opacity:.85}
-.qty-input{width:72px;height:32px;padding:0 6px;border:1px solid var(--bd);border-radius:var(--radius-sm);text-align:right;background:var(--bg3);color:var(--t1)}
+.qty-input{width:72px;height:32px;padding:0 var(--sp-h6);border:1px solid var(--bd);border-radius:var(--radius-sm);text-align:right;background:var(--bg3);color:var(--t1)}
 /* 🔴 v606：**编辑表 31px 行高的元凶**。原来是 30×30 + `display:inline-flex` ⇒ 按**基线**
    参与行盒（和 v579 表头齿轮同一个坑），把 20px 的行硬顶到 31px，154 行白丢 11px×153。
    改法同 v579：`display:flex`（block 级 ⇒ 不生成行内行盒，居中交给 `margin:0 auto`），
@@ -14746,18 +14746,18 @@ provide('sprintSummary', sprintSummary)
 .cover-ok{color:var(--t2)}
 
 /* 建议量「为什么」 */
-.sug-cell{display:inline-flex;align-items:center;gap:4px;position:relative}
+.sug-cell{display:inline-flex;align-items:center;gap:var(--sp-1);position:relative}
 .why{display:inline-flex;align-items:center;color:var(--t3);cursor:help}
 .why:hover{color:var(--p-dark)}
-.why-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:230px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:11px 13px;z-index:60;font-size:12px;color:var(--t2);line-height:1.8;text-align:left;white-space:nowrap}
+.why-tip{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:230px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:11px 13px;z-index:60;font-size:var(--fs-sm);color:var(--t2);line-height:1.8;text-align:left;white-space:nowrap}
 .why:hover .why-tip{display:block}
 .why-formula{white-space:nowrap}
 .why-result{color:var(--p-dark);font-weight:500;margin-top:3px;padding-top:3px;border-top:1px solid var(--border-subtle)}
 
 @media(max-width:768px){
-  .toolbar{padding:10px 12px;gap:6px}
-  .toolbar>.tb-edit-group{gap:6px}
-  .grid-ctl-row{gap:6px}
+  .toolbar{padding:var(--sp-h10) var(--sp-3);gap:var(--sp-h6)}
+  .toolbar>.tb-edit-group{gap:var(--sp-h6)}
+  .grid-ctl-row{gap:var(--sp-h6)}
   .search-dropdown{right:0}
 }
 
@@ -14781,8 +14781,8 @@ provide('sprintSummary', sprintSummary)
 :deep(td.flash), :deep(.qty-cell.flash){animation:cellFlash .45s ease-out 2}
 @keyframes cellFlash{0%{outline:2px solid var(--p-dark);outline-offset:-2px}100%{outline-color:transparent}}
 /* v219 打磨②：改动记录列表 */
-.undo-list{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow-y:auto;margin:8px 0;border:1px solid var(--bd);border-radius:var(--radius-md)}
-.undo-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:none;border:0;border-bottom:1px solid var(--bd);cursor:pointer;text-align:left;font-size:var(--fs-sm);color:var(--t1)}
+.undo-list{display:flex;flex-direction:column;gap:var(--sp-h2);max-height:320px;overflow-y:auto;margin:var(--sp-2) 0;border:1px solid var(--bd);border-radius:var(--radius-md)}
+.undo-item{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-h6) var(--sp-2);background:none;border:0;border-bottom:1px solid var(--bd);cursor:pointer;text-align:left;font-size:var(--fs-sm);color:var(--t1)}
 .undo-item:last-child{border-bottom:0}
 .undo-item:hover{background:var(--p-bg)}
 .undo-idx{flex:0 0 28px;color:var(--t3);font-variant-numeric:tabular-nums;font-size:var(--fs-sm)}
@@ -14790,27 +14790,27 @@ provide('sprintSummary', sprintSummary)
 /* 行号格标红：长表里先看见「哪一行有问题」，再落到具体格 */
 :deep(.td.seq-cell.row-bad){background:var(--danger-bg);color:var(--danger-txt);font-weight:600}
 :deep(.td.seq-cell.row-bad .seq-num){color:var(--danger-txt)}
-.basis-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}
+.basis-toggle{display:inline-flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t2)}
 /* 表格工具行的「仅显示有报单」开关。
    v169 规格对齐：它原先自成一派（12px/400/var(--bg3) 底/10px 内边距），与同行的
    品牌、复制报单（.btn .btn-sm .btn-ghost → 13px/500/透明底/12px 内边距）肉眼可见地
    不一致（字号与字重有粗细跳变）。此处改为与 .btn-sm.btn-ghost 逐属性同值，
    使整行三种控件只有一种文字规格。注意本行是页面 scoped 样式，覆盖的是全局
    .btn-sm 的同名视觉属性，改这里等于把这一个控件的规格「归队」。 */
-.tb-toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;color:var(--t1);background:transparent;border:1px solid var(--bd);border-radius:var(--radius-sm);height:32px;padding:0 12px;white-space:nowrap;cursor:pointer;user-select:none;flex:0 0 auto}
+.tb-toggle{display:inline-flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-base);font-weight:500;color:var(--t1);background:transparent;border:1px solid var(--bd);border-radius:var(--radius-sm);height:32px;padding:0 var(--sp-3);white-space:nowrap;cursor:pointer;user-select:none;flex:0 0 auto}
 .tb-toggle:hover{background:var(--bg2)}
 .tb-toggle input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
-.basis-toggle select{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:2px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
+.basis-toggle select{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:var(--sp-h2) var(--sp-h6);font-size:var(--fs-sm);background:var(--bg);color:var(--t1)}
 /* v585：编辑态汇总行由纯文本改为「文本 + 右侧冲刺胶囊」两段（flex）。
    gap 12px 小于只读页脚的 18px：编辑态左侧文案更长，胶囊又要靠右，挤一点更不容易折行。 */
-.edit-summary{margin-top:8px;font-size:13px;color:var(--t2);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.edit-summary{margin-top:var(--sp-2);font-size:var(--fs-base);color:var(--t2);display:flex;align-items:baseline;gap:var(--sp-3);flex-wrap:wrap}
 /* v604：推右交给常显容器 `.es-right`。原来 auto 挂在 `.pin-sprint` 上，而 SprintChip 根带
    `v-if="show"`（无冲刺数据时不渲染）⇒ 推手会整块消失、整行退化成左对齐（真机实测右侧空 211px）。 */
-.edit-summary>.es-right{margin-left:auto;align-self:center;display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
-.edit-summary b{color:var(--p-dark);font-size:15px}
+.edit-summary>.es-right{margin-left:auto;align-self:center;display:flex;align-items:center;gap:var(--sp-3);flex-wrap:nowrap}
+.edit-summary b{color:var(--p-dark);font-size:var(--fs-h4)}
 /* v666：改单态合计恒为全量 —— 筛选生效时把这句话明写出来（避免"保存只存筛出来的"的误解） */
-.edit-summary>.es-note{font-size:12px;color:var(--t3)}
-.link-btn{border:none;background:none;color:var(--warn-amber);text-decoration:underline;cursor:pointer;font-size:12px;padding:0}
+.edit-summary>.es-note{font-size:var(--fs-sm);color:var(--t3)}
+.link-btn{border:none;background:none;color:var(--warn-amber);text-decoration:underline;cursor:pointer;font-size:var(--fs-sm);padding:0}
 
 /* ---- P3-P4 增强样式 ---- */
 :deep(.warn-low){background:var(--danger-bg) !important}
@@ -14830,9 +14830,9 @@ provide('sprintSummary', sprintSummary)
 :deep(.cell-dirty-dot){position:absolute;right:0;top:0;width:0;height:0;border-top:6px solid var(--p);border-left:6px solid transparent;z-index:4;pointer-events:none;opacity:.9}
 /* v598（C2）：跳转框。固定垂直位置在视口上方 14%（不遮住当前行），水平居中；
    z-index 高于页面浮层（--z-page-fs=1000）与表体浮层（1250 同档），避免被全屏网格压住。 */
-.jump-pop{position:fixed;left:50%;top:14vh;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);box-shadow:0 14px 36px rgba(0,0,0,.18);min-width:380px;box-sizing:border-box}
+.jump-pop{position:fixed;left:50%;top:14vh;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-h10) var(--sp-3);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);box-shadow:0 14px 36px rgba(0,0,0,.18);min-width:380px;box-sizing:border-box}
 .jump-ic{display:flex;align-items:center;flex:none;color:var(--t2)}
-.jump-input{flex:1;min-width:190px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-xs);background:var(--bg);color:var(--t1);font-size:13px;outline:none;box-sizing:border-box}
+.jump-input{flex:1;min-width:190px;height:32px;padding:0 var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-xs);background:var(--bg);color:var(--t1);font-size:var(--fs-base);outline:none;box-sizing:border-box}
 .jump-input:focus{border-color:var(--p)}
 /* v212（P2-2）：软警告角标（黄=疑）—— 与红角标**同形不同角**，靠颜色深浅分两档。
    位置：**右上角**（红在左上、填充柄在右下、左下留给行号格的红条，四角不打架）。
@@ -14846,24 +14846,24 @@ provide('sprintSummary', sprintSummary)
 :deep(.cell-soft-dot svg.ico){width:9px;height:9px;vertical-align:top;margin:0}
 .cell-soft-dot.soft-miss{background:var(--sev-warn);color:var(--bg)}
 .cell-soft-dot.soft-over{background:var(--sev-warn-bg);color:var(--sev-warn)}
-:deep(.name-badges){position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:2px;pointer-events:none}
+:deep(.name-badges){position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:var(--sp-h2);pointer-events:none}
 .name-badges :deep(>span){margin-left:0;pointer-events:auto}
 /* v613：「待上架」角标。沿用 v606 那条纪律 —— 格内行内控件的尺寸必须自己钉死，
    否则它会按基线/默认行高把 21px 数据行顶高（`.btn-del` 30×30 就是这么把表撑到 31px 的）。 */
-:deep(.listadd-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:var(--radius-2xs);background:var(--p-bg);color:var(--p-dark);font-size:11px;white-space:nowrap;vertical-align:middle}
+:deep(.listadd-badge){display:inline-block;height:14px;line-height:14px;padding:0 var(--sp-1);border-radius:var(--radius-2xs);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-xs);white-space:nowrap;vertical-align:middle}
 /* v614：撤下角标 —— 与上架角标同尺寸（14 高 / 10 号字），只换配色，避免行内出现两种高度 */
-:deep(.listdel-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:var(--radius-2xs);background:var(--danger-bg);color:var(--danger-txt);font-size:11px;white-space:nowrap;vertical-align:middle}
-:deep(.warn-badge){display:inline-block;margin-left:3px;font-size:11px;color:var(--danger-txt);vertical-align:middle}
+:deep(.listdel-badge){display:inline-block;height:14px;line-height:14px;padding:0 var(--sp-1);border-radius:var(--radius-2xs);background:var(--danger-bg);color:var(--danger-txt);font-size:var(--fs-xs);white-space:nowrap;vertical-align:middle}
+:deep(.warn-badge){display:inline-block;margin-left:3px;font-size:var(--fs-xs);color:var(--danger-txt);vertical-align:middle}
 :deep(.warn-badge.short){color:var(--warn-amber)}
 :deep(.diff-chg){outline:2px solid var(--p);outline-offset:-2px}
-:deep(.mini-btn){margin-left:4px;font-size:11px;padding:1px 6px;border:1px solid var(--p);color:var(--p-dark);background:transparent;border-radius:var(--radius-sm);cursor:pointer}
+:deep(.mini-btn){margin-left:var(--sp-1);font-size:var(--fs-xs);padding:1px var(--sp-h6);border:1px solid var(--p);color:var(--p-dark);background:transparent;border-radius:var(--radius-sm);cursor:pointer}
 /* v606：编辑表里所有「格内的行内控件」都必须 ≤ `--fc-cell`，否则它们会按基线把行盒顶高
    （同 `.btn-del` 那个坑）。这里把「采纳」压到 16px 内容高并改中线对齐。 */
-:deep(.edit-tbl .mini-btn){height:16px;line-height:14px;padding:0 5px;font-size:11px;vertical-align:middle}
+:deep(.edit-tbl .mini-btn){height:16px;line-height:14px;padding:0 5px;font-size:var(--fs-xs);vertical-align:middle}
 :deep(.mini-btn:disabled){opacity:.4;cursor:default}
 :deep(.suggest){color:var(--p-dark);font-weight:500}
 /* v662：建议为 0 但到货前会断货 —— 显示缺口，别让「0」看着像"不用管" */
-:deep(.sg-gap){color:var(--dan);font-size:11px;font-weight:600;cursor:help}
+:deep(.sg-gap){color:var(--dan);font-size:var(--fs-xs);font-weight:600;cursor:help}
 :deep(.delta.up){color:var(--suc)}
 :deep(.delta.down){color:var(--danger-txt)}
 :deep(.spark-td){text-align:center}
@@ -14872,128 +14872,128 @@ provide('sprintSummary', sprintSummary)
    一旦哪天给它加了 text-align，趋势列表头就会与数据格错位。
    补一条显式声明（与 `.qty-th` / `.seq-th` / `.op-th` 同款），视觉零变化。 */
 .spark-th{text-align:center}
-:deep(.spark-td .muted){color:var(--t3);font-size:11px}
+:deep(.spark-td .muted){color:var(--t3);font-size:var(--fs-xs)}
 .foot-row :deep( td){background:var(--bg3);font-weight:500}
 :deep(.foot-row td.frozen){background:var(--bg3);z-index:6}
-.grp-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:5px 12px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;white-space:nowrap;text-align:left}
+.grp-btn{display:inline-flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-sm);padding:5px var(--sp-3);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;white-space:nowrap;text-align:left}
 .grp-btn:hover{border-color:var(--p)}
 .grp-btn.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 .grp-btn.danger{color:var(--dan);border-color:rgba(var(--dan-rgb),.4)}
 .grp-btn.danger:hover{border-color:var(--dan)}
-.grp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg2);border:0.5px solid var(--bd);border-radius:var(--radius-md)}
-.batch-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:var(--radius-sm);font-size:12px}
-.batch-val{width:84px;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:4px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
-.snap-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px}
-.recipe-panel{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:12px}
-.recipe-panel>span{display:inline-flex;align-items:center;gap:4px;color:var(--t2)}
-.recipe-val{width:64px;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
-:deep(.loss-badge){cursor:help;font-size:11px;margin-left:2px}
+.grp-row{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-2);padding:var(--sp-2) var(--sp-h10);background:var(--bg2);border:0.5px solid var(--bd);border-radius:var(--radius-md)}
+.batch-panel{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap;margin-top:var(--sp-2);padding:var(--sp-2) var(--sp-h10);background:var(--bg3);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
+.batch-val{width:84px;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:var(--sp-1) var(--sp-h6);font-size:var(--fs-sm);background:var(--bg);color:var(--t1)}
+.snap-bar{display:flex;gap:var(--sp-h6);flex-wrap:wrap;align-items:center;margin-top:var(--sp-2);font-size:var(--fs-sm)}
+.recipe-panel{display:flex;gap:var(--sp-h10);flex-wrap:wrap;align-items:center;margin-top:var(--sp-2);padding:var(--sp-2) var(--sp-h10);background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
+.recipe-panel>span{display:inline-flex;align-items:center;gap:var(--sp-1);color:var(--t2)}
+.recipe-val{width:64px;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:3px var(--sp-h6);font-size:var(--fs-sm);background:var(--bg);color:var(--t1)}
+:deep(.loss-badge){cursor:help;font-size:var(--fs-xs);margin-left:var(--sp-h2)}
 .loss-badge.risk{color:var(--sev-risk)}
 .loss-badge.watch{color:var(--sev-warn)}
-:deep(.note-badge){cursor:pointer;font-size:11px;margin-left:2px;opacity:.65}
+:deep(.note-badge){cursor:pointer;font-size:var(--fs-xs);margin-left:var(--sp-h2);opacity:.65}
 :deep(.note-badge:hover){opacity:1}
 :deep(.moq-below){background:var(--sev-risk-bg);color:var(--sev-risk);font-weight:500}
-.info-panel{margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:12px}
-.info-panel .panel-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.info-panel .imp-x{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px;line-height:1}
+.info-panel{margin-top:var(--sp-h10);padding:var(--sp-h10) var(--sp-3);background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
+.info-panel .panel-hd{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-h6)}
+.info-panel .imp-x{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--t2);font-size:var(--fs-md);line-height:1}
 /* v591：前端构建号（很淡，只在需要核对版本时才被看到） */
-.hg-build{margin-left:6px;font-size:11px;color:var(--t3,var(--t2));opacity:.7;user-select:text}
+.hg-build{margin-left:var(--sp-h6);font-size:var(--fs-xs);color:var(--t3,var(--t2));opacity:.7;user-select:text}
 /* v174：查错结果面板 —— 上排是「按原因分组」的总览（点一下只看该类），
    下面是逐条明细，每条自带「第几行 · 商品 · 列」，点一条跳到那一格。 */
-.err-grps{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
-.err-grp{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:var(--radius-pill);padding:2px 9px;font-size:12px;line-height:1.7;cursor:pointer}
+.err-grps{display:flex;flex-wrap:wrap;gap:var(--sp-h6);margin:var(--sp-h2) 0 var(--sp-2)}
+.err-grp{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:var(--radius-pill);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);line-height:1.7;cursor:pointer}
 .err-grp:hover{border-color:var(--p);color:var(--t1)}
 .err-grp.on{border-color:var(--p);background:var(--p-bg);color:var(--p-deep);font-weight:600}
 .err-list-wrap{max-height:240px;overflow:auto}
 .err-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
-.err-list li{display:flex;gap:10px;align-items:baseline;padding:3px 8px;border-radius:var(--radius-sm);cursor:pointer;line-height:1.7}
+.err-list li{display:flex;gap:var(--sp-h10);align-items:baseline;padding:3px var(--sp-2);border-radius:var(--radius-sm);cursor:pointer;line-height:1.7}
 .err-list li:hover{background:color-mix(in srgb,var(--p) 12%,transparent)}
 /* 位置列封顶 + 省略号：客户名/商品名可能很长，不封会把面板撑出横向滚动条 */
 .err-loc{flex:none;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)}
 .err-why{color:var(--danger-txt);font-weight:600}
-.err-more{margin-top:6px;color:var(--t2)}
+.err-more{margin-top:var(--sp-h6);color:var(--t2)}
 /* v219 打磨⑤：查错面板的一键修复条 + 修复预览弹窗 */
-.err-fixbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 8px}
-.err-fixhint{font-size:12px;color:var(--t2);line-height:1.6}
-.fix-mask{position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:var(--z-mask);display:flex;align-items:center;justify-content:center;padding:20px}
+.err-fixbar{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin:0 0 var(--sp-2)}
+.err-fixhint{font-size:var(--fs-sm);color:var(--t2);line-height:1.6}
+.fix-mask{position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:var(--z-mask);display:flex;align-items:center;justify-content:center;padding:var(--sp-5)}
 .fix-dlg{width:min(720px,94vw);max-height:86vh;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);overflow:hidden}
-.fix-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--bd);font-size:var(--fs-base)}
-.fix-tip{margin:0;padding:10px 16px;font-size:var(--fs-sm);color:var(--t2);line-height:1.7;background:var(--bg2)}
-.fix-list-wrap{flex:1 1 auto;overflow:auto;padding:6px 10px}
+.fix-hd{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h10);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--bd);font-size:var(--fs-base)}
+.fix-tip{margin:0;padding:var(--sp-h10) var(--sp-4);font-size:var(--fs-sm);color:var(--t2);line-height:1.7;background:var(--bg2)}
+.fix-list-wrap{flex:1 1 auto;overflow:auto;padding:var(--sp-h6) var(--sp-h10)}
 .fix-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
-.fix-list li{display:flex;gap:10px;align-items:baseline;padding:5px 8px;border-radius:var(--radius-sm);line-height:1.7;font-size:var(--fs-sm)}
+.fix-list li{display:flex;gap:var(--sp-h10);align-items:baseline;padding:5px var(--sp-2);border-radius:var(--radius-sm);line-height:1.7;font-size:var(--fs-sm)}
 .fix-list li:nth-child(odd){background:var(--bg2)}
 .fix-loc{flex:none;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)}
 .fix-chg{flex:none;font-variant-numeric:tabular-nums}
 .fix-old{color:var(--t3)}
 .fix-new{color:var(--p-deep)}
 .fix-how{flex:1 1 auto;color:var(--t2);font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fix-ft{display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--bd)}
-.fix-rest{flex:1 1 auto;font-size:12px;color:var(--dan)}
+.fix-ft{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-3) var(--sp-4);border-top:1px solid var(--bd)}
+.fix-rest{flex:1 1 auto;font-size:var(--fs-sm);color:var(--dan)}
 .fix-ft .btn:first-of-type{margin-left:auto}
 /* v219 打磨⑥：数量上限入口与编辑弹窗 */
-.err-rulebtn{margin-left:auto;border:1px dashed var(--bd);background:none;color:var(--t2);border-radius:var(--radius-pill);padding:2px 9px;font-size:12px;line-height:1.7;cursor:pointer;white-space:nowrap}
+.err-rulebtn{margin-left:auto;border:1px dashed var(--bd);background:none;color:var(--t2);border-radius:var(--radius-pill);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);line-height:1.7;cursor:pointer;white-space:nowrap}
 .err-rulebtn:hover{border-color:var(--p);color:var(--p-deep)}
 .rule-dlg{width:min(420px,94vw)}
-.rule-body{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.rule-body{padding:var(--sp-h14) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-2)}
 .rule-label{font-size:var(--fs-sm);color:var(--t2)}
-.rule-input{border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);padding:6px 10px;font-size:13px;font-variant-numeric:tabular-nums;outline:none}
+.rule-input{border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);padding:var(--sp-h6) var(--sp-h10);font-size:var(--fs-base);font-variant-numeric:tabular-nums;outline:none}
 .rule-input:focus{border-color:var(--p)}
-.rule-hint{font-size:12px;color:var(--t2)}
+.rule-hint{font-size:var(--fs-sm);color:var(--t2)}
 .err-empty{color:var(--t2)}
-.push-list,.health-list{margin:0;padding-left:18px;line-height:1.8}
-.health-list li{cursor:pointer;display:flex;align-items:center;gap:6px}
+.push-list,.health-list{margin:0;padding-left:var(--sp-h18);line-height:1.8}
+.health-list li{cursor:pointer;display:flex;align-items:center;gap:var(--sp-h6)}
 .health-list li:hover{text-decoration:underline}
 .sev-risk{color:var(--sev-risk)}.sev-warn{color:var(--sev-warn)}.sev-info{color:var(--sev-info)}
 .sev-dot{width:7px;height:7px;border-radius:var(--radius-circle);flex:none;display:inline-block}
 .sev-risk .sev-dot{background:var(--sev-risk)}.sev-warn .sev-dot{background:var(--sev-warn)}.sev-info .sev-dot{background:var(--sev-info)}
 /* v166 修改日志面板：已从编辑态网格区搬到工具栏正下方，成为 .page 的直属元素（不再是卡片内
    的次级面板），故按 .card 的外观给（白底 / 同半径 / 同边框），免得与其它卡片割裂。 */
-.audit-log-panel{margin:0 0 14px;padding:14px 16px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-lg)}
+.audit-log-panel{margin:0 0 var(--sp-h14);padding:var(--sp-h14) var(--sp-4);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-lg)}
 /* 后端每期最多留 200 条 → 列表内部滚动，别把汇总表整张顶出屏幕 */
-.audit-log-panel .at-log{max-height:300px;overflow:auto;padding-right:4px}
+.audit-log-panel .at-log{max-height:300px;overflow:auto;padding-right:var(--sp-1)}
 /* v166 修改日志：每条是「时间 · 修改人 · 动作 · 明细」，文字长需换行，故不复用 .health-list
    的「单行 flex 且 hover 下划线」范式——那里隐含着"这一条可以点"，而留痕条只是展示。 */
 .at-log li{cursor:default;display:block;line-height:1.9}
 .at-log li:hover{text-decoration:none}
-.at-log .sev-dot{margin-right:6px;vertical-align:middle}
+.at-log .sev-dot{margin-right:var(--sp-h6);vertical-align:middle}
 .at-time{color:var(--t3);font-variant-numeric:tabular-nums}
 .at-who{color:var(--t1)}
 .at-act{color:var(--t2)}
-.at-global{margin-top:8px;border-top:1px dashed var(--bd);padding-top:8px}
-.at-global-hd{display:flex;align-items:center;gap:6px;border:none;background:none;cursor:pointer;color:var(--t2);font-size:12px;padding:0;margin-bottom:4px}
+.at-global{margin-top:var(--sp-2);border-top:1px dashed var(--bd);padding-top:var(--sp-2)}
+.at-global-hd{display:flex;align-items:center;gap:var(--sp-h6);border:none;background:none;cursor:pointer;color:var(--t2);font-size:var(--fs-sm);padding:0;margin-bottom:var(--sp-1)}
 .at-global-hd:hover{color:var(--t1)}
 /* v605：`.es-pager / .pg-btn / .pg-info` 随分页控件一起删除（页脚右侧现在只有冲刺胶囊 + 快捷键）。 */
 /* P8/P9/P10 新增强样式 */
-:deep(.rt-badge){cursor:help;font-size:11px;margin-left:2px}
+:deep(.rt-badge){cursor:help;font-size:var(--fs-xs);margin-left:var(--sp-h2)}
 .rt-badge.stockout{color:var(--sev-risk)}:deep(.rt-badge.low){color:var(--sev-warn)}.rt-badge.expiry{color:var(--sev-info)}.rt-badge.expired{color:var(--sev-expired)}
-.book-area{width:100%;box-sizing:border-box;font-family:inherit;font-size:12px;line-height:1.6;padding:8px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);resize:vertical;margin-top:4px}
-.acc-tbl{margin-top:6px;font-size:12px}
+.book-area{width:100%;box-sizing:border-box;font-family:inherit;font-size:var(--fs-sm);line-height:1.6;padding:var(--sp-2);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);resize:vertical;margin-top:var(--sp-1)}
+.acc-tbl{margin-top:var(--sp-h6);font-size:var(--fs-sm)}
 :deep(.acc-tbl td.num), :deep(.acc-tbl th.num){text-align:right}
-.sub-bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.sub-bar{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:var(--sp-1)}
 .tag.st-draft{background:var(--st-draft-bg);color:var(--st-draft-txt)}.tag.st-submitted{background:var(--st-submitted-bg);color:var(--st-submitted-txt)}
 .tag.st-approved{background:var(--st-approved-bg);color:var(--st-approved-txt)}.tag.st-rejected{background:var(--st-rejected-bg);color:var(--st-rejected-txt)}.tag.st-revised{background:var(--st-revised-bg);color:var(--st-revised-txt)}
-.tmpl-form{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.tmpl-form{display:flex;gap:var(--sp-h6);flex-wrap:wrap;margin-top:var(--sp-2);align-items:center}
 .tmpl-form .input{width:auto;flex:1;min-width:120px}
-.bi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:6px}
-.bi-card{background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:10px;text-align:center}
-.bi-num{font-size:20px;font-weight:600;color:var(--p-ink)}
+.bi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-h10);margin-top:var(--sp-h6)}
+.bi-card{background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:var(--sp-h10);text-align:center}
+.bi-num{font-size:var(--fs-xl);font-weight:600;color:var(--p-ink)}
 .bi-num.warn{color:var(--sev-risk)}
-.bi-lbl{font-size:11px;color:var(--t2);margin-top:2px}
+.bi-lbl{font-size:var(--fs-xs);color:var(--t2);margin-top:var(--sp-h2)}
 /* P11-P13 第四轮增强样式 */
 /* v576：删掉品名旁的「缺批次/到期」三角角标（入口统一收在「补录批次资料」按钮 + 商品详情） */
-.gap-form{display:flex;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap}
-.rolling-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.gap-form{display:flex;gap:var(--sp-h6);align-items:center;margin-top:var(--sp-1);flex-wrap:wrap}
+.rolling-chips{display:flex;gap:var(--sp-h6);flex-wrap:wrap;margin-top:var(--sp-h6)}
 .rolling-chips .on{background:var(--p-solid);color:#fff;border-color:var(--p)}
-.var-cat{margin-top:8px;border-top:1px dashed var(--bd);padding-top:6px}
-.var-cat-hd{font-size:12px;font-weight:600;color:var(--t1);margin-bottom:4px}
-.nl-row{display:flex;gap:8px;align-items:center;margin-top:6px}
+.var-cat{margin-top:var(--sp-2);border-top:1px dashed var(--bd);padding-top:var(--sp-h6)}
+.var-cat-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin-bottom:var(--sp-1)}
+.nl-row{display:flex;gap:var(--sp-2);align-items:center;margin-top:var(--sp-h6)}
 /* P14-P16 第五轮增强样式 */
-:deep(.hs-badge){cursor:help;font-size:11px;margin-left:2px;color:var(--info-blue)}
-.mini-form{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+:deep(.hs-badge){cursor:help;font-size:var(--fs-xs);margin-left:var(--sp-h2);color:var(--info-blue)}
+.mini-form{display:flex;gap:var(--sp-h6);align-items:center;margin-top:var(--sp-h6);flex-wrap:wrap}
 .mini-form .input{flex:1;min-width:90px}
-.mini-msg{margin-top:6px;font-size:12px;color:var(--ok-green)}
-.heal-row{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:8px 10px;margin-top:8px;background:var(--bg)}
+.mini-msg{margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--ok-green)}
+.heal-row{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-h10);margin-top:var(--sp-2);background:var(--bg)}
 .heal-row.risk{border-left:3px solid var(--sev-risk)}
 .heal-row.warn{border-left:3px solid var(--sev-warn)}
 @media print{
@@ -15010,10 +15010,10 @@ provide('sprintSummary', sprintSummary)
 :deep(.cross-tbl.edit-tbl tbody tr.new-row > td.sel-col), :deep(.edit-tbl tbody tr.new-row > td.sel-col){box-shadow:inset 3px 0 0 var(--p),inset -1px 0 0 var(--p-border),inset 0 0 0 100vmax var(--p-bg)}
 .cross-tbl.edit-tbl :deep( tbody tr.new-row:hover > td), .edit-tbl :deep( tbody tr.new-row:hover > td){background:color-mix(in srgb,var(--p) 14%,var(--bg))}
 /* Q14：草稿恢复范围说明条 */
-.draft-banner{margin:6px 0;padding:6px 10px;border-radius:var(--radius-sm);background:color-mix(in srgb,var(--war) 14%,var(--bg));color:var(--t1);font-size:12px;line-height:1.6}
-.draft-banner .link-btn{margin-left:4px}
+.draft-banner{margin:var(--sp-h6) 0;padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);background:color-mix(in srgb,var(--war) 14%,var(--bg));color:var(--t1);font-size:var(--fs-sm);line-height:1.6}
+.draft-banner .link-btn{margin-left:var(--sp-1)}
 /* Q26/Q27：保存失败分流条 + 重试入口 */
-.save-fail-banner{margin:6px 0;padding:6px 10px;border-radius:var(--radius-sm);background:color-mix(in srgb,var(--dan) 14%,var(--bg));color:var(--t1);font-size:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.save-fail-banner{margin:var(--sp-h6) 0;padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);background:color-mix(in srgb,var(--dan) 14%,var(--bg));color:var(--t1);font-size:var(--fs-sm);display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center}
 .save-fail-banner .sf-partial{color:var(--war);font-weight:600}
 .save-fail-banner .sf-msg{color:var(--t2)}
 .save-fail-banner .sf-time{color:var(--t2);opacity:.7}
@@ -15023,22 +15023,22 @@ provide('sprintSummary', sprintSummary)
 :deep(.panel-hd svg.ico){width:16px;height:16px;vertical-align:-3px;margin-right:5px}
 /* ---- emoji → Icon 组件后的尺寸/对齐统一（设计规范：只用线性 SVG，不用 emoji） ---- */
 :deep(.ico){vertical-align:middle}
-:deep(.btn svg.ico){width:14px;height:14px;vertical-align:-2px;margin-right:4px}
+:deep(.btn svg.ico){width:14px;height:14px;vertical-align:-2px;margin-right:var(--sp-1)}
 :deep(.btn-primary svg.ico), :deep(.btn-ghost svg.ico){vertical-align:-2px}
 :deep(.rop svg.ico){width:14px;height:14px;vertical-align:middle}
 :deep(.grp-toggle svg.ico), :deep(.exp-chev svg.ico){width:14px;height:14px;vertical-align:middle}
-:deep(.name-badges svg.ico){width:12px;height:12px;vertical-align:middle;margin-left:2px}
+:deep(.name-badges svg.ico){width:12px;height:12px;vertical-align:middle;margin-left:var(--sp-h2)}
 :deep(.filter-chip .chip-x svg.ico){width:12px;height:12px;vertical-align:middle}
 :deep(.empty-ico svg.ico){width:40px;height:40px;opacity:.35}
-:deep(.ctx-menu button svg.ico){width:14px;height:14px;vertical-align:-2px;margin-right:6px}
+:deep(.ctx-menu button svg.ico){width:14px;height:14px;vertical-align:-2px;margin-right:var(--sp-h6)}
 :deep(.link-btn svg.ico){width:14px;height:14px;vertical-align:-2px}
 /* v215 商品名候选面板 —— 配色/圆角/阴影沿用 `.ctx-menu`（同一套浮层观感）。
    🔴 z-index 取 1101+：与 `.tb-pop-panel` 同级但更高，保证盖在工具栏浮层之上；
       又远低于全屏遮罩层（950 那条是表格内的），不会压住真正的模态。
    ⚠️ `position:fixed` + Teleport to body：表格有 overflow 容器与 sticky 表头，
       浮层留在单元格里会被裁掉。 */
-.name-sug-pop{position:fixed;z-index:var(--z-sug-pop);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:4px;max-height:220px;overflow-y:auto;font-size:var(--fs-sm)}
-.ns-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap}
+.name-sug-pop{position:fixed;z-index:var(--z-sug-pop);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:var(--sp-1);max-height:220px;overflow-y:auto;font-size:var(--fs-sm)}
+.ns-item{display:flex;align-items:center;gap:var(--sp-2);padding:5px var(--sp-2);border-radius:var(--radius-sm);cursor:pointer;white-space:nowrap}
 .ns-item.on{background:var(--p-bg);color:var(--p-dark)}
 .ns-name{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;font-weight:500}
 .ns-spec{flex:0 0 auto;color:var(--t3);font-size:var(--fs-sm)}
@@ -15048,10 +15048,10 @@ provide('sprintSummary', sprintSummary)
 :deep(.zb-btn svg.ico){width:14px;height:14px;vertical-align:middle}
 /* 品牌筛选下拉 + 期次复制弹窗 */
 .brand-pop{min-width:240px;max-height:62vh;overflow:auto}
-.brand-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600;color:var(--t1)}
+.brand-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);font-weight:600;color:var(--t1)}
 /* v671：头部里现在装着「全选三态框 + 清空链接」⇒ 必须 align-items:center，
    否则 13px 的复选框与 12px 的链接文字基线对不齐（看着像错位）。 */
-.brand-pop .bp-acts{display:flex;align-items:center;gap:6px}
+.brand-pop .bp-acts{display:flex;align-items:center;gap:var(--sp-h6)}
 /* v709：「全选」原本是一颗 13px 裸复选框 —— 功能早就有，但夹在 12px 灰字标题和「清空」
    链接之间完全不成形，用户反馈「现在只有清空按钮」。⇒ 包一层 label 挂文字，让它长得像
    一个能点的控件（点文字也能勾选，label 原生行为）。
@@ -15060,8 +15060,8 @@ provide('sprintSummary', sprintSummary)
    文字随三态切换（全选/取消全选），与右侧「清空」职责区分：全选 = 勾满所有候选，
    清空 = 一个都不勾（两者在「不勾 = 不过滤」口径下都显示全部行，但按钮角标不同）。 */
 .brand-pop .bp-selall{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;
-  font-size:12px;font-weight:400;color:var(--t2);cursor:pointer;user-select:none;
-  white-space:nowrap;padding:2px 5px;border-radius:var(--radius-xs);transition:background-color var(--dur-base),color var(--dur-base)}
+  font-size:var(--fs-sm);font-weight:400;color:var(--t2);cursor:pointer;user-select:none;
+  white-space:nowrap;padding:var(--sp-h2) 5px;border-radius:var(--radius-xs);transition:background-color var(--dur-base),color var(--dur-base)}
 .brand-pop .bp-selall:hover{background:var(--bg2);color:var(--p-ink)}
 .brand-pop .bp-selall.is-off{cursor:not-allowed;color:var(--t3);opacity:.55}
 .brand-pop .bp-selall.is-off:hover{background:none;color:var(--t3)}
@@ -15073,14 +15073,14 @@ provide('sprintSummary', sprintSummary)
      **normal → 0.00px**（与「清空」的 computed 值同为 `normal`、同 12px 字号 ⇒ 行盒同源）
    ⇒ 跟邻居用**同一个关键字**，不去猜数值；显式写 normal 是因为不写会继承到 19.2px。 */
 .brand-pop .bp-selall span{line-height:normal}
-.brand-pop .bp-list{display:flex;flex-direction:column;gap:4px;max-height:42vh;overflow:auto;padding:2px 0}
-.brand-pop .bp-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);cursor:pointer;padding:2px 2px}
+.brand-pop .bp-list{display:flex;flex-direction:column;gap:var(--sp-1);max-height:42vh;overflow:auto;padding:var(--sp-h2) 0}
+.brand-pop .bp-item{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);cursor:pointer;padding:var(--sp-h2) var(--sp-h2)}
 .brand-pop .bp-item:hover{background:var(--bg2)}
-.brand-pop .bp-empty{color:var(--t3);font-size:12px;margin:4px 0}
-.brand-pop .bp-tip{font-size:12px;color:var(--t3);margin:0;line-height:1.5}
+.brand-pop .bp-empty{color:var(--t3);font-size:var(--fs-sm);margin:var(--sp-1) 0}
+.brand-pop .bp-tip{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:1.5}
 /* v616：到货周期面板 —— 每档右侧的行数（「+3天 18」才是今天要下多少 SKU，是这个控件的核心信息）；
    未设置档的告警用 danger 色，因为它代表「这批商品不会出现在任何 +N 筛选里」= 漏单风险。 */
-.brand-pop .bp-item .bp-n{margin-left:auto;font-variant-numeric:tabular-nums;font-size:12px;color:var(--t3);padding-left:10px}
+.brand-pop .bp-item .bp-n{margin-left:auto;font-variant-numeric:tabular-nums;font-size:var(--fs-sm);color:var(--t3);padding-left:var(--sp-h10)}
 .brand-pop .bp-tip.warn{color:var(--danger-txt)}
 /* ⚠️ max-width 必写：.tb-pop-panel 是 shrink-to-fit，长 tip 的 max-content 会把面板撑开
    （实测 487px，而旁边品牌面板只有 240px）。与 .addcol-pop 同一条纪律。 */
@@ -15091,78 +15091,78 @@ provide('sprintSummary', sprintSummary)
 /* ===================== v618：批量设置到货周期（Modal 内容） =====================
    主语是**勾选的行**（v617 的按品牌版已废除）。三块信息按「确认 → 输入 → 后果」排：
    勾了什么 → 设成几天 → 会改几个。字色只用 t1/t2/t3 三档，不用装饰色。 */
-.cb-lead{margin:0 0 10px;font-size:13px;line-height:1.6;color:var(--t1)}
+.cb-lead{margin:0 0 var(--sp-h10);font-size:var(--fs-base);line-height:1.6;color:var(--t1)}
 .cb-lead b{color:var(--t1);font-weight:600}
-.cb-note{margin:8px 0 0;font-size:12px;line-height:1.5;color:var(--warn-amber)}
+.cb-note{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);line-height:1.5;color:var(--warn-amber)}
 .cb-note b{font-weight:600}
 /* 勾选摘要：左标签定宽 62px ⇒ 三行值左边界对齐（不是每行各排各的） */
-.rc-picked{display:flex;flex-direction:column;gap:6px;padding:10px 12px;
+.rc-picked{display:flex;flex-direction:column;gap:var(--sp-h6);padding:var(--sp-h10) var(--sp-3);
   border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--border-subtle)}
-.rc-line{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5}
+.rc-line{display:flex;align-items:flex-start;gap:var(--sp-2);font-size:var(--fs-sm);line-height:1.5}
 .rc-k{flex:none;width:62px;color:var(--t3)}
 .rc-v{flex:1;min-width:0;color:var(--t1)}
 .rc-v b{font-variant-numeric:tabular-nums}
 .rc-dist{display:flex;flex-wrap:wrap}
 .rc-none{color:var(--t3)}
-.cb-chip{display:inline-block;margin:1px 6px 1px 0;padding:1px 6px;border-radius:var(--radius-2xs);
-  background:var(--bg3);color:var(--t2);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cb-chip{display:inline-block;margin:1px var(--sp-h6) 1px 0;padding:1px var(--sp-h6);border-radius:var(--radius-2xs);
+  background:var(--bg3);color:var(--t2);font-size:var(--fs-sm);font-variant-numeric:tabular-nums;white-space:nowrap}
 .cb-chip.unset{background:var(--warn-amber-bg);color:var(--warn-amber)}
 /* 设置行：标签 + 输入 + 说明同基线；窄屏说明自然折到下一行 */
-.rc-set{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
-.rc-lb{font-size:13px;color:var(--t2)}
-.rc-hint{font-size:12px;color:var(--t3);line-height:1.4}
+.rc-set{display:flex;align-items:center;gap:var(--sp-h10);margin-top:var(--sp-h14);flex-wrap:wrap}
+.rc-lb{font-size:var(--fs-base);color:var(--t2)}
+.rc-hint{font-size:var(--fs-sm);color:var(--t3);line-height:1.4}
 .rc-hint b{color:var(--t2);font-weight:600}
 /* v673：批量设置下单日 —— 「统一设为」规则组 + 两个子输入（每周几 / 每月几号）。
    几何与同行基准同构（32 高 / 13 字 / 1px 边 / radius-sm），不另立一套外观（v599 纪律）。 */
-.rc-set-col{flex-direction:column;align-items:stretch;gap:8px}
-.ord-modes{display:flex;flex-wrap:wrap;gap:10px}
-.ord-mode{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--t1);
-  cursor:pointer;user-select:none;height:32px;padding:0 12px;border:1px solid var(--bd);
+.rc-set-col{flex-direction:column;align-items:stretch;gap:var(--sp-2)}
+.ord-modes{display:flex;flex-wrap:wrap;gap:var(--sp-h10)}
+.ord-mode{display:inline-flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t1);
+  cursor:pointer;user-select:none;height:32px;padding:0 var(--sp-3);border:1px solid var(--bd);
   border-radius:var(--radius-sm);background:transparent}
 .ord-mode:hover{background:var(--bg2)}
 .ord-mode input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
-.ord-sub{display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%}
-.ord-wd{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap}
+.ord-sub{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;width:100%}
+.ord-wd{display:inline-flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t1);cursor:pointer;white-space:nowrap}
 .ord-wd input{width:14px;height:14px;accent-color:var(--p);cursor:pointer}
 /* 每月几号是**文字输入**（3、7、11…），故覆盖 .cb-input 的 74px 右对齐 —— 那是给「天数」用的 */
-.ord-sub input.cb-input{width:100%;max-width:380px;text-align:left;padding:0 10px;height:32px}
-.ord-preview{margin:2px 0 0;font-size:12px;color:var(--t2)}
+.ord-sub input.cb-input{width:100%;max-width:380px;text-align:left;padding:0 var(--sp-h10);height:32px}
+.ord-preview{margin:var(--sp-h2) 0 0;font-size:var(--fs-sm);color:var(--t2)}
 .ord-preview b{color:var(--p-ink);font-weight:600}
 .cb-in-wrap{position:relative;display:inline-block}
 /* 单位「天」常驻在框内右侧（不是 placeholder）—— 填了数字也还看得见单位；
    补 20px 右内边距给这俩字腾位置，否则值会压在它上面。 */
-.cb-input{width:74px;height:28px;padding:0 20px 0 8px;box-sizing:border-box;border:1px solid var(--bd);
-  border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:13px;font-family:inherit;
+.cb-input{width:74px;height:28px;padding:0 var(--sp-5) 0 var(--sp-2);box-sizing:border-box;border:1px solid var(--bd);
+  border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-base);font-family:inherit;
   text-align:right;font-variant-numeric:tabular-nums}
 /* 弹窗里只有一个输入框 ⇒ 给到与 btn-sm 同高的 32px（v599：同行控件必须同构，
    不能比旁边的「应用」按钮矮一档）。 */
-.cb-input-lg{width:92px;height:32px;font-size:14px}
+.cb-input-lg{width:92px;height:32px;font-size:var(--fs-md)}
 .cb-input:focus{border-color:var(--p-dark)}
 /* 非法输入只改边框 + 底纹（不塞问号）：footer 已用红字说明"哪里不对、该填什么"，
    再挂个 ? 属于同一状态说两遍（v608 教训），还会顶出宽度。 */
 .cb-input.bad{border-color:var(--danger-txt);background:color-mix(in srgb,var(--dan) 8%,var(--bg))}
 .cb-in-unit{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-style:normal;
-  font-size:11px;line-height:1;color:var(--t3);pointer-events:none}
-.cb-sum{margin-right:auto;align-self:center;font-size:12px;color:var(--t3)}
+  font-size:var(--fs-xs);line-height:1;color:var(--t3);pointer-events:none}
+.cb-sum{margin-right:auto;align-self:center;font-size:var(--fs-sm);color:var(--t3)}
 .cb-sum.warn{color:var(--danger-txt)}
 /* v170：工具行「新增客户」弹层（承接表头撤下的那一格；外壳复用 .tb-pop-panel）
    ⚠️ max-width 必写：.tb-pop-panel 是 flex column 的 shrink-to-fit，缺它时长 tip 的
    max-content 会把面板撑到 700px+（真机实测 707.7px，而旁边的品牌面板只有 240px）。 */
 .addcol-pop{min-width:264px;max-width:320px}
-.addcol-pop .ac-head{font-weight:600;color:var(--t1);font-size:13px}
-.addcol-pop .ac-row{display:flex;gap:6px;align-items:center}
-.addcol-pop .ac-input{flex:1;min-width:0;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg3);color:var(--t1);font-size:13px;font-family:inherit}
+.addcol-pop .ac-head{font-weight:600;color:var(--t1);font-size:var(--fs-base)}
+.addcol-pop .ac-row{display:flex;gap:var(--sp-h6);align-items:center}
+.addcol-pop .ac-input{flex:1;min-width:0;height:32px;padding:0 var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg3);color:var(--t1);font-size:var(--fs-base);font-family:inherit}
 .addcol-pop .ac-input:focus{border-color:var(--p-dark);background:var(--bg)}
-.addcol-pop .ac-tip{font-size:12px;color:var(--t3);margin:0;line-height:1.5}
+.addcol-pop .ac-tip{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:1.5}
 .copy-pop{min-width:246px;max-width:320px}
-.copy-pop .cp-title{font-weight:600;color:var(--t1);font-size:13px}
-.copy-pop .cp-title-sub{font-weight:400;color:var(--t3);font-size:12px}
-.copy-pop .cp-tip{font-size:12px;color:var(--t3);margin:2px 0 0;line-height:1.5}
-.copy-pop .cp-tip.ok{color:var(--t2);margin-top:6px}
+.copy-pop .cp-title{font-weight:600;color:var(--t1);font-size:var(--fs-base)}
+.copy-pop .cp-title-sub{font-weight:400;color:var(--t3);font-size:var(--fs-sm)}
+.copy-pop .cp-tip{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-h2) 0 0;line-height:1.5}
+.copy-pop .cp-tip.ok{color:var(--t2);margin-top:var(--sp-h6)}
 .copy-pop .cp-tip.ok b{color:var(--p-dark)}
-.copy-pop .cp-unit-btns{display:flex;gap:6px;margin-top:8px}
-.copy-pop .cp-act{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:4px 6px}
+.copy-pop .cp-unit-btns{display:flex;gap:var(--sp-h6);margin-top:var(--sp-2)}
+.copy-pop .cp-act{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:var(--sp-1) var(--sp-h6)}
 .copy-pop .cp-act:disabled{opacity:.45;cursor:not-allowed}
-.copy-pop .cp-empty{font-size:12px;color:var(--t3);margin:8px 0 0;text-align:center}
+.copy-pop .cp-empty{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-2) 0 0;text-align:center}
 </style>
 

@@ -75,10 +75,10 @@ function onCtx (e) {
 <style scoped>
 /* 原 Forecast.vue 里**非 :deep 的后代**规则副本（根级元素继承不到父 scope ⇒ 必须自备）。
    逐字复制，不重写，避免列宽手柄 / 客户名输入框 / 删除按钮外观漂移。 */
-.cust-hd{display:flex;align-items:center;gap:4px}
+.cust-hd{display:flex;align-items:center;gap:var(--sp-1)}
 .col-resizer{position:absolute;top:0;right:-3px;width:9px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
 .col-resizer::after{content:'';position:absolute;right:3px;top:8%;height:84%;width:2px;border-radius:var(--radius-hair);background:var(--resizer-bg)}
 .col-resizer:hover::after,.col-resizer.active::after{background:var(--p)}
-.col-del{border:none;background:none;color:var(--t3);font-size:11px;cursor:pointer;padding:2px;border-radius:var(--radius-sm);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
+.col-del{border:none;background:none;color:var(--t3);font-size:var(--fs-xs);cursor:pointer;padding:var(--sp-h2);border-radius:var(--radius-sm);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .col-del:hover{color:var(--dan);background:var(--dan-bg)}
 </style>

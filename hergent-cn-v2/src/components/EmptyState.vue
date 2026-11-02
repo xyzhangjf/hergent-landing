@@ -42,7 +42,7 @@ defineEmits(['action'])
 
 <style scoped>
 /* 只补「全局 .state-empty 没有」的三段样式，其余（居中/padding/主文字色）复用全局 */
-.es-title { font-size: 14px; font-weight: 600; color: var(--t1); }
-.es-desc { margin-top: 6px; font-size: 13px; color: var(--t3); line-height: 1.6; }
-.es-action { margin-top: 16px; }
+.es-title { font-size:var(--fs-md); font-weight: 600; color: var(--t1); }
+.es-desc { margin-top: var(--sp-h6); font-size:var(--fs-base); color: var(--t3); line-height: 1.6; }
+.es-action { margin-top: var(--sp-4); }
 </style>

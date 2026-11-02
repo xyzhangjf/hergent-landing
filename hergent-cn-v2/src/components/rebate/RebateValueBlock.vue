@@ -15,12 +15,12 @@
 
   <!-- 阶梯档位编辑器（达成率分档）。v126：ruleTiers 可以是「某一个月」的档位数组 -->
   <div v-if="form.trigger_mode === 'tiered' && (visible || tiersOnly)" class="tier-editor">
-    <div class="te-hd" style="display:flex;align-items:center;justify-content:space-between;margin:10px 0 6px">
+    <div class="te-hd" style="display:flex;align-items:center;justify-content:space-between;margin:var(--sp-h10) 0 var(--sp-h6)">
       <b>{{ title }}</b>
       <button class="btn btn-ghost btn-sm" type="button" @click="$emit('add-tier')">+ 加一档</button>
     </div>
     <p class="cf-tip">按<b>达成率（占目标值比例）</b>分档：达成 90% 落入 90%~100% 档、100% 落入 100%~∞ 档。返利比例填小数（<b>0.1 = 10%</b>）；固定金额填元。末档「结束达成率」填 <b>0</b> 表示无上限。</p>
-    <table class="dt-tier" style="margin-top:8px">
+    <table class="dt-tier" style="margin-top:var(--sp-2)">
       <thead><tr><th>起始达成率 %</th><th>结束达成率 %（0=以上）</th>
         <th v-if="form.rebate_basis==='rate'">返利比例（小数）</th>
         <th v-else>固定金额（元）</th><th></th></tr></thead>
@@ -58,12 +58,12 @@ defineEmits(['add-tier', 'remove-tier'])
 </script>
 
 <style scoped>
-.form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.form-row{display:flex;flex-direction:column;gap:6px}
-.form-row label{font-size:12px;font-weight:500;color:var(--t2)}
-.dt-tier{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
-.dt-tier th,.dt-tier td{border:1px solid var(--border-subtle);padding:6px 8px;text-align:left}
-.cc-ti{width:90px;padding:3px 6px;font-size:12px}
-.cf-tip{font-size:13px;color:var(--t2);line-height:1.6;margin:0}
+.form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+.form-row{display:flex;flex-direction:column;gap:var(--sp-h6)}
+.form-row label{font-size:var(--fs-sm);font-weight:500;color:var(--t2)}
+.dt-tier{width:100%;border-collapse:collapse;margin-top:var(--sp-2);font-size:var(--fs-sm)}
+.dt-tier th,.dt-tier td{border:1px solid var(--border-subtle);padding:var(--sp-h6) var(--sp-2);text-align:left}
+.cc-ti{width:90px;padding:3px var(--sp-h6);font-size:var(--fs-sm)}
+.cf-tip{font-size:var(--fs-base);color:var(--t2);line-height:1.6;margin:0}
 @media(max-width:768px){ .form-grid2{grid-template-columns:1fr} }
 </style>

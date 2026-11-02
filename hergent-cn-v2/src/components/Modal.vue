@@ -281,26 +281,26 @@ onBeforeUnmount(() => {
   max-width:none;max-height:none;border-radius:0;box-shadow:none;display:block;
   background:rgba(0,0,0,.4);z-index:var(--z-page-modal-overlay)!important}
 
-.ui-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
+.ui-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);
   border-bottom:1px solid var(--border-subtle);flex-shrink:0}
-.ui-modal-hd b{font-size:16px;font-weight:600;color:var(--t1)}
+.ui-modal-hd b{font-size:var(--fs-lg);font-weight:600;color:var(--t1)}
 .ui-modal-close{border:none;background:none;color:var(--t3);cursor:pointer;
   display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;
   border-radius:var(--radius-sm);transition:background var(--dur-base),color var(--dur-base)}
 .ui-modal-close:hover{background:var(--bg2);color:var(--t1)}
-.ui-modal-body{padding:18px 20px;overflow-y:auto}
+.ui-modal-body{padding:var(--sp-h18) var(--sp-5);overflow-y:auto}
 /* 关闭前确认提示：正文与底栏之间的一条琥珀色横条。
    flex-shrink:0 保证正文再长也不会把它挤没（它出现时正是要拦人的时候）。 */
-.ui-modal-guard{padding:9px 20px;background:var(--warn-amber-bg);color:var(--warn-amber);
-  font-size:12px;line-height:1.5;border-top:1px solid var(--border-subtle);flex-shrink:0}
-.ui-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;
+.ui-modal-guard{padding:9px var(--sp-5);background:var(--warn-amber-bg);color:var(--warn-amber);
+  font-size:var(--fs-sm);line-height:1.5;border-top:1px solid var(--border-subtle);flex-shrink:0}
+.ui-modal-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-5);
   border-top:1px solid var(--border-subtle);flex-shrink:0}
 
 /* 透传模式下 hd/body/ft 只补「三段结构」必需的声明，内边距交回页面自己控制 ——
    宽表格弹窗（900/960px）压不动内边距，一律 18px 会真的把表格挤爆。 */
-.ui-modal-slotted.ui-modal-hd{padding:16px 20px;border-bottom:1px solid var(--border-subtle);flex-shrink:0}
+.ui-modal-slotted.ui-modal-hd{padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-subtle);flex-shrink:0}
 .ui-modal-slotted.ui-modal-body{overflow-y:auto}
-.ui-modal-slotted.ui-modal-ft{padding:14px 20px;border-top:1px solid var(--border-subtle);flex-shrink:0}
+.ui-modal-slotted.ui-modal-ft{padding:var(--sp-h14) var(--sp-5);border-top:1px solid var(--border-subtle);flex-shrink:0}
 
 /* 动画：与各页原有的 `.fade` / `.pop` 同名同参，迁移后观感不变 */
 .ui-fade-enter-active,.ui-fade-leave-active{transition:opacity var(--dur-base) ease}

@@ -149,5 +149,5 @@ defineExpose({ load })
 
 <style scoped>
 /* 仅保留仍被引用的私有类（第二张表挂在 #extra 插槽，插槽内容在本页作用域编译）。 */
-.pts-card { margin-top: 14px }
+.pts-card { margin-top: var(--sp-h14) }
 </style>

@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
   left:50%;transform:translateX(-50%);
   width:min(1080px,calc(100vw - 24px));
   overflow:auto;overscroll-behavior:contain;
-  padding:12px 14px;
+  padding:var(--sp-3) var(--sp-h14);
   background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius);
   box-shadow:0 12px 32px rgba(15,23,42,.16);
   /* v629「从上往下居中展开」：以顶边为支点轻微下拉，不用横向缩放（看板是宽面板，横向缩放会抖）。 */
@@ -184,6 +184,6 @@ onBeforeUnmount(() => {
 }
 /* 极窄屏：留白压到 8，避免左右两侧合计 24px 的白边把面板挤成竖条。 */
 @media(max-width:540px){
-  .sb-pop{width:calc(100vw - 16px);padding:10px}
+  .sb-pop{width:calc(100vw - 16px);padding:var(--sp-h10)}
 }
 </style>

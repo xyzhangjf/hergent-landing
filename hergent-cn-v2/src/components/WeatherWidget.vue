@@ -539,11 +539,11 @@ onBeforeUnmount(() => {
       选择隐藏天气而不是品牌名：天气信息在手机上价值最低，它的展开面板在窄屏也不好点。
    320px 级机型再隐藏品牌文字（`.tb-brand b`），见 Shell.vue 的 360 断点。 */
 @media(max-width:768px){ .wx{display:none} }
-.wx-now{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:var(--radius-pill);
-  background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;border:1px solid transparent;transition:all var(--dur-base);white-space:nowrap}
+.wx-now{display:flex;align-items:center;gap:var(--sp-h6);height:34px;padding:0 var(--sp-3);border-radius:var(--radius-pill);
+  background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-base);font-weight:500;cursor:pointer;border:1px solid transparent;transition:all var(--dur-base);white-space:nowrap}
 .wx-now:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .wx-now.dim{opacity:.6}
-.wx-ic{font-size:16px;line-height:1}
+.wx-ic{font-size:var(--fs-lg);line-height:1}
 .wx-temp{font-variant-numeric:tabular-nums}
 .wx-load{opacity:.7}
 
@@ -551,12 +551,12 @@ onBeforeUnmount(() => {
    布局 = 左起连续的一条「位置 → 实况」阅读线：📍图标 → 城市名 → 定位来源徽标 → · → 描述 + 当前温度。
    ⚠️ 不要用 space-between / margin-left:auto 把实况推到右端：面板宽度由下方 14 天卡片行撑开
    （实测 922px），两端对齐会在中间留下约 800px 空洞。左对齐与同面板内搜索框的行为一致。 */
-.wx-where{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--t2)}
+.wx-where{display:flex;align-items:center;gap:var(--sp-h6);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t2)}
 .wx-where-ic{color:var(--p-ink);flex:0 0 auto}
-.wx-where-city{font-size:13px;font-weight:600;color:var(--t1)}
-.wx-where-tag{flex:0 0 auto;padding:1px 6px;border-radius:var(--radius-xs);background:var(--p-bg);color:var(--p-dark);font-size:11px;line-height:1.6}
+.wx-where-city{font-size:var(--fs-base);font-weight:600;color:var(--t1)}
+.wx-where-tag{flex:0 0 auto;padding:1px var(--sp-h6);border-radius:var(--radius-xs);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-xs);line-height:1.6}
 .wx-where-desc{font-variant-numeric:tabular-nums;white-space:nowrap}
-.wx-where-desc::before{content:'·';margin-right:6px;color:var(--t3)}
+.wx-where-desc::before{content:'·';margin-right:var(--sp-h6);color:var(--t3)}
 /* 面板由 Teleport 挂在 <body> 上、position:fixed，坐标由 placePop() 写入。
    ⚠️ 不能回到「留在顶栏内 + position:absolute」的写法：顶栏 .topbar 同时带 z-index:10 与
    backdrop-filter，双重创建 stacking context，面板 z-index 设多高都会被困在顶栏内（等效全局 10），
@@ -565,43 +565,43 @@ onBeforeUnmount(() => {
    （面板必须压住自己那一排触发按钮，否则形成遮挡带并劫走点击）——
    两者都仍在 1121 之下，本面板"页面内最高浮层"的定位不变。 */
 .wx-pop{position:fixed;z-index:1121;
-  display:flex;flex-direction:column;gap:10px;padding:10px 12px;border-radius:var(--radius-md);width:max-content;max-width:calc(100vw - 20px);
+  display:flex;flex-direction:column;gap:var(--sp-h10);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-md);width:max-content;max-width:calc(100vw - 20px);
   background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
   border:1px solid var(--glass-border);box-shadow:0 10px 30px rgba(0,0,0,.12)}
 /* 首帧未定位前隐藏：避免先出现在静态位置、再跳到按钮下方 */
 .wx-pop.pre{visibility:hidden}
-.wx-search{display:flex;gap:6px;align-items:center;width:260px}
-.wx-input{flex:1;min-width:0;height:32px;padding:0 10px;border-radius:var(--radius-sm);border:1px solid var(--glass-border);
-  background:var(--bg);color:var(--t1);font-size:13px;outline:none}
+.wx-search{display:flex;gap:var(--sp-h6);align-items:center;width:260px}
+.wx-input{flex:1;min-width:0;height:32px;padding:0 var(--sp-h10);border-radius:var(--radius-sm);border:1px solid var(--glass-border);
+  background:var(--bg);color:var(--t1);font-size:var(--fs-base);outline:none}
 .wx-input:focus{border-color:var(--p)}
-.wx-loc{height:30px;padding:0 10px;border-radius:var(--radius-sm);border:1px solid var(--p);background:transparent;
-  color:var(--p-ink);font-size:12px;cursor:pointer;white-space:nowrap}
+.wx-loc{height:30px;padding:0 var(--sp-h10);border-radius:var(--radius-sm);border:1px solid var(--p);background:transparent;
+  color:var(--p-ink);font-size:var(--fs-sm);cursor:pointer;white-space:nowrap}
 .wx-loc:hover{background:var(--p-bg)}
 .wx-results{display:flex;flex-direction:column;max-height:200px;overflow:auto;border-radius:var(--radius-sm);
   background:var(--bg);border:1px solid var(--glass-border)}
-.wx-res{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;cursor:pointer;font-size:13px;color:var(--t1)}
+.wx-res{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-h6) var(--sp-h10);cursor:pointer;font-size:var(--fs-base);color:var(--t1)}
 .wx-res:hover,.wx-res.active{background:var(--p-bg)}
 .wx-res-name{font-weight:500}
-.wx-res-region{font-size:11px;color:var(--t2)}
-.wx-res-none{padding:8px 10px;font-size:12px;color:var(--t2)}
+.wx-res-region{font-size:var(--fs-xs);color:var(--t2)}
+.wx-res-none{padding:var(--sp-2) var(--sp-h10);font-size:var(--fs-sm);color:var(--t2)}
 
 .wx-days-wrap{position:relative;display:flex;flex-direction:column;width:max-content;max-width:calc(100vw - 20px)}
 
-.wx-days{display:flex;gap:4px;padding-bottom:2px;overflow-x:auto;max-width:none}
+.wx-days{display:flex;gap:var(--sp-1);padding-bottom:var(--sp-h2);overflow-x:auto;max-width:none}
 .wx-days::-webkit-scrollbar{height:5px}
 .wx-days::-webkit-scrollbar-thumb{background:var(--glass-border);border-radius:var(--radius-2xs)}
 /* min-width 52px（原 42px）：要放得下 3 字节日名（11px 字号 ≈33px）与右上角徽标。
    卡片在桌面端实测已是 52.3px（由「29° / 21°」这类内容撑开），提到 52px 不会加宽面板；
    只在窄屏 max-width 生效时阻止卡片被压到 42px —— 那时节日名会与徽标重叠。
    窄屏改为横向滚动（.wx-days 本就是 overflow-x:auto），信息仍完整可读。 */
-.wx-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;padding:4px 2px;flex:1 0 auto}
-.wx-d-day{font-size:12px;color:var(--t1);font-weight:500}
-.wx-d-date{font-size:11px;color:var(--t2);line-height:15px}
+.wx-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;padding:var(--sp-1) var(--sp-h2);flex:1 0 auto}
+.wx-d-day{font-size:var(--fs-sm);color:var(--t1);font-weight:500}
+.wx-d-date{font-size:var(--fs-xs);color:var(--t2);line-height:15px}
 /* 日期 / 节日名 = 徽标的定位锚（inline-block + relative，宽度即文字宽度，
    不随卡片宽度变化；徽标作为其内联子元素绝对定位，绝不影响行内布局与居中）。 */
 .wx-d-dt{display:inline-block;position:relative}
 /* 节日名：比日期大一号、加粗、节庆红 —— 扫这一行时节日要第一个跳出来 */
-.wx-d-dt.is-name{font-size:11px;font-weight:600;color:var(--hd-name)}
+.wx-d-dt.is-name{font-size:var(--fs-xs);font-weight:600;color:var(--hd-name)}
 /* 休 / 班 徽标：贴在日期或节日名的右上角（文字之右、略微上提），不遮字。
    定位取值依据（卡片内容区 48px，实测卡片 52.3px，日期 10px 字号 ≈26px 宽、节日名 11px ≈33px 宽）：
      · right:-10px + 宽 11px → 徽标左缘正好落在文字右缘（26px 文字时右缘 center+23、
@@ -612,16 +612,16 @@ onBeforeUnmount(() => {
        不裁切、不压到相邻卡片（第一版曾把徽标做成 13px 并挂卡片右上角，
        那会落在「周X」同一行、"周日 班" 会被读成周日的属性，已改掉）。 */
 .wx-hb{position:absolute;top:-6px;right:-10px;min-width:11px;height:11px;box-sizing:border-box;
-  padding:0 1px;border-radius:var(--radius-pill);font-size:11px;font-weight:600;line-height:11px;text-align:center;
+  padding:0 1px;border-radius:var(--radius-pill);font-size:var(--fs-xs);font-weight:600;line-height:11px;text-align:center;
   color:#fff;font-style:normal;pointer-events:none}
 .wx-hb.off{background:var(--hd-off)}
 .wx-hb.work{background:var(--hd-work)}
-.wx-d-ic{font-size:22px;line-height:1}
-.wx-d-t{font-size:11px;color:var(--t1);font-variant-numeric:tabular-nums}
-.wx-d-pop{font-size:11px;color:var(--ok-green)}
+.wx-d-ic{font-size:var(--fs-num);line-height:1}
+.wx-d-t{font-size:var(--fs-xs);color:var(--t1);font-variant-numeric:tabular-nums}
+.wx-d-pop{font-size:var(--fs-xs);color:var(--ok-green)}
 
 /* 温度趋势线：与上方日卡片行同父容器，宽度/内边距/圆角一致 */
-.wx-trend-wrap{position:relative;overflow:hidden;margin-top:2px;padding-top:5px;border-top:1px solid var(--glass-border)}
+.wx-trend-wrap{position:relative;overflow:hidden;margin-top:var(--sp-h2);padding-top:5px;border-top:1px solid var(--glass-border)}
 .wx-trend{position:relative;height:42px}
 .wx-trend-svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
 .wx-trend-area{fill:url(#wxTrendGrad);stroke:none}
@@ -634,14 +634,14 @@ onBeforeUnmount(() => {
   background:var(--bg);border:2px solid currentColor;pointer-events:none}
 .wx-trend-dot.up{color:var(--war)}
 .wx-trend-dot.down{color:var(--chart-6)}
-.wx-trend-dot em{position:absolute;left:9px;top:-5px;font-size:11px;font-style:normal;font-weight:600;
+.wx-trend-dot em{position:absolute;left:9px;top:-5px;font-size:var(--fs-xs);font-style:normal;font-weight:600;
   line-height:1.3;padding:0 3px;border-radius:var(--radius-2xs);background:var(--bg2);color:currentColor;
   box-shadow:0 0 0 1px var(--glass-border)}
 .wx-trend-dot.last em{left:auto;right:9px}
 .wx-trend-hit{position:absolute;top:0;bottom:0;cursor:pointer;border-radius:var(--radius-xs)}
 .wx-trend-hit:hover,.wx-trend-hit.on{background:var(--p-bg);opacity:.55}
 .wx-trend-tip{position:absolute;top:0;transform:translateX(-50%);z-index:2;
-  padding:2px 7px;border-radius:var(--radius-xs);background:var(--t1);color:var(--bg);
-  font-size:11px;font-weight:500;line-height:1.5;white-space:nowrap;pointer-events:none;
+  padding:var(--sp-h2) 7px;border-radius:var(--radius-xs);background:var(--t1);color:var(--bg);
+  font-size:var(--fs-xs);font-weight:500;line-height:1.5;white-space:nowrap;pointer-events:none;
   box-shadow:0 4px 12px rgba(0,0,0,.18)}
 </style>

@@ -88,7 +88,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <div v-else-if="!rows.length" class="card">
@@ -702,7 +702,7 @@ onMounted(load)
       三页唯一出处 ⇒ 这里不再留第二份（原 `.isl-f-kw{margin-left:4px}` 一并删除：
       它只是给商品框补的手动偏移，共享尺寸统一后不再需要）。
       本页只剩筛选卡外壳 `.isl-filter`。 */
-.isl-filter { margin-bottom: 12px }
+.isl-filter { margin-bottom: var(--sp-3) }
 /* 工具栏：v510 工具栏 `.psi-tb` 已退役，动作组收进页签行右侧（共享件 PsiListActions）；
    排序提示（`.psi-selinfo` / `.psi-sortinfo`）经 #status 插槽注入。 */
 
@@ -721,12 +721,12 @@ onMounted(load)
 .isl-sort-ind svg.ico { width: 12px; height: 12px }
 .isl-op { color: var(--p-dark); white-space: nowrap }
 /* v525：待他人审批时的占位提示（无按钮、纯信息） */
-.isl-appr-wait { font-size: 12px; color: var(--t3); padding: 2px 6px; border: 1px dashed var(--bd); border-radius: var(--radius-xs) }
+.isl-appr-wait { font-size:var(--fs-sm); color: var(--t3); padding: var(--sp-h2) var(--sp-h6); border: 1px dashed var(--bd); border-radius: var(--radius-xs) }
 /* v496：删 `.isl-op-hd{width:1%}` —— 操作列宽进 colgroup（OP_W=120），宽度唯一权威。 */
-.isl-ops { display: inline-flex; align-items: center; gap: 6px }
+.isl-ops { display: inline-flex; align-items: center; gap: var(--sp-h6) }
 .isl-op-btn {
   border: 1px solid var(--bd); background: var(--bg); color: var(--p-dark);
-  border-radius: var(--radius-sm); padding: 2px 8px; font-size: 12px; cursor: pointer; white-space: nowrap;
+  border-radius: var(--radius-sm); padding: var(--sp-h2) var(--sp-2); font-size:var(--fs-sm); cursor: pointer; white-space: nowrap;
 }
 .isl-op-btn:hover:not(:disabled) { border-color: var(--p); color: var(--p-ink) }
 .isl-op-btn:disabled { opacity: .45; cursor: not-allowed }

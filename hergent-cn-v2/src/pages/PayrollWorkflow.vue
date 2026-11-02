@@ -119,7 +119,7 @@
 
     <!-- 步骤 2/3：结果 -->
     <div v-else class="pr-result-wrap" ref="printArea">
-      <div style="text-align:right;margin-bottom:12px">
+      <div style="text-align:right;margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-ghost" @click="exportPrintable('算工资')">导出成品</button>
       </div>
       <!-- 概要 -->
@@ -182,14 +182,14 @@
         </div>
         <div v-else class="state-empty">
           <p>{{ result.note || '暂无数据' }}</p>
-          <button v-if="!result.results?.length" class="btn btn-primary btn-sm" style="margin-top:12px" @click="goDataFill">去补录员工档案 →</button>
+          <button v-if="!result.results?.length" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)" @click="goDataFill">去补录员工档案 →</button>
         </div>
         <ColMenuPanel ref="panel" :col-list="PAYROLL_COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
       </div>
 
       <div class="pr-actions" style="justify-content:space-between">
         <button class="btn btn-ghost" @click="backToConfig">← 改算法再算</button>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div style="display:flex;gap:var(--sp-h10);align-items:center">
           <span class="pr-footnote">AI 只算不执行，核对无误再确认</span>
           <button class="btn btn-primary" :disabled="!result.results?.length" @click="confirmMonth">确认本月工资（写入台账）</button>
         </div>
@@ -197,12 +197,12 @@
       <div v-if="confirmed" class="pr-confirm-ok"><Icon name="check"/> {{ confirmed }} 人已确认，已生成工资台账与银行文件数据</div>
 
       <!-- AI 留痕记录 -->
-      <div class="card pr-panel" style="margin-top:14px">
+      <div class="card pr-panel" style="margin-top:var(--sp-h14)">
         <button class="pr-adv-toggle" @click="showAdvice = !showAdvice">
           <span><Icon name="receipt"/> AI 留痕记录</span>
           <span class="tag" :class="advicePending ? 'warn' : 'info'">{{ advicePending ? advicePending + ' 待确认' : '查看历史' }}</span>
         </button>
-        <div v-if="showAdvice" style="margin-top:14px">
+        <div v-if="showAdvice" style="margin-top:var(--sp-h14)">
           <AdvicePanel :key="adviceKey" @confirmed="refreshAdviceBadge" />
         </div>
       </div>
@@ -381,41 +381,41 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.pr-steps{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-.pr-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
+.pr-steps{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-4)}
+.pr-step{font-size:var(--fs-base);color:var(--t3);padding:var(--sp-h6) var(--sp-h14);border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
 .pr-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
-.pr-arrow{color:var(--t3);font-size:12px}
-.pr-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:14px;font-weight:500;color:var(--t1);padding:0}
+.pr-arrow{color:var(--t3);font-size:var(--fs-sm)}
+.pr-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:var(--fs-md);font-weight:500;color:var(--t1);padding:0}
 
 .pr-panel{}
-.pr-tip{font-size:12px;color:var(--t2);margin:4px 0 16px;line-height:1.6}
+.pr-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-4);line-height:1.6}
 /* v726：配方读取失败时的告示。用 --war / --war-bg（浅深同值的安全组合），
    不用 --warning 那类「深色下提亮」的令牌当底色。 */
-.pr-warn{display:flex;gap:8px;align-items:flex-start;margin:0 0 16px;padding:10px 12px;
-  font-size:12px;line-height:1.7;color:var(--t1);
+.pr-warn{display:flex;gap:var(--sp-2);align-items:flex-start;margin:0 0 var(--sp-4);padding:var(--sp-h10) var(--sp-3);
+  font-size:var(--fs-sm);line-height:1.7;color:var(--t1);
   border:1px solid var(--war);border-radius:var(--radius-sm);background:var(--war-bg)}
 .pr-warn>span b{color:var(--t1)}
-.pr-form{display:flex;flex-direction:column;gap:18px}
-.pr-field{display:flex;flex-direction:column;gap:8px}
-.pr-label{font-size:13px;font-weight:500;color:var(--t1)}
-.pr-label em{font-style:normal;font-size:12px;color:var(--t3);font-weight:400;margin-left:8px}
-.pr-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pr-form{display:flex;flex-direction:column;gap:var(--sp-h18)}
+.pr-field{display:flex;flex-direction:column;gap:var(--sp-2)}
+.pr-label{font-size:var(--fs-base);font-weight:500;color:var(--t1)}
+.pr-label em{font-style:normal;font-size:var(--fs-sm);color:var(--t3);font-weight:400;margin-left:var(--sp-2)}
+.pr-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
 .pr-input-suffix{position:relative;display:flex;align-items:center}
 .pr-input-suffix .input{padding-right:44px}
-.pr-suffix{position:absolute;right:14px;font-size:13px;color:var(--t3)}
-.pr-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+.pr-suffix{position:absolute;right:14px;font-size:var(--fs-base);color:var(--t3)}
+.pr-actions{display:flex;gap:var(--sp-h10);justify-content:flex-end;margin-top:22px}
 
-.pr-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
-.pr-kpi{padding:16px 18px}
+.pr-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-h14);margin-bottom:var(--sp-h14)}
+.pr-kpi{padding:var(--sp-4) var(--sp-h18)}
 .pr-kpi-total{border-color:var(--p);background:linear-gradient(180deg,var(--p-bg),transparent 130%)}
-.pr-kpi-label{font-size:12px;color:var(--t3);margin-bottom:6px}
-.pr-kpi-val{font-size:22px;font-weight:600;margin-bottom:4px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.pr-kpi-label{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-h6)}
+.pr-kpi-val{font-size:var(--fs-num);font-weight:600;margin-bottom:var(--sp-1);font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 .pr-kpi-val.val-warn{color:var(--war)}
 .pr-kpi-val.val-bad{color:var(--dan)}
-.pr-kpi-sub{font-size:12px;color:var(--t3)}
+.pr-kpi-sub{font-size:var(--fs-sm);color:var(--t3)}
 .pr-net{font-weight:600;color:var(--t1)}
-.pr-footnote{font-size:12px;color:var(--t3)}
-.pr-confirm-ok{margin-top:14px;padding:12px 16px;border-radius:var(--radius-sm);background:rgba(var(--suc-rgb),.1);color:var(--suc);font-size:13px;font-weight:500}
+.pr-footnote{font-size:var(--fs-sm);color:var(--t3)}
+.pr-confirm-ok{margin-top:var(--sp-h14);padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-sm);background:rgba(var(--suc-rgb),.1);color:var(--suc);font-size:var(--fs-base);font-weight:500}
 
 @media(max-width:768px){
   .pr-grid{grid-template-columns:1fr}

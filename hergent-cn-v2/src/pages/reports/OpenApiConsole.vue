@@ -171,22 +171,22 @@ onMounted(loadInfo)
 </script>
 
 <style scoped>
-.sec { margin-top: 14px; }
-.doc-list, .ep-list { margin: 0; padding: 4px 18px 14px; line-height: 2; }
-.doc-list code, .ep-list code { background: var(--bg2); padding: 1px 6px; border-radius: var(--radius-2xs); font-size: 12px; }
-.ep-list li { display: flex; gap: 12px; flex-wrap: wrap; }
-.ep-list li span { color: var(--t2); font-size: 13px; }
-.create-box { display: flex; gap: 14px; align-items: flex-end; padding: 12px 18px; flex-wrap: wrap; }
-.fld { display: flex; flex-direction: column; gap: 4px; }
-.fld label { font-size: 12px; color: var(--t2); }
-.inp { height: 30px; border: 1px solid var(--bd); border-radius: var(--radius-xs); padding: 0 10px; background: var(--bg); color: var(--t1); min-width: 160px; }
-.fld.acts { flex-direction: row; gap: 8px; }
-.token-flash { margin: 0 18px 12px; padding: 10px 12px; background: var(--bg2); border-radius: var(--radius-sm); font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sec { margin-top: var(--sp-h14); }
+.doc-list, .ep-list { margin: 0; padding: var(--sp-1) var(--sp-h18) var(--sp-h14); line-height: 2; }
+.doc-list code, .ep-list code { background: var(--bg2); padding: 1px var(--sp-h6); border-radius: var(--radius-2xs); font-size:var(--fs-sm); }
+.ep-list li { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+.ep-list li span { color: var(--t2); font-size:var(--fs-base); }
+.create-box { display: flex; gap: var(--sp-h14); align-items: flex-end; padding: var(--sp-3) var(--sp-h18); flex-wrap: wrap; }
+.fld { display: flex; flex-direction: column; gap: var(--sp-1); }
+.fld label { font-size:var(--fs-sm); color: var(--t2); }
+.inp { height: 30px; border: 1px solid var(--bd); border-radius: var(--radius-xs); padding: 0 var(--sp-h10); background: var(--bg); color: var(--t1); min-width: 160px; }
+.fld.acts { flex-direction: row; gap: var(--sp-2); }
+.token-flash { margin: 0 var(--sp-h18) var(--sp-3); padding: var(--sp-h10) var(--sp-3); background: var(--bg2); border-radius: var(--radius-sm); font-size:var(--fs-base); display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .token-flash .tk { font-family: monospace; color: var(--brand); }
-.badge { padding: 1px 8px; border-radius: var(--radius-sm); font-size: 12px; }
+.badge { padding: 1px var(--sp-2); border-radius: var(--radius-sm); font-size:var(--fs-sm); }
 .badge.on { background: rgba(46,160,67,.14); color: var(--suc); }
 .badge.off { background: var(--bg2); color: var(--t2); }
 .muted { color: var(--t2); }
 .btn.danger { color: var(--dan); }
-.rpt-foot { margin: 10px 18px 14px; font-size: 12px; color: var(--t2); }
+.rpt-foot { margin: var(--sp-h10) var(--sp-h18) var(--sp-h14); font-size:var(--fs-sm); color: var(--t2); }
 </style>

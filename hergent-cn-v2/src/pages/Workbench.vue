@@ -134,8 +134,8 @@
         </div>
         <div v-if="replLoading" class="ai-loading">
           <div class="skel-line" style="width:90%"></div>
-          <div class="skel-line" style="width:70%;margin-top:8px"></div>
-          <div class="skel-line" style="width:85%;margin-top:8px"></div>
+          <div class="skel-line" style="width:70%;margin-top:var(--sp-2)"></div>
+          <div class="skel-line" style="width:85%;margin-top:var(--sp-2)"></div>
         </div>
         <div v-else class="table-wrap">
           <table class="tbl">
@@ -184,8 +184,8 @@
           <!-- A：掉量归因 -->
           <div v-if="judgeLoading" class="ai-loading">
             <div class="skel-line" style="width:90%"></div>
-            <div class="skel-line" style="width:70%;margin-top:8px"></div>
-            <div class="skel-line" style="width:85%;margin-top:8px"></div>
+            <div class="skel-line" style="width:70%;margin-top:var(--sp-2)"></div>
+            <div class="skel-line" style="width:85%;margin-top:var(--sp-2)"></div>
           </div>
           <div v-else-if="declineItems.length" class="judge-list">
             <div v-for="d in declineItems" :key="d.product_id" class="judge-row">
@@ -215,7 +215,7 @@
             </div>
             <div v-if="tradeoffLoading" class="ai-loading">
               <div class="skel-line" style="width:80%"></div>
-              <div class="skel-line" style="width:60%;margin-top:8px"></div>
+              <div class="skel-line" style="width:60%;margin-top:var(--sp-2)"></div>
             </div>
             <div v-else-if="tradeoffData && tradeoffData.no_batch_data" class="j-diag j-diag-warn">
               该商品暂未录入批次 / 效期信息，无法做批次级出库权衡。当前总库存 {{ tradeoffData.grounded.total_stock }} 件、毛利率 {{ tradeoffData.grounded.margin_pct }}%。在库存中补录批号与效期后可自动启用。
@@ -247,7 +247,7 @@
           </div>
           <div v-if="loopLoading" class="ai-loading">
             <div class="skel-line" style="width:80%"></div>
-            <div class="skel-line" style="width:60%;margin-top:8px"></div>
+            <div class="skel-line" style="width:60%;margin-top:var(--sp-2)"></div>
           </div>
           <div v-else-if="loopStatus" class="loop-body">
             <div class="loop-kpis">
@@ -275,13 +275,13 @@
           <div v-if="!aiText && !aiLoading" class="state-empty">
             <div class="se-ic"><Icon name="sun" :size="22" /></div>
             <p>今日晨报还没有生成</p>
-            <button class="btn btn-ghost" style="margin-top:12px" :disabled="aiLoading" @click="loadMorning(true)">生成今日晨报</button>
+            <button class="btn btn-ghost" style="margin-top:var(--sp-3)" :disabled="aiLoading" @click="loadMorning(true)">生成今日晨报</button>
           </div>
           <div v-if="aiLoading" class="ai-loading">
             <div class="skel-line" style="width:90%"></div>
-            <div class="skel-line" style="width:70%;margin-top:8px"></div>
-            <div class="skel-line" style="width:85%;margin-top:8px"></div>
-            <div class="skel-line" style="width:60%;margin-top:8px"></div>
+            <div class="skel-line" style="width:70%;margin-top:var(--sp-2)"></div>
+            <div class="skel-line" style="width:85%;margin-top:var(--sp-2)"></div>
+            <div class="skel-line" style="width:60%;margin-top:var(--sp-2)"></div>
           </div>
           <div v-if="aiText && !aiLoading" class="ai-report" v-html="mdText"></div>
         </div>
@@ -743,98 +743,98 @@ onMounted(loadData)
 /* .bento / .kpi-strip 及 KPI 子元素样式已上提全局层（src/styles/variables.css），
    此处只保留本页模块占位与局部组件。 */
 /* 经营研判（判层 · P1-2b）—— 内容现居 G 区「今日研判」tab 内（v496 P0-3），类名未动 */
-.judge-anchor{font-size:12px;color:var(--t3);margin-top:6px}
-.judge-list{display:flex;flex-direction:column;gap:10px;margin-top:10px}
-.judge-row{border:1px solid var(--bd);border-radius:var(--radius-md);padding:12px 14px;background:var(--bg2)}
-.judge-row-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.j-name{font-size:14px;font-weight:600;color:var(--t1)}
-.j-drop{font-size:12px;color:var(--dan);font-weight:500}
-.j-grounded{font-size:12px;color:var(--t3);margin-top:6px}
-.j-diag{font-size:13px;color:var(--t2);margin-top:8px;line-height:1.6}
+.judge-anchor{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
+.judge-list{display:flex;flex-direction:column;gap:var(--sp-h10);margin-top:var(--sp-h10)}
+.judge-row{border:1px solid var(--bd);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-h14);background:var(--bg2)}
+.judge-row-hd{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap}
+.j-name{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
+.j-drop{font-size:var(--fs-sm);color:var(--dan);font-weight:500}
+.j-grounded{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
+.j-diag{font-size:var(--fs-base);color:var(--t2);margin-top:var(--sp-2);line-height:1.6}
 .j-diag-warn{color:var(--war)}
-.judge-tradeoff{margin-top:16px;border-top:1px dashed var(--bd);padding-top:14px}
-.j-tradeoff-hd{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:14px;font-weight:500;color:var(--t1)}
-.j-pick{display:flex;align-items:center;gap:8px}
-.j-select{max-width:200px;padding:6px 8px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:13px}
-.j-tradeoff-body{margin-top:12px}
-.j-tradeoff-body .tbl{margin-bottom:8px}
+.judge-tradeoff{margin-top:var(--sp-4);border-top:1px dashed var(--bd);padding-top:var(--sp-h14)}
+.j-tradeoff-hd{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;font-size:var(--fs-md);font-weight:500;color:var(--t1)}
+.j-pick{display:flex;align-items:center;gap:var(--sp-2)}
+.j-select{max-width:200px;padding:var(--sp-h6) var(--sp-2);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-base)}
+.j-tradeoff-body{margin-top:var(--sp-3)}
+.j-tradeoff-body .tbl{margin-bottom:var(--sp-2)}
 
 /* A · 定位栏（v496 P0-1）：问候 + 日期 + 今日状态一句话 */
-.wb-head{grid-column:1/-1;display:flex;align-items:baseline;gap:12px;padding:14px 18px;flex-wrap:wrap}
-.wb-hi{font-size:20px;font-weight:700;color:var(--t1);letter-spacing:-.3px}
-.wb-date{font-size:13px;color:var(--t3)}
-.wb-status{margin-left:auto;font-size:13px;color:var(--t2);font-variant-numeric:tabular-nums}
+.wb-head{grid-column:1/-1;display:flex;align-items:baseline;gap:var(--sp-3);padding:var(--sp-h14) var(--sp-h18);flex-wrap:wrap}
+.wb-hi{font-size:var(--fs-xl);font-weight:700;color:var(--t1);letter-spacing:-.3px}
+.wb-date{font-size:var(--fs-base);color:var(--t3)}
+.wb-status{margin-left:auto;font-size:var(--fs-base);color:var(--t2);font-variant-numeric:tabular-nums}
 /* 面板内口径说明小字（v496 P0-4）：替代滥用 badge-blue 的说明标 */
-.panel-note{font-size:12px;color:var(--t3);font-weight:400}
+.panel-note{font-size:var(--fs-sm);color:var(--t3);font-weight:400}
 /* G 区 tab 页内的「说明 + 主操作」行 */
-.pane-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.pane-cta{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-h10)}
 
 /* C · 今日要务（v496 P0-2）：原「今日待办 + 经营要务」两套行样式合并为一套。
    紧急度用左侧色条表达（red=马上处理 / amber=今天处理 / blue=仅知悉），
    与卡头徽标（taskBadgeCls）同语义 —— 视觉层级：数字(B) > 要务行(C) > 明细(D)。 */
-.wb-tasks{grid-column:span 8;grid-row:span 2;padding:18px;min-height:280px}
-.task-list{display:flex;flex-direction:column;gap:10px}
-.task-row{position:relative;display:flex;align-items:flex-start;gap:12px;padding:14px 16px 14px 18px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);transition:transform var(--dur-base) ease,box-shadow var(--dur-base) ease,border-color var(--dur-base) ease}
+.wb-tasks{grid-column:span 8;grid-row:span 2;padding:var(--sp-h18);min-height:280px}
+.task-list{display:flex;flex-direction:column;gap:var(--sp-h10)}
+.task-row{position:relative;display:flex;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-h14) var(--sp-4) var(--sp-h14) var(--sp-h18);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);transition:transform var(--dur-base) ease,box-shadow var(--dur-base) ease,border-color var(--dur-base) ease}
 .task-row:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--bd)}
 .task-row::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 var(--radius-hair) var(--radius-hair) 0}
 .task-row.prio-red::before{background:var(--dan)}
 .task-row.prio-amber::before{background:var(--war)}
 .task-row.prio-blue::before{background:var(--p)}
 .task-row .tag{flex-shrink:0;margin-top:1px;white-space:nowrap}
-.task-ic{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
+.task-ic{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:var(--fs-h4);font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .task-main{flex:1;min-width:0}
-.task-title{font-size:14px;font-weight:500;color:var(--t1);margin-bottom:3px;letter-spacing:.1px}
-.task-sub{font-size:12px;color:var(--t2);line-height:1.55}
-.task-acts{flex-shrink:0;display:flex;gap:6px;align-items:center}
-.task-acts .btn{height:28px;padding:0 12px;font-size:12px;border-radius:var(--radius-sm)}
-.task-go{font-size:12px;color:var(--p-dark);cursor:pointer;white-space:nowrap}
+.task-title{font-size:var(--fs-md);font-weight:500;color:var(--t1);margin-bottom:3px;letter-spacing:.1px}
+.task-sub{font-size:var(--fs-sm);color:var(--t2);line-height:1.55}
+.task-acts{flex-shrink:0;display:flex;gap:var(--sp-h6);align-items:center}
+.task-acts .btn{height:28px;padding:0 var(--sp-3);font-size:var(--fs-sm);border-radius:var(--radius-sm)}
+.task-go{font-size:var(--fs-sm);color:var(--p-dark);cursor:pointer;white-space:nowrap}
 
 /* G · AI 洞察 tab 区（v496 P0-3）：三张整行卡收敛为一卡三页签 */
 .ai-insight{grid-column:1/-1}
-.ai-tabs{display:flex;gap:4px;background:var(--bg2);border-radius:var(--radius-sm);padding:3px}
-.ai-tab{height:28px;padding:0 14px;border:none;border-radius:var(--radius-xs);background:transparent;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);font-family:inherit}
+.ai-tabs{display:flex;gap:var(--sp-1);background:var(--bg2);border-radius:var(--radius-sm);padding:3px}
+.ai-tab{height:28px;padding:0 var(--sp-h14);border:none;border-radius:var(--radius-xs);background:transparent;color:var(--t2);font-size:var(--fs-base);font-weight:500;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);font-family:inherit}
 .ai-tab:hover:not(.active){color:var(--t1)}
 .ai-tab.active{background:var(--bg);color:var(--t1);box-shadow:var(--shadow-sm)}
-.ai-pane{margin-top:2px}
+.ai-pane{margin-top:var(--sp-h2)}
 
 /* Bento 模块布局（v496）
    C 要务 span 8 × 2 行 + D 效期 span 4 × 2 行 拼满第 1 行；C 恒有内容
    （待办流至少一行「问问 AI」），D 空时显示空态卡 ⇒ 无需 v190 的 span-all 补丁。 */
-.wb-tasks{grid-column:span 8;grid-row:span 2;padding:18px;min-height:280px}
+.wb-tasks{grid-column:span 8;grid-row:span 2;padding:var(--sp-h18);min-height:280px}
 .expiry-card{grid-column:span 4;grid-row:span 2}
 /* v259：本周建议订购清单 —— 占整行，不扰动要务/效期 8/4 栅格 */
 .repl-panel{grid-column:1/-1}
-.repl-refresh{margin-left:auto;padding:4px 12px;font-size:12px}
-.repl-head-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
-.repl-docx{padding:4px 12px;font-size:12px}
-.repl-reason{color:var(--t3);font-size:12px;max-width:340px}
-.repl-foot{margin-top:10px;font-size:12px;color:var(--t3)}
+.repl-refresh{margin-left:auto;padding:var(--sp-1) var(--sp-3);font-size:var(--fs-sm)}
+.repl-head-actions{margin-left:auto;display:flex;gap:var(--sp-2);align-items:center}
+.repl-docx{padding:var(--sp-1) var(--sp-3);font-size:var(--fs-sm)}
+.repl-reason{color:var(--t3);font-size:var(--fs-sm);max-width:340px}
+.repl-foot{margin-top:var(--sp-h10);font-size:var(--fs-sm);color:var(--t3)}
 /* 经验闭环（内容现居 G 区「经验闭环」tab 内，v496 P0-3） */
-.loop-kpis{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px}
-.loop-kpi{display:flex;flex-direction:column;align-items:center;min-width:74px;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg)}
-.loop-kpi .num{font-size:20px;font-weight:700;color:var(--t1);line-height:1.2}
+.loop-kpis{display:flex;gap:var(--sp-h18);flex-wrap:wrap;margin-top:var(--sp-h10)}
+.loop-kpi{display:flex;flex-direction:column;align-items:center;min-width:74px;padding:var(--sp-2) var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg)}
+.loop-kpi .num{font-size:var(--fs-xl);font-weight:700;color:var(--t1);line-height:1.2}
 .loop-kpi .num.ok{color:var(--suc)}
 .loop-kpi .num.warn{color:var(--war)}
-.loop-kpi .lbl{font-size:12px;color:var(--t3);margin-top:2px}
-.loop-accept{display:flex;gap:22px;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--t2)}
-.loop-accept .la-row{display:flex;gap:6px;align-items:center}
-.loop-accept .la-row b{color:var(--t1);font-size:14px}
-.loop-note{margin-top:10px;font-size:12px;color:var(--t3);line-height:1.6}
+.loop-kpi .lbl{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
+.loop-accept{display:flex;gap:22px;flex-wrap:wrap;margin-top:var(--sp-3);font-size:var(--fs-base);color:var(--t2)}
+.loop-accept .la-row{display:flex;gap:var(--sp-h6);align-items:center}
+.loop-accept .la-row b{color:var(--t1);font-size:var(--fs-md)}
+.loop-note{margin-top:var(--sp-h10);font-size:var(--fs-sm);color:var(--t3);line-height:1.6}
 
 /* 空账套导入引导 —— 占整行，横向三段：图标 / 文案 / 操作 */
-.import-guide{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px dashed var(--bd)}
+.import-guide{grid-column:1/-1;display:flex;align-items:center;gap:var(--sp-h14);flex-wrap:wrap;border:1px dashed var(--bd)}
 .ig-ic{width:40px;height:40px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .ig-txt{flex:1;min-width:220px}
-.ig-title{font-size:14px;font-weight:500;color:var(--t1)}
-.ig-sub{font-size:12px;color:var(--t3);margin-top:3px;line-height:1.55}
-.ig-acts{display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap}
+.ig-title{font-size:var(--fs-md);font-weight:500;color:var(--t1)}
+.ig-sub{font-size:var(--fs-sm);color:var(--t3);margin-top:3px;line-height:1.55}
+.ig-acts{display:flex;align-items:center;gap:var(--sp-h10);flex-shrink:0;flex-wrap:wrap}
 .ig-pick{display:inline-flex;align-items:center;cursor:pointer}
 .ig-pick.busy{opacity:.7;cursor:default}
-.ig-msg{font-size:12px;color:var(--dan)}
+.ig-msg{font-size:var(--fs-sm);color:var(--dan)}
 .ig-msg.ok{color:var(--p-dark)}
 
-.ai-report{font-size:13px;color:var(--t1);line-height:1.8;max-height:none;overflow-y:auto}
-.ai-loading{padding:12px 0}
+.ai-report{font-size:var(--fs-base);color:var(--t1);line-height:1.8;max-height:none;overflow-y:auto}
+.ai-loading{padding:var(--sp-3) 0}
 
 @media(max-width:1200px){
   /* 网格降为 6 列（见 styles/variables.css）：要务整行、效期整行 */
@@ -844,6 +844,6 @@ onMounted(loadData)
 @media(max-width:768px){
   .wb-tasks,.expiry-card,.repl-panel,.ai-insight{grid-column:1/-1;grid-row:auto}
   .wb-status{margin-left:0;width:100%}
-  .wb-hi{font-size:18px}
+  .wb-hi{font-size:var(--fs-stat)}
 }
 </style>

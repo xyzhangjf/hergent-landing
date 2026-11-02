@@ -164,10 +164,104 @@ function checkRadius() {
   return bad
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   v727 · 字号护栏
+   ─────────────────────────────────────────────────────────────────────────────
+   由来：v724 收圆角时「为什么它能一次到位」的答案是**有 prebuild 检查**。
+   对照字号：11 档令牌早就定义好了，但全站仍写 **1961 处 `font-size:12px` 这类字面量**，
+   令牌采纳率 5% ⇒ 改令牌只有 5% 的页面跟着变。间距更差：令牌采纳 ~18 处 / 0%。
+   ⇒ 缺的不是令牌，是「令牌被使用」。这条护栏补的就是这个缺口。
+
+   判据：`font-size` 的值只许是 `var(--fs-*)`。放行三类：
+     · `0`            —— 消除行内空白符（`font-size:0` 后子元素再设字号），不是"字号"
+     · em / rem / %   —— 相对字号（markdown 标题层级 `1.45em`），语义是"相对父级"
+     · inherit/initial/unset —— 显式重置
+   裸 px 一律失败。令牌改名/改值时不在这里改，去 variables.css。 */
+const FS_DECL = /(?<![\w-])font-size\s*:\s*([^;{}"'<>]+)/g
+const FS_TOKEN = /var\(\s*--fs-[A-Za-z0-9-]*\s*\)/g
+
+function checkFontSizes () {
+  const bad = []
+  for (const abs of walk(SRC)) {
+    if (!/\.(vue|css)$/.test(abs)) continue
+    const rel = relative(ROOT, abs).split('\\').join('/')
+    for (const m of stripComments(readFileSync(abs, 'utf8')).matchAll(FS_DECL)) {
+      const val = m[1].trim()
+      const rest = val
+        .replace(FS_TOKEN, '')
+        /* `max(11px,.9em)` / `clamp(...)` 是**自适应**写法（不小于可读下限、又跟随父级），
+           里面的 px 不是"挑了个字号档"。同理 `var(--td-fs, 12px)` 的兜底值。 */
+        .replace(/(max|min|clamp)\([^()]*(?:\([^()]*\)[^()]*)*\)/gi, '')
+        .replace(/var\([^()]*(?:\([^()]*\)[^()]*)*\)/g, '')
+        .replace(/!\s*important/gi, '')
+        .replace(/(inherit|initial|unset)/gi, '')
+        .replace(/^-?0(?:px)?$/g, '')
+        .replace(/^-?\d+(?:\.\d+)?(em|rem|%)$/gi, '')
+        .trim()
+      if (rest) bad.push({ rel, val })
+    }
+  }
+  return bad
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   v727 · 间距护栏
+   ─────────────────────────────────────────────────────────────────────────────
+   由来：`gap/padding/margin` 的间距字面量共 **5037 处 / 43 个值**，其中
+   仅 41% 落在 4 栅格上，45% 卡在两档之间（6/10/14/18），14% 是 1/3/5/7/9 这类微调。
+   相邻模块从 6px 到 10px 差 4px（+67%）—— 这正是"看起来不整齐"最直接的来源。
+
+   v727 做了两件事：① 把 2/4/6/8/10/12/14/16/18/20/24/32 起成 12 档令牌
+   （`-h` 后缀的是**过渡档**，只为了先让 86% 有名字，P1 归一时删）；② 4199 处字面量
+   机械替换成令牌（值不变，零视觉变化）。
+
+   判据（不是"全部禁止" —— 那会让 700 处微调没处去）：
+     · 出现了**12 档之内**的裸 px      ⇒ 失败（该用令牌，现已 0 处）
+     · 出现了 **OFFGRID_ALLOWED 之外**的值 ⇒ 失败（不许再发明新值）
+   放行 `calc(...)` / `var(--x, 兜底)` 内部的值：那是运算，不是间距档。 */
+const SP_PROPS = [
+  'gap', 'row-gap', 'column-gap',
+  'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+  'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+]
+const SP_DECL = new RegExp('(?<![\\w-])(' + SP_PROPS.join('|') + ')\\s*:\\s*([^;{}\"\'<>]+)', 'g')
+const SP_12 = new Set([2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 32])
+/* 1px = 细边线（柔化 1px 的边不是间距档）；3/5/7/9/11/13 = 微调；15+ = 页面级留白。
+   这份集合是**技术债清单**（P1 归一时只删不增），也是"不许发明 17px"的红线。 */
+const OFFGRID_ALLOWED = new Set([
+  1, 1.5, 3, 5, 7, 9, 11, 13, 15,
+  20.8, 22, 26, 28, 30, 34, 36, 38, 38.8, 40,
+  42, 44, 46, 48, 60, 62, 72, 80, 96,
+])
+const SP_PX = /(?<![\w.\-])(\d+(?:\.\d+)?)px/g
+
+function checkSpacing () {
+  const bad = []
+  for (const abs of walk(SRC)) {
+    if (!/\.(vue|css)$/.test(abs)) continue
+    const rel = relative(ROOT, abs).split('\\').join('/')
+    for (const m of stripComments(readFileSync(abs, 'utf8')).matchAll(SP_DECL)) {
+      /* 先摘掉 var(...)，避免把 `var(--x, 8px)` 的兜底值当成裸 px；
+         再摘 calc(...)，避免把 `calc(72px + env(...))` 的运算项算成间距。 */
+      const body = m[2]
+        .replace(/var\([^()]*(?:\([^()]*\)[^()]*)*\)/g, '')
+        .replace(/calc\([^()]*(?:\([^()]*\)[^()]*)*\)/g, '')
+      for (const n of body.matchAll(SP_PX)) {
+        const v = parseFloat(n[1])
+        if (SP_12.has(v)) bad.push({ rel, prop: m[1], v, why: 'sp12' })
+        else if (!OFFGRID_ALLOWED.has(v)) bad.push({ rel, prop: m[1], v, why: 'new' })
+      }
+    }
+  }
+  return bad
+}
+
 const args = new Set(process.argv.slice(2))
 const current = collect()
 const iconBad = checkIconSizes()
 const radiusBad = checkRadius()
+const fsBad = checkFontSizes()
+const spBad = checkSpacing()
 if (args.has('--update')) {
   const obj = {}
   for (const k of [...current.keys()].sort()) obj[k] = [...current.get(k)].sort()
@@ -206,12 +300,14 @@ for (const [file, vals] of current) {
   if (added.length) violations.push({ file, kind: 'new-color', vals: added })
 }
 
-if (!violations.length && !iconBad.length && !radiusBad.length) {
+if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length) {
   const files = Object.keys(base).length
   const total = Object.values(base).reduce((a, b) => a + b.length, 0)
   console.log(`✓ 设计令牌护栏通过（存量待清：${files} 个文件 / ${total} 条，见 --list）`)
   console.log(`✓ 图标尺寸护栏通过（允许 ${[...ICON_SIZES].join(' / ')} 四档）`)
   console.log(`✓ 圆角护栏通过（只许 --radius-* / 0 / inherit）`)
+  console.log(`✓ 字号护栏通过（只许 var(--fs-*) / 0 / em·rem·%）`)
+  console.log(`✓ 间距护栏通过（12 档必须走令牌；离群值不许新增）`)
   process.exit(0)
 }
 
@@ -224,6 +320,37 @@ if (radiusBad.length) {
   console.error('  md 12px 卡片　lg 16px 大卡片/面板　xl 22px 弹窗')
   console.error('  pill 999px 胶囊（不管多高都半圆）　circle 50% 正圆')
   console.error('\n不要在局部写死 px —— 元素高度一变，写死的半高就不再是胶囊了。\n')
+}
+
+if (fsBad.length) {
+  console.error('\n✗ 字号护栏：出现了 var(--fs-*) 之外的 font-size\n')
+  for (const b of fsBad) console.error(`  ${b.rel}\n    font-size: ${b.val}`)
+  console.error('\n字号只分 12 档（定义见 src/styles/variables.css）：')
+  console.error('  11 角标/密集表格（中文下限）　12 提示　13 表格/控件　14 正文　15 面板标题')
+  console.error('  16 弹窗标题　17 卡片标题　18 统计值　20 页头　22 KPI 数值　24 主标题　26 大数值')
+  console.error('\n允许例外：0（消除空白符）、1.45em（markdown 相对层级）。')
+  console.error('改档位请去 variables.css 改令牌值，不要就地写 px —— 就地写只有这一处跟着变。\n')
+}
+
+if (spBad.length) {
+  console.error('\n✗ 间距护栏：出现不该出现的间距字面量\n')
+  const sp12 = spBad.filter((b) => b.why === 'sp12')
+  const spNew = spBad.filter((b) => b.why === 'new')
+  if (sp12.length) {
+    console.error(`  【用令牌】以下 ${sp12.length} 处用了 12 档之内的裸 px：`)
+    for (const b of sp12.slice(0, 12)) console.error(`    ${b.rel}  ${b.prop}:${b.v}px`)
+    if (sp12.length > 12) console.error(`    …… 另有 ${sp12.length - 12} 处`)
+  }
+  if (spNew.length) {
+    console.error(`  【新值】以下 ${spNew.length} 处发明了 OFFGRID_ALLOWED 之外的值：`)
+    for (const b of spNew.slice(0, 12)) console.error(`    ${b.rel}  ${b.prop}:${b.v}px`)
+    if (spNew.length > 12) console.error(`    …… 另有 ${spNew.length - 12} 处`)
+  }
+  console.error('\n间距 12 档（variables.css）：')
+  console.error('  2  4  6  8  10  12  14  16  18  20  24  32')
+  console.error('  其中 -h 后缀（2/6/10/14/18）是**过渡档**，P1 归一时删。')
+  console.error('\n取值请用 var(--sp-1) … var(--sp-7) 或 var(--sp-hN)。')
+  console.error('确实需要新档位 ⇒ 先在 variables.css 定义，再改这里允许集合（只增一次，写清理由）。\n')
 }
 
 if (iconBad.length) {

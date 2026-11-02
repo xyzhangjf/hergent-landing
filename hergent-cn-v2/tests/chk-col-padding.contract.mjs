@@ -21,6 +21,8 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+/* 🔴 v727：尺寸令牌化后用共享解析器比数值，不再文本匹配 px。 */
+import { numsOf as tokenNums } from './lib/tokens.mjs'
 
 const ROOT = path.resolve(process.cwd())
 const SRC = path.join(ROOT, 'src')
@@ -93,9 +95,13 @@ console.log('\n【1】唯一源：勾选列左右内边距归零（缺陷修复�
      值从源码读，不写死 —— 哪天列宽或基础 padding 变了，这条会提醒重算成因链。 */
   const base = cssRules(stripCss(read(path.join(SRC, 'styles/variables.css'))))
     .find((r) => /^table\.tbltd$/.test(r.sel.replace(/\s+/g, '')))
+  /* 🔴 v727：基础内距已令牌化（`padding:var(--sp-h10) var(--sp-h14)`），
+     裸 px 正则匹配不到 ⇒ 用共享解析器取第二值（横向）。令牌改了值这儿跟着变。 */
   const padH = base ? (() => {
-    const m = /padding:\s*([\d.]+)px\s+([\d.]+)px/.exec(base.body)
-    return m ? parseFloat(m[2]) : null
+    const m = /padding\s*:\s*([^;}]+)/.exec(base.body)
+    if (!m) return null
+    const two = tokenNums(m[1])
+    return two.length >= 2 ? two[1] : null
   })() : null
   ok(padH !== null, '能读到基础表格单元格的横向内边距（table.tbl td）', '未匹配')
   const CHK = 36

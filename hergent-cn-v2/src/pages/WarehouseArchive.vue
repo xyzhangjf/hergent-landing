@@ -55,7 +55,7 @@
       </div>
       <div v-else class="state-empty">还没有仓库档案，先新建一个（如「总仓」「刘小顶仓」）</div>
 
-      <p class="df-tip" style="margin-top:14px">
+      <p class="df-tip" style="margin-top:var(--sp-h14)">
         仓库在这里统一维护，下游三处引用它：
         <b>员工档案 → 个人仓</b>（该员工报「本人仓」调拨单时的目标仓）、
         <b>报单配置 → 源仓 / 目标仓</b>（舟谱调拨单的调出仓与调入仓）、
@@ -214,21 +214,21 @@ onMounted(load)
 </script>
 
 <style scoped>
-.wh-hd-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
-.df-panel{padding:18px;margin-bottom:14px}
-.df-tip{font-size:12px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
-.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:var(--radius-sm);font-size:12px}
+.wh-hd-right{display:flex;align-items:center;gap:var(--sp-h10);flex-shrink:0}
+.df-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
+.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:1.7}
+.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 
 /* 仓号（DB3）：与报单配置里的「本人仓」标识同源，方便对账时口头引用 */
-.wh-id{display:inline-block;margin-left:6px;font-size:11px;padding:1px 6px;border-radius:var(--radius-xs);background:var(--bg2);color:var(--t3);font-variant-numeric:tabular-nums}
-.wh-muted{font-size:12px;color:var(--t3)}
+.wh-id{display:inline-block;margin-left:var(--sp-h6);font-size:var(--fs-xs);padding:1px var(--sp-h6);border-radius:var(--radius-xs);background:var(--bg2);color:var(--t3);font-variant-numeric:tabular-nums}
+.wh-muted{font-size:var(--fs-sm);color:var(--t3)}
 .wh-ops{white-space:nowrap}
 
-.df-check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);cursor:pointer}
-.df-field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--t2)}
+.df-check{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);cursor:pointer}
+.df-field{display:flex;flex-direction:column;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t2)}
 .df-field .req{color:var(--err);font-style:normal}
 
 /* 弹窗（v691：定位/层级/圆角/遮罩/三段结构统一由 components/Modal.vue 提供，
    本页只保留弹窗内排版 —— 挂在 slot 内元素上） */
-.df-body{display:flex;flex-direction:column;gap:12px}
+.df-body{display:flex;flex-direction:column;gap:var(--sp-3)}
 </style>

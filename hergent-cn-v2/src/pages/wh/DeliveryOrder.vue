@@ -26,7 +26,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadRows">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadRows">重试</button>
     </div>
 
     <template v-else>
@@ -244,7 +244,7 @@ onMounted(loadRows)
 
 <style scoped>
 /* 页面私有类一律 `dvo-` 前缀（仓配·配送单），避免与兄弟页串味。 */
-.dvo-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.dvo-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 .dvo-scope { width: 190px }
 .dvo-date { width: 150px }
 .dvo-status { width: 120px }
@@ -252,18 +252,18 @@ onMounted(loadRows)
 .dvo-card { padding: 0; overflow: hidden }
 .dvo-tbl { table-layout: fixed }
 .dvo-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
-.dvo-addr { font-size: 12px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.dvo-dim { color: var(--t3); font-size: 12px }
+.dvo-addr { font-size:var(--fs-sm); color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.dvo-dim { color: var(--t3); font-size:var(--fs-sm) }
 
 .dvo-op-cell { white-space: nowrap }
 .dvo-op {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .dvo-op:hover { text-decoration: underline }
 .dvo-op:disabled { color: var(--t3); cursor: not-allowed; text-decoration: none }
 .dvo-op-danger { color: var(--dan) }
 
-.dvo-empty-hint { font-size: 12px; color: var(--t3); margin-top: 6px }
-.dvo-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
+.dvo-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
+.dvo-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
 </style>

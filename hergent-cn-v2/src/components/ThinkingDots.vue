@@ -79,7 +79,7 @@ const ariaText = computed(() => (props.text || '加载中').replace(/…+$/, '')
   display: inline-flex;
   align-items: center;
   /* 上下留白 4 像素：给圆点向上跳动留出空间，避免被父级容器裁掉 */
-  padding: 4px 0;
+  padding: var(--sp-1) 0;
   vertical-align: middle;
 }
 
@@ -87,7 +87,7 @@ const ariaText = computed(() => (props.text || '加载中').replace(/…+$/, '')
 .td-below {
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
+  gap: var(--sp-h6);
 }
 
 .td-dots {

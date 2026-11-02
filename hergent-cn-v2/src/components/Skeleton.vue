@@ -30,8 +30,8 @@ defineProps({
 </script>
 
 <style scoped>
-.ui-skeleton { padding: 14px 16px; }
-.ui-sk-row { display: flex; gap: 12px; align-items: center; height: 32px; }
+.ui-skeleton { padding: var(--sp-h14) var(--sp-4); }
+.ui-sk-row { display: flex; gap: var(--sp-3); align-items: center; height: 32px; }
 .ui-sk-bar {
   display: block; height: 14px; border-radius: var(--radius-sm);
   background: linear-gradient(90deg, var(--bg2) 25%, var(--bg3) 37%, var(--bg2) 63%);

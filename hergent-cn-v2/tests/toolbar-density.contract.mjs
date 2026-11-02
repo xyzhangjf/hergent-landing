@@ -16,6 +16,9 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+/* 🔴 v727：内距/字号改走令牌后，`parseFloat('var(--sp-h10)')` 得到 NaN ⇒ 用共享解析器。
+   契约校验的是「最终算多少 px」，令牌改了值它照样跟着变，约束没有放松。 */
+import { pxOf as tokenPx, padY as tokenPadY, numsOf as tokenNums } from './lib/tokens.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const VARIABLES = join(ROOT, 'src/styles/variables.css')
@@ -44,18 +47,19 @@ function bodyAfter (css, needle) {
   if (close < 0) return null
   return css.slice(open + 1, close)
 }
-/** 从声明体读 `padding:` 简写的纵向值（px）；无则 null */
+/** 从声明体读 `padding:` 简写的纵向值（px）；无则 null。v727 起兼容令牌写法。 */
 function padV (body) {
   if (!body) return null
   const m = /(?:^|;|\s)padding\s*:\s*([^;]+)/.exec(body)
-  if (!m) return null
-  const parts = m[1].trim().split(/\s+/).map((s) => parseFloat(s)).filter((n) => !isNaN(n))
-  return parts.length ? parts[0] : null
+  return m ? tokenPadY(m[1]) : null
+}
+function declRaw (body, prop) {
+  if (!body) return null
+  const m = new RegExp('(?:^|;|\\s)' + prop + '\\s*:\\s*([^;}]+)').exec(body)
+  return m ? m[1].trim() : null
 }
 function numDecl (body, prop) {
-  if (!body) return null
-  const m = new RegExp('(?:^|;|\\s)' + prop + '\\s*:\\s*([0-9.]+)px').exec(body)
-  return m ? parseFloat(m[1]) : null
+  return tokenPx(declRaw(body, prop))
 }
 
 /** 判别力自证：detector 对 good 必须判绿、对 bad 必须判红 */
@@ -81,12 +85,14 @@ const filterDetector = (css) => {
 }
 ok('筛选卡内距规则存在', filterBody !== null)
 ok('筛选卡纵向内距 ≤12px 且 <18px 基线', filterPadV !== null && filterPadV <= 12 && filterPadV < 18, `实测 ${filterPadV}`)
-ok('筛选卡横向内距 ≤16px', (() => { const m = /padding\s*:\s*([^;]+)/.exec(filterBody || ''); if (!m) return false; const p = m[1].trim().split(/\s+/).map(parseFloat); return (p[1] ?? p[0]) <= 16 })())
+ok('筛选卡横向内距 ≤16px', (() => { const p = tokenNums(declRaw(filterBody, 'padding')); return p.length > 0 && (p[1] ?? p[0]) <= 16 })())
 ok('覆盖全部 ' + FILTER_CLASSES.length + ' 个列表页筛选卡类名', FILTER_CLASSES.every((c) => vars.includes('.' + c)))
 ok('`.card` 基线仍是 18px（说明覆盖有意义）', (numDecl(bodyAfter(vars, '.card{'), 'padding') ?? 18) === 18, '基线被改')
+/* v727：坏样本要按**当前写法**去改（筛选卡现在是 `padding:var(--sp-h10) var(--sp-h14)`），
+   否则 replace 打空、bad === good，自证会报「假阴性」。 */
 prove('筛选卡内距', filterDetector,
   vars,
-  vars.replace(/padding\s*:10px 14px/, 'padding:18px'))
+  vars.replace(/(\.card\.ipl-filter[\s\S]{0,400}?\{[^}]*?)padding\s*:[^;}]+/, '$1padding:18px'))
 
 /* ---------- ② 状态页签条 ---------- */
 const tabBody = bodyAfter(psi, '.psi-tabbar .main-tab')

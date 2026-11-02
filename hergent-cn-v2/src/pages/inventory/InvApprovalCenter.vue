@@ -14,7 +14,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load">重试</button>
     </div>
     <div v-else-if="!items.length" class="card empty">
       <Icon name="check" :size="18" />
@@ -107,18 +107,18 @@ onMounted(load)
 
 <style scoped>
 .inv-page { display: block }
-.page-hd { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 12px }
-.page-sub { font-size: 12px; color: var(--t3) }
-.isd-acts { display: flex; gap: 8px }
+.page-hd { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-3) }
+.page-sub { font-size:var(--fs-sm); color: var(--t3) }
+.isd-acts { display: flex; gap: var(--sp-2) }
 .card { padding: 0; overflow: hidden }
-.empty { display: flex; align-items: center; gap: 10px; padding: 28px; color: var(--t2) }
+.empty { display: flex; align-items: center; gap: var(--sp-h10); padding: 28px; color: var(--t2) }
 .empty svg { color: var(--ok) }
-.tbl th, .tbl td { padding: 10px 12px; text-align: left }
+.tbl th, .tbl td { padding: var(--sp-h10) var(--sp-3); text-align: left }
 /* v670：删掉原来的 `.seq-cell{color:var(--t3);width:40px}` ——
    ① 列宽与全局 `table.tbl td.seq-cell` 的 46px 冲突，而本规则 specificity (0,1,0) 恒定被
       全局 (0,2,2) 压掉 ⇒ 40px 从来没生效过（死代码）；② 它是「序号列宽」的第二个真相源。
    序号列样式一律走全站唯一源（variables.css），本页不再抄。 */
 .mono { font-variant-numeric: tabular-nums }
 .op-th, .op-td { text-align: right; width: 120px }
-.muted { font-size: 12px; color: var(--t3) }
+.muted { font-size:var(--fs-sm); color: var(--t3) }
 </style>

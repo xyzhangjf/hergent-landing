@@ -118,18 +118,18 @@ onBeforeUnmount(() => {
 .notif-dock{
   position:fixed;left:50%;bottom:96px;transform:translateX(-50%);
   z-index:var(--z-toast,1200);
-  display:flex;flex-direction:column;align-items:center;gap:8px;
+  display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);
   max-width:min(80vw,720px);
   pointer-events:none;        /* 坞本身不吃点击 ⇒ 点空白处仍能关掉长通知条 */
 }
 .notif-dock > *{pointer-events:auto}
 
 .toast{
-  display:flex;align-items:flex-start;gap:10px;
-  padding:10px 16px;border-radius:var(--radius-md);
+  display:flex;align-items:flex-start;gap:var(--sp-h10);
+  padding:var(--sp-h10) var(--sp-4);border-radius:var(--radius-md);
   background:var(--toast-bg);color:var(--toast-fg);
   border:1px solid var(--toast-bd);
-  font-size:13px;line-height:1.6;text-align:left;
+  font-size:var(--fs-base);line-height:1.6;text-align:left;
   box-shadow:var(--shadow-lg);
 }
 .toast-msg{flex:1 1 auto;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -154,10 +154,10 @@ onBeforeUnmount(() => {
 
 /* v306c：部署自检提示（坞内的小胶囊，不再自己绝对定位） */
 .upd-tip{
-  display:inline-flex;align-items:center;gap:8px;
-  padding:9px 16px;border-radius:var(--radius-pill);border:1px solid transparent;
+  display:inline-flex;align-items:center;gap:var(--sp-2);
+  padding:9px var(--sp-4);border-radius:var(--radius-pill);border:1px solid transparent;
   background:var(--toast-bg);color:var(--toast-fg);
-  font:inherit;font-size:13px;line-height:1;cursor:pointer;box-shadow:var(--shadow-lg);
+  font:inherit;font-size:var(--fs-base);line-height:1;cursor:pointer;box-shadow:var(--shadow-lg);
 }
 .upd-tip:hover{opacity:.92}
 .upd-dot{width:7px;height:7px;border-radius:var(--radius-circle);background:var(--suc);flex:none}

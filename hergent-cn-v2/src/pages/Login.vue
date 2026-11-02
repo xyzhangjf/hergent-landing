@@ -389,72 +389,72 @@ function goWorkbench() {
 </script>
 
 <style scoped>
-.login{height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg2);padding:20px}
+.login{height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg2);padding:var(--sp-5)}
 /* 548 → 620（2026-09-12）：注册表单新增「邀请码」一行（输入框 32px + form gap 12px
    + 说明文案 15px，负外边距吃掉 10px ≈ +49px，实测注册卡自然高 620px）。
    若不放宽锁定值，两表单瞬切时登录卡 548 → 注册卡 620 会**跳高 72px**，
    这正是当初把高度锁死要避免的 —— 锁定值必须 ≥ 较高的那一侧。 */
-.login-card{width:360px;max-width:100%;background:var(--bg);border-radius:var(--radius-xl);padding:40px 32px;box-shadow:var(--shadow-lg);border:1px solid var(--border-subtle);min-height:620px;display:flex;flex-direction:column}
-.login-logo{display:flex;justify-content:center;margin-bottom:14px}
+.login-card{width:360px;max-width:100%;background:var(--bg);border-radius:var(--radius-xl);padding:40px var(--sp-7);box-shadow:var(--shadow-lg);border:1px solid var(--border-subtle);min-height:620px;display:flex;flex-direction:column}
+.login-logo{display:flex;justify-content:center;margin-bottom:var(--sp-h14)}
 .login-logo img{width:48px;height:48px;border-radius:var(--radius-sm);box-shadow:0 4px 12px rgba(13,148,136,.18)}
-h1{font-size:20px;font-weight:600;text-align:center;margin-bottom:4px}
-.login-sub{font-size:13px;color:var(--t3);text-align:center;margin-bottom:24px}
-form{display:flex;flex-direction:column;gap:12px;flex:1}
-.login-error{font-size:12px;color:var(--dan);margin:0}
+h1{font-size:var(--fs-xl);font-weight:600;text-align:center;margin-bottom:var(--sp-1)}
+.login-sub{font-size:var(--fs-base);color:var(--t3);text-align:center;margin-bottom:var(--sp-6)}
+form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
+.login-error{font-size:var(--fs-sm);color:var(--dan);margin:0}
 .pw-wrap{position:relative}
 .pw-wrap .input{padding-right:42px}
-.pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;padding:6px;border:none;background:none;color:var(--t3);cursor:pointer;line-height:0}
+.pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;padding:var(--sp-h6);border:none;background:none;color:var(--t3);cursor:pointer;line-height:0}
 .pw-eye:hover{color:var(--p-dark)}
-.field{display:flex;flex-direction:row;align-items:center;gap:10px}
-.field-label{font-size:12px;font-weight:500;color:var(--t2);width:52px;flex-shrink:0;text-align:left}
+.field{display:flex;flex-direction:row;align-items:center;gap:var(--sp-h10)}
+.field-label{font-size:var(--fs-sm);font-weight:500;color:var(--t2);width:52px;flex-shrink:0;text-align:left}
 .field .input,.field .pw-wrap{flex:1;min-width:0}
 .field .input{padding-right:42px}
 /* 邀请码下方的一行说明：与输入框左边界对齐（52px 标签 + 10px gap），
    用负外边距吃掉 form 的 12px gap，避免注册表单被多撑高一行。 */
-.field-hint{font-size:11px;color:var(--t3);margin:-7px 0 -3px 62px;line-height:1.4}
+.field-hint{font-size:var(--fs-xs);color:var(--t3);margin:-7px 0 -3px 62px;line-height:1.4}
 /* 短信验证码（REGISTER_MODE=sms 分支）：输入框 + 「获取验证码」按钮同行 */
-.code-row{flex:1;min-width:0;display:flex;gap:8px}
-.code-send{flex-shrink:0;font-size:12px;padding:0 10px;white-space:nowrap}
-.login-legal{font-size:11px;color:var(--t3);text-align:center;margin-top:auto;line-height:1.9}
-.login-forgot{font-size:12px;color:var(--t3);text-align:right;display:block;margin:-6px 2px 0;cursor:pointer}
+.code-row{flex:1;min-width:0;display:flex;gap:var(--sp-2)}
+.code-send{flex-shrink:0;font-size:var(--fs-sm);padding:0 var(--sp-h10);white-space:nowrap}
+.login-legal{font-size:var(--fs-xs);color:var(--t3);text-align:center;margin-top:auto;line-height:1.9}
+.login-forgot{font-size:var(--fs-sm);color:var(--t3);text-align:right;display:block;margin:-6px var(--sp-h2) 0;cursor:pointer}
 .login-forgot:hover{color:var(--p-dark)}
 .forgot-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000}
-.forgot-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;max-width:calc(100vw - 40px);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:24px;z-index:1001}
-.forgot-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-.forgot-hd b{font-size:16px;font-weight:600}
-.forgot-x{background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;line-height:1;padding:0 4px}
+.forgot-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;max-width:calc(100vw - 40px);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--sp-6);z-index:1001}
+.forgot-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-h14)}
+.forgot-hd b{font-size:var(--fs-lg);font-weight:600}
+.forgot-x{background:none;border:none;font-size:var(--fs-xl);color:var(--t3);cursor:pointer;line-height:1;padding:0 var(--sp-1)}
 .forgot-x:hover{color:var(--t1)}
-.forgot-tip{font-size:13px;color:var(--t2);margin-bottom:10px}
-.forgot-step{font-size:12px;color:var(--t3);margin-bottom:8px}
-.forgot-mail{font-size:14px;font-weight:600;color:var(--p-dark);text-align:center;padding:10px;background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:14px}
-.forgot-foot{font-size:11px;color:var(--t3);margin-top:10px;text-align:center}
+.forgot-tip{font-size:var(--fs-base);color:var(--t2);margin-bottom:var(--sp-h10)}
+.forgot-step{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-2)}
+.forgot-mail{font-size:var(--fs-md);font-weight:600;color:var(--p-dark);text-align:center;padding:var(--sp-h10);background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:var(--sp-h14)}
+.forgot-foot{font-size:var(--fs-xs);color:var(--t3);margin-top:var(--sp-h10);text-align:center}
 /* 首次登录强制改密 */
-.pw-form{display:flex;flex-direction:column;gap:10px;margin:14px 0}
-.pw-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-.login-legal .beian{margin-right:6px}
-.login-legal a{color:var(--p-dark);text-decoration:none;margin:0 2px}
+.pw-form{display:flex;flex-direction:column;gap:var(--sp-h10);margin:var(--sp-h14) 0}
+.pw-actions{display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-3)}
+.login-legal .beian{margin-right:var(--sp-h6)}
+.login-legal a{color:var(--p-dark);text-decoration:none;margin:0 var(--sp-h2)}
 .login-legal a:hover{text-decoration:underline}
 .login-legal a.beian{color:var(--t3)}
-.login-agree{display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--t2);margin:2px 0 0;line-height:1.5}
-.login-agree input{margin-top:2px;accent-color:var(--p);flex:none}
+.login-agree{display:flex;align-items:flex-start;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-h2) 0 0;line-height:1.5}
+.login-agree input{margin-top:var(--sp-h2);accent-color:var(--p);flex:none}
 .login-agree a{color:var(--p-dark);text-decoration:none}
 .login-agree a:hover{text-decoration:underline}
-.lg-tabs{display:flex;gap:8px;margin-bottom:18px;background:var(--bg2);border-radius:var(--radius-sm);padding:4px}
-.demo-btn{color:var(--p-dark);border-color:rgba(6,182,212,.35);margin-top:2px}
-.lg-tab{flex:1;border:none;background:none;padding:8px;border-radius:var(--radius-sm);font-size:13px;color:var(--t3);cursor:pointer;transition:all var(--dur-base)}
+.lg-tabs{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-h18);background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-1)}
+.demo-btn{color:var(--p-dark);border-color:rgba(6,182,212,.35);margin-top:var(--sp-h2)}
+.lg-tab{flex:1;border:none;background:none;padding:var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-base);color:var(--t3);cursor:pointer;transition:all var(--dur-base)}
 .lg-tab.on{background:var(--bg);color:var(--p-dark);font-weight:500;box-shadow:var(--shadow-sm)}
 /* 激活引导弹窗 */
 .act-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:980}
 .act-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(440px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.2)}
-.act-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
-.act-hd b{font-size:15px}
-.act-x{border:none;background:none;font-size:12px;color:var(--t3);cursor:pointer}
-.act-body{padding:20px}
-.act-step{font-size:14px;font-weight:500;color:var(--t1);margin:0 0 8px}
-.act-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 14px}
-.act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:var(--radius-md);padding:26px 16px;font-size:13px;color:var(--p-dark);cursor:pointer;text-align:center;transition:all var(--dur-base)}
+.act-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-subtle)}
+.act-hd b{font-size:var(--fs-h4)}
+.act-x{border:none;background:none;font-size:var(--fs-sm);color:var(--t3);cursor:pointer}
+.act-body{padding:var(--sp-5)}
+.act-step{font-size:var(--fs-md);font-weight:500;color:var(--t1);margin:0 0 var(--sp-2)}
+.act-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin:0 0 var(--sp-h14)}
+.act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:var(--radius-md);padding:26px var(--sp-4);font-size:var(--fs-base);color:var(--p-dark);cursor:pointer;text-align:center;transition:all var(--dur-base)}
 .act-drop:hover{background:var(--p-bg)}
 .act-drop.busy{opacity:.6}
-.act-done{margin-top:14px;font-size:13px;color:var(--suc);font-weight:500}
-.act-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
+.act-done{margin-top:var(--sp-h14);font-size:var(--fs-base);color:var(--suc);font-weight:500}
+.act-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-5);border-top:1px solid var(--border-subtle)}
 </style>

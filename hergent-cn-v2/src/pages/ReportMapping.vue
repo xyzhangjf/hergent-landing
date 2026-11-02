@@ -1062,47 +1062,47 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
    「运行参数 / 报单对象」两个分区眉标随四页拆分消失，模板参数整卡搬到
    `components/forecast/TemplateParams.vue`。留在这里就是**死 CSS**（本项目纪律：
    死 CSS 与死代码同罪，会被后人当成"还在用"）。 */
-.health-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:rgba(var(--war-rgb),.06);border:1px solid var(--border-subtle);border-left:3px solid var(--war);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:14px;cursor:pointer}
+.health-bar{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);background:rgba(var(--war-rgb),.06);border:1px solid var(--border-subtle);border-left:3px solid var(--war);padding:9px var(--sp-h14);border-radius:var(--radius-md);margin-bottom:var(--sp-h14);cursor:pointer}
 .health-bar.ok{background:rgba(var(--suc-rgb),.10);border-color:rgba(var(--suc-rgb),.35)}
 .hb-dot{width:8px;height:8px;border-radius:var(--radius-circle);background:var(--war);flex-shrink:0}
 .health-bar.ok .hb-dot{background:var(--suc)}
-.hb-toggle{margin-left:auto;color:var(--p-ink);font-size:12px}
-.health-detail{margin-bottom:12px;padding:14px 16px}
-.hd-sec{margin-bottom:12px}
+.hb-toggle{margin-left:auto;color:var(--p-ink);font-size:var(--fs-sm)}
+.health-detail{margin-bottom:var(--sp-3);padding:var(--sp-h14) var(--sp-4)}
+.hd-sec{margin-bottom:var(--sp-3)}
 .hd-sec:last-child{margin-bottom:0}
-.hd-t{font-size:13px;color:var(--t1)}
+.hd-t{font-size:var(--fs-base);color:var(--t1)}
 .hd-t.war{color:var(--war)}
-.chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip-row{display:flex;flex-wrap:wrap;gap:var(--sp-h6);margin-top:var(--sp-2)}
 /* 历史门店授权提示条：与「配置体检」同构但用中性色 —— 它是「待收敛」不是「有错」。 */
-.legacy-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:var(--bg2);border:1px solid var(--border-subtle);border-left:3px solid var(--t3);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:14px;cursor:pointer}
+.legacy-bar{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);background:var(--bg2);border:1px solid var(--border-subtle);border-left:3px solid var(--t3);padding:9px var(--sp-h14);border-radius:var(--radius-md);margin-bottom:var(--sp-h14);cursor:pointer}
 .lb-dot{width:8px;height:8px;border-radius:var(--radius-circle);background:var(--t3);flex-shrink:0}
-.lb-toggle{margin-left:auto;color:var(--p-ink);font-size:12px}
-.legacy-detail{margin-bottom:12px;padding:14px 16px}
-.lb-tip{font-size:12px;color:var(--t2);line-height:1.8;margin:8px 0 0}
-.legacy-detail ul{margin:8px 0 0;padding-left:18px;font-size:13px;color:var(--t2);line-height:1.9}
+.lb-toggle{margin-left:auto;color:var(--p-ink);font-size:var(--fs-sm)}
+.legacy-detail{margin-bottom:var(--sp-3);padding:var(--sp-h14) var(--sp-4)}
+.lb-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.8;margin:var(--sp-2) 0 0}
+.legacy-detail ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-base);color:var(--t2);line-height:1.9}
 /* 每行：员工 → 门店 [已停用] [收回] —— 用 inline-flex + wrap，窄屏时按钮换行不挤压文字 */
-.lb-row{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lb-row{display:inline-flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .lb-arrow{color:var(--t3)}
-.lb-revoke{margin-left:4px}
-.chip{font-size:12px;padding:3px 9px;background:var(--bg2);border-radius:var(--radius-sm);color:var(--t2)}
+.lb-revoke{margin-left:var(--sp-1)}
+.chip{font-size:var(--fs-sm);padding:3px 9px;background:var(--bg2);border-radius:var(--radius-sm);color:var(--t2)}
 
 /* v712：加了「显示已停用」开关后，工具栏三件宽度 ≈ 380px —— 375 宽时刚好放下，
    320 宽的老机型就会横向溢出。`flex-wrap` 在放得下时**完全无副作用**（不换行），
    只在真的不够时才让开关掉到第二行，比写死 `@media(max-width:400px)` 更稳
    （将来再加一个控件也不用重新算断点）。 */
-.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 12px}
+.toolbar{display:flex;gap:var(--sp-h10);align-items:center;flex-wrap:wrap;margin:var(--sp-4) 0 var(--sp-3)}
 
 /* v713：`<InactiveToggle>` 组件自带几何（32 / 13px / radius 8 / padding 0 12px）、
    打开态高亮、以及「窄屏换行后 margin-left 归零」。
    这里原先逐属性复制的那一套已删除 —— 复制件一旦和组件各自演进就是两份会漂移的真相，
    而且窄屏那条 `margin-left:auto` 还可能反过来盖掉组件里的归零规则（同特异性比顺序）。
    本页只保留空态里那个文字链接按钮的字号修正。 */
-.empty-lnk{font-size:13px}
+.empty-lnk{font-size:var(--fs-base)}
 
 /* v2026-09-23：弹窗字段分组 + 必填图例 + 内联校验 */
-.form-grp{display:flex;flex-direction:column;gap:12px}
-.df-modal-hd-l{display:flex;align-items:baseline;gap:10px}
-.req-legend{font-size:12px;color:var(--t3)}
+.form-grp{display:flex;flex-direction:column;gap:var(--sp-3)}
+.df-modal-hd-l{display:flex;align-items:baseline;gap:var(--sp-h10)}
+.req-legend{font-size:var(--fs-sm);color:var(--t3)}
 /* 父级 .field.err 统一驱动输入框红边（混合 input / select / combo-input 一并处理） */
 .field.err .combo-input,
 .field.err input,
@@ -1110,20 +1110,20 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .field.err .req{color:var(--dan)}
 
 .card{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)}
-.table-wrap{padding:6px 4px;overflow-x:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
-.tbl{width:100%;border-collapse:collapse;font-size:13px}
-.tbl th{text-align:left;padding:10px 12px;color:var(--t3);font-weight:500;border-bottom:1px solid var(--border-subtle)}
-.tbl td{padding:10px 12px;border-bottom:1px solid var(--border-subtle);color:var(--t1)}
+.table-wrap{padding:var(--sp-h6) var(--sp-1);overflow-x:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
+.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-base)}
+.tbl th{text-align:left;padding:var(--sp-h10) var(--sp-3);color:var(--t3);font-weight:500;border-bottom:1px solid var(--border-subtle)}
+.tbl td{padding:var(--sp-h10) var(--sp-3);border-bottom:1px solid var(--border-subtle);color:var(--t1)}
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
 .tbl .ops{text-align:right;white-space:nowrap}
 .empty{text-align:center;color:var(--t3);padding:28px}
 
-.tag{font-size:12px;padding:2px 9px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t2)}
+.tag{font-size:var(--fs-sm);padding:var(--sp-h2) 9px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t2)}
 .num{font-variant-numeric:tabular-nums}
 
 /* C2：按钮对齐全局令牌（.btn/.btn-sm/.btn-primary/.btn-ghost/.btn-danger 为 scoped 复刻，尺寸/圆角与 variables.css 保持一致） */
-.btn{border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-md);padding:7px 13px;font-size:13px;color:var(--t1);cursor:pointer}
-.btn-sm{height:32px;padding:0 12px;font-size:13px;border-radius:var(--radius-sm)}
+.btn{border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-md);padding:7px 13px;font-size:var(--fs-base);color:var(--t1);cursor:pointer}
+.btn-sm{height:32px;padding:0 var(--sp-3);font-size:var(--fs-base);border-radius:var(--radius-sm)}
 .btn-primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .btn-ghost{background:transparent}
 .btn-danger{background:var(--dan-solid);border-color:var(--dan);color:#fff}
@@ -1132,57 +1132,57 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 
 /* v691：弹窗骨架统一由 components/Modal.vue 提供（定位/层级/圆角/遮罩/三段结构/滚动），
    本页只保留弹窗内排版 —— 这些 class 挂在 slot 内元素上，才带得到本页 scope id。 */
-.df-body{display:flex;flex-direction:column;gap:14px}
+.df-body{display:flex;flex-direction:column;gap:var(--sp-h14)}
 
-.field{display:flex;flex-direction:column;gap:6px;margin-bottom:2px}
-.field label{font-size:12px;color:var(--t2)}
+.field{display:flex;flex-direction:column;gap:var(--sp-h6);margin-bottom:var(--sp-h2)}
+.field label{font-size:var(--fs-sm);color:var(--t2)}
 .req{color:var(--dan);font-weight:600;font-style:normal}
-.field input, .field select{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
-.field .hint{font-size:12px;color:var(--t3);line-height:1.5}
-.seg{display:flex;gap:6px}
-.seg-btn{flex:1;height:34px;border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-sm);font-size:13px;color:var(--t2);cursor:pointer}
+.field input, .field select{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 11px;font-size:var(--fs-base);background:var(--bg);color:var(--t1)}
+.field .hint{font-size:var(--fs-sm);color:var(--t3);line-height:1.5}
+.seg{display:flex;gap:var(--sp-h6)}
+.seg-btn{flex:1;height:34px;border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-sm);font-size:var(--fs-base);color:var(--t2);cursor:pointer}
 .seg-btn.on{background:var(--p-solid);border-color:var(--p-solid);color:#fff}
 
-.warn-text{font-size:13px;color:var(--war);line-height:1.7}
+.warn-text{font-size:var(--fs-base);color:var(--war);line-height:1.7}
 /* v381：`.ro-box` / `.ro-name` / `.ro-tag` / `.ro-warn`（本人仓**只读框**）已随入口迁移删除 ——
    本人仓现在走**仓库下拉**（见模板「对象定义」），不再是只读展示。这四个类是死 CSS，别再加回来。 */
 .combo{position:relative;width:100%}
-.combo-input{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 28px 0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
+.combo-input{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 28px 0 11px;font-size:var(--fs-base);background:var(--bg);color:var(--t1)}
 .combo-input:focus{border-color:var(--p-dark)}
-.combo-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:11px;pointer-events:none}
-.combo-panel{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:4px}
-.combo-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:var(--radius-sm);font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.combo-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:var(--fs-xs);pointer-events:none}
+.combo-panel{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:var(--sp-1)}
+.combo-item{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);padding:var(--sp-2) var(--sp-h10);border-radius:var(--radius-sm);font-size:var(--fs-base);color:var(--t1);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .combo-item.on{background:var(--bg2)}
 .combo-item.sel{color:var(--p-ink);font-weight:600}
-.combo-sel{color:var(--p-ink);font-size:12px;flex:none}
-.combo-note{font-size:11px;color:var(--war);flex:none}
-.combo-empty{padding:10px;text-align:center;font-size:12px;color:var(--t3)}
+.combo-sel{color:var(--p-ink);font-size:var(--fs-sm);flex:none}
+.combo-note{font-size:var(--fs-xs);color:var(--war);flex:none}
+.combo-empty{padding:var(--sp-h10);text-align:center;font-size:var(--fs-sm);color:var(--t3)}
 /* v295：报单简称名册 —— 面板表头（sticky，滚动时仍看得见来源说明）、状态标签、三态提示 */
-.al-hd{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px -4px 4px;padding:6px 10px 7px;font-size:12px;color:var(--t3);background:var(--bg);border-bottom:1px solid var(--border-subtle)}
+.al-hd{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h10);margin:-4px -4px var(--sp-1);padding:var(--sp-h6) var(--sp-h10) 7px;font-size:var(--fs-sm);color:var(--t3);background:var(--bg);border-bottom:1px solid var(--border-subtle)}
 .al-from{color:var(--p-ink);flex:none}
 .al-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.al-tag{flex:none;font-size:11px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3)}
+.al-tag{flex:none;font-size:var(--fs-xs);padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3)}
 .al-tag.war{background:rgba(var(--war-rgb),.14);color:var(--war)}
 .al-tag.mine{background:var(--p-bg);color:var(--p-dark)}
 /* 输入框下方那行判定：绿=接管既有列 / 黄=会新增一列 / 红=撞名会被拒 */
 /* v317：报单人下拉下方的引导行（「还没有外部客户账号？去员工档案开通」）。
    中性灰而不是告警色 —— 它描述的是"还没有这种数据"，不是配置出错。 */
-.al-note{font-size:12px;line-height:1.6;color:var(--t3)}
-.lnk-btn{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:12px;padding:0 2px;font-family:inherit;text-decoration:underline}
+.al-note{font-size:var(--fs-sm);line-height:1.6;color:var(--t3)}
+.lnk-btn{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:var(--fs-sm);padding:0 var(--sp-h2);font-family:inherit;text-decoration:underline}
 .lnk-btn:hover{color:var(--p-dark)}
-.al-hint{font-size:12px;line-height:1.55;padding:6px 9px;border-radius:var(--radius-sm)}
+.al-hint{font-size:var(--fs-sm);line-height:1.55;padding:var(--sp-h6) 9px;border-radius:var(--radius-sm)}
 .al-hint.ok{color:var(--suc);background:rgba(var(--suc-rgb),.10)}
 .al-hint.warn{color:var(--war);background:rgba(var(--war-rgb),.10)}
 .al-hint.err{color:var(--dan);background:rgba(var(--dan-rgb),.10)}
 /* v295：相近列头的一键改选（把"会新增一列"的警告变成一个可点的动作，而不是光提示） */
-.al-near{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--t3);line-height:1.8}
-.al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:var(--radius-sm);padding:2px 9px;font-size:12px;cursor:pointer}
+.al-near{display:flex;align-items:center;gap:var(--sp-h6);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t3);line-height:1.8}
+.al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:var(--radius-sm);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);cursor:pointer}
 .al-near-btn:hover{background:var(--p-solid);color:#fff}
 .al-near-tip{color:var(--t3)}
-.upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:14px 18px;font-size:13px;color:var(--p-ink);cursor:pointer;text-align:center}
-.imp-result{font-size:13px;color:var(--t1);margin-top:6px}
+.upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h14) var(--sp-h18);font-size:var(--fs-base);color:var(--p-ink);cursor:pointer;text-align:center}
+.imp-result{font-size:var(--fs-base);color:var(--t1);margin-top:var(--sp-h6)}
 .imp-result .suc{color:var(--suc)} .imp-result .dan{color:var(--dan)}
-.imp-result ul{margin:8px 0 0;padding-left:18px;color:var(--t2);font-size:12px;line-height:1.7}
+.imp-result ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);color:var(--t2);font-size:var(--fs-sm);line-height:1.7}
 
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-base)}
 .fade-enter-from,.fade-leave-to{opacity:0}

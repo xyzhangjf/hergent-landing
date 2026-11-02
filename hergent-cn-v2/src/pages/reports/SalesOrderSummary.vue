@@ -207,17 +207,17 @@ defineExpose({ load })
 
 <style scoped>
 /* 仅保留仍被引用的私有类（口径说明卡挂在 #extra 插槽，插槽内容在本页作用域编译）。 */
-.sos-charts { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 14px; margin-top: 14px }
+.sos-charts { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--sp-h14); margin-top: var(--sp-h14) }
 @media (max-width: 1100px) { .sos-charts { grid-template-columns: minmax(0, 1fr) } }
-.sos-card { margin-top: 14px }
-.sos-note { margin: 0; padding-left: 18px; font-size: 12px; color: var(--t2); line-height: 1.8 }
-.sos-note code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size: 11px }
+.sos-card { margin-top: var(--sp-h14) }
+.sos-note { margin: 0; padding-left: var(--sp-h18); font-size:var(--fs-sm); color: var(--t2); line-height: 1.8 }
+.sos-note code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs) }
 /* v650：业务员筛选条（与 CustomerRank 同一版式语言）。 */
-.sos-filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
-.sos-fl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t2) }
+.sos-filter { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap }
+.sos-fl { display: inline-flex; align-items: center; gap: var(--sp-h6); font-size:var(--fs-sm); color: var(--t2) }
 .sos-fl select {
-  min-width: 170px; padding: 5px 8px; font-size: 12px; color: var(--t1);
+  min-width: 170px; padding: 5px var(--sp-2); font-size:var(--fs-sm); color: var(--t1);
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-xs);
 }
-.sos-hint { font-size: 11px; color: var(--t3); line-height: 1.6 }
+.sos-hint { font-size:var(--fs-xs); color: var(--t3); line-height: 1.6 }
 </style>

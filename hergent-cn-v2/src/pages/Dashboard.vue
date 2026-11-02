@@ -450,35 +450,35 @@ watch(repOk, (ok) => {
 </script>
 
 <style scoped>
-.dash{display:flex;flex-direction:column;gap:14px}
+.dash{display:flex;flex-direction:column;gap:var(--sp-h14)}
 .dash-hd h1{font-size:var(--fs-h2);font-weight:600;color:var(--t1)}   /* v719：原 18px 与全站页面标题 20px 不一致（--fs-h2），统一 */
-.dash-sub{font-size:12px;color:var(--t3);margin-top:2px}
+.dash-sub{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
 
-.kpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-3)}
 @media(max-width:1000px){.kpi-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.kpi-row{grid-template-columns:1fr}}
-.kpi{display:flex;flex-direction:column;gap:4px;min-width:0}
-.kpi-k{font-size:12px;color:var(--t3)}
+.kpi{display:flex;flex-direction:column;gap:var(--sp-1);min-width:0}
+.kpi-k{font-size:var(--fs-sm);color:var(--t3)}
 .kpi-v{display:flex;align-items:baseline;gap:3px;min-width:0}
-.kpi-num{font-size:24px;font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums;
+.kpi-num{font-size:var(--fs-h1);font-weight:600;color:var(--t1);font-variant-numeric:tabular-nums;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi-num.skel{color:var(--t3)}
-.kpi-u{font-size:12px;color:var(--t3);flex:none}
-.kpi-d{font-size:12px;color:var(--t3);min-height:18px}
+.kpi-u{font-size:var(--fs-sm);color:var(--t3);flex:none}
+.kpi-d{font-size:var(--fs-sm);color:var(--t3);min-height:18px}
 /* 经营口径：涨用成功绿、跌用危险红（不是行情的涨红跌绿 —— 那会把"生意变好"染成警告色） */
 .kpi-d.up{color:var(--suc)}
 .kpi-d.down{color:var(--dan)}
 
-.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp-h14)}
 @media(max-width:900px){.grid2{grid-template-columns:1fr}}
 
-.dash-err{display:flex;flex-direction:column;align-items:flex-start;gap:6px;color:var(--danger-txt)}
+.dash-err{display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-h6);color:var(--danger-txt)}
 .dash-err-ti{font-weight:500}
-.dash-err-msg{font-size:12px;color:var(--t2)}
+.dash-err-msg{font-size:var(--fs-sm);color:var(--t2)}
 
 /* 区间切换（沿用全站分段按钮的长相） */
 .seg{display:inline-flex;border:1px solid var(--bd);border-radius:var(--radius-sm);overflow:hidden}
-.seg-btn{padding:4px 12px;font-size:12px;background:transparent;border:0;color:var(--t2)}
+.seg-btn{padding:var(--sp-1) var(--sp-3);font-size:var(--fs-sm);background:transparent;border:0;color:var(--t2)}
 .seg-btn + .seg-btn{border-left:1px solid var(--bd)}
 .seg-btn.on{background:var(--p-solid);color:#fff}
 </style>

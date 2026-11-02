@@ -161,7 +161,7 @@
     <div v-else class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <WhDialog v-if="dlg" :title="`新建${TITLE}`" @close="dlg = false">
@@ -440,33 +440,33 @@ defineExpose({ load })
 
 <style scoped>
 /* 页面私有类一律 `woi-` 前缀（仓配·其它出入库；两个方向共用）。 */
-.woi-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.woi-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 
 .woi-cap {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px; padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-bottom: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--war);
   border-radius: var(--radius-md); background: var(--bg2); color: var(--war);
 }
 
-.woi-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px }
-.woi-f { display: flex; align-items: center; gap: 8px }
-.woi-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
+.woi-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-3) }
+.woi-f { display: flex; align-items: center; gap: var(--sp-2) }
+.woi-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 .woi-kw { min-width: 200px }
 .woi-sel { min-width: 140px }
-.woi-reset { margin-left: 4px }
-.woi-cnt { margin-left: auto; font-size: 12px; color: var(--t3) }
+.woi-reset { margin-left: var(--sp-1) }
+.woi-cnt { margin-left: auto; font-size:var(--fs-sm); color: var(--t3) }
 .woi-cnt b { color: var(--p-ink); font-variant-numeric: tabular-nums }
 
 .woi-card { padding: 0; overflow: hidden }
 .woi-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
-.woi-time { font-size: 12px; color: var(--t3) }
+.woi-time { font-size:var(--fs-sm); color: var(--t3) }
 .woi-clip { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .woi-dash { color: var(--t3) }
 
-.woi-op { display: flex; flex-wrap: wrap; gap: 2px 10px; justify-content: flex-end }
+.woi-op { display: flex; flex-wrap: wrap; gap: var(--sp-h2) var(--sp-h10); justify-content: flex-end }
 .woi-op-btn {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .woi-op-btn:hover { text-decoration: underline }
@@ -474,24 +474,24 @@ defineExpose({ load })
 .woi-op-btn:disabled { color: var(--t3); cursor: default; text-decoration: none }
 
 .woi-pager {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 12px 14px; border-top: 1px solid var(--border-subtle);
+  display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-h14); border-top: 1px solid var(--border-subtle);
 }
-.woi-pg-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
-.woi-pg-nums { display: inline-flex; align-items: center; gap: 4px }
+.woi-pg-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
+.woi-pg-nums { display: inline-flex; align-items: center; gap: var(--sp-1) }
 .woi-pg {
-  min-width: 28px; height: 28px; padding: 0 6px;
+  min-width: 28px; height: 28px; padding: 0 var(--sp-h6);
   border: 1px solid var(--bd); border-radius: var(--radius-sm);
-  background: var(--bg); color: var(--t1); font-size: 13px; font-variant-numeric: tabular-nums;
+  background: var(--bg); color: var(--t1); font-size:var(--fs-base); font-variant-numeric: tabular-nums;
 }
 .woi-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
 .woi-pg:disabled { opacity: .45; cursor: not-allowed }
 .woi-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
-.woi-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
+.woi-pg-size { width: auto; height: 28px; padding: 0 var(--sp-2); font-size:var(--fs-base); border-radius: var(--radius-sm) }
 
-.woi-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
+.woi-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
 
-.woi-form { display: flex; flex-direction: column; gap: 12px }
-.woi-frow { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.woi-fld { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 220px }
+.woi-form { display: flex; flex-direction: column; gap: var(--sp-3) }
+.woi-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.woi-fld { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1; min-width: 220px }
 </style>

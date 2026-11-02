@@ -135,18 +135,18 @@ async function doUndo() {
 </script>
 
 <style scoped>
-.ir{margin-top:12px;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;
-    background:rgba(var(--suc-rgb),.1);color:var(--suc);display:flex;flex-direction:column;gap:6px}
+.ir{margin-top:var(--sp-3);padding:var(--sp-h10) var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-base);
+    background:rgba(var(--suc-rgb),.1);color:var(--suc);display:flex;flex-direction:column;gap:var(--sp-h6)}
 .ir.bad{background:rgba(var(--war-rgb),.12);color:var(--war)}
-.ir-line b{font-size:14px}
+.ir-line b{font-size:var(--fs-md)}
 .ir-line b.dim{color:var(--t3);font-weight:500}
 .ir-line b.bad{color:var(--err-red)}
-.ir-sub{font-size:12px;color:var(--t2);display:flex;flex-direction:column;gap:2px}
+.ir-sub{font-size:var(--fs-sm);color:var(--t2);display:flex;flex-direction:column;gap:var(--sp-h2)}
 /* v304：「已导入但要你看一眼」用暖色，与"真失败"（红）刻意区分开 ——
    两者混成一色，用户就无法一眼分辨"要不要重来"。 */
 .ir-sub-warn{color:var(--war)}
 .ir-sub-h{font-weight:500}
-.ir-sub-i{padding-left:8px}
-.ir-act{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:2px}
-.ir-tip{font-size:12px;color:var(--t2)}
+.ir-sub-i{padding-left:var(--sp-2)}
+.ir-act{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-top:var(--sp-h2)}
+.ir-tip{font-size:var(--fs-sm);color:var(--t2)}
 </style>

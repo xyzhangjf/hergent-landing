@@ -38,31 +38,31 @@ function toggle() { emit('update:modelValue', !isOpen.value) }
 
 <style scoped>
 .cfg-card{
-  margin-bottom:12px;padding:0;overflow:hidden;
+  margin-bottom:var(--sp-3);padding:0;overflow:hidden;
   background:var(--bg);border:1px solid var(--border-subtle);
   border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
   transition:box-shadow var(--dur-base) ease,border-color var(--dur-base) ease;
 }
 .cfg-card:hover{box-shadow:var(--shadow-md);border-color:var(--bd)}
 .cfg-hd{
-  display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;flex-wrap:wrap;
+  display:flex;align-items:center;gap:var(--sp-h10);padding:11px var(--sp-4);cursor:pointer;flex-wrap:wrap;
   user-select:none;
 }
-.cfg-titles{display:flex;flex-direction:column;gap:2px;min-width:0}
-.cfg-title{font-size:13px;font-weight:600;color:var(--t1)}
-.cfg-sub{font-size:12px;color:var(--t3);line-height:1.4}
+.cfg-titles{display:flex;flex-direction:column;gap:var(--sp-h2);min-width:0}
+.cfg-title{font-size:var(--fs-base);font-weight:600;color:var(--t1)}
+.cfg-sub{font-size:var(--fs-sm);color:var(--t3);line-height:1.4}
 .cfg-side{
-  display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;
+  display:flex;align-items:center;gap:var(--sp-2);margin-left:auto;flex-wrap:wrap;justify-content:flex-end;
 }
 .cfg-toggle{color:var(--p-ink);display:inline-flex;align-items:center}
 .cfg-toggle :deep(svg){width:16px;height:16px}
-.cfg-body{padding:0 16px 14px;border-top:1px solid var(--border-subtle)}
+.cfg-body{padding:0 var(--sp-4) var(--sp-h14);border-top:1px solid var(--border-subtle)}
 
 /* ⚠️ chip / summary 由父组件经 slot 传入，其元素带父组件 scope，必须用 :deep 穿透样式化 */
 /* 状态芯片：on=绿（已开启/自动），off=灰（已关闭/手动），warn=琥珀（异常提示） */
-.cfg-side :deep(.cfg-chip){font-size:11px;padding:1px 9px;border-radius:var(--radius-sm);font-weight:500;white-space:nowrap}
+.cfg-side :deep(.cfg-chip){font-size:var(--fs-xs);padding:1px 9px;border-radius:var(--radius-sm);font-weight:500;white-space:nowrap}
 .cfg-side :deep(.cfg-chip.on){background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .cfg-side :deep(.cfg-chip.off){background:var(--bg2);color:var(--t3)}
 .cfg-side :deep(.cfg-chip.warn){background:rgba(var(--war-rgb),.12);color:var(--war);border:1px solid rgba(var(--war-rgb),.35)}
-.cfg-side :deep(.cfg-summary){font-size:12px;color:var(--t2);line-height:1.4}
+.cfg-side :deep(.cfg-summary){font-size:var(--fs-sm);color:var(--t2);line-height:1.4}
 </style>

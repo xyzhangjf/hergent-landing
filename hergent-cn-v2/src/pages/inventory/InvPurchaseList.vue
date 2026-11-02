@@ -230,7 +230,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <div v-else-if="!rows.length" class="card">
@@ -244,11 +244,11 @@
              所以这段从「唯一的路」改成「两条路都写出来」，而且**按钮也要放出来**：
              原来 `v-if="canWrite && !isReturn"` 把退货页签的出口藏掉了 —— 那是按旧口径写的。 -->
         <p v-if="isReturn && !hasFilter && !f.status"
-           style="margin-top:6px;font-size:12px;color:var(--t3);line-height:1.5">
+           style="margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);line-height:1.5">
           可以直接新建（选供应商和退货仓库，自己挑商品）；<br>
           也可以打开一张<b>已入库</b>的采购单，点「转单为 → 采购退货」（会自动带上可退数量上限）。
         </p>
-        <button v-if="canWrite" class="btn btn-primary btn-sm" style="margin-top:12px"
+        <button v-if="canWrite" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)"
                 @click="goNew()">
           <Icon name="plus" :size="14" />{{ isReturn ? '新建采购退货单' : '新建采购单' }}
         </button>
@@ -1741,21 +1741,21 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* v451（L3）：待审核退货草稿条 —— 与筛选卡同族观感（`.card`），但用**警示色**左边框
    提醒"这里有没生效的单"，不与正常数据混同（深色/浅色主题下都靠 --war 一色成立）。
    margin 与 `.ipl-filter` 对齐（都是 12px 下距）。 */
-.ipl-draft { margin-bottom: 12px; padding: 12px 18px; border-left: 3px solid var(--war) }
-.ipl-draft-hd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
+.ipl-draft { margin-bottom: var(--sp-3); padding: var(--sp-3) var(--sp-h18); border-left: 3px solid var(--war) }
+.ipl-draft-hd { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin-bottom: var(--sp-2) }
 .ipl-draft-n { color: var(--war); font-weight: 600; font-variant-numeric: tabular-nums }
-.ipl-draft-tip { font-size: 12px; color: var(--t3) }
-.ipl-draft-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px }
+.ipl-draft-tip { font-size:var(--fs-sm); color: var(--t3) }
+.ipl-draft-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-h6) }
 .ipl-draft-list li {
-  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  padding: 6px 10px; border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm); font-size: 13px; color: var(--t1);
+  display: flex; align-items: center; gap: var(--sp-h14); flex-wrap: wrap;
+  padding: var(--sp-h6) var(--sp-h10); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm); font-size:var(--fs-base); color: var(--t1);
 }
 .ipl-draft-id { font-variant-numeric: tabular-nums; color: var(--t2) }
 .ipl-draft-sup { min-width: 120px; flex: 1 }
-.ipl-draft-wh { color: var(--t3); font-size: 12px }
+.ipl-draft-wh { color: var(--t3); font-size:var(--fs-sm) }
 .ipl-draft-amt { font-variant-numeric: tabular-nums; color: var(--p-ink) }
-.ipl-draft-date { color: var(--t3); font-size: 12px; font-variant-numeric: tabular-nums }
+.ipl-draft-date { color: var(--t3); font-size:var(--fs-sm); font-variant-numeric: tabular-nums }
 
 /* 筛选
    🔴 v501：筛选**行 / 标签 / 控件尺寸 / 按钮组 / 下拉三角**的样式已全部上提
@@ -1763,20 +1763,20 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       `.psi-date` / `.psi-kw` / `.psi-fbtns` / `.psi-caret`）—— 三页唯一出处，
       这里不再留第二份（留了就是"改一处漂移两处"）。
       本页只剩筛选卡**外壳** `.ipl-filter`（它的内距/下距是本页值）。 */
-.ipl-filter { margin-bottom: 12px }
+.ipl-filter { margin-bottom: var(--sp-3) }
 /* 「只看已标记」是**本页独有**的筛选控件（销售 / 调拨没有）⇒ 留在 scoped 里。
    v501：删掉原 `align-self:flex-end` —— 筛选行改 `align-items:center` 后它已居中，
    再写 flex-end 会让它比同行的下拉框低半格。 */
 .ipl-chk-mark { margin-left: auto }
 
 .ipl-link {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer;
 }
 .ipl-link:hover { text-decoration: underline }
 .ipl-link.strong { font-weight: 500; font-variant-numeric: tabular-nums }
 .ipl-link:disabled { color: var(--t3); cursor: default; text-decoration: none }
-.ipl-c-op .ipl-link + .ipl-link { margin-left: 10px }
+.ipl-c-op .ipl-link + .ipl-link { margin-left: var(--sp-h10) }
 
 /* 单行操作按钮：复用 .ipl-link 的观感，改为**恒定单行**的「主操作 + ⋯」。
    v678：这里曾是 `flex-wrap: wrap` —— 6 个按钮挤成 2 行，行高 32.8 → 43/48.6px。
@@ -1784,9 +1784,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
      ⇒ `nowrap` 才是正确约束：真挤不下时**暴露**（横向溢出）而不是偷偷换行涨行高。
      ⚠️ `align-items:center` 必须留着：⋯ 按钮 18px、文字按钮 18px，居中对齐才不歪。 */
 .ipl-tbl td.ipl-c-op { white-space: nowrap; text-align: right }
-.ipl-op { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; justify-content: flex-end }
+.ipl-op { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-h6); justify-content: flex-end }
 .ipl-op-btn {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .ipl-op-btn:hover { text-decoration: underline }
@@ -1796,22 +1796,22 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 /* 到货逾期标识（纯前端，基于 expected_date + 状态） */
 .ipl-overdue {
-  display: inline-block; margin-left: 6px; padding: 0 6px; height: 16px; line-height: 16px;
-  font-size: 11px; font-weight: 600; border-radius: var(--radius-sm); vertical-align: middle;
+  display: inline-block; margin-left: var(--sp-h6); padding: 0 var(--sp-h6); height: 16px; line-height: 16px;
+  font-size:var(--fs-xs); font-weight: 600; border-radius: var(--radius-sm); vertical-align: middle;
   color: var(--danger-txt); background: var(--danger-bg);
 }
 
 /* 批量结果条 */
 .ipl-result {
-  display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap;
-  margin: 0 0 12px; padding: 10px 14px;
+  display: flex; align-items: flex-start; gap: var(--sp-h10); flex-wrap: wrap;
+  margin: 0 0 var(--sp-3); padding: var(--sp-h10) var(--sp-h14);
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--suc);
-  border-radius: var(--radius-md); background: var(--bg2); font-size: 13px;
+  border-radius: var(--radius-md); background: var(--bg2); font-size:var(--fs-base);
 }
 .ipl-result.warn { border-left-color: var(--war) }
 .ipl-rsum b { font-variant-numeric: tabular-nums }
 .ipl-rsum .dan, .ipl-rlist { color: var(--danger-txt) }
-.ipl-rlist { margin: 0; padding-left: 18px; width: 100% }
+.ipl-rlist { margin: 0; padding-left: var(--sp-h18); width: 100% }
 .ipl-result .ipl-link { margin-left: auto }
 
 /* 表格
@@ -1845,7 +1845,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       宁可移走，不留一个"看不见但存在"的入口。 */
 .ipl-c-rel { text-align: right }
 .ipl-tbl td.ipl-c-rel { white-space: nowrap }
-.ipl-rel { display: inline-flex; flex-wrap: nowrap; gap: 10px; justify-content: flex-end }
+.ipl-rel { display: inline-flex; flex-wrap: nowrap; gap: var(--sp-h10); justify-content: flex-end }
 .ipl-tbl td.num { font-variant-numeric: tabular-nums }
 
 /* ---- 左侧冻结区（UI-SPEC §2.6.1「二、」的冻结约定）----
@@ -1855,10 +1855,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
    偏移值：复选框 0 / 序号 36 / 固定冻结列（单据编号）82 / 第二冻结列 212。
    ⛔ 不要在本文件里再写一份 `.ipl-frz-*`（那就是第二个真相来源）。 */
 
-.ipl-mark { display: inline-flex; margin-left: 4px; color: var(--war); vertical-align: middle }
+.ipl-mark { display: inline-flex; margin-left: var(--sp-1); color: var(--war); vertical-align: middle }
 
 .ipl-tbl tfoot td {
-  padding: 10px 14px; background: var(--bg2); font-weight: 600;
+  padding: var(--sp-h10) var(--sp-h14); background: var(--bg2); font-weight: 600;
   border-top: 1px solid var(--bd); font-variant-numeric: tabular-nums;
 }
 .ipl-ft-lb { text-align: center; color: var(--t1) }
@@ -1871,13 +1871,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
    🔴 不复用 `.col-menu-schemes .scheme-name-ipt`：它被**后代选择器**限定在
       `.col-menu-schemes` 容器内，放到 `.col-menu-add` 里不会生效（引用了会假绿）。 */
 .ipl-cm-in {
-  flex: 1; min-width: 0; height: 24px; padding: 0 6px; font-size: 12px;
+  flex: 1; min-width: 0; height: 24px; padding: 0 var(--sp-h6); font-size:var(--fs-sm);
   border: 1px solid var(--bd); border-radius: var(--radius-sm);
   background: var(--bg); color: var(--t1);
 }
 .ipl-cm-in:focus { border-color: var(--p); outline: 2px solid var(--p); outline-offset: -2px }
 .ipl-cm-sel {
-  height: 24px; padding: 0 4px; font-size: 12px; flex: none;
+  height: 24px; padding: 0 var(--sp-1); font-size:var(--fs-sm); flex: none;
   border: 1px solid var(--bd); border-radius: var(--radius-sm);
   background: var(--bg); color: var(--t1);
 }
@@ -1885,11 +1885,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
    改名不是破坏性动作，染红会让人以为改个名也会丢数据。 */
 .ipl-cm-i {
   border: none; background: none; color: var(--t3); cursor: pointer;
-  font-size: 11px; padding: 1px 4px; border-radius: var(--radius-sm); flex: none;
+  font-size:var(--fs-xs); padding: 1px var(--sp-1); border-radius: var(--radius-sm); flex: none;
 }
 .ipl-cm-i:hover { color: var(--p-dark); background: var(--bg2) }
 /* 读定义失败 / 无权限的说明：**必须显式**（藏起来用户会以为这页没有这个功能） */
-.ipl-cm-err { font-size: 11px; color: var(--danger-txt); line-height: 1.4; flex-basis: 100% }
+.ipl-cm-err { font-size:var(--fs-xs); color: var(--danger-txt); line-height: 1.4; flex-basis: 100% }
 
 /* 分页器
    🔴 v501：整段删除 —— 分页器改共享件 `PsiPager.vue`，样式随 `psi-list.css` 的
@@ -1902,11 +1902,11 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   display: flex; align-items: center; justify-content: center;
   background: rgba(0, 0, 0, .35);
 }
-.ipl-dlg { width: min(400px, 92vw); padding: 18px }
-.ipl-dlg-hd { font-size: var(--fs-h4); font-weight: 600; margin-bottom: 10px }
-.ipl-dlg-msg { font-size: 13px; color: var(--t2); margin-bottom: 12px }
-.ipl-dlg .input { margin-bottom: 14px }
-.ipl-dlg-ft { display: flex; justify-content: flex-end; gap: 8px }
+.ipl-dlg { width: min(400px, 92vw); padding: var(--sp-h18) }
+.ipl-dlg-hd { font-size: var(--fs-h4); font-weight: 600; margin-bottom: var(--sp-h10) }
+.ipl-dlg-msg { font-size:var(--fs-base); color: var(--t2); margin-bottom: var(--sp-3) }
+.ipl-dlg .input { margin-bottom: var(--sp-h14) }
+.ipl-dlg-ft { display: flex; justify-content: flex-end; gap: var(--sp-2) }
 
 /* 打印：只留数据表；单张打印时只留那一行。合计行在打印稿里略去（复选框/操作列被隐藏，
    tfoot 的 colspan 会错位 ⇒ 与其印一行错位的数字，不如不印）。 */

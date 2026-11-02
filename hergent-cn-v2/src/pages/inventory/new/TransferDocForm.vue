@@ -505,7 +505,7 @@ onMounted(() => { resetAll(); loadRefs() })
 .inv-page > .isn-hd,
 .inv-page > .isn-strip,
 .inv-page > .isn-bottom { flex: 0 0 auto }
-.isn-acts { display: flex; gap: 8px; flex-wrap: wrap }
+.isn-acts { display: flex; gap: var(--sp-2); flex-wrap: wrap }
 .isn-body {
   display: flex; flex-direction: column;
   /* v722：`flex-basis` 必须是 **0**，不是 `auto`。
@@ -537,11 +537,11 @@ onMounted(() => { resetAll(); loadRefs() })
 
 /* 页头单行 —— 标题与副标题回到**同一基线行**（全局 `.page-hd` 的「内联 / 堆叠」
    由模板结构分派：外面包一层 div 就会回落到两行，故这里只给内层容器定对齐）。 */
-.isn-hd-t { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0 }
+.isn-hd-t { display: flex; align-items: baseline; gap: var(--sp-h10); flex-wrap: wrap; min-width: 0 }
 
 /* 表单头。标签与框**同行**（v438 定的口径）：每格由「12px 标签 + 4px 间距 + 32px 框
    ≈ 48px」压到 32px，且一行能并更多字段 —— 紧凑感就来自这里。 */
-.isn-hd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px }
+.isn-hd { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin-bottom: var(--sp-3) }
 /* 去卡片包裹：页面底 `.content{background:var(--bg)}` 与 `.card{background:var(--bg)}`
    同色 —— 那个框本来只是 border+shadow，去掉不影响配色（深色同理）。
    scoped 属性把特异性抬到 0,2,0 > 全局 `.card` 的 0,1,0，覆盖必然生效（无需 !important）。 */
@@ -549,16 +549,16 @@ onMounted(() => { resetAll(); loadRefs() })
 /* 🔴 `flex: none` 是**必需的**：少了它，`flex-shrink` 会把没有 min-width 的格挤窄，
    格内的「标签 + 控件」随即被 `flex-wrap` **拆成上下两行**。改成 flex:none 后，
    宽度放不下时整格换行，永不把标签与框拆开。 */
-.isn-f { display: flex; flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap; flex: none }
+.isn-f { display: flex; flex-direction: row; align-items: center; gap: var(--sp-h6); flex-wrap: wrap; flex: none }
 .isn-f-grow { flex: 1; min-width: 160px }
 /* 退货模式「原销售单」格必须**给死宽度**：它带一句 `.isn-hint`（`flex-basis:100%`），
    百分比基会把这一格的 max-content 撑得很宽，而 `.isn-f` 是 `flex:none`（不再回缩）
    ⇒ 右侧会留一大片空白，把后面「客户 / 退货仓库 / 原单状态」推到半屏外。 */
 .isn-f-so { width: 380px }
-.isn-lb { font-size: 12px; color: var(--t3); white-space: nowrap; flex: none }
+.isn-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap; flex: none }
 /* 必填标记：用**红 `*`**（对齐舟谱的 `*供应商：`）—— 每个必填格省下 2 个字的宽度，
    一行更容易并下全部字段。**不用**「必填」两个字，也**不写**「选填」（无 `*` 即选填）。 */
-.isn-req { color: var(--dan-ink); font-size: 13px; line-height: 1; margin-right: 2px }
+.isn-req { color: var(--dan-ink); font-size:var(--fs-base); line-height: 1; margin-right: var(--sp-h2) }
 
 /* ══ 框式字段（复刻舟谱建单头）═════════════════════════════════════════════
    舟谱建单头那排是「**一个描边框**里左边标签、右边值」，不是「标签在框外、旁边再放一个框」。
@@ -588,7 +588,7 @@ onMounted(() => { resetAll(); loadRefs() })
    留在框里会把那一格撑到 120px 高、四个框永远不等高；移出后表单头 = 四个 32px 等高的框。
    `max-width` 由 340 放到 900：它现在占整行，不必再挤在 380px 的格里反复换行。
    `-6px` 上边距抵掉表单头那 12px 的下外边距，让说明贴着它说明的那个头。 */
-.isn-hint { font-size: 11px; color: var(--t3); line-height: 1.4; max-width: 900px; margin: -6px 0 12px }
+.isn-hint { font-size:var(--fs-xs); color: var(--t3); line-height: 1.4; max-width: 900px; margin: -6px 0 var(--sp-3) }
 .isn-hint b { color: var(--t2) }
 /* 只读值（退货模式的客户 / 退货仓库 / 原单状态）：由原单带出，**改不了**
    （刻意不用 disabled input —— 那会让人以为点开能改）。
@@ -601,9 +601,9 @@ onMounted(() => { resetAll(); loadRefs() })
    （没选原单时值是 `—`，整格只有 74px；一选中又被撑宽）⇒ 表头跟着来回跳。
    `max-width` + 省略号：客户 / 仓名长度不可控，别让它把这一格撑爆。 */
 .isn-ro {
-  display: flex; align-items: center; height:32px; padding: 0 2px;
+  display: flex; align-items: center; height:32px; padding: 0 var(--sp-h2);
   min-width: 112px; max-width: 260px; flex: none;
-  font-size: 14px; color: var(--t1); background: transparent; border: 0;
+  font-size:var(--fs-md); color: var(--t1); background: transparent; border: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* 「原销售单」格宽度放宽到 420px：框式头有 16px 左右内距，且框内控件收掉了全局
@@ -616,32 +616,32 @@ onMounted(() => { resetAll(); loadRefs() })
 .hd-box .isn-f-so .isn-kw { width: 130px }
 .hd-box .isn-f-so .isn-sel { width: 200px; min-width: 0 }
 /* 退货模式「原销售单」搜索框 + 下拉：仍是两框并列 */
-.isn-pick { display: flex; gap: 6px }
+.isn-pick { display: flex; gap: var(--sp-h6) }
 .isn-kw { width: 130px; height: 32px }
 .isn-sel { min-width: 140px; height: 32px }
 .isn-date { width: 140px; height: 32px }
 .isn-addr { width: 180px; height: 32px }
-.isn-note-in { flex: 1; min-width: 140px; height: 32px; padding: 0 10px }
+.isn-note-in { flex: 1; min-width: 140px; height: 32px; padding: 0 var(--sp-h10) }
 
 /* 读数条（舟谱「应付/预付余额」那条的位置）—— 品牌色浅底 + 细边 + 圆角 */
 .isn-strip {
-  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-  margin-bottom: 12px; padding: 9px 16px;
+  display: flex; align-items: center; gap: var(--sp-h18); flex-wrap: wrap;
+  margin-bottom: var(--sp-3); padding: 9px var(--sp-4);
   background: var(--p-bg); border: 1px solid var(--p-border);
-  border-radius: var(--radius-md); font-size: 13px; color: var(--t1);
+  border-radius: var(--radius-md); font-size:var(--fs-base); color: var(--t1);
 }
-.isn-si { display: inline-flex; align-items: center; gap: 6px }
-.isn-sk { color: var(--t3); font-size: 12px }
+.isn-si { display: inline-flex; align-items: center; gap: var(--sp-h6) }
+.isn-sk { color: var(--t3); font-size:var(--fs-sm) }
 .isn-strip-amt { color: var(--p-ink); font-variant-numeric: tabular-nums }
 
 /* 明细工具条 */
-.isn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
+.isn-bar { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin-bottom: var(--sp-2) }
 .isn-cnt { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
-.isn-tip { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--t2); margin: 0 0 10px }
+.isn-tip { display: flex; align-items: flex-start; gap: var(--sp-h6); font-size:var(--fs-sm); color: var(--t2); margin: 0 0 var(--sp-h10) }
 .isn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
 .isn-tip b { color: var(--t1) }
 /* 退货明细的工具条（全部可退 / 清零）：推到右侧，不与标题挤在一起 */
-.isn-ret-quick { display: flex; gap: 8px; margin-left: auto }
+.isn-ret-quick { display: flex; gap: var(--sp-2); margin-left: auto }
 /* 退货明细列少（9 列 vs 销售单 7 列）⇒ 表宽给个下限，避免列被压扁 */
 /* 退货明细列少（9 列 vs 销售单 8 列 + 换算，表更窄）⇒ 表宽小一档。
    🔴 v448 提权重到 `.isn-tbl.isn-ret-tbl`：原先写单类 `.isn-ret-tbl`（0,1,0），
@@ -664,14 +664,14 @@ onMounted(() => { resetAll(); loadRefs() })
       靠「页面样式后加载」才赢。同分靠顺序是脆的：一旦加载顺序变了（异步 chunk、
       构建合并、样式上提）就会静默翻车且**没有任何报错**。加一个 `.tbl` 提权即可稳压。
       去掉它就退回全局的 `padding:6px 4px`，序号列会自己被顶高、把整行撑起来。 */
-table.isn-tbl th { padding: 4px 8px }
-table.isn-tbl td { padding: 2px 8px }
-table.tbl.isn-tbl td.seq-cell { padding: 2px 4px }
+table.isn-tbl th { padding: var(--sp-1) var(--sp-2) }
+table.isn-tbl td { padding: var(--sp-h2) var(--sp-2) }
+table.tbl.isn-tbl td.seq-cell { padding: var(--sp-h2) var(--sp-1) }
 /* 🔴 紧凑档必须**在本页再收一档**（同采购建单页）：全局
    `[data-density="compact"] table.tbl td{padding:4px 10px}` = (0,2,2) 压过上面的
    `table.isn-tbl td` (0,1,2) ⇒ 只写普通档的话，开关一打开本页反而比基准更松（半截生效）。 */
-[data-density="compact"] table.isn-tbl th { padding: 3px 8px }
-[data-density="compact"] table.isn-tbl td { padding: 1px 8px }
+[data-density="compact"] table.isn-tbl th { padding: 3px var(--sp-2) }
+[data-density="compact"] table.isn-tbl td { padding: 1px var(--sp-2) }
 [data-density="compact"] .isn-in { height: 20px }
 
 /* 明细表列宽。数量 / 单价 / 金额等宽数字 + 右对齐，成列才好扫读。
@@ -704,7 +704,7 @@ table.isn-tbl tbody tr:hover td.isn-c-op { background: var(--bg2) }
    （基准 31.8），同屏少放 6 行。字号 / 内距 / 圆角三项同采购页：
    不写就继承全局 `.input`（14px / `0 14px` / radius-md=12），本页 CSS 里看不到这些数。
    `padding` 取 3px 与采购页同值（1px 真边框 + 3px = 4px 内容内距，与 `.ipn-v` 的 4px 对齐）。 */
-.isn-in { width: 100%; height:22px; font-size: 13px; padding: 0 3px; border-radius: var(--radius-sm) }
+.isn-in { width: 100%; height:22px; font-size:var(--fs-base); padding: 0 3px; border-radius: var(--radius-sm) }
 /* v444：**撤掉**明细表输入框的底色 —— 全局 `.input{background:var(--bg3)}` 在 15 行 × 7 列
    铺下来是满屏灰底方块，压过了数据本身（老板原话：「全屏输入框给人感觉确实有点压抑」）。
    🔴 必须**显式写 transparent** 而不是把规则删掉：删了会让输入框退回全局 `.input` 的
@@ -736,35 +736,35 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 .isn-conv {
   display: none; position: absolute; z-index: 6;
   left: 2px; top: calc(100% - 4px);
-  padding: 1px 6px; white-space: nowrap; pointer-events: none;
-  font-size: 11px; color: var(--t2); font-variant-numeric: tabular-nums;
+  padding: 1px var(--sp-h6); white-space: nowrap; pointer-events: none;
+  font-size:var(--fs-xs); color: var(--t2); font-variant-numeric: tabular-nums;
   background: var(--bg); border: 1px solid var(--bd);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
 }
 .isn-c-unit:hover .isn-conv, .isn-c-unit:focus-within .isn-conv,
 .isn-c-price:hover .isn-conv, .isn-c-price:focus-within .isn-conv,
 .isn-c-qty:hover .isn-conv, .isn-c-qty:focus-within .isn-conv { display: block }
-.isn-unit { font-size: 13px; color: var(--t1) }
+.isn-unit { font-size:var(--fs-base); color: var(--t1) }
 /* 档案没设报单单位时的回落值 —— 用弱化色标注，不静默 */
 .isn-unit.fallback, .isn-unit.none { color: var(--t3) }
 /* v683：单位下拉。高度与行内数字输入框同高（26px）—— 否则多档单位商品一选中，
    整行被下拉的 UA 默认高度（约 28~30px）顶高，与「六页行高统一 29.8px」冲突。
    `padding:0 2px` 是把 UA 给 select 的左右内距收掉：单位名只有 1~2 个字，
    8px 的内距会让「箱」这个字看着偏右。 */
-.isn-unit-sel { height: 26px; padding: 0 2px; font-size: 13px }
+.isn-unit-sel { height: 26px; padding: 0 var(--sp-h2); font-size:var(--fs-base) }
 
 /* 底部动作条：普通 flex 项，由 `.inv-page` 布局推到 `.isn-body` 下方
    （不用 sticky —— `.isn-body` 自己滚动占满剩余高度，动作条自然落在它下面，
    也不会盖住表格最后一行）。负边距用于抵消 Shell 的 `.view-wrap{padding:20px}`。 */
 .isn-bottom {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
   flex: 0 0 auto;
-  margin: auto -20px -20px -20px; padding: 4px 20px;
+  margin: auto -20px -20px -20px; padding: var(--sp-1) var(--sp-5);
   background: var(--bg); border-top: 1px solid var(--border-subtle);
 }
-.isn-total { font-size: 14px }
-.isn-total b { font-size: 18px; font-variant-numeric: tabular-nums }
-.isn-save { position: relative; display: inline-flex; gap: 8px; margin-left: auto }
+.isn-total { font-size:var(--fs-md) }
+.isn-total b { font-size:var(--fs-stat); font-variant-numeric: tabular-nums }
+.isn-save { position: relative; display: inline-flex; gap: var(--sp-2); margin-left: auto }
 
 @media (max-width: 640px) {
   .isn-hd { align-items: stretch }
@@ -796,17 +796,17 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 
 /* 「调出 → 调入」之间的方向符号。
    `align-self:center` 让它对着两个**字段框**的中线（框高 32px），不是文字基线。 */
-.isn-arrow { flex: none; align-self: center; font-size: 15px; line-height: 1; color: var(--t3); padding: 0 2px }
+.isn-arrow { flex: none; align-self: center; font-size:var(--fs-h4); line-height: 1; color: var(--t3); padding: 0 var(--sp-h2) }
 
 /* 草稿 / 已过账提示条（调拨页专用）。
    为什么不是 `.isn-strip`：那条是**读数**（已有的数据）；这条是**动作提示** ——
    有一件事还没做完。所以底色用品牌浅底 + 右侧跟一个动作按钮，看起来像"待办"。
    `.ok` 变体退回中性底色：过账已经完成，不该继续用"待办"的视觉。 */
 .isn-at-bar {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-bottom: 12px; padding: 9px 16px;
+  display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
+  margin-bottom: var(--sp-3); padding: 9px var(--sp-4);
   background: var(--p-bg); border: 1px solid var(--p-dark); border-radius: var(--radius-md);
-  font-size: 13px; color: var(--t1);
+  font-size:var(--fs-base); color: var(--t1);
 }
 .isn-at-bar > b { flex: none }
 .isn-at-bar > span { flex: 1; min-width: 200px; color: var(--t2) }

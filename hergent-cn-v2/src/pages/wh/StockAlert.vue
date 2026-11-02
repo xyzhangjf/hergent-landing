@@ -35,7 +35,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <template v-else>
@@ -168,12 +168,12 @@ defineExpose({ load })
 
 <style scoped>
 /* 页面私有类一律 `wsa-` 前缀（仓配·库存预警）。 */
-.wsa-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.wsa-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px }
-.wsa-f { display: flex; align-items: center; gap: 8px }
-.wsa-lb { font-size: 13px; color: var(--t2) }
+.wsa-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
+.wsa-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-h14) }
+.wsa-f { display: flex; align-items: center; gap: var(--sp-2) }
+.wsa-lb { font-size:var(--fs-base); color: var(--t2) }
 .wsa-kw { min-width: 220px }
 .wsa-sel { min-width: 160px }
 .wsa-gap { font-weight: 600; color: var(--dan) }
-.wsa-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
+.wsa-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
 </style>

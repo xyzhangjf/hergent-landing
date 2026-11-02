@@ -22,15 +22,15 @@
    本处结论不变。🔴 这个修复在两条线上各做过一次（B 线 v704 / A 线 v678），合并后只此一份。 */
 .imp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-page-modal-overlay)}
 .imp-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(560px,94vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-page-modal);box-shadow:var(--shadow-lg);max-height:86vh;display:flex;flex-direction:column}
-.imp-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-subtle)}
-.imp-hd b{font-size:14px}
-.imp-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.imp-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-h14) var(--sp-h18);border-bottom:1px solid var(--border-subtle)}
+.imp-hd b{font-size:var(--fs-md)}
+.imp-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .imp-x:hover{color:var(--p-dark);background:var(--bg2);border-radius:var(--radius-sm)}
-.imp-body{padding:16px 18px;overflow-y:auto}
-.imp-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin-bottom:14px}
+.imp-body{padding:var(--sp-4) var(--sp-h18);overflow-y:auto}
+.imp-actions{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
+.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin-bottom:var(--sp-h14)}
 .del-modal{width:min(440px,92vw)}
 .warn-text{color:var(--dan);font-weight:500}
-.del-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+.del-actions{display:flex;justify-content:flex-end;gap:var(--sp-h10);margin-top:var(--sp-4)}
 .btn.danger{color:var(--dan)}
 .btn.danger:hover{filter:brightness(.95)}

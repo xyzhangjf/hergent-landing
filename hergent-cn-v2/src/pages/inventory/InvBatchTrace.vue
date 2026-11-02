@@ -33,7 +33,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="trace">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="trace">重试</button>
     </div>
 
     <!-- 结果区 -->
@@ -122,7 +122,7 @@
           <Skeleton v-if="recallLoading" :rows="3" :widths="['28%','22%','20%','12%','14%']" label="正在查召回清单" />
           <div v-else-if="recallErr" class="state-error">
             <p>{{ recallErr }}</p>
-            <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadRecall(tracedNo)">重试</button>
+            <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadRecall(tracedNo)">重试</button>
           </div>
           <div v-else-if="!recall.length" class="state-empty">系统内无该批次的销售出库记录，无客户受影响</div>
           <div v-else class="table-wrap">
@@ -280,9 +280,9 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.ibt-search { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; padding: 14px 16px }
+.ibt-search { display: flex; gap: var(--sp-h10); align-items: center; margin-bottom: var(--sp-3); padding: var(--sp-h14) var(--sp-4) }
 .ibt-input { max-width: 340px }
-.ibt-card { margin-bottom: 12px }
+.ibt-card { margin-bottom: var(--sp-3) }
 .ibt-empty { text-align: center; color: var(--t2) }
-.ibt-hint { margin: -4px 0 10px; font-size: 12px; color: var(--t2) }
+.ibt-hint { margin: -4px 0 var(--sp-h10); font-size:var(--fs-sm); color: var(--t2) }
 </style>

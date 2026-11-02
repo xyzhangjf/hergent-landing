@@ -53,7 +53,7 @@
           </tbody>
         </table>
       </div>
-      <p class="df-tip" style="margin-top:10px">提示：同一商品不同批次各占一行；到期日格式 <code>YYYY-MM-DD</code>。</p>
+      <p class="df-tip" style="margin-top:var(--sp-h10)">提示：同一商品不同批次各占一行；到期日格式 <code>YYYY-MM-DD</code>。</p>
     </div>
   </div>
 </template>
@@ -177,16 +177,16 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.df-panel{padding:18px;margin-bottom:14px}
-.df-tip{font-size:12px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
-.df-tip code{background:var(--bg2);padding:1px 6px;border-radius:var(--radius-xs);font-size:12px}
-.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:var(--radius-sm);font-size:12px}
+.df-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
+.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:1.7}
+.df-tip code{background:var(--bg2);padding:1px var(--sp-h6);border-radius:var(--radius-xs);font-size:var(--fs-sm)}
+.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 
-.df-import-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.df-import-row{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 /* v178 列映射确认步：表格 + 底部「返回/确认导入」 */
-.df-map{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.df-map{margin-top:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-h10)}
 .df-file-btn{position:relative;overflow:hidden}
-.df-fname{font-size:12px;color:var(--t2)}
+.df-fname{font-size:var(--fs-sm);color:var(--t2)}
 /* v303：`.df-result / .df-errs / .df-err` 三条已随模板一起删除 ——
    结果展示改由共用的 `ImportReceipt.vue` 负责（它自带样式）。
    留着就是死 CSS：本页再也不会有 `class="df-result"` 的元素。 */

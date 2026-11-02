@@ -159,7 +159,7 @@ onMounted(load)
 <style scoped>
 /* 仅保留仍被引用的私有类：警示卡挂在 ReportTable 的 #extra 插槽里，插槽内容在本页作用域编译，
    故这里的作用域样式照样生效。 */
-.rpt-warn { margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--warn-amber); background: var(--bg2); }
-.rpt-warn-hd { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--war); font-size: 13px; }
-.rpt-warn p { margin: 6px 0 0; font-size: 12px; line-height: 1.9; color: var(--t2); }
+.rpt-warn { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); border-left: 3px solid var(--warn-amber); background: var(--bg2); }
+.rpt-warn-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; color: var(--war); font-size:var(--fs-base); }
+.rpt-warn p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: 1.9; color: var(--t2); }
 </style>

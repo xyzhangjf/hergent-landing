@@ -131,10 +131,10 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 /* 密度 B：进销存七页在「紧凑」档**再**压一行（覆盖全局紧凑的 5/10 · 4/10 与控件 24px）。
    🔴 选择器精确打到 `table.tbl.psi-tbl`（0,3,2）> 全局紧凑（0,2,2）> 默认（0,1,2）：
       只压 psi 列表表，不动其它表（报表 / 档案等仍走全局密度）。 */
-[data-density="compact"] table.tbl.psi-tbl th { padding: 3px 8px }
-[data-density="compact"] table.tbl.psi-tbl td { padding: 2px 8px }
-[data-density="compact"] table.tbl.psi-tbl th.seq-th { padding: 3px 4px }
-[data-density="compact"] table.tbl.psi-tbl td.seq-cell { padding: 2px 4px }
+[data-density="compact"] table.tbl.psi-tbl th { padding: 3px var(--sp-2) }
+[data-density="compact"] table.tbl.psi-tbl td { padding: var(--sp-h2) var(--sp-2) }
+[data-density="compact"] table.tbl.psi-tbl th.seq-th { padding: 3px var(--sp-1) }
+[data-density="compact"] table.tbl.psi-tbl td.seq-cell { padding: var(--sp-h2) var(--sp-1) }
 [data-density="compact"] table.tbl.psi-tbl .input,
 [data-density="compact"] table.tbl.psi-tbl input,
 [data-density="compact"] table.tbl.psi-tbl select { height:22px }
@@ -142,9 +142,9 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 /* ---- 快捷时间档（规范 §3.3；五枚 chip 的 label + 排列外壳） ---- */
 /* v501：改**横排** —— 竖排时「快捷」标签独占一行，筛选区凭空多出约 20px 纵向空间，
    而它本身只是个标签、不是第二个筛选项（本轮要消掉的正是这类无效纵向占用）。 */
-.psi-quick { display: flex; flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap }
-.psi-quick-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
-.psi-quick-row { display: flex; gap: 6px; flex-wrap: wrap }
+.psi-quick { display: flex; flex-direction: row; align-items: center; gap: var(--sp-h6); flex-wrap: wrap }
+.psi-quick-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
+.psi-quick-row { display: flex; gap: var(--sp-h6); flex-wrap: wrap }
 
 /* ---- 状态页签（规范 §2.6.3；共享件 components/StatusTabs.vue） ----
    由来：v498 把采购页私有的 `.ipl-tabs` / `.ipl-tabn` 上提为三页共用 —— 销售 / 调拨
@@ -156,9 +156,9 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 .psi-tabs { flex-wrap: wrap }
 .psi-tabn {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 20px; height: 17px; padding: 0 5px; margin-left: 6px;
+  min-width: 20px; height: 17px; padding: 0 5px; margin-left: var(--sp-h6);
   border-radius: var(--radius-sm); background: var(--bg4); color: var(--t2);
-  font-size: 11px; font-weight: 600; line-height: 1;
+  font-size:var(--fs-xs); font-weight: 600; line-height: 1;
 }
 .main-tab.on .psi-tabn { background: var(--p-bg); color: var(--p-ink) }
 
@@ -187,7 +187,7 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
       统一给间距（否则页签与工具栏之间会出现 16px 的"来历不明"的空白）。 */
 .psi-tabbar {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin: 0 0 10px;
+  gap: var(--sp-3); flex-wrap: wrap; margin: 0 0 var(--sp-h10);
 }
 .psi-tabbar .psi-tabs { margin-bottom: 0 }
 /* v679：状态页签条是「筛选控件」，不是内容标题 —— 收紧到与工具栏同密度。
@@ -195,23 +195,23 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
    与下方表格的紧凑行（v678 后 32.8px）明显脱节。改成 7px 12px / 13px ⇒ 约 32px，
    横向也收窄（7 档页签省出 ~84px，1440 视口更不容易把动作组挤到第二行）。
    🔴 只作用于 `.psi-tabbar` 内的页签（列表页）—— 不影响其它页面用 `.main-tabs` 的主页签。 */
-.psi-tabbar .main-tab { padding: 7px 12px; font-size: 13px }
-.psi-tabact { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto }
+.psi-tabbar .main-tab { padding: 7px var(--sp-3); font-size:var(--fs-base) }
+.psi-tabact { display: inline-flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-left: auto }
 
 /* ---- 筛选行：一行放不下就**整组换行**（flex-wrap），绝不把标签与输入框拆到两行 ----
    拆行 = 每个筛选项高度翻倍 ⇒ 筛选区吃掉本该给表格的空间（本轮要消掉的正是这个）。 */
-.psi-frow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
-.psi-frow-sub { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-subtle) }
-.psi-f { display: flex; align-items: center; gap: 6px }
-.psi-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
-.psi-fbtns { display: flex; align-items: center; gap: 8px; margin-left: auto }
+.psi-frow { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap }
+.psi-frow-sub { margin-top: var(--sp-h10); padding-top: var(--sp-h10); border-top: 1px dashed var(--border-subtle) }
+.psi-f { display: flex; align-items: center; gap: var(--sp-h6) }
+.psi-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
+.psi-fbtns { display: flex; align-items: center; gap: var(--sp-2); margin-left: auto }
 /* 筛选控件尺寸三页统一（此前采购 150px / 销售·调拨 130px 两套 min-width 并存） */
 .psi-sel { min-width: 140px; height: 32px }
 .psi-date { min-width: 140px; height: 32px }
 .psi-kw { min-width: 180px; height: 32px }
 /* 「更多选项 / 批量操作」的下拉三角（无 chevron 图标，用 CSS 三角） */
 .psi-caret {
-  width: 0; height: 0; margin-left: 2px;
+  width: 0; height: 0; margin-left: var(--sp-h2);
   border-left: 4px solid transparent; border-right: 4px solid transparent;
   border-top: 5px solid currentColor; transition: transform var(--dur-base);
 }
@@ -221,19 +221,19 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
    顺序固定：导出 → 批量操作 → 新建 → 刷新；收进页签行右侧（StatusTabs #actions），
    不再单独占一行。`#status` 插槽（排序提示等）落在动作组左侧。
    ⚠️ 三页**唯一出处**：采购 / 销售 / 调拨的动作组长相一致，改这里 = 同时改三页。 */
-.psi-acts { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.psi-acts { display: inline-flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 .psi-acts-status { display: inline-flex; align-items: center }
 /* 批量操作下拉（替代原各页私有的 `.ipl-mw` / `.ipl-menu` / `.ipl-mi`） */
 .psi-acts-mw { position: relative; display: inline-flex }
 .psi-acts-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
-  min-width: 150px; padding: 4px;
+  min-width: 150px; padding: var(--sp-1);
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
 }
 .psi-acts-mi {
-  display: block; width: 100%; padding: 8px 12px; border: none; background: none;
-  border-radius: var(--radius-sm); text-align: left; font-size: 13px; color: var(--t1);
+  display: block; width: 100%; padding: var(--sp-2) var(--sp-3); border: none; background: none;
+  border-radius: var(--radius-sm); text-align: left; font-size:var(--fs-base); color: var(--t1);
   white-space: nowrap; cursor: pointer;
 }
 .psi-acts-mi:hover { background: var(--bg2) }
@@ -248,10 +248,10 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
       失败的那几张连同**后端给的中文原因**必须留在屏幕上让用户照着处理 ——
       toast 几秒就消失，用户只能重来一遍才知道哪几张没成。 */
 .psi-bres {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
-  margin: 0 0 12px; padding: 10px 12px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-h6);
+  margin: 0 0 var(--sp-3); padding: var(--sp-h10) var(--sp-3);
   border: 1px solid var(--p); border-radius: var(--radius-md);
-  background: var(--p-bg); font-size: 13px; color: var(--t1);
+  background: var(--p-bg); font-size:var(--fs-base); color: var(--t1);
 }
 /* 有失败 ⇒ 整条转危险色（「部分成功」不能显示成一片绿） */
 .psi-bres.warn { border-color: var(--danger-txt); background: var(--danger-bg) }
@@ -260,31 +260,31 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 .psi-bres-sum .dan { color: var(--danger-txt) }
 /* 失败清单可能几十行 ⇒ 限高自滚，不把列表顶出屏幕 */
 .psi-bres-list {
-  margin: 0; padding-left: 18px; max-height: 160px; overflow: auto;
-  font-size: 12px; line-height: 1.6; color: var(--t2);
+  margin: 0; padding-left: var(--sp-h18); max-height: 160px; overflow: auto;
+  font-size:var(--fs-sm); line-height: 1.6; color: var(--t2);
 }
 .psi-bres-close {
   border: none; background: none; padding: 0; cursor: pointer;
-  color: var(--p-dark); font-size: 12px; text-decoration: underline;
+  color: var(--p-dark); font-size:var(--fs-sm); text-decoration: underline;
 }
 
 /* 排序 / 选中提示（经 #status 插槽注入，保留文本观感） */
-.psi-selinfo { font-size: 12px; color: var(--t2) }
+.psi-selinfo { font-size:var(--fs-sm); color: var(--t2) }
 .psi-selinfo b { color: var(--p-ink); font-variant-numeric: tabular-nums }
-.psi-sortinfo { display: inline-flex; align-items: center; gap: 4px }
+.psi-sortinfo { display: inline-flex; align-items: center; gap: var(--sp-1) }
 
 /* ---- 分页器（共享件 `components/PsiPager.vue`；对齐舟谱：
         共 N 条记录 + 页码窗 + 每页条数 + 跳至） ---- */
 .psi-pager {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 14px; border-top: 1px solid var(--border-subtle);
+  display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
+  padding: var(--sp-h10) var(--sp-h14); border-top: 1px solid var(--border-subtle);
 }
-.psi-pg-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
-.psi-pg-nums { display: inline-flex; align-items: center; gap: 4px }
+.psi-pg-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
+.psi-pg-nums { display: inline-flex; align-items: center; gap: var(--sp-1) }
 .psi-pg {
-  min-width: 28px; height: 28px; padding: 0 6px;
+  min-width: 28px; height: 28px; padding: 0 var(--sp-h6);
   border: 1px solid var(--bd); border-radius: var(--radius-sm);
-  background: var(--bg); color: var(--t1); font-size: 13px;
+  background: var(--bg); color: var(--t1); font-size:var(--fs-base);
   cursor: pointer; font-variant-numeric: tabular-nums;
 }
 .psi-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
@@ -292,9 +292,9 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 /* v723：底色 `--p-dark` → `--p-solid`。深色下 `--p-dark` 是亮青 #06b6d4，白字只有 2.43:1，
    当前页码反而比别的页码难读。`--p-solid` 深浅都是 #0e7490（白字 5.36）。 */
 .psi-pg.on { background: var(--p-solid); border-color: var(--p-solid); color: #fff }
-.psi-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
-.psi-pg-jump { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t3) }
-.psi-pg-in { width: 52px; height: 28px; padding: 0 6px; text-align: center; border-radius: var(--radius-sm) }
+.psi-pg-size { width: auto; height: 28px; padding: 0 var(--sp-2); font-size:var(--fs-base); border-radius: var(--radius-sm) }
+.psi-pg-jump { display: inline-flex; align-items: center; gap: var(--sp-h6); font-size:var(--fs-sm); color: var(--t3) }
+.psi-pg-in { width: 52px; height: 28px; padding: 0 var(--sp-h6); text-align: center; border-radius: var(--radius-sm) }
 
 /* ---- 打印：冻结是屏幕上的滚动手感，纸上 sticky 只会把几列叠在一起 ----
    （各页 @media print 里另有 .xx-tbl 回 auto 布局的规则，与本条不冲突：

@@ -601,29 +601,29 @@ function onHover(mo, i, key) {
 </script>
 
 <style scoped>
-.mac { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
-.mac-hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.mac-ti { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-.mac-ti b { font-size: 14px; font-weight: 500; color: var(--t1); }
-.mac-sub { font-size: 12px; color: var(--t3); }
+.mac { display: flex; flex-direction: column; gap: var(--sp-h10); width: 100%; min-width: 0; }
+.mac-hd { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.mac-ti { display: flex; align-items: baseline; gap: var(--sp-h10); flex-wrap: wrap; }
+.mac-ti b { font-size:var(--fs-md); font-weight: 500; color: var(--t1); }
+.mac-sub { font-size:var(--fs-sm); color: var(--t3); }
 .mac-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: var(--radius-sm); overflow: hidden; }
-.seg-btn { padding: 4px 12px; font-size: 12px; background: transparent; border: 0; cursor: pointer; color: var(--t2); }
+.seg-btn { padding: var(--sp-1) var(--sp-3); font-size:var(--fs-sm); background: transparent; border: 0; cursor: pointer; color: var(--t2); }
 .seg-btn + .seg-btn { border-left: 1px solid var(--bd); }
 /* v723：`--p` → `--p-solid`。全站另有 4 处 `.seg-btn.on` 早就用 `--p-solid`，
    只有这里漏了 ⇒ 返利页「完整/分月」选中态深色下白字 1.81:1（整站最低）。 */
 .seg-btn.on { background: var(--p-solid); color: #fff; }
 
-.mac-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.sel-year { height: 26px; padding: 0 6px; font-size: 12px; width: auto; }
+.mac-ctl { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.sel-year { height: 26px; padding: 0 var(--sp-h6); font-size:var(--fs-sm); width: auto; }
 /* v154 P2-A：品牌筛选控件（原 .ctl-pop / .bp-* 一套）与作用域徽标（.mac-scope）已随控件上移至页面级
    （`BrandFilter.vue`，与「统计月份」并排）→ 这里的相关样式整体移除，不留死 CSS */
 
-.mac-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.lg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--t2); }
+.mac-legend { display: flex; align-items: center; gap: var(--sp-h14); flex-wrap: wrap; }
+.lg-item { display: inline-flex; align-items: center; gap: 5px; font-size:var(--fs-sm); color: var(--t2); }
 .lg-item i { width: 10px; height: 10px; border-radius: var(--radius-hair); border: 1px solid transparent; display: inline-block; }
-.lg-gap { margin-left: 2px; }
+.lg-gap { margin-left: var(--sp-h2); }
 /* v185 R1：合并后的图例里「深色段」色块与前半句之间要留一口气 */
-.lg-sep { margin-left: 8px; }
+.lg-sep { margin-left: var(--sp-2); }
 /* 灰轨道示意：上半深灰（达成位）＋下半浅灰（未达位）—— 与柱体两段结构同形 */
 .lg-track { background: linear-gradient(180deg, var(--bd) 0%, var(--bd) 45%, var(--border-subtle) 45%, var(--border-subtle) 100%); }
 .lg-line { width: 12px !important; height: 0 !important; border: 0 !important; border-top: 1px dashed #d97706 !important; border-radius: 0 !important; }
@@ -631,11 +631,11 @@ function onHover(mo, i, key) {
 
 /* 与两张图的实际高度一致：26 + 200 + 16 + 26 + 200 = 468（骨架屏/空态不跳动） */
 .mac-body { height: 468px; }
-.mac-skel { display: flex; align-items: flex-end; gap: 6px; padding: 10px 0; }
-.sk-col { flex: 1; display: flex; align-items: flex-end; gap: 2px; height: 100%; }
+.mac-skel { display: flex; align-items: flex-end; gap: var(--sp-h6); padding: var(--sp-h10) 0; }
+.sk-col { flex: 1; display: flex; align-items: flex-end; gap: var(--sp-h2); height: 100%; }
 .sk-col span { flex: 1; background: var(--border-subtle); border-radius: var(--radius-hair); animation: macpulse 1.2s ease-in-out infinite; }
 @keyframes macpulse { 0%, 100% { opacity: .45; } 50% { opacity: .9; } }
-.mac-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--t3); font-size: 13px; }
+.mac-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-h10); color: var(--t3); font-size:var(--fs-base); }
 
 .mac-scroll { position: relative; width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; }
 /* 画布层：宽度＝容器可用宽度，viewBox 与其 1:1 对应；窄屏时锁 600px 由外层横向滚动兜底 */
@@ -643,20 +643,20 @@ function onHover(mo, i, key) {
 
 /* v162：上下两张单轴图。标题行高（22px）＋列间距（4px）＋图间距（16px）是 tooltip 定位的基准，
    改动这三处必须同步 script 里的 SEC_HD / SEC_GAP */
-.mac-sec { display: flex; flex-direction: column; gap: 4px; }
-.mac-sec + .mac-sec { margin-top: 16px; }
-.sec-hd { display: flex; align-items: baseline; gap: 8px; height: 22px; }
-.sec-hd b { font-size: 12px; font-weight: 500; color: var(--t1); }
-.sec-u { font-size: 11px; color: var(--t3); }
+.mac-sec { display: flex; flex-direction: column; gap: var(--sp-1); }
+.mac-sec + .mac-sec { margin-top: var(--sp-4); }
+.sec-hd { display: flex; align-items: baseline; gap: var(--sp-2); height: 22px; }
+.sec-hd b { font-size:var(--fs-sm); font-weight: 500; color: var(--t1); }
+.sec-u { font-size:var(--fs-xs); color: var(--t3); }
 /* v185 R1：.sec-note（原「柱高＝实际销量 / 柱高＝实际返利金额」）已随两条 note 一并删除 —— 不留死 CSS */
-.sec-empty { display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--t3); }
+.sec-empty { display: flex; align-items: center; justify-content: center; font-size:var(--fs-sm); color: var(--t3); }
 
 /* v185 C2：高度由 :style 给出（完整 200 / 紧凑 132），不写死 */
 .mac-svg { width: 100%; display: block; }
 .grid { stroke: var(--border-subtle); stroke-width: 1; stroke-dasharray: 3 3; }
 .axis { stroke: var(--bd); stroke-width: 1; }
-.ax-lb { font-size: 11px; }
-.ax-mo { font-size: 11px; fill: var(--t3); }
+.ax-lb { font-size:var(--fs-xs); }
+.ax-mo { font-size:var(--fs-xs); fill: var(--t3); }
 /* v159 柱两段：轨道（目标）+ 填充（达成）+ 超额加深段。
    两处文字均加白色描边（paint-order）—— 柱顶标签可能压到相邻更高的柱、时间进度线文字会横跨当月柱身，
    无描边则与柱色混在一起读不出来 */
@@ -666,7 +666,7 @@ function onHover(mo, i, key) {
    #e2e8f0 是边框色，在白底上淡到"像没画"，用户会以为"有目标却没柱子"。
    #cbd5e1 与图例 .lg-track 的顶端同色 —— 图例与柱体不再是两个灰度。 */
 .track { fill: #cbd5e1; }
-.bar-lb { font-size: 11px; font-variant-numeric: tabular-nums; pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 2px; stroke-linejoin: round; }
+.bar-lb { font-size:var(--fs-xs); font-variant-numeric: tabular-nums; pointer-events: none; paint-order: stroke; stroke: #fff; stroke-width: 2px; stroke-linejoin: round; }
 /* v164：下行达成率略降透明度 → 上行金额先被读到；两行同色系，整柱归属依然清楚 */
 .bar-lb-rate { opacity: .88; }
 .pace-line { stroke: #d97706; stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
@@ -678,19 +678,19 @@ function onHover(mo, i, key) {
    ⚠️ pointer-events: none 必须保留：盒子挪到柱外侧后会盖住相邻月份的悬停区，一旦吃掉事件就换不了柱。 */
 .mac-tip {
   position: absolute;
-  min-width: 210px; padding: 10px 12px; border-radius: var(--radius-sm); pointer-events: none;
+  min-width: 210px; padding: var(--sp-h10) var(--sp-3); border-radius: var(--radius-sm); pointer-events: none;
   background: var(--bg); border: 1px solid var(--bd);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, .12); font-size: 12px; z-index: 5;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .12); font-size:var(--fs-sm); z-index: 5;
 }
 .mac-tip.to-left { transform: translateX(-100%); }
-.mac-tip b { display: block; margin-bottom: 6px; font-size: 12px; font-weight: 500; color: var(--t1); }
-.tp-row { display: flex; align-items: center; gap: 8px; line-height: 1.9; }
+.mac-tip b { display: block; margin-bottom: var(--sp-h6); font-size:var(--fs-sm); font-weight: 500; color: var(--t1); }
+.tp-row { display: flex; align-items: center; gap: var(--sp-2); line-height: 1.9; }
 .tp-k { width: 56px; color: var(--t3); flex: none; }
 .tp-v { color: var(--t1); font-variant-numeric: tabular-nums; }
 .tp-r { margin-left: auto; color: var(--t2); font-variant-numeric: tabular-nums; }
 .tp-r.warn { color: #dc2626; }
-.tp-ex { display: flex; gap: 8px; line-height: 1.9; border-top: 1px solid var(--border-subtle); margin-top: 4px; padding-top: 4px; }
+.tp-ex { display: flex; gap: var(--sp-2); line-height: 1.9; border-top: 1px solid var(--border-subtle); margin-top: var(--sp-1); padding-top: var(--sp-1); }
 .tp-ex .tp-v { color: var(--t2); }
 
-.mac-ft { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--t3); }
+.mac-ft { display: flex; flex-wrap: wrap; gap: var(--sp-h14); font-size:var(--fs-sm); color: var(--t3); }
 </style>

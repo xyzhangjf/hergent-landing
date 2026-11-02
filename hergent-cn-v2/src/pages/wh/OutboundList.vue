@@ -156,7 +156,7 @@
     <div v-else class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <WhDialog v-if="dlg" title="新建出库单" @close="dlg = false">
@@ -404,32 +404,32 @@ defineExpose({ load })
 
 <style scoped>
 /* 页面私有类一律 `wob-` 前缀（仓配·出库单）。 */
-.wob-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.wob-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 
 .wob-cap {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px; padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-bottom: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--war);
   border-radius: var(--radius-md); background: var(--bg2); color: var(--war);
 }
 
-.wob-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px }
-.wob-f { display: flex; align-items: center; gap: 8px }
-.wob-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
+.wob-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-3) }
+.wob-f { display: flex; align-items: center; gap: var(--sp-2) }
+.wob-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 .wob-kw { min-width: 220px }
 .wob-sel { min-width: 150px }
-.wob-reset { margin-left: 4px }
-.wob-cnt { margin-left: auto; font-size: 12px; color: var(--t3) }
+.wob-reset { margin-left: var(--sp-1) }
+.wob-cnt { margin-left: auto; font-size:var(--fs-sm); color: var(--t3) }
 .wob-cnt b { color: var(--p-ink); font-variant-numeric: tabular-nums }
 
 .wob-card { padding: 0; overflow: hidden }
 .wob-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
-.wob-time { font-size: 12px; color: var(--t3) }
+.wob-time { font-size:var(--fs-sm); color: var(--t3) }
 .wob-dash { color: var(--t3) }
 
-.wob-op { display: flex; flex-wrap: wrap; gap: 2px 10px; justify-content: flex-end }
+.wob-op { display: flex; flex-wrap: wrap; gap: var(--sp-h2) var(--sp-h10); justify-content: flex-end }
 .wob-op-btn {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .wob-op-btn:hover { text-decoration: underline }
@@ -437,24 +437,24 @@ defineExpose({ load })
 .wob-op-btn:disabled { color: var(--t3); cursor: default; text-decoration: none }
 
 .wob-pager {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 12px 14px; border-top: 1px solid var(--border-subtle);
+  display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-h14); border-top: 1px solid var(--border-subtle);
 }
-.wob-pg-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
-.wob-pg-nums { display: inline-flex; align-items: center; gap: 4px }
+.wob-pg-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
+.wob-pg-nums { display: inline-flex; align-items: center; gap: var(--sp-1) }
 .wob-pg {
-  min-width: 28px; height: 28px; padding: 0 6px;
+  min-width: 28px; height: 28px; padding: 0 var(--sp-h6);
   border: 1px solid var(--bd); border-radius: var(--radius-sm);
-  background: var(--bg); color: var(--t1); font-size: 13px; font-variant-numeric: tabular-nums;
+  background: var(--bg); color: var(--t1); font-size:var(--fs-base); font-variant-numeric: tabular-nums;
 }
 .wob-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
 .wob-pg:disabled { opacity: .45; cursor: not-allowed }
 .wob-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
-.wob-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
+.wob-pg-size { width: auto; height: 28px; padding: 0 var(--sp-2); font-size:var(--fs-base); border-radius: var(--radius-sm) }
 
-.wob-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
+.wob-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
 
-.wob-form { display: flex; flex-direction: column; gap: 12px }
-.wob-frow { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.wob-fld { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 220px }
+.wob-form { display: flex; flex-direction: column; gap: var(--sp-3) }
+.wob-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.wob-fld { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1; min-width: 220px }
 </style>

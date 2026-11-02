@@ -32,17 +32,17 @@ function set(v) {
 
 <style scoped>
 /* P1-6：缩放控件从 Forecast.vue 抽出复用（原只读态/编辑态各写一份，完全相同） */
-.zoom-group{display:inline-flex;align-items:center;gap:6px;margin-left:0;font-size:12px}
+.zoom-group{display:inline-flex;align-items:center;gap:var(--sp-h6);margin-left:0;font-size:var(--fs-sm)}
 .zoom-group .zb-btn{
   width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
   border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:var(--radius-sm);cursor:pointer;
-  font-size:15px;line-height:1;padding:0;
+  font-size:var(--fs-h4);line-height:1;padding:0;
 }
 .zoom-group .zb-btn:hover:not(:disabled){background:var(--bg2);color:var(--p-ink)}
 .zoom-group .zb-btn:disabled{opacity:.35;cursor:default}
-.zoom-group .zb-reset{font-size:14px}
+.zoom-group .zb-reset{font-size:var(--fs-md)}
 .zoom-group .zb-range{width:100px;accent-color:var(--p);cursor:pointer}
-.zoom-group .zb-val{min-width:38px;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:var(--t1)}
+.zoom-group .zb-val{min-width:38px;text-align:center;font-size:var(--fs-sm);font-variant-numeric:tabular-nums;color:var(--t1)}
 /* v209 compact：全屏表格工具行专用，滑杆 100→64 省 36px。
    v631 起「缩放」二字已全局移除，本条只剩收窄滑杆。 */
 .zoom-group.zoom-compact .zb-range{width:64px}

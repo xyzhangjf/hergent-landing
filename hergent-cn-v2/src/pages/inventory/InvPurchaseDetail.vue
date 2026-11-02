@@ -186,7 +186,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadAll">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadAll">重试</button>
     </div>
 
     <template v-else-if="o.id">
@@ -849,7 +849,7 @@
         <div v-else-if="logsErr" class="state-error">
           <div class="se-ic"><Icon name="alert" :size="22" /></div>
           <p>{{ logsErr }}</p>
-          <button class="btn btn-ghost btn-sm" style="margin-top:10px"
+          <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)"
                   @click="openLogs(logPid, logPname)">重试</button>
         </div>
         <div v-else-if="!logs.length" class="state-empty">{{ logsEmpty }}</div>
@@ -2145,10 +2145,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 <style scoped>
 .inv-page { display: block }
-.ipd-acts { display: flex; gap: 8px; flex-wrap: wrap }
+.ipd-acts { display: flex; gap: var(--sp-2); flex-wrap: wrap }
 /* v452（O8）页头状态 tag 弱化：原 22px 高 + 12px 字与标题争夺视线。
    状态是单据的属性，不该和「采购单详情」四个字抢主角 —— 收到 20px/11px。 */
-.page-sub .tag { height: 20px; padding: 0 7px; font-size: 11px }
+.page-sub .tag { height: 20px; padding: 0 7px; font-size:var(--fs-xs) }
 
 /* ---- 打印设置（v408 P1-4）------------------------------------------------
    主按钮 + 小箭头 + 次数读数 + 下拉菜单 = 一个视觉整体：
@@ -2159,8 +2159,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipd-pm { position: relative; display: inline-flex; align-items: center; gap: 0 }
 /* v525：待他人审批时的占位提示（无按钮、纯信息）；`.ipd-pm` 同款行高，排进动作区不突兀 */
 .ipd-appr-wait {
-  display: inline-flex; align-items: center; height: 30px; padding: 0 12px;
-  font-size: 13px; color: var(--t2);
+  display: inline-flex; align-items: center; height: 30px; padding: 0 var(--sp-3);
+  font-size:var(--fs-base); color: var(--t2);
   background: var(--bg-2); border: 1px solid var(--bd); border-radius: var(--radius-sm);
 }
 /* 两半拼成一个按钮：去掉中间的重复边框与内侧圆角，否则接缝处是双线 */
@@ -2181,22 +2181,22 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 .ipd-pm-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-dropdown);
-  min-width: 268px; padding: 4px; text-align: left;
+  min-width: 268px; padding: var(--sp-1); text-align: left;
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
 }
 /* v452（O1）「更多 ▾」菜单：收录 9 项 + 4 个分组标题 ⇒ 必须限高可滚，
    否则矮窗口下会把「确认入库」主按钮挤出视口（点了没反应的另一种形态）。 */
 .ipd-more-menu { min-width: 300px; max-height: 72vh; overflow: auto }
-.ipd-pm-hd { padding: 6px 10px 4px; font-size: 12px; color: var(--t3) }
+.ipd-pm-hd { padding: var(--sp-h6) var(--sp-h10) var(--sp-1); font-size:var(--fs-sm); color: var(--t3) }
 .ipd-mi {
-  display: block; width: 100%; padding: 7px 10px; border: none; background: none;
-  border-radius: var(--radius-sm); text-align: left; font-size: 13px;
+  display: block; width: 100%; padding: 7px var(--sp-h10); border: none; background: none;
+  border-radius: var(--radius-sm); text-align: left; font-size:var(--fs-base);
   line-height: 1.45; color: var(--t1); cursor: pointer;
 }
 .ipd-mi:hover { background: var(--bg2) }
 /* 菜单项副标题：解释「这条和那条差在哪」，否则两个「打印」会让人分不清 */
-.ipd-mi-n { display: block; margin-top: 2px; font-size: 12px; color: var(--t3) }
+.ipd-mi-n { display: block; margin-top: var(--sp-h2); font-size:var(--fs-sm); color: var(--t3) }
 /* v414（P2-6）「转单为」菜单里**置灰**的两项（销售单 / 调拨单：没有承接实体）。
    灰显 + 副标题写明原因 —— 比放两个点了没反应的假入口诚实。
    🔴 `:hover` 必须一起压掉：不压的话鼠标划过仍会亮起来，看着像"能点"。 */
@@ -2205,8 +2205,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 
 /* 注意：`.ipd-hd` / `.ipd-f`（竖排字段卡）**仍被「入库单」页签使用**，不删；
    v452 起「采购订单详情」页签换用下面这套单行横排的 `.ipd-barhd` / `.ipd-bf`。 */
-.ipd-hd { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; align-items: baseline }
-.ipd-f { display: flex; flex-direction: column; gap: 4px }
+.ipd-hd { display: flex; gap: var(--sp-5); flex-wrap: wrap; margin-bottom: var(--sp-3); align-items: baseline }
+.ipd-f { display: flex; flex-direction: column; gap: var(--sp-1) }
 .ipd-f-grow { flex: 1; min-width: 200px }
 
 /* v452（O5）单据信息带：单行 compact bar（舟谱同款）。
@@ -2219,14 +2219,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
    🔴 用 `transparent` 而不是写死 `#fff`：深色模式下必须跟着页面走，写死会变一块白斑。 */
 .ipd-barhd {
   display: flex; align-items: baseline; flex-wrap: wrap;
-  gap: 6px 22px; margin-bottom: 10px; padding: 6px 0 10px;
+  gap: var(--sp-h6) 22px; margin-bottom: var(--sp-h10); padding: var(--sp-h6) 0 var(--sp-h10);
   background: transparent;
   border: 0; border-bottom: 1px solid var(--border-subtle);
   border-radius: 0;
 }
 .ipd-bf { display: flex; align-items: baseline; gap: 7px; white-space: nowrap }
 .ipd-bf-grow { flex: 1; min-width: 220px; white-space: normal }
-.ipd-bfv { font-size: 13px; color: var(--t1); font-weight: 500 }
+.ipd-bfv { font-size:var(--fs-base); color: var(--t1); font-weight: 500 }
 /* 备注可长：限宽省略号，全量仍在 title 与展开区里 —— 不把信息带撑翻。 */
 .ipd-bfv-note {
   max-width: 240px; overflow: hidden; text-overflow: ellipsis;
@@ -2234,7 +2234,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 /* v452-followup（O10）：行内编辑 —— 字段旁铅笔图标（不往动作区加按钮，遵守工具栏精简纪律）。 */
 .ipd-pencil {
-  margin-left: 6px; padding: 2px; border: 0; background: transparent; cursor: pointer;
+  margin-left: var(--sp-h6); padding: var(--sp-h2); border: 0; background: transparent; cursor: pointer;
   color: var(--t3); line-height: 0; border-radius: var(--radius-xs);
 }
 .ipd-pencil:hover { color: var(--c-blue); background: rgba(47, 111, 237, .08) }
@@ -2254,7 +2254,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
    🔴 背景必须显式写 `transparent`：input/select 的 UA 默认底是白的，
       不写就等于又回到白块。 */
 .ipd-edit-in, .ipd-edit-sel {
-  max-width: 100%; height: 26px; padding: 0 4px; font-size: 13px;
+  max-width: 100%; height: 26px; padding: 0 var(--sp-1); font-size:var(--fs-base);
   border: 0; border-bottom: 1px solid var(--bd); border-radius: 0;
   background: transparent; color: var(--t1); outline: none;
   transition: border-color var(--dur-base), box-shadow var(--dur-base);
@@ -2283,32 +2283,32 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* v453（R3）备注字数计数。`maxlength` 到顶是**静默截断**（不提示、不报错），
    加一个计数器才看得出「快到顶了」；满 200 字转红。 */
 .ipd-edit-count {
-  margin-left: 6px; font-size: 11px; color: var(--t3);
+  margin-left: var(--sp-h6); font-size:var(--fs-xs); color: var(--t3);
   font-variant-numeric: tabular-nums;
 }
 .ipd-edit-count-max { color: var(--dan) }
 /* v453：编辑态的操作行 —— 从「更多信息」里搬到信息带正下方（R5 之后必须常驻可见）。
    ⚠️ 原来那条 `border-top: dashed` 是「卡片内分隔」用的，独立成行后不再需要。 */
-.ipd-edit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px }
+.ipd-edit-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-h10); margin-bottom: var(--sp-h10) }
 .ipd-edit-actions .ipd-err { color: var(--dan) }
 .ipd-edit-lock { color: var(--t3) }
 /* 金额组：`margin-left:auto` 永远贴右（舟谱把总金额放在信息带右侧同一行）。 */
 .ipd-bmoney { margin-left: auto; display: flex; gap: 26px; flex-wrap: wrap }
 .ipd-bm { display: flex; align-items: baseline; gap: 7px; white-space: nowrap }
-.ipd-bmv { font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums }
+.ipd-bmv { font-size:var(--fs-h4); font-weight: 500; font-variant-numeric: tabular-nums }
 /* v453（R1）供应商余额组：与本单金额之间一条竖线分隔 + 字色弱一档。
    左边三项是「这一单的钱」，右边两项是「这家供应商累计」，口径不同不混读。
    🔴 `.ipd-bmv-sub` 必须写在 `.ipd-bmv` **之后**（同特异度，后来者胜）。 */
-.ipd-bm-sep { align-self: stretch; width: 1px; background: var(--border-subtle); margin: 2px 0 }
-.ipd-bmv-sub { color: var(--t2); font-size: 13px }
+.ipd-bm-sep { align-self: stretch; width: 1px; background: var(--border-subtle); margin: var(--sp-h2) 0 }
+.ipd-bmv-sub { color: var(--t2); font-size:var(--fs-base) }
 
 /* v452（O5）更多信息：默认收起的一行次要字段（创建人 / 审核时间 / 预计到货 /
    供应商类别 / 应付预付余额 / 补充信息）。收起 = 不占首屏，也没丢任何一个字段。 */
-.ipd-moreinfo { margin-bottom: 12px }
+.ipd-moreinfo { margin-bottom: var(--sp-3) }
 .ipd-moreinfo-tg {
-  display: inline-flex; align-items: center; gap: 6px;
-  border: none; background: none; padding: 2px 0;
-  font-size: 12px; color: var(--t3); cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--sp-h6);
+  border: none; background: none; padding: var(--sp-h2) 0;
+  font-size:var(--fs-sm); color: var(--t3); cursor: pointer;
 }
 .ipd-moreinfo-tg:hover { color: var(--t2) }
 .ipd-moreinfo-tri {
@@ -2318,8 +2318,8 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 .ipd-moreinfo-tri.up { transform: rotate(180deg) }
 .ipd-moreinfo-body {
-  display: flex; flex-wrap: wrap; gap: 6px 22px;
-  margin-top: 8px; padding: 10px 16px;
+  display: flex; flex-wrap: wrap; gap: var(--sp-h6) 22px;
+  margin-top: var(--sp-2); padding: var(--sp-h10) var(--sp-4);
   background: var(--bg2); border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
 }
@@ -2328,51 +2328,51 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       `.ipd-lb` 全页标签共用；`.ipd-amt`/`.ipd-amt-due` 货款页签在用；
       `.ipd-mono` 单号/条码在用；`.ipd-conv` 明细表单位列/采购价/数量的
       折小单位小字在用。删任何一个都是静默失效（样式不报错，只是不生效）。 */
-.ipd-lb { font-size: 12px; color: var(--t3) }
+.ipd-lb { font-size:var(--fs-sm); color: var(--t3) }
 /* v454（R10）可编辑字段星号 + 图例。对齐舟谱的 `*` 视觉，但语义是「可改」不是「必填」
    ⇒ 颜色用主题危险色（与「未结」「错误」同一个红），一行图例把话说清。 */
-.ipd-req { color: var(--danger-txt); font-style: normal; margin-right: 2px; font-weight: 600 }
+.ipd-req { color: var(--danger-txt); font-style: normal; margin-right: var(--sp-h2); font-weight: 600 }
 .ipd-reqnote {
-  margin: -4px 0 10px; padding: 0 2px;
-  font-size: 12px; color: var(--t3);
+  margin: -4px 0 var(--sp-h10); padding: 0 var(--sp-h2);
+  font-size:var(--fs-sm); color: var(--t3);
 }
 .ipd-reqnote .ipd-req { margin-right: 3px }
-.ipd-amt { font-size: 16px; font-variant-numeric: tabular-nums }
+.ipd-amt { font-size:var(--fs-lg); font-variant-numeric: tabular-nums }
 .ipd-amt-due { color: var(--danger) }
 .ipd-mono { font-variant-numeric: tabular-nums; font-family: var(--font-mono) }
 /* v409（P2-1）折小单位小字：解释性文案，弱化色 + 单独一行不抢主数字。 */
 .ipd-conv {
-  display: block; margin-top: 2px;
-  font-size: 11px; color: var(--t3); white-space: nowrap;
+  display: block; margin-top: var(--sp-h2);
+  font-size:var(--fs-xs); color: var(--t3); white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .ipd-hint {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
-  border-left: 3px solid var(--p); font-size: 13px; color: var(--t1);
+  display: flex; align-items: center; gap: var(--sp-h10); margin-bottom: var(--sp-3);
+  border-left: 3px solid var(--p); font-size:var(--fs-base); color: var(--t1);
 }
 .ipd-hint svg { color: var(--p-dark); flex: none }
 
-.ipd-recv { margin-bottom: 12px }
-.ipd-recv-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap }
-.ipd-recv-ft { display: flex; align-items: center; gap: 8px; padding-top: 12px; flex-wrap: wrap }
+.ipd-recv { margin-bottom: var(--sp-3) }
+.ipd-recv-hd { display: flex; align-items: baseline; gap: var(--sp-h10); margin-bottom: var(--sp-h10); flex-wrap: wrap }
+.ipd-recv-ft { display: flex; align-items: center; gap: var(--sp-2); padding-top: var(--sp-3); flex-wrap: wrap }
 .ipd-in { height: 30px; width: 110px }
 .ipd-in.num { text-align: right; font-variant-numeric: tabular-nums }
 
-.ipd-bar { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap }
-.ipd-note { font-size: 12px; color: var(--t3) }
+.ipd-bar { display: flex; align-items: baseline; gap: var(--sp-h10); margin-bottom: var(--sp-h10); flex-wrap: wrap }
+.ipd-note { font-size:var(--fs-sm); color: var(--t3) }
 
 /* ══ v415（P2-7）补充信息（自定义字段）在信息卡里的展示 ═══════════════════════
    一组 `标签 值` 小胶囊横排、可换行；字段多时不会把卡片撑成一长条。
    「未填写」用弱色 —— 它是状态说明，不是数据。 */
-.ipd-cf-list { display: flex; flex-wrap: wrap; gap: 6px 14px }
-.ipd-cf-i { font-size: 13px; color: var(--t1); white-space: nowrap }
-.ipd-cf-i i { font-style: normal; color: var(--t3); font-size: 12px; margin-right: 5px }
-.ipd-cf-none { font-size: 13px; color: var(--t3) }
+.ipd-cf-list { display: flex; flex-wrap: wrap; gap: var(--sp-h6) var(--sp-h14) }
+.ipd-cf-i { font-size:var(--fs-base); color: var(--t1); white-space: nowrap }
+.ipd-cf-i i { font-style: normal; color: var(--t3); font-size:var(--fs-sm); margin-right: 5px }
+.ipd-cf-none { font-size:var(--fs-base); color: var(--t3) }
 /* 行内「填写 / 修改」链接：体量与 `.ipd-lb` 同档，不抢信息卡的视线 */
 .ipd-cf-edit {
-  border: none; background: none; padding: 0 0 0 6px; margin-left: 2px;
-  font-size: 12px; color: var(--p-dark); cursor: pointer;
+  border: none; background: none; padding: 0 0 0 var(--sp-h6); margin-left: var(--sp-h2);
+  font-size:var(--fs-sm); color: var(--p-dark); cursor: pointer;
 }
 .ipd-cf-edit:hover { text-decoration: underline }
 /* 字段可能很多（上限 30 个）⇒ 弹层限高可滚，否则「保存」会被顶出屏幕 */
@@ -2386,7 +2386,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: var(--sp-3);
 }
 /* v452（O6）商品名单元格里的规格小字：舟谱把规格并进商品名（如「…100*8杯（新）」）。
    小字 + 弱色 + 不换行挤压 —— 主名称永远是这一格的主角。 */
@@ -2399,12 +2399,12 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ipd-spec {
-  margin-left: 6px;
-  font-size: 11px; color: var(--t3);
+  margin-left: var(--sp-h6);
+  font-size:var(--fs-xs); color: var(--t3);
 }
 /* v452（O8）「未登记」灰字：原来是黄 tag，2 行商品 4 个黄块是纯噪音；
    "没登记批次"是状态说明，不是警示（真正的警示走 `ipd-hint` 与确认弹窗）。 */
-.ipd-none { font-size: 12px; color: var(--t3) }
+.ipd-none { font-size:var(--fs-sm); color: var(--t3) }
 
 /* v452（O7）底部总额条：舟谱表格下方那条「订单总额」横条。
    对账 / 截图 / 打印时有一个明确的总计锚点（原来只有表内合计行）。 */
@@ -2415,14 +2415,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
    ⚠️ 搬出来后自带边框与圆角：它已经不是表格框内的最后一条了。 */
 .ipd-total-bar {
   position: sticky; bottom: 0; z-index: 6;
-  display: flex; align-items: baseline; gap: 10px;
-  margin-bottom: 12px; padding: 9px 14px;
+  display: flex; align-items: baseline; gap: var(--sp-h10);
+  margin-bottom: var(--sp-3); padding: 9px var(--sp-h14);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: var(--bg2);
 }
-.ipd-total-lb { font-size: 12px; color: var(--t3) }
-.ipd-total-amt { font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums }
-.ipd-total-note { margin-left: auto; font-size: 12px; color: var(--t3) }
+.ipd-total-lb { font-size:var(--fs-sm); color: var(--t3) }
+.ipd-total-amt { font-size:var(--fs-h4); font-weight: 500; font-variant-numeric: tabular-nums }
+.ipd-total-note { margin-left: auto; font-size:var(--fs-sm); color: var(--t3) }
 
 /* v452（O9）表格密度对齐舟谱：默认 8px/12px（原 10px/14px）。
    🔴 排除序号/齿轮两列（它们有自己的窄 padding：全局 `table.tbl th.seq-th` 8px 4px）。
@@ -2430,9 +2430,9 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
       是 (0,2,2)，与这条同分 ⇒ 不写配套的话 compact 档会被这条盖掉，
       「紧凑模式」用户拿到的是 8px 而不是 4px（静默失效的老形态）。 */
 table.tbl.ipd-tbl th:not(.seq-th),
-table.tbl.ipd-tbl td:not(.seq-cell) { padding: 8px 12px }
+table.tbl.ipd-tbl td:not(.seq-cell) { padding: var(--sp-2) var(--sp-3) }
 [data-density="compact"] table.tbl.ipd-tbl th:not(.seq-th),
-[data-density="compact"] table.tbl.ipd-tbl td:not(.seq-cell) { padding: 4px 10px }
+[data-density="compact"] table.tbl.ipd-tbl td:not(.seq-cell) { padding: var(--sp-1) var(--sp-h10) }
 
 .ipd-tbl { min-width: 1480px }
 .ipd-tbl-wide { min-width: 1900px }
@@ -2442,7 +2442,7 @@ table.tbl.ipd-tbl td:not(.seq-cell) { padding: 8px 12px }
 /* v408（P1-6）行历史按钮列。宽度钉死（列内文字恒定），`nowrap` 防「历史」被折成两行。 */
 .ipd-hist-th { width: 80px }
 .ipd-hist-cell { width: 80px; white-space: nowrap }
-.ipd-hist-btn { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px }
+.ipd-hist-btn { display: inline-flex; align-items: center; gap: var(--sp-1); padding: var(--sp-h2) var(--sp-2) }
 .ipd-diff { color: var(--danger); font-weight: 600 }
 tfoot td { font-weight: 600 }
 
@@ -2451,64 +2451,64 @@ tfoot td { font-weight: 600 }
       加文字按钮」的纪律；有附件时右上角一个数字角标，不点开菜单也知道有没有。
       ②（R9）页头左侧改 flex 基线横排：标题 / 单号 / 状态压成**一行**。
    ═══════════════════════════════════════════════════════════════════ */
-.ipd-icobtn { position: relative; padding: 4px 8px }
+.ipd-icobtn { position: relative; padding: var(--sp-1) var(--sp-2) }
 .ipd-icobadge {
   position: absolute; top: -4px; right: -4px;
   min-width: 15px; height: 15px; padding: 0 3px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--radius-sm); background: var(--p-solid); color: #fff;
-  font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums;
+  font-size:var(--fs-xs); line-height: 1; font-variant-numeric: tabular-nums;
 }
 /* 🔴 全局 `.page-hd.split` 是 `align-items:flex-start` —— 左侧那个 div 里
    `<h2>` 是块级元素，会把副标题（单号 + 状态）挤到第二行。这里把左侧自己
    变成 flex 基线横排即可压回一行，不动全局规则（其它页面不受影响）。 */
-.ipd-hd-l { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px }
+.ipd-hd-l { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-h10) }
 
 /* ---- 货款 ---- */
-.ipd-pay { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 12px; align-items: start }
-.ipd-info { display: flex; flex-direction: column; gap: 10px }
+.ipd-pay { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: var(--sp-3); align-items: start }
+.ipd-info { display: flex; flex-direction: column; gap: var(--sp-h10) }
 .ipd-info-hd { font-size: var(--fs-h4); font-weight: 600; color: var(--t1) }
-.ipd-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px }
+.ipd-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); font-size:var(--fs-base) }
 .ipd-row > span:last-child, .ipd-row > b { text-align: right }
-.ipd-row-b { border-top: 1px solid var(--border-subtle); padding-top: 10px; margin-top: 2px }
+.ipd-row-b { border-top: 1px solid var(--border-subtle); padding-top: var(--sp-h10); margin-top: var(--sp-h2) }
 .ipd-warn {
-  display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.6;
+  display: flex; gap: var(--sp-2); align-items: flex-start; font-size:var(--fs-sm); line-height: 1.6;
   color: var(--t1); background: var(--warn-amber-bg);
-  border-radius: var(--radius-md); padding: 10px 12px;
+  border-radius: var(--radius-md); padding: var(--sp-h10) var(--sp-3);
 }
-.ipd-warn svg { flex: none; margin-top: 2px; color: var(--warn) }
+.ipd-warn svg { flex: none; margin-top: var(--sp-h2); color: var(--warn) }
 /* 超付提示可能与前一条「往来账对不上」同屏出现 ⇒ 留 6px，避免两条糊成一块 */
-.ipd-overpaid { margin-top: 6px }
+.ipd-overpaid { margin-top: var(--sp-h6) }
 /* v697：入库单页的操作条。左说明 / 右按钮，与详情页顶部动作区同一范式，
    但它是**页面内的卡片**而非工具条 ⇒ 用 card 自带底 + 内边距，不另画一条分隔线。 */
-.ipd-inb-act { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 14px; margin-bottom: 10px; flex-wrap: wrap }
+.ipd-inb-act { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-h14); padding: 11px var(--sp-h14); margin-bottom: var(--sp-h10); flex-wrap: wrap }
 .ipd-inb-act-t { display: flex; flex-direction: column; gap: 3px; min-width: 0 }
-.ipd-inb-act-t b { font-size: 12px; font-weight: 600; color: var(--t1) }
+.ipd-inb-act-t b { font-size:var(--fs-sm); font-weight: 600; color: var(--t1) }
 .ipd-inb-act-t .ipd-note { margin: 0 }
-.ipd-inb-act-b { display: flex; gap: 8px; flex: none }
-.ipd-paybtn { justify-content: center; margin-top: 4px }
+.ipd-inb-act-b { display: flex; gap: var(--sp-2); flex: none }
+.ipd-paybtn { justify-content: center; margin-top: var(--sp-1) }
 .ipd-payhint { margin-top: -4px }
 
 .ipd-flows { min-width: 0 }
-.ipd-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 12px; text-align: center }
+.ipd-empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: 28px var(--sp-3); text-align: center }
 .ipd-empty-ic { color: var(--t3) }
-.ipd-empty p { font-size: 13px; color: var(--t2); margin: 0 }
-.ipd-inbnote { margin: -4px 0 12px }
+.ipd-empty p { font-size:var(--fs-base); color: var(--t2); margin: 0 }
+.ipd-inbnote { margin: -4px 0 var(--sp-3) }
 
 /* ---- 付款弹层 ---- */
 .ipd-mask {
   position: fixed; inset: 0; background: rgba(15, 23, 42, .45);
-  display: flex; align-items: center; justify-content: center; padding: 20px;
+  display: flex; align-items: center; justify-content: center; padding: var(--sp-5);
   z-index: var(--z-page-modal-overlay);
 }
-.ipd-dlg { width: min(420px, 92vw); padding: 18px; position: relative; z-index: var(--z-page-modal) }
-.ipd-dlg-hd { font-size: var(--fs-h4); font-weight: 600; margin-bottom: 8px }
-.ipd-dlg-msg { font-size: 12px; color: var(--t3); margin-bottom: 14px }
-.ipd-fl { display: block; margin-bottom: 12px }
-.ipd-fl .ipd-lb { display: block; margin-bottom: 6px }
+.ipd-dlg { width: min(420px, 92vw); padding: var(--sp-h18); position: relative; z-index: var(--z-page-modal) }
+.ipd-dlg-hd { font-size: var(--fs-h4); font-weight: 600; margin-bottom: var(--sp-2) }
+.ipd-dlg-msg { font-size:var(--fs-sm); color: var(--t3); margin-bottom: var(--sp-h14) }
+.ipd-fl { display: block; margin-bottom: var(--sp-3) }
+.ipd-fl .ipd-lb { display: block; margin-bottom: var(--sp-h6) }
 .ipd-fl .input { width: 100% }
-.ipd-dlgerr { font-size: 12px; color: var(--danger); margin-bottom: 10px }
-.ipd-dlg-ft { display: flex; justify-content: flex-end; gap: 8px }
+.ipd-dlgerr { font-size:var(--fs-sm); color: var(--danger); margin-bottom: var(--sp-h10) }
+.ipd-dlg-ft { display: flex; justify-content: flex-end; gap: var(--sp-2) }
 
 /* ---- 查看日志弹层（v408 P0-4）----
    🔴 `max-height` + `overflow:auto` 是**必须**的：日志行数随单据年纪增长，
@@ -2520,15 +2520,15 @@ tfoot td { font-weight: 600 }
 .ipd-log-at { width: 170px; white-space: nowrap; font-variant-numeric: tabular-nums }
 .ipd-log-ev { width: 108px; white-space: nowrap }
 .ipd-log-dt { color: var(--t2); word-break: break-all }
-.ipd-loghint { margin: 12px 0 0; line-height: 1.6 }
+.ipd-loghint { margin: var(--sp-3) 0 0; line-height: 1.6 }
 
 /* ---- 附件（v408 P1-8）----
    ⚠️ 这些是**本页私有**样式：附件 UI 目前只有采购单详情页一处。将来第二处要用时，
       按 UI-SPEC §8「同选择器 ≥3 次且逐字同 ⇒ 上提全局类」再上提 —— 现在上提是过度设计。 */
 .ipd-at-badge {
-  margin-left: 6px; padding: 0 6px; border-radius: var(--radius-pill);
+  margin-left: var(--sp-h6); padding: 0 var(--sp-h6); border-radius: var(--radius-pill);
   background: var(--bg2); color: var(--t2);
-  font-size: 11px; font-variant-numeric: tabular-nums;
+  font-size:var(--fs-xs); font-variant-numeric: tabular-nums;
 }
 /* 隐藏的 file input：**不能用 `display:none`** —— 部分浏览器下 `.click()` 不触发；
    用「移出视野但保留可点击」的写法，各浏览器行为一致。 */
@@ -2536,7 +2536,7 @@ tfoot td { font-weight: 600 }
 .ipd-at-nm { word-break: break-all }
 .ipd-at-by { width: 96px; white-space: nowrap; color: var(--t2) }
 .ipd-at-op { width: 168px; white-space: nowrap }
-.ipd-at-op .btn + .btn { margin-left: 6px }
+.ipd-at-op .btn + .btn { margin-left: var(--sp-h6) }
 
 /* 打印：只留当前页签的数据表。页签条 / 动作区 / 提示条 / 弹层一律不印
    —— 打印出来的应该是单据本身，不是界面外壳。 */
@@ -2561,9 +2561,9 @@ tfoot td { font-weight: 600 }
 }
 
 @media (max-width: 640px) {
-  .ipd-hd { gap: 14px }
-  .ipd-barhd { gap: 6px 14px }
-  .ipd-bmoney { margin-left: 0; gap: 18px }
+  .ipd-hd { gap: var(--sp-h14) }
+  .ipd-barhd { gap: var(--sp-h6) var(--sp-h14) }
+  .ipd-bmoney { margin-left: 0; gap: var(--sp-h18) }
   .ipd-recv-ft .ipd-note { width: 100%; margin-right: 0 }
 }
 </style>

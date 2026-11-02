@@ -56,11 +56,11 @@ function onEnter() {
 </script>
 
 <style scoped>
-.ui-cd-text{font-size:14px;color:var(--t1);line-height:1.6;white-space:pre-line}
-.ui-cd-cons{font-size:13px;line-height:1.6;color:var(--danger-txt);background:var(--danger-bg);
-  padding:9px 12px;border-radius:var(--radius-sm)}
-.ui-cd-field{display:flex;flex-direction:column;gap:6px}
-.ui-cd-label{font-size:13px;color:var(--t2)}
+.ui-cd-text{font-size:var(--fs-md);color:var(--t1);line-height:1.6;white-space:pre-line}
+.ui-cd-cons{font-size:var(--fs-base);line-height:1.6;color:var(--danger-txt);background:var(--danger-bg);
+  padding:9px var(--sp-3);border-radius:var(--radius-sm)}
+.ui-cd-field{display:flex;flex-direction:column;gap:var(--sp-h6)}
+.ui-cd-label{font-size:var(--fs-base);color:var(--t2)}
 .ui-cd-danger{background:var(--dan-solid);border-color:var(--dan-solid);color:#fff}
 .ui-cd-danger:hover:not(:disabled){background:var(--dan-solid);filter:brightness(.93);color:#fff}
 .ui-cd-danger:disabled{opacity:.45;cursor:not-allowed}

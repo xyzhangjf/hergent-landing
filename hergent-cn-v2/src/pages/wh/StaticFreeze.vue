@@ -169,7 +169,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ err }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadList()">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadList()">重试</button>
       </div>
     </template>
 
@@ -250,7 +250,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ dErr }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadDetail(detail.id)">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadDetail(detail.id)">重试</button>
       </div>
     </template>
   </div>
@@ -463,29 +463,29 @@ defineExpose({ load: loadList })
 
 <style scoped>
 /* 页面私有类一律 `sfz-` 前缀（仓配·静态盘点单），避免与兄弟页串味。 */
-.sfz-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.sfz-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 
 .sfz-card { padding: 0; overflow: hidden }
 .sfz-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
-.sfz-time { font-size: 12px; color: var(--t3) }
-.sfz-dim { color: var(--t3); font-size: 12px }
-.sfz-scope-val { font-size: 18px }
+.sfz-time { font-size:var(--fs-sm); color: var(--t3) }
+.sfz-dim { color: var(--t3); font-size:var(--fs-sm) }
+.sfz-scope-val { font-size:var(--fs-stat) }
 
 .sfz-op-cell { white-space: nowrap }
 .sfz-op {
-  border: none; background: none; padding: 0; margin-right: 10px; font-size: 13px;
+  border: none; background: none; padding: 0; margin-right: var(--sp-h10); font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .sfz-op:last-child { margin-right: 0 }
 .sfz-op:hover { text-decoration: underline }
 .sfz-op:disabled { color: var(--t3); cursor: not-allowed; text-decoration: none }
 
-.sfz-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
-.sfz-empty-hint { font-size: 12px; color: var(--t3); margin-top: 6px }
+.sfz-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.sfz-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .sfz-tip, .sfz-lock {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px; padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-bottom: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: var(--bg2); color: var(--t2);
 }
@@ -493,8 +493,8 @@ defineExpose({ load: loadList })
 .sfz-lock { border-left: 3px solid var(--ok); color: var(--ok) }
 
 .sfz-meta {
-  display: flex; flex-wrap: wrap; gap: 18px;
-  margin-bottom: 12px; font-size: 12px; color: var(--t2);
+  display: flex; flex-wrap: wrap; gap: var(--sp-h18);
+  margin-bottom: var(--sp-3); font-size:var(--fs-sm); color: var(--t2);
 }
 .sfz-meta b { color: var(--t3); font-weight: 500 }
 
@@ -502,32 +502,32 @@ defineExpose({ load: loadList })
 .sfz-name { font-weight: 500 }
 
 /* 新建区 */
-.sfz-new { margin-bottom: 12px }
+.sfz-new { margin-bottom: var(--sp-3) }
 .sfz-new-hd {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size:var(--fs-base); font-weight: 600; color: var(--t2); margin-bottom: var(--sp-3);
 }
-.sfz-new-sub { font-size: 12px; font-weight: 400; color: var(--t3) }
-.sfz-new-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.sfz-fld { display: flex; flex-direction: column; gap: 4px; min-width: 170px }
+.sfz-new-sub { font-size:var(--fs-sm); font-weight: 400; color: var(--t3) }
+.sfz-new-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.sfz-fld { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 170px }
 .sfz-fld-grow { flex: 1; min-width: 240px }
-.sfz-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
+.sfz-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 
 .sfz-pick {
-  margin-top: 14px; padding-top: 12px;
+  margin-top: var(--sp-h14); padding-top: var(--sp-3);
   border-top: 1px dashed var(--border-subtle);
 }
 .sfz-pick-hd {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 10px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size:var(--fs-base); font-weight: 600; color: var(--t2); margin-bottom: var(--sp-h10);
 }
-.sfz-pick-add { margin-bottom: 10px }
-.sfz-pick-none { font-size: 12px; color: var(--t3) }
+.sfz-pick-add { margin-bottom: var(--sp-h10) }
+.sfz-pick-none { font-size:var(--fs-sm); color: var(--t3) }
 
-.sfz-chips { display: flex; flex-wrap: wrap; gap: 8px }
+.sfz-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2) }
 .sfz-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 6px 3px 10px; font-size: 12px;
+  display: inline-flex; align-items: center; gap: var(--sp-h6);
+  padding: 3px var(--sp-h6) 3px var(--sp-h10); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: var(--bg2); color: var(--t2);
 }
@@ -538,9 +538,9 @@ defineExpose({ load: loadList })
 .sfz-chip-x:hover { color: var(--dan) }
 
 .sfz-new-foot {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-top: 14px; padding-top: 12px;
+  display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
+  margin-top: var(--sp-h14); padding-top: var(--sp-3);
   border-top: 1px solid var(--border-subtle);
 }
-.sfz-new-note { font-size: 12px; color: var(--t3) }
+.sfz-new-note { font-size:var(--fs-sm); color: var(--t3) }
 </style>

@@ -31,7 +31,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <div v-else-if="!waves.length" class="card">
@@ -314,31 +314,31 @@ defineExpose({ load })
 </script>
 
 <style scoped>
-.pw-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.pw-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px }
-.pw-f { display: flex; flex-direction: column; gap: 4px }
-.pw-lb { font-size: 12px; color: var(--t3) }
+.pw-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
+.pw-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-h14) }
+.pw-f { display: flex; flex-direction: column; gap: var(--sp-1) }
+.pw-lb { font-size:var(--fs-sm); color: var(--t3) }
 .pw-sel { min-width: 160px }
-.pw-hint { font-size: 12px; color: var(--t2) }
+.pw-hint { font-size:var(--fs-sm); color: var(--t2) }
 .pw-act-th { text-align: right }
-.pw-act { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap }
+.pw-act { display: flex; gap: var(--sp-h6); justify-content: flex-end; flex-wrap: wrap }
 
 .pw-modal-mask {
   position: fixed; inset: 0; background: rgba(0,0,0,.38);
-  display: flex; align-items: center; justify-content: center; z-index: 60; padding: 18px;
+  display: flex; align-items: center; justify-content: center; z-index: 60; padding: var(--sp-h18);
 }
-.pw-modal { width: 460px; max-width: 100%; max-height: 88vh; overflow: auto; padding: 18px }
+.pw-modal { width: 460px; max-width: 100%; max-height: 88vh; overflow: auto; padding: var(--sp-h18) }
 .pw-modal-lg { width: 760px }
-.pw-modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px }
-.pw-modal-hd h3 { font-size: 16px; display: flex; align-items: center; gap: 8px }
-.pw-x { border: none; background: transparent; cursor: pointer; color: var(--t2); padding: 4px }
-.pw-form { display: flex; flex-direction: column; gap: 12px }
+.pw-modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-3) }
+.pw-modal-hd h3 { font-size:var(--fs-lg); display: flex; align-items: center; gap: var(--sp-2) }
+.pw-x { border: none; background: transparent; cursor: pointer; color: var(--t2); padding: var(--sp-1) }
+.pw-form { display: flex; flex-direction: column; gap: var(--sp-3) }
 .pw-f-wide { width: 100% }
-.pw-tip { font-size: 12px; color: var(--t2); margin: 0 }
-.pw-ce { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 8px 10px }
-.pw-modal-ft { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px }
-.pw-detail-meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--t2); margin-bottom: 12px }
-.pw-dl { padding: 8px 0 }
+.pw-tip { font-size:var(--fs-sm); color: var(--t2); margin: 0 }
+.pw-ce { display: flex; align-items: center; gap: var(--sp-h6); margin-top: var(--sp-h10); padding: var(--sp-2) var(--sp-h10) }
+.pw-modal-ft { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4) }
+.pw-detail-meta { display: flex; gap: var(--sp-4); flex-wrap: wrap; font-size:var(--fs-base); color: var(--t2); margin-bottom: var(--sp-3) }
+.pw-dl { padding: var(--sp-2) 0 }
 .pw-dtbl { max-height: 52vh; overflow: auto }
 .pw-pick-num { width: 92px; height: 28px }
 
@@ -346,5 +346,5 @@ defineExpose({ load })
 .btn.danger { color: var(--danger) }
 .badge-gray { background: var(--bg-2); color: var(--t2) }
 .req { color: var(--danger) }
-.state-empty.small { padding: 18px 0 }
+.state-empty.small { padding: var(--sp-h18) 0 }
 </style>

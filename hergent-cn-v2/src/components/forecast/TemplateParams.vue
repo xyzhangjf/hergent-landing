@@ -124,30 +124,30 @@ onMounted(loadProfile)
 
 <style scoped>
 /* v160 模板参数卡片（外层已统一为 ConfigCard，这里只保留内部样式） */
-.tp-warn{font-size:12px;color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px 8px;border-radius:var(--radius-sm)}
+.tp-warn{font-size:var(--fs-sm);color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px var(--sp-2);border-radius:var(--radius-sm)}
 /* tp-body 包在 ConfigCard 内层：去掉自身内距与分隔线，避免与 cfg-body 重复叠加 */
-.tp-body{padding:0 16px 14px;border-top:1px solid var(--border-subtle)}
+.tp-body{padding:0 var(--sp-4) var(--sp-h14);border-top:1px solid var(--border-subtle)}
 .tp-body-flat{padding:0;border:none}
-.tp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;padding:14px 0}
+.tp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-3);padding:var(--sp-h14) 0}
 .tp-wide{grid-column:1/-1}
 .tp-body .field{display:flex;flex-direction:column;gap:5px}
-.tp-body .field label{font-size:12px;color:var(--t2)}
-.tp-body .field input{padding:7px 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;outline:none}
+.tp-body .field label{font-size:var(--fs-sm);color:var(--t2)}
+.tp-body .field input{padding:7px var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:var(--fs-base);outline:none}
 .tp-body .field input:focus{border-color:var(--p)}
-.tp-hint{font-size:11px;color:var(--t3)}
+.tp-hint{font-size:var(--fs-xs);color:var(--t3)}
 /* v163：户头 → 部门名行（每行一个户头） */
-.tp-depts{display:flex;flex-direction:column;gap:6px}
-.tp-dept-row{display:flex;align-items:center;gap:8px}
-.tp-dept-name{min-width:76px;font-size:12px;color:var(--t2);flex:0 0 auto}
+.tp-depts{display:flex;flex-direction:column;gap:var(--sp-h6)}
+.tp-dept-row{display:flex;align-items:center;gap:var(--sp-2)}
+.tp-dept-name{min-width:76px;font-size:var(--fs-sm);color:var(--t2);flex:0 0 auto}
 .tp-dept-row input{flex:1;min-width:0}
-.tp-actions{display:flex;gap:8px}
+.tp-actions{display:flex;gap:var(--sp-2)}
 /* 输入框基础盒模型（原在 ReportMapping.vue 的 .field 族里，随本卡片一并迁入 ——
    它的 width/box-sizing/height 三条只在这里提供，漏抄会让输入框恢复浏览器默认宽高）。 */
-.field{display:flex;flex-direction:column;gap:6px;margin-bottom:2px}
-.field input{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 11px;font-size:13px;background:var(--bg);color:var(--t1)}
+.field{display:flex;flex-direction:column;gap:var(--sp-h6);margin-bottom:var(--sp-h2)}
+.field input{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 11px;font-size:var(--fs-base);background:var(--bg);color:var(--t1)}
 /* C2：按钮对齐全局令牌（.btn/.btn-sm/.btn-primary 为 scoped 复刻，尺寸/圆角与 variables.css 保持一致） */
-.btn{border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-md);padding:7px 13px;font-size:13px;color:var(--t1);cursor:pointer}
-.btn-sm{height:32px;padding:0 12px;font-size:13px;border-radius:var(--radius-sm)}
+.btn{border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-md);padding:7px 13px;font-size:var(--fs-base);color:var(--t1);cursor:pointer}
+.btn-sm{height:32px;padding:0 var(--sp-3);font-size:var(--fs-base);border-radius:var(--radius-sm)}
 .btn-primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 </style>

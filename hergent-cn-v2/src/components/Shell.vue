@@ -1679,15 +1679,15 @@ function stopResize() {
 
 <style scoped>
 .shell{display:flex;flex-direction:column;height:100vh;background:radial-gradient(1200px 420px at 72% -8%,rgba(6,182,212,.07),transparent 60%),var(--bg2)}
-.topbar{height:var(--topbar-h);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 20px;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--glass-border);flex-shrink:0;z-index:10}
-.tb-demo{margin-left:10px;font-size:11px;background:rgba(255,149,0,.15);color:var(--war);padding:2px 10px;border-radius:var(--radius-sm)}
+.topbar{height:var(--topbar-h);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);padding:0 var(--sp-5);background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--glass-border);flex-shrink:0;z-index:10}
+.tb-demo{margin-left:var(--sp-h10);font-size:var(--fs-xs);background:rgba(255,149,0,.15);color:var(--war);padding:var(--sp-h2) var(--sp-h10);border-radius:var(--radius-sm)}
 /* v417f：标签栏插进顶栏中间 ⇒ 左右三组**都不许收缩**，否则标签一多就把
    右侧动作区（通知 / 主题 / 用户）挤没了。收缩只由中间的 `.tabbar` 承担。 */
-.tb-brand{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.tb-brand{display:flex;align-items:center;gap:var(--sp-2);flex:1;min-width:0}
 .tb-brand-logo{width:22px;height:22px;border-radius:var(--radius-xs);display:block}
-.tb-brand b{font-size:16px;font-weight:600;letter-spacing:.2px}
-.tb-sub{font-size:12px;color:var(--t3);padding:3px 8px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark)}
-.tb-right{display:flex;align-items:center;gap:8px;flex:1;min-width:0;justify-content:flex-end}
+.tb-brand b{font-size:var(--fs-lg);font-weight:600;letter-spacing:.2px}
+.tb-sub{font-size:var(--fs-sm);color:var(--t3);padding:3px var(--sp-2);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark)}
+.tb-right{display:flex;align-items:center;gap:var(--sp-2);flex:1;min-width:0;justify-content:flex-end}
 /* v708：`.tb-btn` 与 `.tb-user` 都不许收缩 —— 顶栏空间不够时，宁可让空间从
    `.tb-brand`（有 flex:1 且 min-width:0）那里让出来，也不要挤压图标和名字。 */
 .tb-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);flex-shrink:0}
@@ -1696,14 +1696,14 @@ function stopResize() {
 .tb-bell{position:relative}
 /* v723：底色 `--dan` → `--dan-solid`。11px 白字在深色提亮红 #ff453a 上只有 3.41:1（需 4.5），
    徽标数字是本条最要紧的信息，不能是整页最淡的字。 */
-.tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:var(--radius-sm);background:var(--dan-solid);color:#fff;font-size:11px;line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
-.tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;max-width:180px}
+.tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--dan-solid);color:#fff;font-size:var(--fs-xs);line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
+.tb-user{height:32px;display:flex;align-items:center;padding:0 var(--sp-3);border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-base);font-weight:500;cursor:pointer;flex-shrink:0;max-width:180px}
 /* v708：名字单行 + 过长省略（hover 有 title 看全）。`min-width:0` 是让 ellipsis 真正生效的前提
    —— flex item 默认 min-width:auto，内容多长就多长，省略号永远不出现。 */
 .tb-user-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
-.tb-ai{display:flex;align-items:center;gap:12px;flex-shrink:0}
-.tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all var(--dur-base)}
+.tb-ai{display:flex;align-items:center;gap:var(--sp-3);flex-shrink:0}
+.tb-copilot{display:flex;align-items:center;gap:var(--sp-2);height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-base);font-weight:500;cursor:pointer;transition:all var(--dur-base)}
 .tb-copilot:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .tb-cp-ic{display:flex;align-items:center;justify-content:center}
 
@@ -1714,10 +1714,10 @@ function stopResize() {
 .sb-resizer{position:absolute;top:0;bottom:0;left:var(--sidebar-w);width:8px;margin-left:-4px;cursor:col-resize;z-index:12}
 .sb-resizer::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);background:transparent;transition:background var(--dur-base)}
 .sb-resizer:hover::after,.sb-resizer.active::after{background:var(--p)}
-.sb-nav{flex:1;overflow-y:auto;padding:12px 10px}
+.sb-nav{flex:1;overflow-y:auto;padding:var(--sp-3) var(--sp-h10)}
 /* v623：侧栏底部备案号（阿里云 2026-10 备案核查；说明见模板内 .sb-beian 处）。
    flex-shrink:0 ⇒ 侧栏内容再长也不把它压没；折叠/手机端不渲染 ⇒ 无需媒体查询。 */
-.sb-beian{flex-shrink:0;padding:10px 8px 12px;text-align:center;font-size:11px;line-height:1.5;color:var(--t2);opacity:.55}
+.sb-beian{flex-shrink:0;padding:var(--sp-h10) var(--sp-2) var(--sp-3);text-align:center;font-size:var(--fs-xs);line-height:1.5;color:var(--t2);opacity:.55}
 .sb-beian a{color:inherit;text-decoration:none}
 .sb-beian a:hover{opacity:1;text-decoration:underline}
 /* v677：侧栏条目高度**恢复到 v676 之前**（老板看 34px 觉得太挤，要退回原样）。
@@ -1732,7 +1732,7 @@ function stopResize() {
    🔴 高度**不写死**：加 `height:38px` 会在字号/行高一变时把文字挤出去
       （`.psi-tbl` 就踩过"内容盒 8px < 复选框 13px"的同类坑）。
    🔴 纵向 padding 下限 5px：再小 16px 图标会贴上下边、圆角 10px 会吃到图标。 */
-.sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:var(--radius-sm);color:var(--t2);text-decoration:none;font-size:13px;line-height:1.6;transition:all var(--dur-base)}
+.sb-item{display:flex;align-items:center;gap:var(--sp-h10);width:100%;padding:9px var(--sp-h10);border-radius:var(--radius-sm);color:var(--t2);text-decoration:none;font-size:var(--fs-base);line-height:1.6;transition:all var(--dur-base)}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
 .sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 /* ⚠️ v390（2026-10-07）：原 `.sb-grp`（分组标题：经营 / 核算 / 配置）**已随分组一起删除**
@@ -1776,25 +1776,25 @@ function stopResize() {
    `flex-wrap:wrap` 是列数过多时的兜底（配合 `_placePop` 给的 `maxWidth`）。 */
 .sb-pop{position:fixed;min-width:168px;display:flex;align-items:flex-start;flex-wrap:wrap;
   background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
-  border:1px solid var(--bd);border-radius:var(--radius-md);padding:6px;z-index:var(--z-shell-pop);
+  border:1px solid var(--bd);border-radius:var(--radius-md);padding:var(--sp-h6);z-index:var(--z-shell-pop);
   /* v643：`maxHeight` 由 `_placePop` 按视口算好 ⇒ 内容超长时在弹窗**内部滚动**，
      不再溢出屏幕底部（改之前无高度约束，长列会被截断且无法滚到）。 */
   overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   box-shadow:0 8px 24px rgba(0,0,0,.12)}
 /* 一个分组 = 一列。列宽自适应：`min-width` 保底、`max-width` 防某列过长，
    条目名字长的列自然更宽（同舟谱「设置」弹窗各列宽窄不一）。 */
-.sb-pop-col{flex:1 1 auto;min-width:124px;max-width:240px;padding:0 8px 2px}
+.sb-pop-col{flex:1 1 auto;min-width:124px;max-width:240px;padding:0 var(--sp-2) var(--sp-h2)}
 .sb-pop-col + .sb-pop-col{border-left:1px solid var(--bd)}
 /* 列标题：粗体置顶 + 下方细分隔线（同舟谱「采销管理」弹窗）。 */
-.sb-pop-hd{font-size:11px;font-weight:600;color:var(--t2);letter-spacing:.8px;
-  padding:6px 4px 5px;margin-bottom:4px;border-bottom:1px solid var(--bd)}
+.sb-pop-hd{font-size:var(--fs-xs);font-weight:600;color:var(--t2);letter-spacing:.8px;
+  padding:var(--sp-h6) var(--sp-1) 5px;margin-bottom:var(--sp-1);border-bottom:1px solid var(--bd)}
 /* v390：弹窗里的一行 = **两个可点区域**（左：对象名 → 列表/页签；右：「创建」→ 新建页）。
    `.sb-pop-row` 用 flex 让左边吃掉剩余宽度、右边 `flex-shrink:0` 固定不缩 ——
    条目名字长短不一时，右边的「创建」仍然**左右对齐**（§八 风险 6：靠分离度防误触）。 */
-.sb-pop-row{display:flex;align-items:center;gap:4px}
+.sb-pop-row{display:flex;align-items:center;gap:var(--sp-1)}
 .sb-pop-row>.sb-pop-item{flex:1;min-width:0;width:auto}
-.sb-pop-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:var(--radius-sm);
-  color:var(--t2);text-decoration:none;font-size:13px;white-space:nowrap;transition:all var(--dur-base)}
+.sb-pop-item{display:flex;align-items:center;gap:9px;width:100%;padding:var(--sp-2) var(--sp-h10);border-radius:var(--radius-sm);
+  color:var(--t2);text-decoration:none;font-size:var(--fs-base);white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-item:hover{background:var(--bg);color:var(--t1)}
 /* 🔴 v390：高亮判据由 `.router-link-active` 换成 `.cur`（判定见 `isCur()` 段注释）——
    「历史期次 / 报单配置 / 商品目标」三条的 `to` 是**同一 path、不同 query**，
@@ -1803,32 +1803,32 @@ function stopResize() {
 .sb-pop-item.cur{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 /* 行尾「创建」（L1 双入口的右半区）。桌面用**文字**而非纯图标：横向空间够，
    「创建」不需要学习成本（§七：手机端横向紧才改用 `＋`，那随批次 5 一起做）。 */
-.sb-pop-new{display:flex;align-items:center;gap:3px;flex-shrink:0;padding:6px 9px;border-radius:var(--radius-sm);
-  background:var(--p-bg);color:var(--p-dark);text-decoration:none;font-size:12px;
+.sb-pop-new{display:flex;align-items:center;gap:3px;flex-shrink:0;padding:var(--sp-h6) 9px;border-radius:var(--radius-sm);
+  background:var(--p-bg);color:var(--p-dark);text-decoration:none;font-size:var(--fs-sm);
   white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-new:hover{background:var(--p-solid);color:#fff}
 /* v640（2026-10-22）：借鉴舟谱弹窗内「明细」次级入口 + 状态标签。
    两者都 `flex-shrink:0` 右对齐（行内 `.sb-pop-item` 是 `flex:1` 吃掉剩余宽度）；
    与 `.sb-pop-new`（L1 双入口右半区）同一套版式语言。 */
-.sb-pop-drill{font-size:11px;line-height:1;padding:3px 7px;border-radius:var(--radius-xs);
+.sb-pop-drill{font-size:var(--fs-xs);line-height:1;padding:3px 7px;border-radius:var(--radius-xs);
   background:var(--p-bg);color:var(--p-dark);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-drill:hover{background:var(--p-solid);color:#fff}
-.sb-pop-badge{font-size:11px;line-height:1;padding:2px 6px;border-radius:var(--radius-xs);white-space:nowrap;flex-shrink:0}
+.sb-pop-badge{font-size:var(--fs-xs);line-height:1;padding:var(--sp-h2) var(--sp-h6);border-radius:var(--radius-xs);white-space:nowrap;flex-shrink:0}
 .sb-pop-badge.tone-warn{background:var(--war-bg);color:var(--war)}
 .sb-pop-badge.tone-danger{background:var(--dan-bg);color:var(--dan)}
 .sb-pop-badge.tone-info{background:var(--p-bg);color:var(--p-dark)}
 /* v645 P2：最近打开（弹窗顶部一行 chip）+ 已打开小圆点。 */
-.sb-pop-recent{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
-  padding:4px 8px 8px;margin:2px 0 6px;border-bottom:1px solid var(--bd);width:100%}
-.sb-pop-recent-lb{font-size:11px;color:var(--t3);letter-spacing:.5px;flex-shrink:0}
-.sb-pop-recent-chip{font-size:12px;padding:3px 8px;border-radius:var(--radius-pill);background:var(--bg);
+.sb-pop-recent{display:flex;align-items:center;gap:var(--sp-h6);flex-wrap:wrap;
+  padding:var(--sp-1) var(--sp-2) var(--sp-2);margin:var(--sp-h2) 0 var(--sp-h6);border-bottom:1px solid var(--bd);width:100%}
+.sb-pop-recent-lb{font-size:var(--fs-xs);color:var(--t3);letter-spacing:.5px;flex-shrink:0}
+.sb-pop-recent-chip{font-size:var(--fs-sm);padding:3px var(--sp-2);border-radius:var(--radius-pill);background:var(--bg);
   color:var(--t2);text-decoration:none;white-space:nowrap;max-width:160px;overflow:hidden;
   text-overflow:ellipsis;transition:all var(--dur-base)}
 .sb-pop-recent-chip:hover{background:var(--p-bg);color:var(--p-dark)}
 /* 已打开：条目名右侧一个小圆点（不占额外行高，避免改动行节奏）。 */
 .sb-pop-dot{width:5px;height:5px;border-radius:var(--radius-circle);background:var(--p);flex-shrink:0;margin-left:auto}
 
-.md-group-hd{font-size:11px;font-weight:500;color:var(--t3);padding:14px 20px 4px;letter-spacing:.8px}
+.md-group-hd{font-size:var(--fs-xs);font-weight:500;color:var(--t3);padding:var(--sp-h14) var(--sp-5) var(--sp-1);letter-spacing:.8px}
 
 /* v396（2026-10-08）：内容区从「自己滚」改为「**标签栏 + 滚动区**」两层。
    🔴 为什么必须分两层：标签栏要**钉住不滚**（长页面滚动时它得一直在），
@@ -1838,7 +1838,7 @@ function stopResize() {
       绝对定位，`overflow:hidden` 会把它裁掉。溢出的兜底由 `.body{overflow:hidden}`
       负责 —— 它已是既有规则。 */
 .content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:visible;background:var(--bg)}
-.view-wrap{flex:1;min-height:0;overflow-y:auto;padding:20px}
+.view-wrap{flex:1;min-height:0;overflow-y:auto;padding:var(--sp-5)}
 
 .page-enter-active,.page-leave-active{transition:opacity var(--dur-base),transform var(--dur-base)}
 .page-enter-from{opacity:0;transform:translateY(6px)}
@@ -1861,17 +1861,17 @@ function stopResize() {
    ⚠️ 为什么是 `100vh - 96px` 而不是 `100vh`：留出上方一段，让用户仍能看出这是个
       **底部弹层**、并且点得到 `.md-overlay` 关掉它。`dvh` 那行是移动端浏览器
       地址栏收放导致 `vh` 偏大的兜底（不支持 `dvh` 的旧内核自动忽略第二行）。 */
-.md-sheet{position:fixed;left:0;right:0;bottom:0;max-height:calc(100vh - 96px);max-height:calc(100dvh - 96px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:1130}
-.md-grab{width:36px;height:4px;border-radius:var(--radius-hair);background:var(--bd);margin:6px auto 10px}
+.md-sheet{position:fixed;left:0;right:0;bottom:0;max-height:calc(100vh - 96px);max-height:calc(100dvh - 96px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:var(--sp-2) 0 calc(var(--sp-3) + env(safe-area-inset-bottom));z-index:1130}
+.md-grab{width:36px;height:4px;border-radius:var(--radius-hair);background:var(--bd);margin:var(--sp-h6) auto var(--sp-h10)}
 /* v393：抽屉一行 = 左「条目」+（可选）右「＋」。`.md-row` 让左边吃掉剩余宽度、
    右边固定不缩 —— 与桌面 `.sb-pop-row` 同一套版式（名字长短不一时「＋」仍然右对齐）。 */
 .md-row{display:flex;align-items:center}
 .md-row>.md-item{flex:1;min-width:0;width:auto}
-.md-item{display:flex;align-items:center;gap:12px;width:100%;padding:14px 20px;border:none;background:none;font-size:15px;color:var(--t1);text-align:left}
+.md-item{display:flex;align-items:center;gap:var(--sp-3);width:100%;padding:var(--sp-h14) var(--sp-5);border:none;background:none;font-size:var(--fs-h4);color:var(--t1);text-align:left}
 .md-item:active{background:var(--bg4)}
 /* 手机端「＋」（L1 双入口的右半区）：横向紧 ⇒ 纯图标（桌面 `.sb-pop-new` 用「＋ 创建」文字）。
    ⚠️ 命中区靠 36×36 撑住，别缩成 16px 图标本身；`margin-right` 与条目右侧留白对齐。 */
-.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:14px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);text-decoration:none}
+.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:var(--sp-h14);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);text-decoration:none}
 .md-item-new:active{background:var(--p-solid);color:#fff}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
@@ -1880,8 +1880,8 @@ function stopResize() {
 
 .tb-user-caret{margin-left:5px;opacity:.7;transition:transform var(--dur-base)}
 .tb-menu-mask{position:fixed;inset:0;z-index:40}
-.tb-menu{position:absolute;top:44px;right:18px;background:var(--bg);border:1px solid var(--glass-border);border-radius:var(--radius-md);box-shadow:0 10px 34px rgba(0,0,0,.14);padding:6px;min-width:150px;z-index:50}
-.tb-menu-item{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:none;border-radius:var(--radius-sm);color:var(--t1);font-size:13px;cursor:pointer;transition:background var(--dur-base)}
+.tb-menu{position:absolute;top:44px;right:18px;background:var(--bg);border:1px solid var(--glass-border);border-radius:var(--radius-md);box-shadow:0 10px 34px rgba(0,0,0,.14);padding:var(--sp-h6);min-width:150px;z-index:50}
+.tb-menu-item{display:block;width:100%;text-align:left;padding:9px var(--sp-3);border:none;background:none;border-radius:var(--radius-sm);color:var(--t1);font-size:var(--fs-base);cursor:pointer;transition:background var(--dur-base)}
 .tb-menu-item:hover{background:var(--bg2)}
 .tb-menu-item.danger{color:var(--dan)}
 
@@ -1890,17 +1890,17 @@ function stopResize() {
    本元素非 Teleport（在 .shell 内），而 .shell 无 stacking context，改值即生效。 */
 .pf-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:1130;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .pf-modal{width:380px;max-width:92vw;background:var(--bg);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
-.pf-hd{padding:16px 20px;font-size:15px;font-weight:600;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
-.pf-bd{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
-.pf-field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--t2)}
-.pf-field input{height:40px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:14px;outline:none}
+.pf-hd{padding:var(--sp-4) var(--sp-5);font-size:var(--fs-h4);font-weight:600;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
+.pf-bd{padding:var(--sp-h18) var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-h14)}
+.pf-field{display:flex;flex-direction:column;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t2)}
+.pf-field input{height:40px;padding:0 var(--sp-3);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:var(--fs-md);outline:none}
 .pf-field input:focus{border-color:var(--p)}
-.pf-field small{color:var(--t3);font-size:11px}
-.pf-msg{font-size:12px}
+.pf-field small{color:var(--t3);font-size:var(--fs-xs)}
+.pf-msg{font-size:var(--fs-sm)}
 .pf-msg.ok{color:var(--suc)}
 .pf-msg.err{color:var(--dan)}
-.pf-ft{padding:14px 20px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-subtle)}
-.pf-btn{height:36px;padding:0 18px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer;transition:all var(--dur-base)}
+.pf-ft{padding:var(--sp-h14) var(--sp-5);display:flex;justify-content:flex-end;gap:var(--sp-h10);border-top:1px solid var(--border-subtle)}
+.pf-btn{height:36px;padding:0 var(--sp-h18);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:var(--fs-base);cursor:pointer;transition:all var(--dur-base)}
 .pf-btn:hover{background:var(--bg3)}
 .pf-btn.primary{background:var(--p-solid);border-color:var(--p-solid);color:#fff}
 .pf-btn.primary:hover{opacity:.92}
@@ -1915,12 +1915,12 @@ function stopResize() {
      天气组件的隐藏放在它自己文件里 —— 在**这里**写 `.wx{display:none}` 从未生效过：
      它被编译成 `.wx[data-v-<Shell>]`，而天气元素的 scope 属性是它自己的，
      加上 `@media` 本身不提高优先级，两头都不占优。放在组件自己文件里才是唯一可靠位置。 */
-  .topbar{gap:8px;padding:0 12px}
-  .tb-ai{gap:8px}
-  .tb-right{gap:6px}
-  .tb-user{max-width:96px;padding:0 10px}
+  .topbar{gap:var(--sp-2);padding:0 var(--sp-3)}
+  .tb-ai{gap:var(--sp-2)}
+  .tb-right{gap:var(--sp-h6)}
+  .tb-user{max-width:96px;padding:0 var(--sp-h10)}
   .mnav{display:flex;position:fixed;bottom:0;left:0;right:0;height:calc(56px + env(safe-area-inset-bottom));background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-top:1px solid var(--glass-border);z-index:800;padding-bottom:env(safe-area-inset-bottom)}
-  .mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;color:var(--t3);font-size:11px}
+  .mnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;color:var(--t3);font-size:var(--fs-xs)}
   .mnav-item.router-link-active{color:var(--p-dark)}
   /* v311b：底部栏名字改回与侧栏**同源**（「工作台」→「经营工作台」等）后变长，
      窄屏（320px / 4 格 ≈ 80px）下不许换行把图标顶歪；也防「预报订货管理」挤出格。 */
@@ -1928,7 +1928,7 @@ function stopResize() {
   /* v396：padding 从 `.content` 移到了 `.view-wrap`（标签栏不随页面滚）；
      v417f：标签栏已并入顶栏，这里不再为它预留通栏空间。
      手机端标签栏整条隐藏（Q6 A），所以这里只补底部安全区，视觉与原来一致。 */
-  .view-wrap{padding:14px 12px calc(72px + env(safe-area-inset-bottom))}
+  .view-wrap{padding:var(--sp-h14) var(--sp-3) calc(72px + env(safe-area-inset-bottom))}
 }
 /* v708：320px 级机型（iPhone SE 一代等）空间再紧一档 —— 让出品牌文字只留 logo（logo 本身可识别），
    用户名上限再收。375px 用不着这一档，所以单开断点而不是塞进 768。 */

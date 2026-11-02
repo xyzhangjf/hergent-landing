@@ -30,7 +30,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <template v-else-if="vehicles.length">
@@ -160,11 +160,11 @@ defineExpose({ load })
 
 <style scoped>
 /* 页面私有类一律 `wvs-` 前缀（仓配·车辆库存）。 */
-.wvs-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.wvs-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px }
-.wvs-f { display: flex; align-items: center; gap: 8px }
-.wvs-lb { font-size: 13px; color: var(--t2) }
+.wvs-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
+.wvs-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-h14) }
+.wvs-f { display: flex; align-items: center; gap: var(--sp-2) }
+.wvs-lb { font-size:var(--fs-base); color: var(--t2) }
 .wvs-sel { min-width: 240px }
-.wvs-hint { font-size: 12px; color: var(--t2) }
-.wvs-vname { font-size: 16px; font-weight: 600 }
+.wvs-hint { font-size:var(--fs-sm); color: var(--t2) }
+.wvs-vname { font-size:var(--fs-lg); font-weight: 600 }
 </style>

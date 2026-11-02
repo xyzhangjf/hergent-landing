@@ -49,7 +49,7 @@
         <b>我的报告</b>
         <span class="page-sub">副驾分析结果一键固化，可回看 / 导出 / 转发</span>
       </div>
-      <div class="tb-group tb-right" style="margin-bottom:12px">
+      <div class="tb-group tb-right" style="margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-primary" :disabled="savingReport || !hasChat" @click="saveCurrentChat">
           {{ savingReport ? '保存中…' : '保存当前对话为报告' }}
         </button>
@@ -120,7 +120,7 @@
         <b>AI 价值账单</b>
         <span class="page-sub">AI 给了多少建议、你采纳了多少、本月用了多少算力</span>
       </div>
-      <div class="tb-group tb-right" style="margin-bottom:12px">
+      <div class="tb-group tb-right" style="margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-ghost" @click="loadValue">刷新</button>
       </div>
       <div v-if="value" class="value-grid">
@@ -154,7 +154,7 @@
         <b>口径提案审核台</b>
         <span class="page-sub">AI / 运营沉淀的算法口径改动 —— 采纳后才合并进正式配方（全程可审计）</span>
       </div>
-      <div class="tb-group tb-right" style="margin-bottom:12px">
+      <div class="tb-group tb-right" style="margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-ghost" @click="toggleCaliberForm">
           {{ caliberOpen ? '收起' : '＋ 记录一次口径' }}
         </button>
@@ -241,7 +241,7 @@
       <div class="panel-hd">
         <b>AI 经营洞察</b>
       </div>
-      <div class="tb-group tb-right" style="margin-bottom:12px">
+      <div class="tb-group tb-right" style="margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-primary" :disabled="insighting" @click="genInsight">
           {{ insighting ? '生成中…' : '生成经营洞察' }}
         </button>
@@ -289,7 +289,7 @@
         <b>长期经营画像</b>
         <span class="page-sub">AI 从历史对话自动提炼你的偏好与口径</span>
       </div>
-      <div class="tb-group tb-right" style="margin-bottom:12px">
+      <div class="tb-group tb-right" style="margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-ghost" :disabled="refreshing" @click="refreshProfile">
           {{ refreshing ? '提炼中…' : '刷新画像' }}
         </button>
@@ -739,7 +739,7 @@ async function refreshProfile() {
 </script>
 
 <style scoped>
-.page{display:flex;flex-direction:column;gap:16px}
+.page{display:flex;flex-direction:column;gap:var(--sp-4)}
 /* Bento 分栏：.bento / .kpi-strip 及 KPI 子元素走全局层（variables.css），
    这里只声明本页模块占宽 —— 12 列栅格按「7+5 / 5+7 / 12」两栏铺开，
    消除此前 900px 单列窄栏造成的大面积留白（1920 视口下占宽仅 55%）。 */
@@ -750,69 +750,69 @@ async function refreshProfile() {
 .profile-card{grid-column:1/-1}
 /* 审核台是列表，整行铺开（与 profile-card 同策略）；🔴 不写这条会被栅格塞进 1 列窄栏、文字竖排 */
 .proposal-card{grid-column:1/-1}
-.ops-hint{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3);margin-top:-8px}
+.ops-hint{display:flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);margin-top:-8px}
 .ops-hint a{color:var(--p-ink);text-decoration:none;font-weight:500}
 .ops-hint a:hover{text-decoration:underline}
-.card{background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:16px 18px}
+.card{background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--sp-4) var(--sp-h18)}
 /* KPI 条要覆盖上面这条 scoped .card 的内距 —— 两者特异性同为 0,2,0（scoped 会被加上
    [data-v-x] 属性选择器），全局层的 .kpi-strip 特异性只有 0,1,0 盖不住，只能靠源顺序在这里补一条。 */
-.kpi-strip{padding:6px 0}
-.panel-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:12px}
-.panel-hd b{font-size:15px;font-weight:600;color:var(--t1)}
+.kpi-strip{padding:var(--sp-h6) 0}
+.panel-hd{display:flex;align-items:baseline;gap:var(--sp-h10);margin-bottom:var(--sp-3)}
+.panel-hd b{font-size:var(--fs-h4);font-weight:600;color:var(--t1)}
 
 /* 报告列表 */
-.rep-list{display:flex;flex-direction:column;gap:8px}
-.rep-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius-sm)}
+.rep-list{display:flex;flex-direction:column;gap:var(--sp-2)}
+.rep-item{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-h10) var(--sp-3);background:var(--bg3);border-radius:var(--radius-sm)}
 .rep-main{flex:1;min-width:0;cursor:pointer}
-.rep-title{font-size:14px;color:var(--t1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rep-meta{font-size:12px;color:var(--t3);margin-top:2px}
-.rep-ops{display:flex;gap:6px;flex-shrink:0}
+.rep-title{font-size:var(--fs-md);color:var(--t1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rep-meta{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
+.rep-ops{display:flex;gap:var(--sp-h6);flex-shrink:0}
 
 /* 配额 */
-.quota-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.quota-tier{font-size:14px;color:var(--t1);font-weight:500}
+.quota-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--sp-2)}
+.quota-tier{font-size:var(--fs-md);color:var(--t1);font-weight:500}
 .quota-tier.over{color:var(--dan)}
-.quota-badge{margin-left:6px;font-style:normal;font-size:11px;background:var(--dan-bg);color:var(--dan);padding:1px 8px;border-radius:var(--radius-sm)}
-.quota-num{font-size:13px;color:var(--t2)}
+.quota-badge{margin-left:var(--sp-h6);font-style:normal;font-size:var(--fs-xs);background:var(--dan-bg);color:var(--dan);padding:1px var(--sp-2);border-radius:var(--radius-sm)}
+.quota-num{font-size:var(--fs-base);color:var(--t2)}
 .quota-bar{height:10px;background:var(--bg3);border-radius:var(--radius-xs);overflow:hidden}
 .quota-fill{height:100%;background:var(--p);border-radius:var(--radius-xs);transition:width .3s}
 .quota-fill.over{background:var(--dan)}
-.quota-sub{font-size:12px;color:var(--t3);margin-top:6px}
-.quota-set{margin-top:10px;display:flex;align-items:center;gap:8px}
+.quota-sub{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
+.quota-set{margin-top:var(--sp-h10);display:flex;align-items:center;gap:var(--sp-2)}
 
 /* 价值账单 */
-.value-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.value-item{background:var(--bg3);border-radius:var(--radius-sm);padding:14px 10px;text-align:center}
-.value-num{font-size:26px;font-weight:600;color:var(--t1);line-height:1.1}
+.value-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-h10)}
+.value-item{background:var(--bg3);border-radius:var(--radius-sm);padding:var(--sp-h14) var(--sp-h10);text-align:center}
+.value-num{font-size:var(--fs-num-lg);font-weight:600;color:var(--t1);line-height:1.1}
 .value-num.good{color:var(--suc)}
-.value-label{font-size:12px;color:var(--t3);margin-top:6px}
+.value-label{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
 
 /* 洞察 / 画像 */
-.insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:var(--radius-sm);padding:12px 14px;font-size:14px;line-height:1.7;color:var(--t1);white-space:pre-wrap}
+.insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-h14);font-size:var(--fs-md);line-height:1.7;color:var(--t1);white-space:pre-wrap}
 /* T1-3 缺数据拒答：必须看起来就"不是一条洞察"，否则老板会把说明当结论读 */
-.blocked-box{background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:var(--radius-sm);padding:12px 14px;color:var(--t1)}
-.blocked-box b{display:block;font-size:14px;color:var(--warn-amber);margin-bottom:6px}
-.blocked-txt{font-size:13px;line-height:1.7;white-space:pre-wrap}
+.blocked-box{background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-h14);color:var(--t1)}
+.blocked-box b{display:block;font-size:var(--fs-md);color:var(--warn-amber);margin-bottom:var(--sp-h6)}
+.blocked-txt{font-size:var(--fs-base);line-height:1.7;white-space:pre-wrap}
 /* T1-3 指标级溯源表 */
-.prov{margin-top:12px;border-top:1px dashed var(--border-subtle);padding-top:11px}
-.prov-hd{font-size:12px;color:var(--t2);margin-bottom:8px}
-.prov-hd b{color:var(--p-dark);font-size:14px}
+.prov{margin-top:var(--sp-3);border-top:1px dashed var(--border-subtle);padding-top:11px}
+.prov-hd{font-size:var(--fs-sm);color:var(--t2);margin-bottom:var(--sp-2)}
+.prov-hd b{color:var(--p-dark);font-size:var(--fs-md)}
 .prov-tb{display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);overflow:hidden}
-.prov-tr{display:grid;grid-template-columns:112px 1fr 52px 108px;gap:8px;padding:7px 10px;font-size:12px;color:var(--t2);border-top:1px solid var(--border-subtle)}
+.prov-tr{display:grid;grid-template-columns:112px 1fr 52px 108px;gap:var(--sp-2);padding:7px var(--sp-h10);font-size:var(--fs-sm);color:var(--t2);border-top:1px solid var(--border-subtle)}
 .prov-tr:first-child{border-top:none}
-.prov-tr.prov-th{background:var(--bg3);color:var(--t3);font-weight:600;font-size:12px}
+.prov-tr.prov-th{background:var(--bg3);color:var(--t3);font-weight:600;font-size:var(--fs-sm)}
 .prov-tr .num{text-align:right;font-variant-numeric:tabular-nums}
 .prov-tr.pv-error{background:var(--dan-bg)}
-.prov-e{font-style:normal;font-size:11px;margin-left:5px;padding:1px 6px;border-radius:var(--radius-sm);background:var(--bg3);color:var(--t3)}
+.prov-e{font-style:normal;font-size:var(--fs-xs);margin-left:5px;padding:1px var(--sp-h6);border-radius:var(--radius-sm);background:var(--bg3);color:var(--t3)}
 .prov-e.bad{background:var(--dan-bg);color:var(--dan)}
-.prov-warn{margin-top:8px;font-size:12px;color:var(--warn-amber);line-height:1.6}
-.prov-tip{margin-top:7px;font-size:12px;color:var(--t3);line-height:1.55}
-.prof-sec{margin-top:12px}
-.prof-hd{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:6px}
-.prof-item{font-size:13px;color:var(--t2);padding:4px 0;border-bottom:1px dashed var(--border-subtle)}
+.prov-warn{margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--warn-amber);line-height:1.6}
+.prov-tip{margin-top:7px;font-size:var(--fs-sm);color:var(--t3);line-height:1.55}
+.prof-sec{margin-top:var(--sp-3)}
+.prof-hd{font-size:var(--fs-base);font-weight:600;color:var(--t1);margin-bottom:var(--sp-h6)}
+.prof-item{font-size:var(--fs-base);color:var(--t2);padding:var(--sp-1) 0;border-bottom:1px dashed var(--border-subtle)}
 
 /* 弹窗 */
-.rep-content{flex:1;overflow:auto;padding:0;margin:0;font-size:13px;line-height:1.7;color:var(--t1);white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.rep-content{flex:1;overflow:auto;padding:0;margin:0;font-size:var(--fs-base);line-height:1.7;color:var(--t1);white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 
 /* 窄屏：栅格降为 6 列 → 两栏各占 3 列；单列屏全宽堆叠 */
 @media(max-width:1200px){
@@ -822,27 +822,27 @@ async function refreshProfile() {
   .rep-card,.quota-card,.value-card,.insight-card,.profile-card,.proposal-card{grid-column:1/-1}
 }
 /* M3 口径提案审核台 */
-.prop-list{display:flex;flex-direction:column;gap:10px}
-.prop-item{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:11px 13px;background:var(--bg)}
+.prop-list{display:flex;flex-direction:column;gap:var(--sp-h10)}
+.prop-item{display:flex;gap:var(--sp-3);align-items:flex-start;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:11px 13px;background:var(--bg)}
 .prop-item.done{opacity:.62}
 .prop-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
-.prop-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.prop-mod{font-size:11px;padding:1px 8px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
-.prop-name{font-size:14px;font-weight:600;color:var(--t1)}
-.prop-st{font-size:11px;padding:1px 8px;border-radius:var(--radius-sm);flex-shrink:0}
+.prop-title{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
+.prop-mod{font-size:var(--fs-xs);padding:1px var(--sp-2);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
+.prop-name{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
+.prop-st{font-size:var(--fs-xs);padding:1px var(--sp-2);border-radius:var(--radius-sm);flex-shrink:0}
 .prop-st.st-pending{background:var(--p-bg);color:var(--p-dark)}
 .prop-st.st-accepted{color:var(--suc);background:var(--dan-bg)}
 .prop-st.st-rejected{color:var(--dan);background:var(--dan-bg)}
-.prop-why{font-size:12px;color:var(--t2);line-height:1.55}
-.prop-chg{font-size:12px;color:var(--t1);background:var(--bg2);border-radius:var(--radius-sm);padding:5px 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
-.prop-meta{font-size:11px;color:var(--t3)}
-.prop-fuel{font-size:11px;color:var(--p-dark)}
-.prop-ops{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.prop-why{font-size:var(--fs-sm);color:var(--t2);line-height:1.55}
+.prop-chg{font-size:var(--fs-sm);color:var(--t1);background:var(--bg2);border-radius:var(--radius-sm);padding:5px 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+.prop-meta{font-size:var(--fs-xs);color:var(--t3)}
+.prop-fuel{font-size:var(--fs-xs);color:var(--p-dark)}
+.prop-ops{display:flex;gap:var(--sp-h6);align-items:center;flex-shrink:0}
 /* T1-5 记录一次口径（与审核台同卡） */
-.cal-hint{font-size:12px;color:var(--t3);margin-bottom:10px;line-height:1.6}
+.cal-hint{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-h10);line-height:1.6}
 .cal-hint b{color:var(--t2)}
-.cal-form{background:var(--bg3);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px}
-.cal-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.cal-form{background:var(--bg3);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:var(--sp-3);margin-bottom:var(--sp-3)}
+.cal-row{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center}
 .cal-f1{width:130px}.cal-f2{width:250px}.cal-f3{width:150px}.cal-f4{flex:1;min-width:160px}
-.cal-tip{font-size:12px;color:var(--t3);margin-top:7px;line-height:1.55}
+.cal-tip{font-size:var(--fs-sm);color:var(--t3);margin-top:7px;line-height:1.55}
 </style>

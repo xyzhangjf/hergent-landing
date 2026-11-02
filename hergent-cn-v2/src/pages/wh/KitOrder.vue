@@ -229,7 +229,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ err }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadList()">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadList()">重试</button>
       </div>
     </template>
 
@@ -321,7 +321,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ dErr }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadDetail(detail.id)">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadDetail(detail.id)">重试</button>
       </div>
     </template>
   </div>
@@ -605,27 +605,27 @@ defineExpose({ load: loadList })
 
 <style scoped>
 /* 页面私有类一律 `kt-` 前缀（仓配·组拆单）。 */
-.kt-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.kt-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 
 .kt-card { padding: 0; overflow: hidden }
 .kt-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
-.kt-time { font-size: 12px; color: var(--t3) }
-.kt-dim { color: var(--t3); font-size: 12px }
-.kt-spec { font-size: 11px; color: var(--t3); margin-top: 2px }
+.kt-time { font-size:var(--fs-sm); color: var(--t3) }
+.kt-dim { color: var(--t3); font-size:var(--fs-sm) }
+.kt-spec { font-size:var(--fs-xs); color: var(--t3); margin-top: var(--sp-h2) }
 .kt-name { font-weight: 500 }
 
 .kt-op {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .kt-op:hover { text-decoration: underline }
 
-.kt-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
-.kt-empty-hint { font-size: 12px; color: var(--t3); margin-top: 6px }
+.kt-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.kt-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .kt-tip, .kt-lock {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px; padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-bottom: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: var(--bg2); color: var(--t2);
 }
@@ -633,52 +633,52 @@ defineExpose({ load: loadList })
 .kt-lock { border-left: 3px solid var(--ok); color: var(--ok) }
 
 .kt-meta {
-  display: flex; flex-wrap: wrap; gap: 18px;
-  margin-bottom: 12px; font-size: 12px; color: var(--t2);
+  display: flex; flex-wrap: wrap; gap: var(--sp-h18);
+  margin-bottom: var(--sp-3); font-size:var(--fs-sm); color: var(--t2);
 }
 .kt-meta b { color: var(--t3); font-weight: 500 }
 
 .kt-tbl { table-layout: fixed }
 .kt-mk-tbl { table-layout: fixed }
-.kt-in { width: 100%; height: 30px; padding: 0 8px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums }
+.kt-in { width: 100%; height: 30px; padding: 0 var(--sp-2); font-size:var(--fs-base); text-align: right; font-variant-numeric: tabular-nums }
 .kt-del {
   display: inline-flex; align-items: center; justify-content: center;
   border: none; background: none; padding: 0; cursor: pointer; color: var(--t3);
 }
 .kt-del:hover { color: var(--dan) }
 
-.kt-foot-lb { font-size: 12px; color: var(--t3); text-align: right }
+.kt-foot-lb { font-size:var(--fs-sm); color: var(--t3); text-align: right }
 .kt-foot-amt { font-weight: 600 }
 
 /* 新建区 */
-.kt-new { margin-bottom: 12px }
+.kt-new { margin-bottom: var(--sp-3) }
 .kt-new-hd {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size:var(--fs-base); font-weight: 600; color: var(--t2); margin-bottom: var(--sp-3);
 }
-.kt-new-sub { font-size: 12px; font-weight: 400; color: var(--t3) }
-.kt-new-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.kt-new-row-2 { margin-top: 12px }
-.kt-fld { display: flex; flex-direction: column; gap: 4px; min-width: 170px }
+.kt-new-sub { font-size:var(--fs-sm); font-weight: 400; color: var(--t3) }
+.kt-new-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.kt-new-row-2 { margin-top: var(--sp-3) }
+.kt-fld { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 170px }
 .kt-fld-grow { flex: 1; min-width: 240px }
 .kt-fld-num { width: 140px; min-width: 120px }
-.kt-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
+.kt-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 
 .kt-items {
-  margin-top: 14px; padding-top: 12px;
+  margin-top: var(--sp-h14); padding-top: var(--sp-3);
   border-top: 1px dashed var(--border-subtle);
 }
 .kt-items-hd {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 10px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size:var(--fs-base); font-weight: 600; color: var(--t2); margin-bottom: var(--sp-h10);
 }
 .kt-add-item { margin-left: auto }
-.kt-items-none { font-size: 12px; color: var(--t3) }
+.kt-items-none { font-size:var(--fs-sm); color: var(--t3) }
 
 .kt-new-foot {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-top: 14px; padding-top: 12px;
+  display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
+  margin-top: var(--sp-h14); padding-top: var(--sp-3);
   border-top: 1px solid var(--border-subtle);
 }
-.kt-new-note { font-size: 12px; color: var(--t3) }
+.kt-new-note { font-size:var(--fs-sm); color: var(--t3) }
 </style>

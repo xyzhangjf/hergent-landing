@@ -52,11 +52,11 @@ defineEmits(['update:targetWan', 'add-tier', 'remove-tier'])
 </script>
 
 <style scoped>
-.form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.form-row{display:flex;flex-direction:column;gap:6px}
-.form-row label{font-size:12px;font-weight:500;color:var(--t2)}
-.input-affix{display:flex;align-items:center;gap:6px}
+.form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+.form-row{display:flex;flex-direction:column;gap:var(--sp-h6)}
+.form-row label{font-size:var(--fs-sm);font-weight:500;color:var(--t2)}
+.input-affix{display:flex;align-items:center;gap:var(--sp-h6)}
 .input-affix .input{flex:1}
-.input-affix .affix{font-size:12px;color:var(--t3);white-space:nowrap}
+.input-affix .affix{font-size:var(--fs-sm);color:var(--t3);white-space:nowrap}
 @media(max-width:768px){ .form-grid2{grid-template-columns:1fr} }
 </style>

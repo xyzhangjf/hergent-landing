@@ -23,6 +23,8 @@
 import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+/* 🔴 v727：内距/字号改走令牌后，文本比对与裸 px 解析都会失准 ⇒ 用共享解析器比数值。 */
+import { pxOf as tokenPx, numsOf as tokenNums } from './lib/tokens.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const NEW = join(ROOT, 'src/pages/inventory/new')
@@ -90,8 +92,8 @@ function declOf (css, selector, prop) {
 }
 function num (body, prop) {
   if (!body) return null
-  const m = new RegExp('(?:^|;|\\s)' + prop + '\\s*:\\s*([0-9.]+)px').exec(body)
-  return m ? parseFloat(m[1]) : null
+  const m = new RegExp('(?:^|;|\\s)' + prop + '\\s*:\\s*([^;}]+)').exec(body)
+  return m ? tokenPx(m[1]) : null
 }
 function has (body, needle) {
   return !!body && body.includes(needle)
@@ -206,18 +208,22 @@ console.log('\n══ D. 同名同义列的列宽地板值四页一致 ══')
 console.log('\n══ E. 表格内距与行内控件高度（防连带回归）══')
 {
   const detPad = (body, want) => {
-    const m = /(?:^|;|\s)padding\s*:\s*([^;]+)/.exec(body || '')
-    return !!m && m[1].trim().replace(/\s+/g, ' ') === want
+    const m = /(?:^|;|\s)padding\s*:\s*([^;}]+)/.exec(body || '')
+    if (!m) return false
+    /* 🔴 v727：内距已令牌化（`padding:var(--sp-1) var(--sp-2)`），不能再字符串比对
+       `=== '4px 8px'`。改为比**数值序列**，令牌改了值这里跟着变，判别力更强。 */
+    const got = tokenNums(m[1])
+    return got.length === want.length && got.every((v, i) => v === want[i])
   }
-  prove('内距检测器', (b) => detPad(b, '4px 8px'), 'padding: 4px 8px', 'padding: 10px 14px')
+  prove('内距检测器', (b) => detPad(b, [4, 8]), 'padding: 4px 8px', 'padding: 10px 14px')
   for (const [k, c] of Object.entries(COMPONENTS)) {
     const p = c.p
-    ok(`[${c.label}] 表头内距 4px 8px`, detPad(declOf(css[k], 'table.' + p + '-tbl th', 'padding'), '4px 8px'))
-    ok(`[${c.label}] 数据格内距 2px 8px`, detPad(declOf(css[k], 'table.' + p + '-tbl td', 'padding'), '2px 8px'))
-    ok(`[${c.label}] 紧凑档数据格内距 1px 8px`, detPad(declOf(css[k], '[data-density="compact"] table.' + p + '-tbl td', 'padding'), '1px 8px'))
+    ok(`[${c.label}] 表头内距 4px 8px`, detPad(declOf(css[k], 'table.' + p + '-tbl th', 'padding'), [4, 8]))
+    ok(`[${c.label}] 数据格内距 2px 8px`, detPad(declOf(css[k], 'table.' + p + '-tbl td', 'padding'), [2, 8]))
+    ok(`[${c.label}] 紧凑档数据格内距 1px 8px`, detPad(declOf(css[k], '[data-density="compact"] table.' + p + '-tbl td', 'padding'), [1, 8]))
     const inB = declOf(css[k], '.' + p + '-in', 'height')
     ok(`[${c.label}] 行内控件高 22px`, num(inB, 'height') === 22, `实际: ${inB}`)
-    ok(`[${c.label}] 行内控件字号 13px`, has(inB, 'font-size: 13px'), `实际: ${inB}`)
+    ok(`[${c.label}] 行内控件字号 13px`, num(inB, 'font-size') === 13, `实际: ${inB}`)
   }
 }
 

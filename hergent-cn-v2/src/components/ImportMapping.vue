@@ -223,41 +223,41 @@ function confLabel(r) {
 </script>
 
 <style scoped>
-.im{display:flex;flex-direction:column;gap:8px}
-.im-bar{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.im-st{font-size:12px;color:var(--t2)}
-.im-st b{color:var(--p-dark);font-size:13px}
+.im{display:flex;flex-direction:column;gap:var(--sp-2)}
+.im-bar{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h10)}
+.im-st{font-size:var(--fs-sm);color:var(--t2)}
+.im-st b{color:var(--p-dark);font-size:var(--fs-base)}
 .im-st b.off{color:var(--war)}
-.im-acts{display:flex;align-items:center;gap:12px}
-.im-inc{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t2);cursor:pointer;white-space:nowrap}
+.im-acts{display:flex;align-items:center;gap:var(--sp-3)}
+.im-inc{display:flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--t2);cursor:pointer;white-space:nowrap}
 .im-inc input{cursor:pointer;margin:0}
-.im-reset{border:none;background:none;padding:0;font-size:12px;color:var(--p-dark);text-decoration:underline;cursor:pointer}
-.im-note{font-size:12px;color:var(--warn-amber);background:var(--warn-amber-bg);border-radius:var(--radius-sm);padding:6px 10px}
-.im-mem{font-size:12px;color:var(--p-dark);background:var(--p-bg);border-radius:var(--radius-sm);padding:6px 10px}
-.im-mem b{font-size:13px}
+.im-reset{border:none;background:none;padding:0;font-size:var(--fs-sm);color:var(--p-dark);text-decoration:underline;cursor:pointer}
+.im-note{font-size:var(--fs-sm);color:var(--warn-amber);background:var(--warn-amber-bg);border-radius:var(--radius-sm);padding:var(--sp-h6) var(--sp-h10)}
+.im-mem{font-size:var(--fs-sm);color:var(--p-dark);background:var(--p-bg);border-radius:var(--radius-sm);padding:var(--sp-h6) var(--sp-h10)}
+.im-mem b{font-size:var(--fs-base)}
 .im-mem-t{color:var(--t2)}
 /* v346 危险列提示条 —— 用最重的颜色，因为这类列原本"看起来一切正常" */
-.im-risk{font-size:12px;color:var(--danger-txt);background:var(--danger-bg);border-radius:var(--radius-sm);padding:7px 10px;display:flex;flex-direction:column;gap:3px;border:1px solid var(--danger-txt)}
+.im-risk{font-size:var(--fs-sm);color:var(--danger-txt);background:var(--danger-bg);border-radius:var(--radius-sm);padding:7px var(--sp-h10);display:flex;flex-direction:column;gap:3px;border:1px solid var(--danger-txt)}
 .im-risk-h{display:flex;align-items:center;gap:5px;font-weight:600}
-.im-risk-l{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:2px}
+.im-risk-l{margin:0;padding-left:var(--sp-h18);display:flex;flex-direction:column;gap:var(--sp-h2)}
 .im-risk-l li{line-height:1.5}
 /* v346 收起态：一行把话说清，按钮永远在 */
-.im-fold{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ok-green);background:var(--ok-green-bg);border-radius:var(--radius-sm);padding:8px 10px;flex-wrap:wrap}
-.im-fold-btn{display:inline-flex;align-items:center;gap:3px;border:none;background:none;padding:0;font-size:12px;color:var(--p-dark);text-decoration:underline;cursor:pointer}
-.im-unfold{display:flex;justify-content:flex-end;padding:5px 8px 0}
+.im-fold{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--ok-green);background:var(--ok-green-bg);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-h10);flex-wrap:wrap}
+.im-fold-btn{display:inline-flex;align-items:center;gap:3px;border:none;background:none;padding:0;font-size:var(--fs-sm);color:var(--p-dark);text-decoration:underline;cursor:pointer}
+.im-unfold{display:flex;justify-content:flex-end;padding:5px var(--sp-2) 0}
 .im-wrap{max-height:320px;overflow:auto;border:1px solid var(--border-subtle);border-radius:var(--radius-md)}
-.im-tbl{font-size:13px}
+.im-tbl{font-size:var(--fs-base)}
 .im-tbl th{position:sticky;top:0;z-index:1}
 .im-tbl td{vertical-align:middle}
 .im-c1{width:26%}.im-c2{width:26%}.im-c3{width:96px}
 .im-hd{font-weight:500;color:var(--t1);word-break:break-all}
-.im-sel{width:100%;height:30px;padding:0 6px;font-size:13px}
+.im-sel{width:100%;height:30px;padding:0 var(--sp-h6);font-size:var(--fs-base)}
 /* 危险列的下拉框本身也描红 —— 只标「依据」徽章的话，扫一眼很难定位到是哪一行要改 */
 .im-sel-risk{border-color:var(--danger-txt)}
-.im-rdanger{display:flex;align-items:flex-start;gap:4px;margin-top:4px;font-size:12px;line-height:1.45;color:var(--danger-txt)}
-.im-smp{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--t2);word-break:break-all}
+.im-rdanger{display:flex;align-items:flex-start;gap:var(--sp-1);margin-top:var(--sp-1);font-size:var(--fs-sm);line-height:1.45;color:var(--danger-txt)}
+.im-smp{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-sm);color:var(--t2);word-break:break-all}
 .im-off .im-hd,.im-off .im-smp{color:var(--t3)}
-.im-cc{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);font-size:12px;white-space:nowrap;background:var(--bg2);color:var(--t3)}
+.im-cc{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-sm);white-space:nowrap;background:var(--bg2);color:var(--t3)}
 .im-cc-high{background:var(--ok-green-bg);color:var(--ok-green)}
 .im-cc-ai{background:var(--info-blue-bg);color:var(--info-blue)}
 .im-cc-cross{background:var(--p-bg);color:var(--p-dark)}

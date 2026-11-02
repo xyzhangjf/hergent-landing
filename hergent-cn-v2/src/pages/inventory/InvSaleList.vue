@@ -114,7 +114,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <div v-else-if="!rows.length" class="card">
@@ -890,14 +890,14 @@ onMounted(load)
       （`.psi-frow` / `.psi-f` / `.psi-lb` / `.psi-sel` / `.psi-date` / `.psi-fbtns` /
       `.psi-caret`），三页唯一出处 ⇒ 这里不再留第二份。
       本页只剩筛选卡外壳 `.isl-filter`（下距是本页值）。 */
-.isl-filter { margin-bottom: 12px }
+.isl-filter { margin-bottom: var(--sp-3) }
 
 /* 工具栏
    🔴 v510：工具栏 `.psi-tb` 已退役，动作组收进页签行右侧（共享件 PsiListActions）。
       排序提示（`.isl-selinfo` / `.isl-sortinfo`）经 #status 插槽注入，仍由本页提供。 */
 .isl-link {
-  border: none; background: none; padding: 0 2px; cursor: pointer;
-  color: var(--p-dark); font-size: 12px; text-decoration: underline;
+  border: none; background: none; padding: 0 var(--sp-h2); cursor: pointer;
+  color: var(--p-dark); font-size:var(--fs-sm); text-decoration: underline;
 }
 
 .isl-card { padding-bottom: 0 }
@@ -914,10 +914,10 @@ onMounted(load)
    宽度唯一权威，不在这里留第二份（基准页 v408 同款纪律）。 */
 /* 行内操作按钮（v473：单张打印）。⚠️ 销售单**没有**审核 / 取消 / 复制这类行内动作
    —— 后端没有对应接口，摆出来就是点了会报错的假按钮。 */
-.isl-ops { display: inline-flex; align-items: center; gap: 6px }
+.isl-ops { display: inline-flex; align-items: center; gap: var(--sp-h6) }
 .isl-op-btn {
   border: 1px solid var(--bd); background: var(--bg); color: var(--p-dark);
-  border-radius: var(--radius-sm); padding: 2px 8px; font-size: 12px; cursor: pointer;
+  border-radius: var(--radius-sm); padding: var(--sp-h2) var(--sp-2); font-size:var(--fs-sm); cursor: pointer;
   white-space: nowrap;
 }
 .isl-op-btn:hover:not(:disabled) { border-color: var(--p); color: var(--p-ink) }

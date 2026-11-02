@@ -40,7 +40,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load">重试</button>
     </div>
 
     <template v-else-if="o.id">
@@ -334,29 +334,29 @@ onMounted(load)
 
 <style scoped>
 .inv-page { display: block }
-.isd-acts { display: flex; gap: 8px; flex-wrap: wrap }
-.isd-hd { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; align-items: baseline }
-.isd-f { display: flex; flex-direction: column; gap: 4px }
+.isd-acts { display: flex; gap: var(--sp-2); flex-wrap: wrap }
+.isd-hd { display: flex; gap: var(--sp-5); flex-wrap: wrap; margin-bottom: var(--sp-3); align-items: baseline }
+.isd-f { display: flex; flex-direction: column; gap: var(--sp-1) }
 .isd-f-grow { flex: 1; min-width: 200px }
-.isd-lb { font-size: 12px; color: var(--t3) }
-.isd-amt { font-size: 16px; font-variant-numeric: tabular-nums }
+.isd-lb { font-size:var(--fs-sm); color: var(--t3) }
+.isd-amt { font-size:var(--fs-lg); font-variant-numeric: tabular-nums }
 
 .isd-hint {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
-  border-left: 3px solid var(--p); font-size: 13px; color: var(--t1);
+  display: flex; align-items: center; gap: var(--sp-h10); margin-bottom: var(--sp-3);
+  border-left: 3px solid var(--p); font-size:var(--fs-base); color: var(--t1);
 }
 .isd-hint svg { color: var(--p-dark); flex: none }
 
-.isd-bar { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap }
-.isd-note { font-size: 12px; color: var(--t3) }
+.isd-bar { display: flex; align-items: baseline; gap: var(--sp-h10); margin-bottom: var(--sp-h10); flex-wrap: wrap }
+.isd-note { font-size:var(--fs-sm); color: var(--t3) }
 /* v683：明细「折小单位」小字（数量列 / 单价列）。与采购详情 `.ipd-conv` 同一口径：
    块级 + 11px + 弱色，**不占行高**（明细行是只读表格，不涉及建单页那套 29.8px 约束）。 */
 .isd-conv {
-  display: block; margin-top: 2px;
-  font-size: 11px; color: var(--t3); white-space: nowrap;
+  display: block; margin-top: var(--sp-h2);
+  font-size:var(--fs-xs); color: var(--t3); white-space: nowrap;
 }
 
 @media (max-width: 640px) {
-  .isd-hd { gap: 14px }
+  .isd-hd { gap: var(--sp-h14) }
 }
 </style>

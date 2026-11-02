@@ -9,7 +9,7 @@
     </div>
 
     <Skeleton v-if="loading" />
-    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button></div>
+    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button></div>
 
     <template v-else>
       <div class="card kpi-strip cols-2">
@@ -22,7 +22,7 @@
              ⇒ 资金域 5 张表长期 0 行。这里补上按钮，否则这句话是死胡同。 -->
         <div v-if="!accounts.length" class="state-empty">
           <p>还没有资金账户。收款单 / 付款单需要先选择账户。</p>
-          <button class="btn btn-primary btn-sm" style="margin-top:12px" @click="openCreate()">
+          <button class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)" @click="openCreate()">
             <Icon name="plus" :size="14" />新建第一个账户
           </button>
         </div>
@@ -184,21 +184,21 @@ onMounted(load)
 </script>
 
 <style scoped>
-.fb-acts { display: flex; gap: 8px }
+.fb-acts { display: flex; gap: var(--sp-2) }
 .fb-card { padding: 0; overflow: hidden }
 /* 操作列：按最不利密度核算 —— 「编辑」两字 + 按钮内边距 ≥ 88px，
    否则会被压成「编/辑」竖排（v721 截图实测踩到）。 */
 .op-th, .op-cell { width: 88px; min-width: 88px; text-align: center; white-space: nowrap }
 .op-cell .btn { white-space: nowrap }
-.ft-lb { white-space: nowrap; text-align: right; padding-right: 12px !important }
-.state-empty { padding: 36px 16px; text-align: center; color: var(--t2) }
+.ft-lb { white-space: nowrap; text-align: right; padding-right: var(--sp-3) !important }
+.state-empty { padding: 36px var(--sp-4); text-align: center; color: var(--t2) }
 .fa-modal { width: min(480px, 94vw) }
-.fa-row { margin-bottom: 12px }
+.fa-row { margin-bottom: var(--sp-3) }
 .fa-row label { display: block; font-size: var(--fs-sm); color: var(--t2); margin-bottom: 5px }
-.fa-row label i { color: var(--dan); font-style: normal; margin-left: 2px }
+.fa-row label i { color: var(--dan); font-style: normal; margin-left: var(--sp-h2) }
 .fa-row .input { width: 100% }
 .fa-row .input:disabled { background: var(--bg2); color: var(--t3); cursor: not-allowed }
-.fa-hint { display: block; font-size: 12px; color: var(--t3); margin-top: 4px }
-.fa-err { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 8px 10px;
+.fa-hint { display: block; font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-1) }
+.fa-err { display: flex; align-items: center; gap: var(--sp-h6); margin-top: var(--sp-1); padding: var(--sp-2) var(--sp-h10);
   border-radius: var(--radius-sm); background: var(--dan-bg); color: var(--dan); font-size: var(--fs-sm) }
 </style>

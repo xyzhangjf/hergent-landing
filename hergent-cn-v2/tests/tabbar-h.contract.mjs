@@ -24,6 +24,8 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+/* 🔴 v727：尺寸改走令牌后，裸 px 解析一律得到 NaN ⇒ 用共享解析器（值不变，约束不变）。 */
+import { pxOf as tokenPx, padY as tokenPadY } from './lib/tokens.mjs'
 
 const ROOT = path.resolve(process.cwd())
 const SRC = path.join(ROOT, 'src')
@@ -62,18 +64,16 @@ const declIn = (rule, name) => {
   const m = rule.match(new RegExp('[{;\\s]' + name + '\\s*:\\s*([^;}]+)'))
   return m ? m[1].trim() : null
 }
-const pxOf = (v) => {
-  if (!v) return null
-  const m = /^(\d+(?:\.\d+)?)px$/.exec(v.trim())
-  return m ? Number(m[1]) : null
-}
+/* 🔴 v727：高度现在可能写成令牌（`height:var(--tab-h)`），裸 px 正则会得到 NaN。
+   用共享解析器 —— 契约校验「最终算多少」，不校验「源码里怎么写」。 */
+const pxOf = (v) => tokenPx(v)
 
 /* ---------- 1. .tabbar：纵向 padding + 不许写死 height ---------- */
 const barRule = ruleOf('.tabbar')
 ok(!!barRule, 'TabBar.vue 有 .tabbar 规则块')
 const barPad = declIn(barRule, 'padding')
-// `padding:4px 20px` 是简写 ⇒ 直接取首个数值当纵向值（parseFloat 不会因为后面还有 "20px" 而失败）
-const barPadY = barPad ? parseFloat(barPad) : null
+// `padding:4px 20px` 是简写 ⇒ 取首个值当纵向值（令牌写法 `var(--sp-1) 20px` 同样成立）
+const barPadY = tokenPadY(barPad)
 ok(barPadY !== null && barPadY >= 3 && barPadY <= 6,
   '`.tabbar` 纵向 padding 落在 3–6px', `现在是：${barPad}`)
 ok(declIn(barRule, 'height') === null,

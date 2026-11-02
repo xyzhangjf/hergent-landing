@@ -322,43 +322,43 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.ba-panel{padding:18px;margin-bottom:14px}
-.ba-tip{font-size:12px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
-.ba-tip.dim{color:var(--t3);font-size:12px;margin-bottom:0}
-.ba-bullets{margin:0 0 12px;padding-left:18px;font-size:12px;line-height:1.85;color:var(--t2)}
-.ba-bullets li{margin-bottom:6px}
+.ba-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
+.ba-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:1.7}
+.ba-tip.dim{color:var(--t3);font-size:var(--fs-sm);margin-bottom:0}
+.ba-bullets{margin:0 0 var(--sp-3);padding-left:var(--sp-h18);font-size:var(--fs-sm);line-height:1.85;color:var(--t2)}
+.ba-bullets li{margin-bottom:var(--sp-h6)}
 .ba-bullets .ok-line{color:var(--t2)}
 .ba-bullets .warn-line{color:var(--war)}
 .ba-bullets b{color:var(--t1)}
 .ba-notbrand{color:var(--t3)}
-.tag{font-size:12px;padding:3px 10px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
+.tag{font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 
-.ba-add-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.ba-add-row{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-h14);flex-wrap:wrap}
 .ba-ops{white-space:nowrap}
-.ba-ops .btn{margin-left:6px}
+.ba-ops .btn{margin-left:var(--sp-h6)}
 
-.ba-stopped-tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--st-draft-bg);color:var(--st-draft-txt)}
-.ba-status{font-size:12px;padding:2px 8px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3)}
+.ba-stopped-tag{display:inline-block;margin-left:var(--sp-h6);font-size:var(--fs-xs);padding:1px 7px;border-radius:var(--radius-sm);background:var(--st-draft-bg);color:var(--st-draft-txt)}
+.ba-status{font-size:var(--fs-sm);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3)}
 .ba-status.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .ba-status.off{background:rgba(var(--t3-rgb),.14);color:var(--t3)}
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
 
 /* 待审 */
-.ba-pending-list{display:flex;flex-direction:column;gap:10px}
-.ba-pending-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-md);flex-wrap:wrap}
+.ba-pending-list{display:flex;flex-direction:column;gap:var(--sp-h10)}
+.ba-pending-item{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h14);padding:var(--sp-3) var(--sp-h14);border:1px solid var(--bd);border-radius:var(--radius-md);flex-wrap:wrap}
 .ba-pending-info{min-width:0}
-.ba-pending-name{font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:8px}
-.ba-ref{font-size:11px;font-weight:400;color:var(--war);background:rgba(var(--war-rgb),.1);padding:1px 7px;border-radius:var(--radius-sm)}
-.ba-pending-meta{font-size:12px;color:var(--t3);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap}
-.ba-pending-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ba-pending-name{font-size:var(--fs-md);font-weight:600;color:var(--t1);display:flex;align-items:center;gap:var(--sp-2)}
+.ba-ref{font-size:var(--fs-xs);font-weight:400;color:var(--war);background:rgba(var(--war-rgb),.1);padding:1px 7px;border-radius:var(--radius-sm)}
+.ba-pending-meta{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-1);display:flex;gap:var(--sp-h14);flex-wrap:wrap}
+.ba-pending-actions{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .ba-canonical{height:30px}
 .ba-merge{height:30px}
 
 /* 弹窗（v691：骨架与定位/层级/圆角/遮罩统一由 components/Modal.vue 提供，
    本页只保留「弹窗里长什么样」的字段布局；这些 class 挂在 slot 内元素上，
    因而带得到本组件的 scope id） */
-.ba-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
-.ba-field{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--t2)}
+.ba-fields{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-4)}
+.ba-field{display:flex;flex-direction:column;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t2)}
 .ba-field-wide{grid-column:1 / -1}
 
 .btn.danger{color:var(--dan)}

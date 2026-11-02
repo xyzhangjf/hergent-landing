@@ -69,7 +69,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert-triangle" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <template v-else>
@@ -631,30 +631,30 @@ onMounted(load)
 </script>
 
 <style scoped>
-.gr-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
-.gr-sel { padding: 4px 8px }
+.gr-acts { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap }
+.gr-sel { padding: var(--sp-1) var(--sp-2) }
 .gr-date {
-  padding: 4px 8px; font-size: 12px; border-radius: var(--radius-xs);
+  padding: var(--sp-1) var(--sp-2); font-size:var(--fs-sm); border-radius: var(--radius-xs);
   border: 1px solid var(--line); background: var(--bg1); color: var(--t1);
 }
-.gr-tilde { color: var(--t3); font-size: 12px }
+.gr-tilde { color: var(--t3); font-size:var(--fs-sm) }
 .gr-c { text-align: center }
-.gr-card { margin-top: 14px }
+.gr-card { margin-top: var(--sp-h14) }
 /* 图表外壳自带卡片样式，这里只补与明细表之间的间距 */
-.gr-fig { margin-top: 14px }
-.gr-sec { display: flex; align-items: center; justify-content: space-between; gap: 12px }
-.gr-cnt { margin-left: 10px; font-size: 12px; font-weight: 400; color: var(--t3) }
-.gr-cost { font-size: 12px; color: var(--t3) }
-.gr-warn { margin-top: 14px; padding: 12px 14px; border-left: 3px solid var(--warn-amber); background: var(--bg2) }
-.gr-warn-hd { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--war); font-size: 13px }
-.gr-warn p { margin: 6px 0 0; font-size: 12px; line-height: 1.9; color: var(--t2) }
-.gr-foot { margin: 14px 2px 0; font-size: 12px; line-height: 1.9; color: var(--t2) }
+.gr-fig { margin-top: var(--sp-h14) }
+.gr-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3) }
+.gr-cnt { margin-left: var(--sp-h10); font-size:var(--fs-sm); font-weight: 400; color: var(--t3) }
+.gr-cost { font-size:var(--fs-sm); color: var(--t3) }
+.gr-warn { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); border-left: 3px solid var(--warn-amber); background: var(--bg2) }
+.gr-warn-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; color: var(--war); font-size:var(--fs-base) }
+.gr-warn p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: 1.9; color: var(--t2) }
+.gr-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: 1.9; color: var(--t2) }
 .gr-foot-dim { color: var(--t3) }
-.gr-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size: 11px }
-.gr-hollow { padding: 28px 24px; max-width: 720px; text-align: center }
-.gr-hollow-ic { color: var(--t3); margin-bottom: 6px }
-.gr-hollow h2 { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 10px }
-.gr-hollow-desc { font-size: 13px; color: var(--t2); line-height: 1.9; margin-bottom: 10px }
-.gr-hollow-foot { font-size: 12px; color: var(--t3); line-height: 1.8 }
+.gr-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs) }
+.gr-hollow { padding: 28px var(--sp-6); max-width: 720px; text-align: center }
+.gr-hollow-ic { color: var(--t3); margin-bottom: var(--sp-h6) }
+.gr-hollow h2 { font-size:var(--fs-h4); font-weight: 600; color: var(--t1); margin-bottom: var(--sp-h10) }
+.gr-hollow-desc { font-size:var(--fs-base); color: var(--t2); line-height: 1.9; margin-bottom: var(--sp-h10) }
+.gr-hollow-foot { font-size:var(--fs-sm); color: var(--t3); line-height: 1.8 }
 .gr-hollow code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs) }
 </style>

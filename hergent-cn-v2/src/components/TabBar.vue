@@ -177,12 +177,12 @@ function close(t) {
      🔴 下限 26px：`.tab-ic` 是 16×16、`border-radius:8px` 的圆角要 ≥16px 才不被切平，
         26 − 16 = 10 ⇒ 上下各 6px 余量，已是这套字号(12.5px)下的合理下限。
      26px 以下的"再矮"只能靠减字号，那会让 12.5px 掉到 11px 级、中文实际不可读 ⇒ 不做。 */
-.tabbar{display:flex;align-items:center;gap:6px;flex-shrink:0;padding:4px 20px;background:var(--bg2);border-bottom:1px solid var(--border-subtle);position:relative}
-.tb-strip{flex:1;min-width:0;display:flex;gap:4px;overflow:hidden}
+.tabbar{display:flex;align-items:center;gap:var(--sp-h6);flex-shrink:0;padding:var(--sp-1) var(--sp-5);background:var(--bg2);border-bottom:1px solid var(--border-subtle);position:relative}
+.tb-strip{flex:1;min-width:0;display:flex;gap:var(--sp-1);overflow:hidden}
 
-.tab-item{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:26px;
+.tab-item{flex:0 0 auto;display:inline-flex;align-items:center;gap:var(--sp-h6);height:26px;
   padding:0 7px 0 5px;border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;
-  color:var(--t2);font-size:12px;cursor:pointer;max-width:200px;
+  color:var(--t2);font-size:var(--fs-sm);cursor:pointer;max-width:200px;
   transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base)}
 .tab-item:hover{background:var(--bg3);color:var(--t1)}
 .tab-item.on{background:var(--bg);color:var(--t1);border-color:var(--border-subtle);
@@ -205,19 +205,19 @@ function close(t) {
 .tab-item.on .tab-close{color:var(--t3)}
 
 .tab-more{flex:0 0 auto;position:relative}
-.tab-more-btn{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;
+.tab-more-btn{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 var(--sp-h10);
   border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg);color:var(--t2);
-  font-size:12px;cursor:pointer;transition:background var(--dur-base),color var(--dur-base)}
+  font-size:var(--fs-sm);cursor:pointer;transition:background var(--dur-base),color var(--dur-base)}
 .tab-more-btn:hover{background:var(--bg3);color:var(--t1)}
 .tab-more-n{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;
-  padding:0 4px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);font-size:11px;font-weight:600}
+  padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-xs);font-weight:600}
 .tab-more-menu{position:absolute;top:32px;right:0;min-width:180px;max-height:320px;overflow-y:auto;
-  background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:6px;
+  background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:var(--sp-h6);
   box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:40}
-.tab-more-row{display:flex;align-items:center;gap:4px;border-radius:var(--radius-sm);padding:0 4px 0 6px}
+.tab-more-row{display:flex;align-items:center;gap:var(--sp-1);border-radius:var(--radius-sm);padding:0 var(--sp-1) 0 var(--sp-h6)}
 .tab-more-row:hover{background:var(--bg2)}
 .tab-more-item{flex:1;min-width:0;display:flex;align-items:center;height:26px;border:none;
-  background:none;color:var(--t2);font-size:12px;cursor:pointer;text-align:left;padding:0}
+  background:none;color:var(--t2);font-size:var(--fs-sm);cursor:pointer;text-align:left;padding:0}
 .tab-more-item.on{color:var(--p-dark);font-weight:600}
 .tab-more-mask{position:fixed;inset:0;z-index:30}
 

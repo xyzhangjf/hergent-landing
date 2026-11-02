@@ -255,26 +255,26 @@ onMounted(load)
 </script>
 
 <style scoped>
-.history-card { padding: 16px 18px; }
-.history-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
-.history-hd h3 { font-size: 16px; font-weight: 600; margin: 0; }
-.history-hd .hint { font-size: 12px; color: var(--t3); }
+.history-card { padding: var(--sp-4) var(--sp-h18); }
+.history-hd { display: flex; align-items: baseline; gap: var(--sp-h10); margin-bottom: var(--sp-h14); }
+.history-hd h3 { font-size:var(--fs-lg); font-weight: 600; margin: 0; }
+.history-hd .hint { font-size:var(--fs-sm); color: var(--t3); }
 /* v368④：「本期少了 N 期」说明条 —— 颜色全走既有令牌（零硬编码色，深色自动跟随）。
    与 `.ap-excl`（报单自动化面板里那条）同族：都用主色 6% 底 + 主深字。 */
 .hist-skip {
-  margin: 0 0 12px; font-size: 12px; line-height: 1.65; color: var(--p-dark);
-  background: rgba(var(--p-rgb), .06); border-radius: var(--radius-xs); padding: 7px 10px;
+  margin: 0 0 var(--sp-3); font-size:var(--fs-sm); line-height: 1.65; color: var(--p-dark);
+  background: rgba(var(--p-rgb), .06); border-radius: var(--radius-xs); padding: 7px var(--sp-h10);
 }
-.history-loading, .history-empty { color: var(--t3); padding: 40px 0; text-align: center; font-size: 13px; }
+.history-loading, .history-empty { color: var(--t3); padding: 40px 0; text-align: center; font-size:var(--fs-base); }
 /* 列数从 9 增到 10（v319 新增「加单通知」列）⇒ 最小宽度同步放宽，避免操作列被压成两行 */
 .history-tbl { min-width: 1060px; }
 .history-tbl tbody tr.active { background: var(--p-bg); }
-.history-tbl td { font-size: 13px; }
-.history-tbl th { font-size: 12px; color: var(--t2); font-weight: 500; }
+.history-tbl td { font-size:var(--fs-base); }
+.history-tbl th { font-size:var(--fs-sm); color: var(--t2); font-weight: 500; }
 .history-tbl .danger { color: var(--dan); }
 .history-tbl .danger:hover { text-decoration: underline; }
 /* 单元格副行（定稿来源 / 人工接管 / 推送时刻）—— 11px + nowrap，不参与换行争夺 */
-.hd-sub { font-size: 11px; color: var(--t3); margin-top: 3px; white-space: nowrap; }
+.hd-sub { font-size:var(--fs-xs); color: var(--t3); margin-top: 3px; white-space: nowrap; }
 .hd-sub.ok { color: var(--suc); }
 /* v355：过期未关的副行 —— 琥珀色（与同行状态标签同色系）。
    ⚠️ 用变量而非硬编码：`styles/variables.css` 亮 / 暗两套都有 `--warn-amber` 定义。 */

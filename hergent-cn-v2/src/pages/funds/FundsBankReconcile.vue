@@ -6,7 +6,7 @@
     </div>
 
     <Skeleton v-if="loading" />
-    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button></div>
+    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button></div>
 
     <template v-else>
       <!-- 银行类账户概览 -->
@@ -105,18 +105,18 @@ onMounted(load)
 </script>
 
 <style scoped>
-.fbk-acts { display: flex; gap: 8px }
-.fbk-filter { margin: 14px 0 }
-.fbk-frow { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.fbk-frow > label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t2) }
-.fbk-accts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px }
-.fbk-acct { background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--radius-md); padding: 12px 14px; cursor: pointer; transition: border-color var(--dur-base), box-shadow var(--dur-base) }
+.fbk-acts { display: flex; gap: var(--sp-2) }
+.fbk-filter { margin: var(--sp-h14) 0 }
+.fbk-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.fbk-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
+.fbk-accts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-h10); margin-bottom: var(--sp-h14) }
+.fbk-acct { background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--radius-md); padding: var(--sp-3) var(--sp-h14); cursor: pointer; transition: border-color var(--dur-base), box-shadow var(--dur-base) }
 .fbk-acct:hover { border-color: var(--brand) }
 .fbk-on { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(47,107,255,.12) }
-.fbk-acct-n { font-size: 14px; font-weight: 600; color: var(--t1) }
-.fbk-acct-t { font-size: 12px; color: var(--t2); margin: 4px 0 8px }
-.fbk-acct-b { font-size: 16px; font-weight: 700 }
-.fbk-hint { padding: 16px; color: var(--t2); font-size: 13px }
+.fbk-acct-n { font-size:var(--fs-md); font-weight: 600; color: var(--t1) }
+.fbk-acct-t { font-size:var(--fs-sm); color: var(--t2); margin: var(--sp-1) 0 var(--sp-2) }
+.fbk-acct-b { font-size:var(--fs-lg); font-weight: 700 }
+.fbk-hint { padding: var(--sp-4); color: var(--t2); font-size:var(--fs-base) }
 .fbk-card { padding: 0; overflow: hidden }
-.fbk-foot { font-size: 12px; color: var(--t2); margin: 8px 2px 0 }
+.fbk-foot { font-size:var(--fs-sm); color: var(--t2); margin: var(--sp-2) var(--sp-h2) 0 }
 </style>

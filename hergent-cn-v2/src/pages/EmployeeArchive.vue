@@ -2213,40 +2213,40 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.sync-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.sync-state{font-size:12px;padding:3px 10px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sync-wrap{display:flex;align-items:center;gap:var(--sp-2);flex-shrink:0}
+.sync-state{font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
-.df-panel{padding:18px;margin-bottom:14px}
-.df-tip{font-size:12px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
+.df-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
+.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:1.7}
 /* v686：业务员部门表里的下拉 —— 表格行内控件必须矮。
    🔴 用全局 `.input` 的原高（40px）会把整行顶到 40+，表格瞬间变稀疏；
       这里收到 26px（与 .btn-row-ic 同档），行高由它决定，不再被文本撑。 */
-.hd-sel{height:26px;line-height:24px;padding:0 6px;font-size:12px;min-width:120px}
-.df-tip code{background:var(--bg2);padding:1px 6px;border-radius:var(--radius-xs);font-size:12px}
+.hd-sel{height:26px;line-height:24px;padding:0 var(--sp-h6);font-size:var(--fs-sm);min-width:120px}
+.df-tip code{background:var(--bg2);padding:1px var(--sp-h6);border-radius:var(--radius-xs);font-size:var(--fs-sm)}
 /* v312：角色默认端的出处说明 / 内联小按钮 / 「与角色配置不一致」提示条 */
-.df-scope-src{margin:0 0 12px}
-.df-mini-lnk{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:12px;padding:0 2px;text-decoration:underline}
+.df-scope-src{margin:0 0 var(--sp-3)}
+.df-mini-lnk{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:var(--fs-sm);padding:0 var(--sp-h2);text-decoration:underline}
 .df-mini-lnk:hover{color:var(--p-dark)}
-.df-mismatch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 10px;padding:7px 10px;border-radius:var(--radius-md);background:var(--bg3)}
-.df-mismatch-tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:var(--radius-pill);background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
-.df-mismatch-txt{font-size:12px;color:var(--t2);line-height:1.6;min-width:0;flex:1 1 240px}
-.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:var(--radius-sm);font-size:12px}
+.df-mismatch{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-h2) 0 var(--sp-h10);padding:7px var(--sp-h10);border-radius:var(--radius-md);background:var(--bg3)}
+.df-mismatch-tag{font-size:var(--fs-sm);font-weight:600;padding:1px var(--sp-2);border-radius:var(--radius-pill);background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
+.df-mismatch-txt{font-size:var(--fs-sm);color:var(--t2);line-height:1.6;min-width:0;flex:1 1 240px}
+.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 
-.df-ph{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.df-ph-right{display:flex;align-items:center;gap:10px}
-.df-no{display:inline-block;margin-left:6px;font-size:11px;color:var(--t3)}
+.df-ph{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h10);flex-wrap:wrap}
+.df-ph-right{display:flex;align-items:center;gap:var(--sp-h10)}
+.df-no{display:inline-block;margin-left:var(--sp-h6);font-size:var(--fs-xs);color:var(--t3)}
 /* v706：`.df-edit-in` 已删 —— 全页模板**零引用**（死 CSS：改它不会产生任何效果，
    却会让后来人以为「表单输入框宽度在这里调」，是典型的误导性冗余）。 */
 .df-ops{white-space:nowrap}
-.df-ops .btn{margin-left:6px}
+.df-ops .btn{margin-left:var(--sp-h6)}
 
-.df-import-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.df-import-row{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 /* v178 列映射确认步：表格 + 底部「返回/确认导入」 */
-.df-map{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.df-map{margin-top:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-h10)}
 .df-file-btn{position:relative;overflow:hidden}
-.df-fname{font-size:12px;color:var(--t2)}
+.df-fname{font-size:var(--fs-sm);color:var(--t2)}
 /* v303：`.df-result / .df-errs / .df-err` 已随模板删除（结果展示改由共用的
    `ImportReceipt.vue` 负责，它自带样式）。本页不再有 `class="df-result"` 的元素。 */
 
@@ -2257,7 +2257,7 @@ onMounted(() => {
 /* v717：9 个角色的**前景色**全部改走 --role-txt-* 令牌（浅/深两套已按各自底实测过）。
    原先写的是 Tailwind 500 系亮色，对各自的 rgba(.14) 浅底只有 1.93~3.75:1，
    主管（靛）3.75、导购（紫）3.33 —— 评审 P0 §1.2 点名项。底色一律不动。 */
-.df-role{display:inline-block;font-size:11px;padding:1px 7px;border-radius:var(--radius-xs);margin-left:6px;background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--role-txt-staff);white-space:nowrap}
+.df-role{display:inline-block;font-size:var(--fs-xs);padding:1px 7px;border-radius:var(--radius-xs);margin-left:var(--sp-h6);background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--role-txt-staff);white-space:nowrap}
 .df-role.r-admin{background:rgba(239,68,68,.14);color:var(--role-txt-admin)}
 .df-role.r-boss{background:rgba(234,88,12,.14);color:var(--role-txt-boss)}
 .df-role.r-accountant{background:rgba(59,130,246,.14);color:var(--role-txt-accountant)}
@@ -2292,13 +2292,13 @@ onMounted(() => {
    `.req` 的 color 也写了两遍 ⇒ 改其中一处，另一处静默接管，是「改了没反应」的温床。
    `.df-body` 的块间距 12px → --sp-5(18px)：它与 .df-edit-body 的 20px 本就是同一个语义
    （弹窗内「块与块之间」），却有两个值，现统一。 */
-.df-body{display:flex;flex-direction:column;gap:var(--sp-5)}
+.df-body{display:flex;flex-direction:column;gap:var(--sp-h18)}
 /* .df-store-list / .df-store-item 于 2026-09-19 随「分配门店」弹窗一并移除
    （门店配置收敛到「预报订单管理 → 报单配置」）。 */
 
 /* 停用视觉 */
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
-.stopped-tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--st-draft-bg);color:var(--st-draft-txt)}
+.stopped-tag{display:inline-block;margin-left:var(--sp-h6);font-size:var(--fs-xs);padding:1px 7px;border-radius:var(--radius-sm);background:var(--st-draft-bg);color:var(--st-draft-txt)}
 .btn.danger{color:var(--dan)}
 .btn-danger{background:var(--dan-solid);color:#fff;border:none}
 .btn-danger:hover{filter:brightness(.95)}
@@ -2312,23 +2312,23 @@ onMounted(() => {
      栅格（字段 ↔ 字段）  行 --sp-3 = 12px / 列 --sp-5 = 18px
      字段内（标签 ↔ 控件） --sp-2 = 8px
    ⚠️ 分区内(14) 必须 < 弹窗块间(18)：否则「分区」这一层在视觉上就不复存在，又回到一锅粥。 */
-.df-edit-body{display:flex;flex-direction:column;gap:var(--sp-5)}
-.df-sec{display:flex;flex-direction:column;gap:var(--sp-4)}
-.df-sec-title{font-size:13px;font-weight:600;color:var(--t1);padding-left:11px;border-left:3px solid var(--p);line-height:1.2}
-.df-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-5)}
+.df-edit-body{display:flex;flex-direction:column;gap:var(--sp-h18)}
+.df-sec{display:flex;flex-direction:column;gap:var(--sp-h14)}
+.df-sec-title{font-size:var(--fs-base);font-weight:600;color:var(--t1);padding-left:11px;border-left:3px solid var(--p);line-height:1.2}
+.df-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h18)}
 /* 独占整行：给「身份证号（18 位）/ 客户名称 / 允许登录」这类**明显更长**或**本区唯一**的字段。
    v706 引入 —— 它同时消掉了「奇数个字段 ⇒ 末行留半格空白」的老问题
    （原「薪酬与账户」7 项就是这样，旧注释自己都记着「会挤出半行留白」）。
    窄屏单列时 grid-column:1/-1 自然退化成整行，无需在媒体查询里再覆盖一次。 */
 .df-edit-grid .df-field-wide{grid-column:1/-1}
-.df-field{display:flex;flex-direction:column;gap:var(--sp-2);font-size:12px;color:var(--t2)}
+.df-field{display:flex;flex-direction:column;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--t2)}
 .df-field .input, .df-field select{width:100%;box-sizing:border-box;height:36px}
 
 /* ---- v706（2026-11-01）：合同到期提示 + 档案附件 ---- */
 /* 到期徽标：贴在「合同到期」标签右侧。用**语义色对**（--danger/warn/ok-green 的 -bg 版），
    不自己调 rgba —— 深色模式下这四组是成对定义的，拍数字会在暗色里发灰。 */
-.cf-end-tip{font-style:normal;font-size:11px;font-weight:600;margin-left:6px;
-  padding:1px 6px;border-radius:var(--radius-xs);line-height:1.5;white-space:nowrap}
+.cf-end-tip{font-style:normal;font-size:var(--fs-xs);font-weight:600;margin-left:var(--sp-h6);
+  padding:1px var(--sp-h6);border-radius:var(--radius-xs);line-height:1.5;white-space:nowrap}
 .cf-end-tip.is-expired{color:var(--danger-txt);background:var(--danger-bg)}
 .cf-end-tip.is-soon{color:var(--warn-amber);background:var(--warn-amber-bg)}
 .cf-end-tip.is-ok{color:var(--ok-green);background:var(--ok-green-bg)}
@@ -2338,32 +2338,32 @@ onMounted(() => {
       弹窗已经自带滚动，做成浮层会脱离栅格、还会在窄屏压住字段。 */
 .cf-attach{margin-top:var(--sp-3);padding-top:var(--sp-3);
   border-top:1px solid var(--border-subtle);display:flex;flex-direction:column;gap:var(--sp-2)}
-.cf-attach-hd{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-.cf-attach-hd b{font-size:12px;color:var(--t1)}
-.cf-attach-sub{font-size:12px;color:var(--t3)}
-.cf-attach-empty{font-size:12px;color:var(--t3);padding:6px 0}
-.cf-attach-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
-.cf-attach-list li{display:flex;align-items:center;gap:10px;padding:6px 9px;
+.cf-attach-hd{display:flex;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap}
+.cf-attach-hd b{font-size:var(--fs-sm);color:var(--t1)}
+.cf-attach-sub{font-size:var(--fs-sm);color:var(--t3)}
+.cf-attach-empty{font-size:var(--fs-sm);color:var(--t3);padding:var(--sp-h6) 0}
+.cf-attach-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--sp-1)}
+.cf-attach-list li{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-h6) 9px;
   border-radius:var(--radius-sm);background:var(--bg2)}
 /* 文件名可能很长：`min-width:0` + 省略号，**不能让文件名把"删除"挤出去** ——
    否则长名附件的删除键会被推到可视区外，看起来像"没有删除按钮"。 */
-.cf-attach-name{display:inline-flex;align-items:center;gap:6px;min-width:0;
-  background:none;border:0;padding:0;cursor:pointer;color:var(--p-ink);font-size:12px;
+.cf-attach-name{display:inline-flex;align-items:center;gap:var(--sp-h6);min-width:0;
+  background:none;border:0;padding:0;cursor:pointer;color:var(--p-ink);font-size:var(--fs-sm);
   text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cf-attach-name:hover{text-decoration:underline}
-.cf-attach-meta{font-size:12px;color:var(--t3);margin-left:auto;flex:0 0 auto}
-.cf-attach-del{background:none;border:0;color:var(--dan);font-size:12px;cursor:pointer;
-  padding:2px 4px;flex:0 0 auto;border-radius:var(--radius-xs)}
+.cf-attach-meta{font-size:var(--fs-sm);color:var(--t3);margin-left:auto;flex:0 0 auto}
+.cf-attach-del{background:none;border:0;color:var(--dan);font-size:var(--fs-sm);cursor:pointer;
+  padding:var(--sp-h2) var(--sp-1);flex:0 0 auto;border-radius:var(--radius-xs)}
 .cf-attach-del:hover{background:var(--dan-bg)}
 .cf-attach-del:disabled{opacity:.5;cursor:not-allowed}
 /* ⚠️ `position:relative` 是给下面那个绝对定位的隐藏 input 兜底的：
    不给定位祖先，0 尺寸元素会相对弹窗定位，在弹窗边缘撑出一条多余滚动条。 */
-.cf-attach-actions{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cf-attach-actions{position:relative;display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 /* 原生 file input 隐藏，由按钮触发 —— 但**不能 display:none**：部分浏览器对
    完全不可见的 input 拒绝 open file dialog，用 0 尺寸 clip 更稳。 */
 .cf-attach-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.cf-attach-hint{font-size:12px;color:var(--t3)}
-.df-field span{font-size:12px;color:var(--t2)}
+.cf-attach-hint{font-size:var(--fs-sm);color:var(--t3)}
+.df-field span{font-size:var(--fs-sm);color:var(--t2)}
 /* 必填星号：全页唯一一份（原先 `.req` 与 `.df-field .req` 把 color 写了两遍） */
 .req{color:var(--dan);font-style:normal;font-weight:600}
 
@@ -2371,52 +2371,52 @@ onMounted(() => {
 /* v385：`.df-acc-hint`（原「新建态那行提示」的容器，只有 margin-top:-2px）已随
    合并一屏而删除 —— 新建态现在复用 `df-acc-create` 那块表单，类名不再被引用。
    留着就是死 CSS：下次有人想"调一下新建态提示的间距"会改到这里，而它根本不生效。 */
-.df-acc-sum{font-size:12px;color:var(--t2);margin:0 0 2px;line-height:1.6}
+.df-acc-sum{font-size:var(--fs-sm);color:var(--t2);margin:0 0 var(--sp-h2);line-height:1.6}
 .df-acc-sum .on{color:var(--suc);font-weight:600}
 .df-acc-sum .off{color:var(--t3)}
-.df-acc-create{display:flex;flex-direction:column;gap:12px}
-.df-acc-manage{display:flex;flex-direction:column;gap:12px}
+.df-acc-create{display:flex;flex-direction:column;gap:var(--sp-3)}
+.df-acc-manage{display:flex;flex-direction:column;gap:var(--sp-3)}
 /* v290 画的卡片边框，v382 后语义已变：**不再是「保存边界」，只是分组**。
    原先这一段是「各自独立保存」的（卡片以内自己存，卡片以外归底部「保存基本信息」），
    边框用来告诉用户"一个保存单位"到哪儿为止；v382 把三个保存按钮并成一个之后，
    **整窗只有一个保存入口**，边框只剩"这块属于登录账号"的分组含义。 */
-.df-acc-card{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:14px 14px 15px;background:var(--bg2);gap:11px}
-.df-acc-card-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.df-acc-card-t{font-size:12px;font-weight:600;color:var(--t1)}
+.df-acc-card{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h14) var(--sp-h14) 15px;background:var(--bg2);gap:11px}
+.df-acc-card-hd{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
+.df-acc-card-t{font-size:var(--fs-sm);font-weight:600;color:var(--t1)}
 /* 文字色跟主题走（浅色=深字 / 深色=浅字），只有底色是黄调 —— 避免深色主题下看不清。 */
-.df-dirty-tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:var(--radius-pill);background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5)}
-.df-acc-card-tip{font-size:12px;color:var(--t3);margin:-4px 0 0;line-height:1.6}
+.df-dirty-tag{font-size:var(--fs-sm);font-weight:600;padding:1px var(--sp-2);border-radius:var(--radius-pill);background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5)}
+.df-acc-card-tip{font-size:var(--fs-sm);color:var(--t3);margin:-4px 0 0;line-height:1.6}
 .df-acc-card-tip b{color:var(--t2)}
 /* v290：操作行 + 紧贴其下的展开区（输入框**不再**长在按钮上方、隔着别的区块）。 */
 .df-acc-ops{padding-top:1px}
 .df-acc-ops .btn.is-on{border-color:var(--teal);color:var(--teal)}
 .df-acc-right{margin-left:auto}
-.df-acc-expand{display:flex;flex-direction:column;gap:10px;padding:10px 11px;border-radius:var(--radius-sm);background:var(--bg);border:1px dashed var(--border-subtle)}
-.df-acc-exp-label{font-size:12px;color:var(--t2);flex-shrink:0;min-width:56px}
-.df-acc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.df-acc-expand{display:flex;flex-direction:column;gap:var(--sp-h10);padding:var(--sp-h10) 11px;border-radius:var(--radius-sm);background:var(--bg);border:1px dashed var(--border-subtle)}
+.df-acc-exp-label{font-size:var(--fs-sm);color:var(--t2);flex-shrink:0;min-width:56px}
+.df-acc-row{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .df-acc-row .input, .df-acc-row select{flex:1;min-width:0}
 /* v266 兼任角色选择：独占一行、可点选的 chip（多选）。
    不用 `<select multiple>` —— 手机上多选下拉极难操作，而这里的语义就是「勾几个」，
    chip 更直白、也不用按住 Ctrl。 */
 .df-acc-extra{align-items:flex-start;flex-direction:column;gap:7px}
-.df-acc-extra-tip{font-size:12px;color:var(--t3)}
-.df-extra-chips{display:flex;flex-wrap:wrap;gap:6px}
-.df-extra-chips .chip{border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:12px;padding:3px 10px;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit;line-height:1.6}
+.df-acc-extra-tip{font-size:var(--fs-sm);color:var(--t3)}
+.df-extra-chips{display:flex;flex-wrap:wrap;gap:var(--sp-h6)}
+.df-extra-chips .chip{border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-pill);cursor:pointer;font-family:inherit;line-height:1.6}
 .df-extra-chips .chip:hover{border-color:var(--teal)}
 .df-extra-chips .chip.on{background:rgba(var(--teal-rgb,14,165,164),.14);border-color:var(--teal);color:var(--teal);font-weight:600}
 .df-extra-chips .chip:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
 /* Q29（2026-09-19）忘记密码：一次性重置码的展示区 */
-.rc-tip{font-size:12px;color:var(--t3);line-height:1.5}
-.rc-box{gap:10px;background:var(--bg2);border-radius:var(--radius-sm);padding:8px 12px}
-.rc-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:20px;letter-spacing:3px;color:var(--teal)}
-.rc-exp{font-size:12px;color:var(--t3);margin-left:auto}
+.rc-tip{font-size:var(--fs-sm);color:var(--t3);line-height:1.5}
+.rc-box{gap:var(--sp-h10);background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3)}
+.rc-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-xl);letter-spacing:3px;color:var(--teal)}
+.rc-exp{font-size:var(--fs-sm);color:var(--t3);margin-left:auto}
 .btn-block{width:100%}
 .warn-text{color:var(--dan);font-weight:500}
 /* v708：`appearance:none` 抹掉了原生箭头、却没补一个 ⇒ 看着像只读文本框（用户实测反馈），
    而角色 label 是「财务/文员（仅网页端 · 账务 / 报表 / 订货）」这种长句，窄屏被硬切成半截。
    补自绘 chevron（背景 svg + 右侧让位 padding）；关闭态走省略号，全称在 title 里（长按/hover 可见）。
    注意：必须写 `background-color` 而不是 `background` 简写 —— 简写会把 background-image 一起重置掉。 */
-.acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 32px 0 11px;font-size:13px;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;color:var(--t1);appearance:none;-webkit-appearance:none;cursor:pointer;text-overflow:ellipsis;white-space:nowrap}
+.acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 var(--sp-7) 0 11px;font-size:var(--fs-base);background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;color:var(--t1);appearance:none;-webkit-appearance:none;cursor:pointer;text-overflow:ellipsis;white-space:nowrap}
 
 /* ============================================================
    v706 响应式（断点 768px —— 与全站「移动端基础」一致，见 variables.css）

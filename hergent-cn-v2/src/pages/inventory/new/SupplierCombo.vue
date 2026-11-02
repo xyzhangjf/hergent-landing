@@ -110,23 +110,23 @@ defineExpose({ focus: () => inputRef.value && inputRef.value.focus() })
 
 <style scoped>
 .ipn-sup-combo { position: relative; flex: 1; min-width: 0 }
-.ipn-sup-input { width: 100%; height: 32px; padding: 0 10px }
+.ipn-sup-input { width: 100%; height: 32px; padding: 0 var(--sp-h10) }
 .ipn-sup-list {
   position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
-  margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto;
+  margin: 0; padding: var(--sp-1); list-style: none; max-height: 240px; overflow-y: auto;
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
 }
 .ipn-sup-list li {
-  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
-  border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--t1);
+  display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-h6) var(--sp-h10);
+  border-radius: var(--radius-sm); cursor: pointer; font-size:var(--fs-base); color: var(--t1);
 }
 .ipn-sup-list li.active, .ipn-sup-list li:hover { background: var(--bg2) }
 .ipn-sup-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.ipn-sup-code { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
+.ipn-sup-code { flex: none; font-size:var(--fs-sm); color: var(--t3); font-variant-numeric: tabular-nums }
 .ipn-sup-empty {
   position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
-  padding: 10px; background: var(--bg); border: 1px solid var(--bd);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 12px; color: var(--t3);
+  padding: var(--sp-h10); background: var(--bg); border: 1px solid var(--bd);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size:var(--fs-sm); color: var(--t3);
 }
 </style>

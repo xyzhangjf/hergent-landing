@@ -59,7 +59,7 @@
             <div class="se-ic"><Icon name="inbox" :size="22" /></div>
             <p>还没有盘点期次。</p>
             <p class="wst-empty-hint">开始记账后的第一次盘点，点右上角「开始新盘点」即可 —— 系统会先给当前库存拍一张快照。</p>
-            <button class="btn btn-primary btn-sm" style="margin-top:12px" @click="doStart">
+            <button class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)" @click="doStart">
               <Icon name="plus" :size="14" />开始新盘点
             </button>
           </div>
@@ -120,7 +120,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ err }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadList()">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadList()">重试</button>
       </div>
     </template>
 
@@ -251,7 +251,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ dErr }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadDetail(detail.id)">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadDetail(detail.id)">重试</button>
       </div>
     </template>
   </div>
@@ -518,39 +518,39 @@ defineExpose({ load: loadList })
 
 <style scoped>
 /* 页面私有类一律 `wst-` 前缀（仓配·盘点单）。 */
-.wst-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.wst-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 
 .wst-card { padding: 0; overflow: hidden }
 .wst-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
-.wst-time { font-size: 12px; color: var(--t3) }
-.wst-dim { color: var(--t3); font-size: 12px }
-.wst-pct { color: var(--t3); font-size: 12px }
+.wst-time { font-size:var(--fs-sm); color: var(--t3) }
+.wst-dim { color: var(--t3); font-size:var(--fs-sm) }
+.wst-pct { color: var(--t3); font-size:var(--fs-sm) }
 .wst-bad { color: var(--dan); font-weight: 600 }
 
 .wst-gain { color: var(--ok); font-variant-numeric: tabular-nums; font-weight: 600 }
 .wst-loss { color: var(--dan); font-variant-numeric: tabular-nums; font-weight: 600 }
 
 .wst-op {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .wst-op:hover { text-decoration: underline }
 
-.wst-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
-.wst-empty-hint { font-size: 12px; color: var(--t3); margin-top: 6px }
+.wst-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.wst-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 /* 进度 */
-.wst-prog { display: flex; align-items: center; gap: 12px; margin-bottom: 12px }
+.wst-prog { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-3) }
 .wst-prog-bar {
   flex: 1; height: 8px; border-radius: var(--radius-pill); overflow: hidden;
   background: var(--bg2); border: 1px solid var(--border-subtle);
 }
 .wst-prog-bar i { display: block; height: 100%; background: var(--p); transition: width var(--dur-slow) }
-.wst-prog-txt { font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums; white-space: nowrap }
+.wst-prog-txt { font-size:var(--fs-sm); color: var(--t3); font-variant-numeric: tabular-nums; white-space: nowrap }
 
 .wst-lock, .wst-tip {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px; padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-bottom: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: var(--bg2); color: var(--t2);
 }
@@ -560,25 +560,25 @@ defineExpose({ load: loadList })
 .wst-tbl { table-layout: fixed }
 .wst-tbl th { white-space: nowrap }
 /* 输入框贴满格子、矮一档（50+ 行明细，默认 34px 会把表拉到两三屏） */
-.wst-in { width: 100%; height: 30px; padding: 0 8px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums }
+.wst-in { width: 100%; height: 30px; padding: 0 var(--sp-2); font-size:var(--fs-base); text-align: right; font-variant-numeric: tabular-nums }
 .wst-in.ok { border-color: var(--ok) }
 .wst-in.err { border-color: var(--dan) }
 
 .wst-name { font-weight: 500 }
-.wst-bc { font-size: 11px; color: var(--t3); font-variant-numeric: tabular-nums; margin-top: 2px }
+.wst-bc { font-size:var(--fs-xs); color: var(--t3); font-variant-numeric: tabular-nums; margin-top: var(--sp-h2) }
 
 /* 未录数的行底色轻提示，扫描时一眼看出"还差哪些" */
 .wst-unfilled { background: var(--bg2) }
 
-.wst-add { margin-top: 12px }
+.wst-add { margin-top: var(--sp-3) }
 .wst-add-hd {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 10px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size:var(--fs-base); font-weight: 600; color: var(--t2); margin-bottom: var(--sp-h10);
 }
-.wst-add-sub { font-size: 12px; font-weight: 400; color: var(--t3) }
-.wst-add-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.wst-add-fld { display: flex; flex-direction: column; gap: 4px; min-width: 150px }
+.wst-add-sub { font-size:var(--fs-sm); font-weight: 400; color: var(--t3) }
+.wst-add-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.wst-add-fld { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 150px }
 .wst-add-prod { flex: 1; min-width: 240px }
 .wst-add-qty { width: 140px; min-width: 120px }
-.wst-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
+.wst-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 </style>

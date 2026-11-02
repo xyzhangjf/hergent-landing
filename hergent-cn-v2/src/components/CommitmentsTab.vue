@@ -32,7 +32,7 @@
 
     <div v-if="loading && !loaded" class="vc-skel">
       <div class="skel-line" style="width:60%"></div>
-      <div class="skel-line" style="width:80%;margin-top:8px"></div>
+      <div class="skel-line" style="width:80%;margin-top:var(--sp-2)"></div>
     </div>
 
     <div v-else-if="!items.length" class="state-empty">
@@ -41,7 +41,7 @@
         业务员说「下个月给你补陈列费」「这批货返两个点」，先记在这里 ——
         到日子没兑现，系统会在通知中心提醒你。
       </p>
-      <button class="btn btn-primary btn-sm" style="display:block;margin:12px auto 0" @click="openForm(null)">
+      <button class="btn btn-primary btn-sm" style="display:block;margin:var(--sp-3) auto 0" @click="openForm(null)">
         记第一笔承诺
       </button>
     </div>
@@ -253,38 +253,38 @@ onMounted(load)
 </script>
 
 <style scoped>
-.vc{display:flex;flex-direction:column;gap:14px}
-.vc-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.vc-kpi{background:var(--bg2);border-radius:var(--radius-md);padding:10px 14px;display:flex;flex-direction:column;gap:2px}
-.vc-kpi .num{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.vc{display:flex;flex-direction:column;gap:var(--sp-h14)}
+.vc-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-h10)}
+.vc-kpi{background:var(--bg2);border-radius:var(--radius-md);padding:var(--sp-h10) var(--sp-h14);display:flex;flex-direction:column;gap:var(--sp-h2)}
+.vc-kpi .num{font-size:var(--fs-xl);font-weight:600;font-variant-numeric:tabular-nums}
 .vc-kpi .num.ok{color:var(--ok-green)}
 .vc-kpi .num.warn{color:var(--war)}
 .vc-kpi .num.bad{color:var(--err-red)}
-.vc-kpi .lbl{font-size:12px;color:var(--t2)}
-.vc-bar{display:flex;align-items:flex-start;gap:14px}
-.vc-tip{font-size:12px;color:var(--t2);line-height:1.75;margin:0;flex:1}
-.vc-bar-acts{display:flex;gap:8px;flex-shrink:0}
-.vc-skel{padding:8px 0}
-.vc-empty-sub{font-size:12px;color:var(--t3);max-width:560px;margin:6px auto 0;line-height:1.7}
-.vc-st{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);font-size:12px;white-space:nowrap;background:var(--bg2);color:var(--t2)}
+.vc-kpi .lbl{font-size:var(--fs-sm);color:var(--t2)}
+.vc-bar{display:flex;align-items:flex-start;gap:var(--sp-h14)}
+.vc-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.75;margin:0;flex:1}
+.vc-bar-acts{display:flex;gap:var(--sp-2);flex-shrink:0}
+.vc-skel{padding:var(--sp-2) 0}
+.vc-empty-sub{font-size:var(--fs-sm);color:var(--t3);max-width:560px;margin:var(--sp-h6) auto 0;line-height:1.7}
+.vc-st{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-sm);white-space:nowrap;background:var(--bg2);color:var(--t2)}
 .vc-st-overdue{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .vc-st-done{background:var(--ok-green-bg);color:var(--ok-green)}
 .vc-st-void{background:var(--bg2);color:var(--t3)}
 .vc-faded td{opacity:.62}
-.vc-brand{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--radius-xs);font-size:11px;background:var(--bg2);color:var(--t2)}
+.vc-brand{display:inline-block;margin-left:var(--sp-h6);padding:0 var(--sp-h6);border-radius:var(--radius-xs);font-size:var(--fs-xs);background:var(--bg2);color:var(--t2)}
 .vc-content{max-width:420px}
-.vc-kind{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--radius-xs);font-size:11px;background:var(--p-bg);color:var(--p-dark)}
-.vc-caliber{font-size:12px;color:var(--t3);margin-top:2px}
-.vc-days{font-size:12px;color:var(--t3);margin-top:2px}
+.vc-kind{display:inline-block;margin-left:var(--sp-h6);padding:0 var(--sp-h6);border-radius:var(--radius-xs);font-size:var(--fs-xs);background:var(--p-bg);color:var(--p-dark)}
+.vc-caliber{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
+.vc-days{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
 .vc-acts{white-space:nowrap;text-align:right}
 .tbl .num{text-align:right;font-variant-numeric:tabular-nums}
 
-.vc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.vc-fld{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
-.vc-fld .input{height:32px;font-size:13px}
+.vc-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+.vc-fld{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-sm);color:var(--t2)}
+.vc-fld .input{height:32px;font-size:var(--fs-base)}
 .vc-fld .req{color:var(--war);font-style:normal}
 .vc-wide{grid-column:1/-1}
-.vc-form-tip{font-size:12px;color:var(--t3);margin:12px 0 0}
+.vc-form-tip{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-3) 0 0}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-base) ease}
 .fade-enter-from,.fade-leave-to{opacity:0}
 .pop-enter-active,.pop-leave-active{transition:opacity var(--dur-base) ease,transform var(--dur-base) ease}

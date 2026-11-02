@@ -70,12 +70,12 @@ const cur = computed(() => TABS.find(t => t.key === tab.value))
 <style scoped>
 /* 只补本页特有的三处排版，容器/页签/卡片一律用全局件（UI-SPEC §6.2：
    同一视觉语言不写第二份）。 */
-.pr-card { padding: 18px 20px; max-width: 720px }
-.pr-hd { display: flex; align-items: center; gap: 10px; margin-bottom: 8px }
-.pr-hd h3 { font-size: 15px; font-weight: 600; color: var(--t1) }
-.pr-desc { font-size: 13px; color: var(--t2); line-height: 1.7; margin-bottom: 14px }
-.pr-plan { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 8px }
-.pr-plan li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--t2) }
+.pr-card { padding: var(--sp-h18) var(--sp-5); max-width: 720px }
+.pr-hd { display: flex; align-items: center; gap: var(--sp-h10); margin-bottom: var(--sp-2) }
+.pr-hd h3 { font-size:var(--fs-h4); font-weight: 600; color: var(--t1) }
+.pr-desc { font-size:var(--fs-base); color: var(--t2); line-height: 1.7; margin-bottom: var(--sp-h14) }
+.pr-plan { list-style: none; padding: 0; margin: 0 0 var(--sp-h14); display: grid; gap: var(--sp-2) }
+.pr-plan li { display: flex; align-items: center; gap: var(--sp-2); font-size:var(--fs-base); color: var(--t2) }
 .pr-plan li svg { color: var(--p-dark); flex-shrink: 0 }
-.pr-foot { font-size: 12px; color: var(--t3) }
+.pr-foot { font-size:var(--fs-sm); color: var(--t3) }
 </style>

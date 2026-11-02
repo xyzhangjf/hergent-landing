@@ -32,15 +32,15 @@ defineProps({
 </script>
 
 <style scoped>
-.rpt-card { margin-top: 14px; }
+.rpt-card { margin-top: var(--sp-h14); }
 .unavail {
-  padding: 40px 24px; text-align: center; color: var(--t2);
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 40px var(--sp-6); text-align: center; color: var(--t2);
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
 }
-.ua-ic { color: var(--t3); margin-bottom: 4px; }
-.unavail h3 { margin: 0; font-size: 16px; color: var(--t1); }
-.ua-main { margin: 4px 0 0; font-size: 14px; max-width: 560px; line-height: 1.8; }
+.ua-ic { color: var(--t3); margin-bottom: var(--sp-1); }
+.unavail h3 { margin: 0; font-size:var(--fs-lg); color: var(--t1); }
+.ua-main { margin: var(--sp-1) 0 0; font-size:var(--fs-md); max-width: 560px; line-height: 1.8; }
 .ua-main b { color: var(--t1); }
-.ua-sub { margin: 0; font-size: 12px; color: var(--t3); max-width: 560px; line-height: 1.8; }
-.ua-note { margin: 8px 0 0; font-size: 12px; color: var(--t3); max-width: 560px; line-height: 1.8; }
+.ua-sub { margin: 0; font-size:var(--fs-sm); color: var(--t3); max-width: 560px; line-height: 1.8; }
+.ua-note { margin: var(--sp-2) 0 0; font-size:var(--fs-sm); color: var(--t3); max-width: 560px; line-height: 1.8; }
 </style>

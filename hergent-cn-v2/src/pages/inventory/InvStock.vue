@@ -49,7 +49,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <div v-else-if="!rows.length" class="card">
@@ -256,23 +256,23 @@ onMounted(load)
 
 <style scoped>
 .inv-page { display: block }
-.is-acts { display: flex; gap: 8px; flex-wrap: wrap }
+.is-acts { display: flex; gap: var(--sp-2); flex-wrap: wrap }
 
 .is-filter {
-  display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
-  margin-bottom: 12px;
+  display: flex; align-items: flex-end; gap: var(--sp-3); flex-wrap: wrap;
+  margin-bottom: var(--sp-3);
 }
-.is-f { display: flex; flex-direction: column; gap: 4px }
-.is-lb { font-size: 12px; color: var(--t3) }
+.is-f { display: flex; flex-direction: column; gap: var(--sp-1) }
+.is-lb { font-size:var(--fs-sm); color: var(--t3) }
 .is-kw { width: 220px; height: 32px }
 .is-sel { min-width: 130px; height: 32px }
-.is-chk { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--t2); height: 32px }
+.is-chk { display: flex; align-items: center; gap: var(--sp-h6); font-size:var(--fs-base); color: var(--t2); height: 32px }
 
 .is-page {
-  display: flex; align-items: center; gap: 8px; justify-content: flex-end;
-  padding-top: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: var(--sp-2); justify-content: flex-end;
+  padding-top: var(--sp-3); flex-wrap: wrap;
 }
-.is-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
+.is-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
 
 /* 批次号下钻（v529 P1-5）：有批次号即可点击进追溯页。
    品牌色走 --p-dark（与 .btn-primary / .main-tab.on 同源；不写死色值，深色模式自动跟随） */

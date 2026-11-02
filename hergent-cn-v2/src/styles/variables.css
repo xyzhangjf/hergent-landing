@@ -345,15 +345,45 @@
   --fs-sm:12px;    /* 提示/次要信息 */
   --fs-base:13px;  /* 表格/表单控件 */
   --fs-md:14px;    /* 正文 */
-  --fs-lg:16px;    /* 弹窗标题 */
-  --fs-xl:20px;    /* 页头 h2 */
-  --fs-h1:24px;    /* 一级页头（大盘/工作台主标题） */
-  --fs-h2:20px;    /* 二级页头（业务页标题，等同 --fs-xl） */
-  --fs-h3:17px;    /* 三级标题（卡片标题/分区名） */
   --fs-h4:15px;    /* 四级标题（面板标题/子分区名） */
+  --fs-lg:16px;    /* 弹窗标题 */
+  --fs-h3:17px;    /* 三级标题（卡片标题/分区名） */
+  --fs-stat:18px;  /* 统计值/次级数字（窄屏 KPI 降级值也用它） */
+  --fs-xl:20px;    /* 页头 h2 / 二级页头 */
+  --fs-h2:20px;    /* 等同 --fs-xl，保留是历史引用 */
+  --fs-num:22px;   /* KPI 主数值 */
+  --fs-h1:24px;    /* 一级页头（大盘/工作台主标题） */
+  --fs-num-lg:26px;/* 大数值 / 头像字符 */
 
-  /* 间距阶梯（4 的倍数）。 */
-  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:14px; --sp-5:18px; --sp-6:20px;
+  /* 间距阶梯（v727 建立 12 档）。
+     ------------------------------------------------------------
+     改前：`--sp-1..6` 只覆盖 6 个值，而全站间距字面量有 **5037 处 / 43 个值**，
+     令牌实际采纳率 18 处（约 0%）。且原 `--sp-4:14` / `--sp-5:18` 本身不在 4 栅格上 ——
+     阶梯自己先坏了，下面的用法自然也就随手写。
+
+     实测分布（gap/padding/margin 的 px 数字）：
+       栅格 4/8/12/16/20/24/32  →  2064 处（41%）
+       半档 2/6/10/14/18        →  2267 处（45%）  ← 一半的间距在两档之间
+       其余 1/3/5/7/9/11 等      →   706 处（14%）  ← 多是 1px 边线和小微调
+
+     ⇒ 不假装只有 4 的倍数：把「两档之间」也起名字（`--sp-hN`，名字即值），
+       先让 4331 处（86%）有令牌可引用，再谈归一。
+
+     🔴 `-h` 系列是**过渡档**，不是设计目标。P1 归一（如 10→8）时只改这里一行，
+        全站跟着动，再用视觉回归确认 —— 这正是「令牌被使用」换来的能力。
+        归一完成后删掉对应行。 */
+  --sp-h2:2px;   /* 过渡：细分隔 */
+  --sp-1:4px;
+  --sp-h6:6px;   /* 过渡 */
+  --sp-2:8px;
+  --sp-h10:10px; /* 过渡：出现最多（758 处） */
+  --sp-3:12px;
+  --sp-h14:14px; /* 过渡 */
+  --sp-4:16px;
+  --sp-h18:18px; /* 过渡 */
+  --sp-5:20px;
+  --sp-6:24px;
+  --sp-7:32px;
 
   /* v722：v721 在这里加过 `--list-pane-max`（单据页明细体的 max-height 魔数），
      **已废**。魔数只能"凑"到不溢出：页头一换行、提示条一展开就又溢出，
@@ -583,7 +613,7 @@
 html,body{height:100%}
 body{
   font-family:var(--font-sans);
-  font-size:14px;
+  font-size:var(--fs-md);
   line-height:1.6;
   color:var(--t1);
   background:var(--bg);
@@ -591,7 +621,7 @@ body{
   overflow:hidden;
 }
 button{font-family:inherit;cursor:pointer}
-input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
+input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)}
 
 /* ============================================================
    键盘焦点环（P1/v717 建立）
@@ -641,13 +671,13 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    子控件宽度规则（.ipn-sel/.isn-sel 等）仍按各自前缀留在各页 scoped 样式内，仅容器作用域从 .x-hd-box 改名 .hd-box。 */
 .hd-box .ipn-f,.hd-box .isn-f{
   flex-wrap:nowrap;
-  padding:0 6px 0 10px;gap:4px;
+  padding:0 var(--sp-h6) 0 var(--sp-h10);gap:var(--sp-1);
   background:var(--bg3);border:1px solid var(--bd);border-radius:var(--radius-sm);
 }
 .hd-box .ipn-f:focus-within,.hd-box .isn-f:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
 .hd-box .ipn-lb::after,.hd-box .isn-lb::after{content:'：'}
 .hd-box .ipn-f .input,.hd-box .isn-f .input{
-  width:auto;min-width:0;height:32px;padding:0 2px;
+  width:auto;min-width:0;height:32px;padding:0 var(--sp-h2);
   border:0;border-radius:0;background:transparent;box-shadow:none;
 }
 .hd-box .ipn-f .input:focus,.hd-box .isn-f .input:focus{border-color:transparent;box-shadow:none}
@@ -658,9 +688,9 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    ⇒ **同一行工具栏里三种圆角并存**（实测页面上 8px 465 处 / 10px 118 处 / 12px 34 处）。
    同行控件必须同构（本项目既有判据），统一取 8px —— 全站按钮一个圆角。 */
 .btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  height:36px;padding:0 16px;border:none;border-radius:var(--radius-sm);
-  font-size:14px;font-weight:500;transition:all var(--dur-base);
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--sp-h6);
+  height:36px;padding:0 var(--sp-4);border:none;border-radius:var(--radius-sm);
+  font-size:var(--fs-md);font-weight:500;transition:all var(--dur-base);
 }
 /* 文字链接式按钮（v713 补）：嵌在一句话中间的可点词，如空态里的
    「当前没有在职员工（6 人已停用已收起）——**显示已停用**」。
@@ -754,17 +784,17 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    工具栏统一组件标准（可复用）
    对齐《toolbar-standard.md》：线性图标、统一圆角8、色板走 token
    ============================================================ */
-.tb{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;flex-wrap:wrap}
-.tb-compact{padding:8px 12px}
-.tb-group{display:inline-flex;align-items:center;gap:8px}
-.tb-sep{width:1px;height:20px;background:var(--bd);flex:0 0 auto;margin:0 2px}
-.btn-sm{height:32px;padding:0 12px;font-size:13px;font-weight:500;border-radius:var(--radius-sm)}
+.tb{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);flex-wrap:wrap}
+.tb-compact{padding:var(--sp-2) var(--sp-3)}
+.tb-group{display:inline-flex;align-items:center;gap:var(--sp-2)}
+.tb-sep{width:1px;height:20px;background:var(--bd);flex:0 0 auto;margin:0 var(--sp-h2)}
+.btn-sm{height:32px;padding:0 var(--sp-3);font-size:var(--fs-base);font-weight:500;border-radius:var(--radius-sm)}
 /* v169 补齐：`.btn-badge` 此前**全站没有定义** —— 「查错」与「品牌」按钮里的计数走的是
    裸文本节点，实测拿到宿主按钮的全部排印值（13px / 与按钮同色 / 透明底 / 零内边距零圆角），
    渲染成「品牌 2 ⌄」这种与相邻按钮不同构的排版，且计数与标签之间只靠文本空格分隔。
    这里给成一个 18px 高的小胶囊：字号降一档以示「这是计数不是标签」，主色系与站内
    .confirm-badge 同源；高度写死使它在 32px 按钮内不参与撑高。 */
-.btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-deep);font-size:11px;font-weight:600;line-height:1;white-space:nowrap}
+.btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-deep);font-size:var(--fs-xs);font-weight:600;line-height:1;white-space:nowrap}
 .btn-badge.err{background:var(--danger-bg);color:var(--danger-txt)}
 .btn-icon{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background var(--dur-base),color var(--dur-base)}
 .btn-icon svg{width:16px;height:16px}
@@ -784,14 +814,14 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
   border:1px solid var(--bd);border-radius:var(--radius-sm);
   background:var(--bg2);color:var(--t2);transition:color var(--dur-base),border-color var(--dur-base);
 }
-.btn-row-ic + .btn-row-ic{margin-left:4px}
+.btn-row-ic + .btn-row-ic{margin-left:var(--sp-1)}
 .btn-row-ic:hover:not(:disabled){color:var(--t1);border-color:var(--t3)}
 .btn-row-ic.danger{color:var(--danger-txt)}
 .btn-row-ic:disabled{opacity:.35;cursor:default}
-.fld{height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:13px;font-family:inherit}
+.fld{height:32px;padding:0 var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-base);font-family:inherit}
 /* P1(v717)：同 .input —— 删 `outline:none`（否则把全局 2px 焦点环挡掉）与看不见的 6% 光晕 */
 .fld:focus{border-color:var(--p-dark)}
-.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base)}
+.chip{display:inline-flex;align-items:center;gap:var(--sp-h6);height:32px;padding:0 var(--sp-3);border:1px solid transparent;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:var(--fs-base);font-weight:500;cursor:pointer;transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base)}
 .chip:hover{border-color:var(--p)}
 .chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 /* 🔴 v720：这里**不能再写 width/height**。
@@ -846,22 +876,22 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    内联式 <h2>标题</h2><span class="page-sub">…</span>  → 同一基线行；
    堆叠式 <div><h2>标题</h2><span class="page-sub">…</span></div> → 标题在上、副标题在下。
    两种结构兼容同一套规则；带右侧操作区加 .split；下边距交由父容器 gap 控制时加 .flush。 */
-.page-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
+.page-hd{display:flex;align-items:baseline;gap:var(--sp-h10);margin-bottom:var(--sp-h18)}
 /* v719 P2：页面标题改用 `<h1>`（每页唯一），同时保留 h2 兼容 —— 137 个页面里 62 处已改，
    剩下的少数（弹窗式页面、登录页、导入页）仍是 h2；两代写法必须同观感，否则改一个漏一个就漂。
    `margin:0` 是必须的：h1 的 UA 默认 margin 是 0.67em，会撑开页头且与 h2 不齐。 */
 .page-hd :is(h1,h2){font-size:var(--fs-h2);font-weight:600;margin:0;line-height:1.35}
-.page-hd.split{align-items:flex-start;justify-content:space-between;gap:12px}
+.page-hd.split{align-items:flex-start;justify-content:space-between;gap:var(--sp-3)}
 .page-hd.flush{margin-bottom:0}
-.page-sub{font-size:12px;color:var(--t3)}
+.page-sub{font-size:var(--fs-sm);color:var(--t3)}
 
 /* ④ 页内主 Tab（同一个业务模块下分「看数」与「录数」两个面）。
    🔴 **全站唯一一份**：2026-09-18 从 Rebate.vue（目标与返利）的 scoped 里上提到这里 ——
    货损核算要照它的样子分 tab，若各页各写一份，两处视觉必然逐轮漂移
    （项目铁律「第二份拷贝＝静默漂移」）。改这里的数值 = 同时改所有分 tab 的页面。
    用法：<div class="main-tabs"><button class="main-tab" :class="{on: …}">…</button>…</div> */
-.main-tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border-subtle)}
-.main-tab{padding:10px 18px;border:none;background:none;font-size:14px;color:var(--t2);cursor:pointer;position:relative;font-weight:500}
+.main-tabs{display:flex;gap:var(--sp-h6);margin-bottom:var(--sp-4);border-bottom:1px solid var(--border-subtle)}
+.main-tab{padding:var(--sp-h10) var(--sp-h18);border:none;background:none;font-size:var(--fs-md);color:var(--t2);cursor:pointer;position:relative;font-weight:500}
 .main-tab:hover{color:var(--t1)}
 .main-tab.on{color:var(--p-dark)}
 .main-tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:var(--radius-hair)}
@@ -874,7 +904,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    特异性 0,2,0）高于本规则（0,1,0），因此已自带内距的卡片全部保持原值，不受影响；
    本规则只作为兜底，保证任何裸用 .card 的元素都有内距。 */
 .card{
-  padding:18px;
+  padding:var(--sp-h18);
   background:var(--bg);
   border:1px solid var(--border-subtle);
   border-radius:var(--radius-lg);
@@ -896,7 +926,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .card.ipl-filter, .card.isl-filter, .card.is-filter,
 .card.fc-filter, .card.ff-filter, .card.fd-filter, .card.fbk-filter, .card.fs-filter,
 .card.wob-filter, .card.woi-filter, .card.wsa-filter, .card.win-filter, .card.wvs-filter{
-  padding:10px 14px;
+  padding:var(--sp-h10) var(--sp-h14);
 }
 
 /* ============================================================
@@ -913,23 +943,23 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    ============================================================ */
 
 /* 12 列自适应网格。grid-auto-flow:dense 允许后方小模块回填前方空洞，减少留白。 */
-.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:14px;grid-auto-flow:dense}
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--sp-h14);grid-auto-flow:dense}
 
 /* 顶部 KPI 概览条：整行铺开，默认 5 项；项数不同用 .cols-N 覆盖。 */
-.kpi-strip{grid-column:1/-1;display:grid;grid-template-columns:repeat(var(--kpi-cols,5),1fr);padding:6px 0}
+.kpi-strip{grid-column:1/-1;display:grid;grid-template-columns:repeat(var(--kpi-cols,5),1fr);padding:var(--sp-h6) 0}
 .kpi-strip.cols-3{--kpi-cols:3}
 .kpi-strip.cols-4{--kpi-cols:4}
 .kpi-strip.cols-6{--kpi-cols:6}
-.kpi-strip .kpi{padding:8px 18px;border-right:1px solid var(--border-subtle);transition:background var(--dur-base)}
-.kpi-strip .kpi:first-child{padding-left:20px}
+.kpi-strip .kpi{padding:var(--sp-2) var(--sp-h18);border-right:1px solid var(--border-subtle);transition:background var(--dur-base)}
+.kpi-strip .kpi:first-child{padding-left:var(--sp-5)}
 .kpi-strip .kpi:last-child{border-right:none}
 .kpi-strip .kpi:hover{background:var(--bg2)}
-.kpi-label{font-size:12px;color:var(--t3);margin-bottom:6px}
-.kpi-val{font-size:22px;font-weight:600;margin-bottom:2px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.kpi-label{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-h6)}
+.kpi-val{font-size:var(--fs-num);font-weight:600;margin-bottom:var(--sp-h2);font-variant-numeric:tabular-nums;letter-spacing:-.3px}
 .kpi-val.val-ok{color:var(--suc)}
 .kpi-val.val-warn{color:var(--war)}
 .kpi-val.val-bad{color:var(--dan)}
-.kpi-sub{font-size:12px;color:var(--t3)}
+.kpi-sub{font-size:var(--fs-sm);color:var(--t3)}
 
 /* 窄屏降级：1200px 下单行放不满 5 项 → 栅格降为 6 列、KPI 降为 3 列。 */
 @media(max-width:1200px){
@@ -942,7 +972,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
   .kpi-strip{grid-template-columns:repeat(2,1fr)}
   .kpi-strip .kpi:nth-child(odd){border-right:1px solid var(--border-subtle)}
   .kpi-strip .kpi:nth-child(even){border-right:none}
-  .kpi-val{font-size:18px}
+  .kpi-val{font-size:var(--fs-stat)}
 }
 
 /* ============================================================
@@ -957,23 +987,23 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    ⚠️ 本段只新增类，不修改任何既有规则。
    ============================================================ */
 .sec-hd{
-  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  display:flex;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap;
   font-size:var(--fs-h4);font-weight:600;color:var(--t1);
-  padding-bottom:10px;border-bottom:1px solid var(--border-subtle);
+  padding-bottom:var(--sp-h10);border-bottom:1px solid var(--border-subtle);
   position:relative;
 }
 .sec-hd::before{
   content:'';position:absolute;left:-18px;top:3px;
   width:3px;height:14px;border-radius:0 var(--radius-hair) var(--radius-hair) 0;background:var(--p-dark);
 }
-.sec-sub{font-weight:400;font-size:12px;color:var(--t3);line-height:1.6}
+.sec-sub{font-weight:400;font-size:var(--fs-sm);color:var(--t3);line-height:1.6}
 /* 标题若写成 `<b>xxx</b>`（多数页面如此），让它继承 600 而不是 UA 的 700 —— 否则同一
    视觉语言在两个页面里字重不一（本类只新增，不影响任何既有选择器）。 */
 .sec-hd b{font-weight:inherit}
 
 /* 输入 */
 .input{
-  width:100%;height:40px;padding:0 14px;
+  width:100%;height:40px;padding:0 var(--sp-h14);
   border:1px solid var(--bd);border-radius:var(--radius-md);
   background:var(--bg3);transition:border-color var(--dur-slow),box-shadow var(--dur-slow);
   /* v717：删掉这里的 outline:none —— 它曾把全局 2px 焦点环压掉（同特异性、后加载者胜），
@@ -1001,8 +1031,8 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 
 /* 徽章 */
 .badge{
-  display:inline-flex;align-items:center;height:20px;padding:0 8px;
-  border-radius:var(--radius-sm);font-size:12px;font-weight:500;
+  display:inline-flex;align-items:center;height:20px;padding:0 var(--sp-2);
+  border-radius:var(--radius-sm);font-size:var(--fs-sm);font-weight:500;
 }
 .badge-green{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .badge-red{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
@@ -1025,18 +1055,18 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
      默认（整页/整表空态）      48px 20px
      `.sm`（面板内小空态）      12px 4px   —— AI 面板/浮层里用，整页那种留白会撑破容器
    新写空态请直接用 components/EmptyState.vue，别在页面里再写一遍 .state-empty。 */
-.state-empty,.state-error{padding:48px 20px;text-align:center;color:var(--t3);font-size:13px}
-.state-empty.sm,.state-error.sm{padding:12px 4px;font-size:12px}
-.state-empty .se-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.state-empty,.state-error{padding:48px var(--sp-5);text-align:center;color:var(--t3);font-size:var(--fs-base)}
+.state-empty.sm,.state-error.sm{padding:var(--sp-3) var(--sp-1);font-size:var(--fs-sm)}
+.state-empty .se-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-h14)}
 
 /* 表格 */
 .table-wrap{overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-subtle)}
-table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-base)}
 table.tbl th{
-  text-align:left;padding:10px 14px;font-weight:500;color:var(--t3);
+  text-align:left;padding:var(--sp-h10) var(--sp-h14);font-weight:500;color:var(--t3);
   background:var(--bg2);border-bottom:1px solid var(--border-subtle);white-space:nowrap;
 }
-table.tbl td{padding:10px 14px;border-bottom:1px solid var(--border-subtle);color:var(--t1)}
+table.tbl td{padding:var(--sp-h10) var(--sp-h14);border-bottom:1px solid var(--border-subtle);color:var(--t1)}
 table.tbl tr:last-child td{border-bottom:none}
 table.tbl tbody tr:hover{background:var(--bg2)}
 table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
@@ -1047,12 +1077,12 @@ table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
       就又变成「同一规则抄多份 ⇒ 漏抄的那页不跟随」；这里统一由**祖先属性**驱动，
       全站 `table.tbl`（列表 / 报表）一律生效，页面零改动。
    specificity：`[data-density] table.tbl td` = (0,2,2) > 原 `table.tbl td` = (0,1,2) ⇒ 稳定覆盖。 */
-[data-density="compact"] table.tbl th{padding:5px 10px}
-[data-density="compact"] table.tbl td{padding:4px 10px}
+[data-density="compact"] table.tbl th{padding:5px var(--sp-h10)}
+[data-density="compact"] table.tbl td{padding:var(--sp-1) var(--sp-h10)}
 [data-density="compact"] table.tbl th.seq-th,
-[data-density="compact"] table.seq-host th.seq-th{padding:5px 4px}
+[data-density="compact"] table.seq-host th.seq-th{padding:5px var(--sp-1)}
 [data-density="compact"] table.tbl td.seq-cell,
-[data-density="compact"] table.seq-host td.seq-cell{padding:3px 4px}
+[data-density="compact"] table.seq-host td.seq-cell{padding:3px var(--sp-1)}
 /* 紧凑档把行内控件一起收矮，否则格子矮了、控件还是 32px，行高压不下来 */
 [data-density="compact"] table.tbl .input,
 [data-density="compact"] table.tbl input,
@@ -1078,15 +1108,15 @@ table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
    补上 `[data-v-xxx]` ⇒ specificity 从 (0,1,1) **升到 (0,2,1)**，与本规则原先的 `table.seq-host .seq-th`
    **(0,2,1) 同分**，而页面 CSS 在全局之后加载 ⇒ 后者胜，`text-align` 与 `padding` 一起被夺走。
    写作 `table.seq-host th.seq-th` = **(0,2,2)** ⇒ 稳压 scoped 的 (0,2,1)，无论加载顺序。 */
-table.tbl th.seq-th, table.seq-host th.seq-th{width:46px;min-width:46px;text-align:center;padding:8px 4px;vertical-align:middle}
-table.tbl td.seq-cell, table.seq-host td.seq-cell{width:46px;min-width:46px;text-align:center;padding:6px 4px;vertical-align:middle;color:var(--t3);font-size:12px}
+table.tbl th.seq-th, table.seq-host th.seq-th{width:46px;min-width:46px;text-align:center;padding:var(--sp-2) var(--sp-1);vertical-align:middle}
+table.tbl td.seq-cell, table.seq-host td.seq-cell{width:46px;min-width:46px;text-align:center;padding:var(--sp-h6) var(--sp-1);vertical-align:middle;color:var(--t3);font-size:var(--fs-sm)}
 table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;text-align:center;font-variant-numeric:tabular-nums}
 
 /* 标签行 */
-.tag-row{display:flex;gap:6px;flex-wrap:wrap}
+.tag-row{display:flex;gap:var(--sp-h6);flex-wrap:wrap}
 .tag{
-  display:inline-flex;align-items:center;height:22px;padding:0 8px;
-  border-radius:var(--radius-xs);font-size:12px;font-weight:500;background:var(--bg4);color:var(--t2);
+  display:inline-flex;align-items:center;height:22px;padding:0 var(--sp-2);
+  border-radius:var(--radius-xs);font-size:var(--fs-sm);font-weight:500;background:var(--bg4);color:var(--t2);
 }
 .tag.ok,.tag.suc{background:rgba(var(--suc-rgb),.12);color:var(--st-ok-txt)}
 .tag.warn{background:rgba(var(--war-rgb),.15);color:var(--st-warn-txt)}
@@ -1101,12 +1131,12 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 .tag.neutral{background:var(--bg4);color:var(--t2)}
 
 /* 面板标题行 */
-.panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-3)}
 /* v711：标题里的「图标 + 文字」必须 flex 居中。
    裸 `<b><Icon/> 标题</b>` 是 inline 上下文，svg 走 `vertical-align:middle`
    （对齐文字 x-height 中线），而中文汉字的视觉中心更高 ⇒ 图标实测偏高 2px。
    与 .btn 用同一套写法（inline-flex + align-items:center + gap:6px），保持同构。 */
-.panel-hd b{font-size:var(--fs-h4);font-weight:600;display:inline-flex;align-items:center;gap:6px}
+.panel-hd b{font-size:var(--fs-h4);font-weight:600;display:inline-flex;align-items:center;gap:var(--sp-h6)}
 
 /* 空态样式已上移到「空/错态」段，此处不再重复定义（v717 去重）。 */
 
@@ -1120,7 +1150,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 /* 多行骨架：替代「列表还没到就先说没有」的空态块（v725）。
    放在 .state-empty 原本的位置，纵向间距对齐列表行距，避免数据到达时跳版。
    统一一处定义，页面里不再各写副本。 */
-.sk-block{display:grid;gap:10px;padding:14px 2px}
+.sk-block{display:grid;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-h2)}
 .sk-block .skel-line{width:100%}
 
 /* ============================================================
@@ -1165,7 +1195,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
    ============================================================ */
 
 /* Tab 内容面板：与 .main-tabs 配套，给一点上间距即可（分隔线由 .main-tabs 提供）。 */
-.tab-pane{padding-top:4px}
+.tab-pane{padding-top:var(--sp-1)}
 
 /* 分组小卡片（如「小单位 / 中单位 / 大单位」三块）：比 .card 轻一档，
    不用 --shadow-* —— 嵌套在弹窗里的卡片再带阴影会显得脏。 */
@@ -1177,7 +1207,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 
 /* 复选组：一行排开，窄屏自动折行 */
 .check-group{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap}
-.check-item{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-base);color:var(--t1);cursor:pointer;user-select:none}
+.check-item{display:inline-flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t1);cursor:pointer;user-select:none}
 .check-item input{width:15px;height:15px;margin:0;cursor:pointer;accent-color:var(--p-dark)}
 .check-item input:disabled{cursor:not-allowed;opacity:.5}
 
@@ -1193,7 +1223,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 
 /* 价格矩阵表格：单元格里塞输入框 ⇒ 收紧内距、输入右对齐等宽数字 */
 .pm-wrap{overflow-x:auto;margin-bottom:var(--sp-3)}
-.pm-input{height:32px;padding:0 8px;text-align:right;font-variant-numeric:tabular-nums}
+.pm-input{height:32px;padding:0 var(--sp-2);text-align:right;font-variant-numeric:tabular-nums}
 .pm-c{text-align:center}
 
 /* 表格单元格的细粒度对齐（此前 pa-brand-cell / pa-lu-cell / pa-ou-cell 等同样零定义） */
@@ -1207,11 +1237,11 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
      </label> */
 .input.err{border-color:var(--dan);background:var(--danger-bg)}
 .input.err:focus{border-color:var(--dan);box-shadow:0 0 0 3px var(--dan-bg)}
-.field-err{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--danger-txt);line-height:1.5}
+.field-err{display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-sm);color:var(--danger-txt);line-height:1.5}
 
 /* 移动端基础 */
 @media(max-width:768px){
-  body{font-size:15px}
+  body{font-size:var(--fs-h4)}
 }
 
 /* ============================================================

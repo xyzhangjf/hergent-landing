@@ -271,27 +271,27 @@ onMounted(load)
 
 <style scoped>
 /* 仅保留仍被引用的私有类（期间选择 / 拆分卡 / 合计卡 / 第二张表挂在 #extra，插槽在本页作用域编译）。 */
-.pro-sel { padding: 4px 8px }
-.pro-tabs-card { margin-top: 14px }
-.pro-card { margin-top: 14px }
-.pro-split { margin-top: 14px; padding: 12px 14px }
-.pro-split-rows { display: flex; flex-direction: column; gap: 8px; margin-top: 8px }
-.pro-split-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap }
-.pro-split-k { font-size: 13px; color: var(--t1); min-width: 92px }
-.pro-split-v { font-size: 15px; font-weight: 600; color: var(--t1) }
-.pro-split-s { font-size: 12px; color: var(--t3) }
-.pro-sec { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap }
+.pro-sel { padding: var(--sp-1) var(--sp-2) }
+.pro-tabs-card { margin-top: var(--sp-h14) }
+.pro-card { margin-top: var(--sp-h14) }
+.pro-split { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14) }
+.pro-split-rows { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2) }
+.pro-split-row { display: flex; align-items: baseline; gap: var(--sp-h10); flex-wrap: wrap }
+.pro-split-k { font-size:var(--fs-base); color: var(--t1); min-width: 92px }
+.pro-split-v { font-size:var(--fs-h4); font-weight: 600; color: var(--t1) }
+.pro-split-s { font-size:var(--fs-sm); color: var(--t3) }
+.pro-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-h10); flex-wrap: wrap }
 .pro-tag {
-  display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 11px; font-weight: 400;
+  display: inline-block; margin-left: var(--sp-h6); padding: 0 var(--sp-h6); font-size:var(--fs-xs); font-weight: 400;
   border-radius: var(--radius-sm); background: var(--warn-amber-bg); color: var(--warn);
 }
-.pro-empty { padding: 6px 2px }
-.pro-empty-note { font-size: 12px; color: var(--t2); line-height: 1.9; margin: 0 }
-.pro-empty-guide { font-size: 12px; color: var(--t1); line-height: 1.9; margin: 8px 0 0 }
-.pro-note { font-size: 12px; color: var(--t2); line-height: 1.8; margin: 10px 2px 0 }
-.pro-tot { margin-top: 14px; padding: 12px 14px }
-.pro-tot-row { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 8px }
-.pro-tot-i { display: flex; align-items: baseline; gap: 6px; font-size: 13px }
+.pro-empty { padding: var(--sp-h6) var(--sp-h2) }
+.pro-empty-note { font-size:var(--fs-sm); color: var(--t2); line-height: 1.9; margin: 0 }
+.pro-empty-guide { font-size:var(--fs-sm); color: var(--t1); line-height: 1.9; margin: var(--sp-2) 0 0 }
+.pro-note { font-size:var(--fs-sm); color: var(--t2); line-height: 1.8; margin: var(--sp-h10) var(--sp-h2) 0 }
+.pro-tot { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14) }
+.pro-tot-row { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2) }
+.pro-tot-i { display: flex; align-items: baseline; gap: var(--sp-h6); font-size:var(--fs-base) }
 .pro-tot-i i { font-style: normal; color: var(--t2) }
 .pro-tot-i b { color: var(--t1) }
 </style>

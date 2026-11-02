@@ -389,98 +389,98 @@ defineExpose({ load: reloadAll })
 
 <style scoped>
 /* 页面私有类一律 `wsp-` 前缀（仓配·出入库策略）。 */
-.wsp-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.wsp-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 
-.wsp-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px }
-.wsp-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
+.wsp-bar { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin-bottom: var(--sp-3) }
+.wsp-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 /* 🔴 必须给显式宽度 + `flex:none`：全局 `.input` 是 `width:100%`，
    在本 flex 行里它的 flex-basis 就成了「整行宽」，`flex-shrink` 按基准宽度分摊，
    结果是这个下拉吃掉几乎整行、把右边的说明文字挤到下一行（实测截图确认过）。
    scoped 规则带 `[data-v-*]` ⇒ 特异性 (0,2,0) 胜过 `.input` 的 (0,1,0)，这里能覆盖住。 */
 .wsp-sel { width: 220px; min-width: 220px; flex: none }
-.wsp-bar-note { font-size: 12px; color: var(--t3) }
+.wsp-bar-note { font-size:var(--fs-sm); color: var(--t3) }
 
 .wsp-panels {
-  display: grid; gap: 12px;
+  display: grid; gap: var(--sp-3);
   grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
 }
 
 .wsp-p { display: flex; flex-direction: column; min-width: 0 }
 .wsp-p-hd {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  margin-bottom: var(--sp-h10); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--border-subtle);
 }
 .wsp-p-t {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 14px; font-weight: 600; color: var(--t1);
+  display: inline-flex; align-items: center; gap: var(--sp-h6);
+  font-size:var(--fs-md); font-weight: 600; color: var(--t1);
 }
-.wsp-p-s { font-size: 12px; color: var(--t3) }
+.wsp-p-s { font-size:var(--fs-sm); color: var(--t3) }
 .wsp-p-badge {
-  margin-left: auto; font-size: 12px; color: var(--t3);
+  margin-left: auto; font-size:var(--fs-sm); color: var(--t3);
   font-variant-numeric: tabular-nums;
 }
 .wsp-p-badge.bad { color: var(--dan) }
-.wsp-p-foot { font-size: 12px; color: var(--t3); margin-top: 10px; line-height: 1.7 }
+.wsp-p-foot { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h10); line-height: 1.7 }
 
 .wsp-tw { max-height: 380px; overflow: auto }
-.wsp-dim { color: var(--t3); font-size: 12px }
-.wsp-sub { color: var(--t3); font-size: 11px; margin-top: 2px }
+.wsp-dim { color: var(--t3); font-size:var(--fs-sm) }
+.wsp-sub { color: var(--t3); font-size:var(--fs-xs); margin-top: var(--sp-h2) }
 .wsp-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
 .wsp-need { color: var(--p-ink); font-weight: 600; font-variant-numeric: tabular-nums }
 
-.wsp-empty { padding: 28px 12px }
-.wsp-hint { font-size: 12px; color: var(--t3); margin-top: 6px }
+.wsp-empty { padding: 28px var(--sp-3) }
+.wsp-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .wsp-inline-err {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--dan);
   border-radius: var(--radius-md); background: var(--bg2); color: var(--danger-txt);
 }
 .wsp-biz {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--war);
   border-radius: var(--radius-md); background: var(--bg2); color: var(--war);
 }
 
 .wsp-dock-kpi {
-  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  margin-bottom: 10px; font-size: 12px; color: var(--t2);
+  display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
+  margin-bottom: var(--sp-h10); font-size:var(--fs-sm); color: var(--t2);
 }
 .wsp-dock-kpi b { color: var(--t1); font-variant-numeric: tabular-nums }
 .wsp-dock-hit b { color: var(--p-ink) }
 
-.wsp-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px }
-.wsp-fld { display: flex; flex-direction: column; gap: 4px; min-width: 140px }
+.wsp-form { display: flex; gap: var(--sp-h10); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--sp-3) }
+.wsp-fld { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 140px }
 .wsp-fld-prod { flex: 1; min-width: 240px }
 .wsp-wave { width: 160px }
 /* 同上（见 `WhItems.vue` 同段注释）：`ProductCombo` 未选中时是空 span ⇒ 本页是**手动触发**的
    面板，一个看不见的点击区尤其致命（用户不知道要先去哪儿选商品）。做成输入框外观 + 占位文案。 */
 .wsp-p :deep(.ipn-v) {
-  min-height: 38px; line-height: 36px; padding: 0 14px;
+  min-height: 38px; line-height: 36px; padding: 0 var(--sp-h14);
   border: 1px solid var(--bd); border-radius: var(--radius-md);
-  background: var(--bg3); font-size: 13px;
+  background: var(--bg3); font-size:var(--fs-base);
 }
 .wsp-p :deep(.ipn-v.is-ph)::before { content: '点击搜索商品'; color: var(--t3) }
 
 .wsp-result {
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
-  background: var(--bg2); padding: 12px 14px;
+  background: var(--bg2); padding: var(--sp-3) var(--sp-h14);
 }
-.wsp-r-row { display: flex; align-items: baseline; gap: 12px; padding: 3px 0; font-size: 13px }
-.wsp-r-lb { width: 76px; flex: none; color: var(--t3); font-size: 12px }
+.wsp-r-row { display: flex; align-items: baseline; gap: var(--sp-3); padding: 3px 0; font-size:var(--fs-base) }
+.wsp-r-lb { width: 76px; flex: none; color: var(--t3); font-size:var(--fs-sm) }
 .wsp-r-v { color: var(--t1) }
 .wsp-r-hi { font-weight: 600; color: var(--p-ink); font-variant-numeric: tabular-nums }
 .wsp-reason {
-  margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-subtle);
-  font-size: 12px; color: var(--t2); line-height: 1.7;
+  margin-top: var(--sp-2); padding-top: var(--sp-2); border-top: 1px dashed var(--border-subtle);
+  font-size:var(--fs-sm); color: var(--t2); line-height: 1.7;
 }
 
 .wsp-idle {
-  display: flex; align-items: center; gap: 8px;
-  padding: 18px 12px; font-size: 12px; color: var(--t3);
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-h18) var(--sp-3); font-size:var(--fs-sm); color: var(--t3);
 }
 
-.wsp-foot { font-size: 12px; color: var(--t2); margin-top: 14px; line-height: 1.7 }
+.wsp-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-h14); line-height: 1.7 }
 </style>

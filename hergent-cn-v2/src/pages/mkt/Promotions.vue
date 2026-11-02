@@ -27,7 +27,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <template v-else>
@@ -356,30 +356,30 @@ onMounted(() => { load(); loadProducts() })
 <style scoped>
 /* v691：弹窗骨架（遮罩/定位/层级/圆角/三段结构/动画）统一由 components/Modal.vue 提供，
    本页只保留弹窗内排版 —— 这些 class 挂在 slot 内元素上才带得到本页 scope id。 */
-.pm-body{display:flex;flex-direction:column;gap:12px}
+.pm-body{display:flex;flex-direction:column;gap:var(--sp-3)}
 /* 页面私有类一律 `pm-` 前缀；全局件（.page/.page-hd/.card/.table-wrap/.tbl/.num/.seq-th/
    .seq-cell/.state-empty/.state-error/.btn/.btn-sm/.btn-primary/.btn-ghost/.btn-row-ic/.input）
    一律复用，不重定义。 */
-.pm-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.pm-card { margin-top: 14px }
+.pm-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
+.pm-card { margin-top: var(--sp-h14) }
 .pm-prods { max-width: 220px }
-.pm-muted { color: var(--t3); font-size: 12px }
+.pm-muted { color: var(--t3); font-size:var(--fs-sm) }
 .pm-op { white-space: nowrap; text-align: right }
-.pm-badge { display: inline-block; padding: 1px 9px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 400 }
+.pm-badge { display: inline-block; padding: 1px 9px; border-radius: var(--radius-sm); font-size:var(--fs-sm); font-weight: 400 }
 .pm-badge.on { background: var(--ok-green-bg); color: var(--ok) }
 .pm-badge.off { background: var(--bg2); color: var(--t3) }
-.pm-empty { padding: 28px 4px }
-.pm-empty-note { font-size: 13px; color: var(--t2); margin: 0 }
-.pm-empty-guide { font-size: 12px; color: var(--t1); margin: 8px 0 0; line-height: 1.8 }
+.pm-empty { padding: 28px var(--sp-1) }
+.pm-empty-note { font-size:var(--fs-base); color: var(--t2); margin: 0 }
+.pm-empty-guide { font-size:var(--fs-sm); color: var(--t1); margin: var(--sp-2) 0 0; line-height: 1.8 }
 
 /* 弹窗 */
-.pm-form-err { padding: 8px 10px }
+.pm-form-err { padding: var(--sp-2) var(--sp-h10) }
 .pm-fld { display: flex; flex-direction: column; gap: 5px }
-.pm-lab { font-size: 12px; color: var(--t2) }
-.pm-row { display: flex; gap: 12px }
+.pm-lab { font-size:var(--fs-sm); color: var(--t2) }
+.pm-row { display: flex; gap: var(--sp-3) }
 .pm-row .pm-fld { flex: 1 }
-.pm-prod-box { border: 1px solid var(--bd); border-radius: var(--radius-sm); padding: 8px }
-.pm-all { font-size: 12px; color: var(--t2); display: flex; align-items: center; gap: 6px }
-.pm-prod-list { margin-top: 8px; max-height: 180px; overflow: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px }
-.pm-prod-item { font-size: 12px; color: var(--t1); display: flex; align-items: center; gap: 6px }
+.pm-prod-box { border: 1px solid var(--bd); border-radius: var(--radius-sm); padding: var(--sp-2) }
+.pm-all { font-size:var(--fs-sm); color: var(--t2); display: flex; align-items: center; gap: var(--sp-h6) }
+.pm-prod-list { margin-top: var(--sp-2); max-height: 180px; overflow: auto; display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-h2) var(--sp-h10) }
+.pm-prod-item { font-size:var(--fs-sm); color: var(--t1); display: flex; align-items: center; gap: var(--sp-h6) }
 </style>

@@ -1,6 +1,6 @@
 <template>
   <!-- v126 统一月表：年度与单期只是「填了 12 格还是 1 格」，底层同一张表 -->
-  <div class="form-grid3" style="margin-top:8px">
+  <div class="form-grid3" style="margin-top:var(--sp-2)">
     <div class="form-row"><label>目标年度</label>
       <input v-model.number="form.target_year" class="input" type="number" min="2000" max="2100" step="1" placeholder="如 2026">
     </div>
@@ -20,8 +20,8 @@
     </div>
   </div>
 
-  <div class="monthly-grid" style="margin-top:8px">
-    <div class="monthly-grid-hd" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+  <div class="monthly-grid" style="margin-top:var(--sp-2)">
+    <div class="monthly-grid-hd" style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-h6)">
       <span class="page-sub">金额 <b>万元</b>、返利率 <b>%</b>（10 = 10%）；留空 = 该月无目标</span>
       <span style="flex:1"></span>
       <span class="page-sub">已填 <b>{{ filledCount }}</b> 个月 · 合计 <b>{{ sumWan }}</b> 万元</span>
@@ -45,7 +45,7 @@
               <input v-model.number="m.ratePct" class="input cc-ti" type="number" min="0" max="100" step="0.1" placeholder="如 10">
             </td>
             <td v-else>
-              <div style="display:flex;align-items:center;gap:6px">
+              <div style="display:flex;align-items:center;gap:var(--sp-h6)">
                 <span class="mg-tier-txt" :class="{ 'is-empty': !tierText(m.tiers, form.rebate_basis) }">
                   {{ tierText(m.tiers, form.rebate_basis) || '未配置' }}
                 </span>
@@ -68,7 +68,7 @@
     </table>
   </div>
 
-  <div style="margin-top:8px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;border-top:1px dashed var(--bd);padding-top:8px">
+  <div style="margin-top:var(--sp-2);display:flex;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap;border-top:1px dashed var(--bd);padding-top:var(--sp-2)">
     <span class="page-sub" style="flex:0 0 auto">触发方式</span>
     <select v-model="form.trigger_mode" class="input" style="width:auto">
       <option value="on_target">达成即返（按月返利率）</option>
@@ -116,19 +116,19 @@ function toggle(mm) { openMm.value = openMm.value === mm ? '' : mm }
 </script>
 
 <style scoped>
-.form-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.form-row{display:flex;flex-direction:column;gap:6px}
-.form-row label{font-size:12px;font-weight:500;color:var(--t2)}
-.input-affix{display:flex;align-items:center;gap:6px}
+.form-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-3)}
+.form-row{display:flex;flex-direction:column;gap:var(--sp-h6)}
+.form-row label{font-size:var(--fs-sm);font-weight:500;color:var(--t2)}
+.input-affix{display:flex;align-items:center;gap:var(--sp-h6)}
 .input-affix .input{flex:1}
-.input-affix .affix{font-size:12px;color:var(--t3);white-space:nowrap}
-.dt-tier{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
-.dt-tier th,.dt-tier td{border:1px solid var(--border-subtle);padding:6px 8px;text-align:left}
-.cc-ti{width:90px;padding:3px 6px;font-size:12px}
+.input-affix .affix{font-size:var(--fs-sm);color:var(--t3);white-space:nowrap}
+.dt-tier{width:100%;border-collapse:collapse;margin-top:var(--sp-2);font-size:var(--fs-sm)}
+.dt-tier th,.dt-tier td{border:1px solid var(--border-subtle);padding:var(--sp-h6) var(--sp-2);text-align:left}
+.cc-ti{width:90px;padding:3px var(--sp-h6);font-size:var(--fs-sm)}
 .mg-open{background:rgba(var(--p-rgb),.06)}
-.mg-tier-txt{font-size:12px;color:var(--t1)}
+.mg-tier-txt{font-size:var(--fs-sm);color:var(--t1)}
 .mg-tier-txt.is-empty{color:var(--t3)}
-.mg-tier-cell{background:var(--bg);padding:8px 10px}
-.ap-sec-note{font-weight:400;font-size:12px;color:var(--t3);margin-left:4px}
+.mg-tier-cell{background:var(--bg);padding:var(--sp-2) var(--sp-h10)}
+.ap-sec-note{font-weight:400;font-size:var(--fs-sm);color:var(--t3);margin-left:var(--sp-1)}
 @media(max-width:768px){ .form-grid3{grid-template-columns:1fr} }
 </style>

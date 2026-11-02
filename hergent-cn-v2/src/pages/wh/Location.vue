@@ -33,7 +33,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <div v-else-if="!locations.length" class="card">
@@ -327,29 +327,29 @@ defineExpose({ load })
 </script>
 
 <style scoped>
-.wl-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.wl-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px }
-.wl-f { display: flex; flex-direction: column; gap: 4px }
-.wl-lb { font-size: 12px; color: var(--t3) }
+.wl-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
+.wl-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-h14) }
+.wl-f { display: flex; flex-direction: column; gap: var(--sp-1) }
+.wl-lb { font-size:var(--fs-sm); color: var(--t3) }
 .wl-sel { min-width: 160px }
 .wl-act-th { text-align: right }
-.wl-act { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap }
+.wl-act { display: flex; gap: var(--sp-h6); justify-content: flex-end; flex-wrap: wrap }
 
 .wl-modal-mask {
   position: fixed; inset: 0; background: rgba(0,0,0,.38);
-  display: flex; align-items: center; justify-content: center; z-index: 60; padding: 18px;
+  display: flex; align-items: center; justify-content: center; z-index: 60; padding: var(--sp-h18);
 }
-.wl-modal { width: 460px; max-width: 100%; max-height: 88vh; overflow: auto; padding: 18px }
+.wl-modal { width: 460px; max-width: 100%; max-height: 88vh; overflow: auto; padding: var(--sp-h18) }
 .wl-modal-lg { width: 720px }
-.wl-modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px }
-.wl-modal-hd h3 { font-size: 16px }
-.wl-x { border: none; background: transparent; cursor: pointer; color: var(--t2); padding: 4px }
-.wl-form { display: flex; flex-direction: column; gap: 12px }
+.wl-modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-3) }
+.wl-modal-hd h3 { font-size:var(--fs-lg) }
+.wl-x { border: none; background: transparent; cursor: pointer; color: var(--t2); padding: var(--sp-1) }
+.wl-form { display: flex; flex-direction: column; gap: var(--sp-3) }
 .wl-f-wide { width: 100% }
-.wl-tip { font-size: 12px; color: var(--t2); margin: 4px 0 0 }
-.wl-fe { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 8px 10px }
-.wl-modal-ft { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px }
-.wl-ar { max-height: 42vh; overflow: auto; margin-top: 8px }
+.wl-tip { font-size:var(--fs-sm); color: var(--t2); margin: var(--sp-1) 0 0 }
+.wl-fe { display: flex; align-items: center; gap: var(--sp-h6); margin-top: var(--sp-h10); padding: var(--sp-2) var(--sp-h10) }
+.wl-modal-ft { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4) }
+.wl-ar { max-height: 42vh; overflow: auto; margin-top: var(--sp-2) }
 .btn.danger { color: var(--danger) }
 .req { color: var(--danger) }
 </style>

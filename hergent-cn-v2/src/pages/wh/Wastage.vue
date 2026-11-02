@@ -226,7 +226,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ err }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadList()">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadList()">重试</button>
       </div>
     </template>
 
@@ -321,7 +321,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ dErr }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadDetail(detail.order.id)">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadDetail(detail.order.id)">重试</button>
       </div>
     </template>
   </div>
@@ -564,28 +564,28 @@ defineExpose({ load: loadList })
 
 <style scoped>
 /* 页面私有类一律 `wl-` 前缀（仓配·损益单/报损单）。 */
-.wl-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.wl-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 
 .wl-card { padding: 0; overflow: hidden }
 .wl-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
-.wl-time { font-size: 12px; color: var(--t3) }
-.wl-dim { color: var(--t3); font-size: 12px }
+.wl-time { font-size:var(--fs-sm); color: var(--t3) }
+.wl-dim { color: var(--t3); font-size:var(--fs-sm) }
 .wl-amt { color: var(--dan); font-variant-numeric: tabular-nums; font-weight: 600 }
-.wl-type-val { font-size: 15px }
+.wl-type-val { font-size:var(--fs-h4) }
 .wl-name { font-weight: 500 }
 
 .wl-op {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .wl-op:hover { text-decoration: underline }
 
-.wl-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
-.wl-empty-hint { font-size: 12px; color: var(--t3); margin-top: 6px }
+.wl-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.wl-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .wl-lock, .wl-void {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px; padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-bottom: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: var(--bg2); color: var(--t2);
 }
@@ -593,14 +593,14 @@ defineExpose({ load: loadList })
 .wl-void { border-left: 3px solid var(--t3); color: var(--t3) }
 
 .wl-meta {
-  display: flex; flex-wrap: wrap; gap: 18px;
-  margin-bottom: 12px; font-size: 12px; color: var(--t2);
+  display: flex; flex-wrap: wrap; gap: var(--sp-h18);
+  margin-bottom: var(--sp-3); font-size:var(--fs-sm); color: var(--t2);
 }
 .wl-meta b { color: var(--t3); font-weight: 500 }
 
 .wl-tbl, .wl-mk-tbl { table-layout: fixed }
 .wl-tbl th { white-space: nowrap }
-.wl-in { width: 100%; height: 30px; padding: 0 8px; font-size: 13px; text-align: right; font-variant-numeric: tabular-nums }
+.wl-in { width: 100%; height: 30px; padding: 0 var(--sp-2); font-size:var(--fs-base); text-align: right; font-variant-numeric: tabular-nums }
 .wl-in-txt { text-align: left }
 .wl-del {
   display: inline-flex; align-items: center; justify-content: center;
@@ -608,46 +608,46 @@ defineExpose({ load: loadList })
 }
 .wl-del:hover { color: var(--dan) }
 
-.wl-foot-lb { font-size: 12px; color: var(--t3); text-align: right }
+.wl-foot-lb { font-size:var(--fs-sm); color: var(--t3); text-align: right }
 .wl-foot-amt { font-weight: 600; color: var(--dan) }
 
 /* 新建区 */
-.wl-new { margin-bottom: 12px }
+.wl-new { margin-bottom: var(--sp-3) }
 .wl-new-hd {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 10px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size:var(--fs-base); font-weight: 600; color: var(--t2); margin-bottom: var(--sp-h10);
 }
-.wl-new-sub { font-size: 12px; font-weight: 400; color: var(--t3) }
+.wl-new-sub { font-size:var(--fs-sm); font-weight: 400; color: var(--t3) }
 
 /* 显著警示条：报损是一次性生效的库存+账务动作 */
 .wl-warn {
-  display: flex; align-items: flex-start; gap: 8px;
-  margin-bottom: 14px; padding: 9px 12px; font-size: 12px; line-height: 1.6;
+  display: flex; align-items: flex-start; gap: var(--sp-2);
+  margin-bottom: var(--sp-h14); padding: 9px var(--sp-3); font-size:var(--fs-sm); line-height: 1.6;
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--dan);
   border-radius: var(--radius-md); background: var(--bg2); color: var(--t2);
 }
-.wl-warn :deep(svg) { flex: none; margin-top: 2px; color: var(--dan) }
+.wl-warn :deep(svg) { flex: none; margin-top: var(--sp-h2); color: var(--dan) }
 
-.wl-new-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.wl-fld { display: flex; flex-direction: column; gap: 4px; min-width: 170px }
+.wl-new-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.wl-fld { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 170px }
 .wl-fld-grow { flex: 1; min-width: 240px }
-.wl-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
+.wl-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 
 .wl-items {
-  margin-top: 14px; padding-top: 12px;
+  margin-top: var(--sp-h14); padding-top: var(--sp-3);
   border-top: 1px dashed var(--border-subtle);
 }
 .wl-items-hd {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  font-size: 13px; font-weight: 600; color: var(--t2); margin-bottom: 10px;
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap;
+  font-size:var(--fs-base); font-weight: 600; color: var(--t2); margin-bottom: var(--sp-h10);
 }
 .wl-add-item { margin-left: auto }
-.wl-items-none { font-size: 12px; color: var(--t3) }
+.wl-items-none { font-size:var(--fs-sm); color: var(--t3) }
 
 .wl-new-foot {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-top: 14px; padding-top: 12px;
+  display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
+  margin-top: var(--sp-h14); padding-top: var(--sp-3);
   border-top: 1px solid var(--border-subtle);
 }
-.wl-new-note { font-size: 12px; color: var(--t3) }
+.wl-new-note { font-size:var(--fs-sm); color: var(--t3) }
 </style>

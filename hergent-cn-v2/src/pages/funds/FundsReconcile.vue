@@ -542,50 +542,50 @@ function exportCsv() {
 </script>
 
 <style scoped>
-.frc-acts { display: flex; gap: 8px }
-.frc-step { font-size: 13px; font-weight: 600; color: var(--t2); margin: 16px 2px 8px }
-.frc-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+.frc-acts { display: flex; gap: var(--sp-2) }
+.frc-step { font-size:var(--fs-base); font-weight: 600; color: var(--t2); margin: var(--sp-4) var(--sp-h2) var(--sp-2) }
+.frc-sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3) }
 @media (max-width: 900px) { .frc-sides { grid-template-columns: 1fr } }
-.frc-side { padding: 14px 16px }
-.frc-side-hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px }
-.frc-side-tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-xs) }
+.frc-side { padding: var(--sp-h14) var(--sp-4) }
+.frc-side-hd { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-h10) }
+.frc-side-tag { font-size:var(--fs-sm); font-weight: 600; padding: var(--sp-h2) var(--sp-2); border-radius: var(--radius-xs) }
 .frc-tag-a { background: rgba(47,107,255,.12); color: var(--brand) }
 .frc-tag-b { background: rgba(245,158,11,.14); color: var(--war) }
-.frc-file { font-size: 12px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px }
-.frc-presets { margin-left: auto; display: flex; gap: 4px }
-.frc-frow { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 8px }
-.frc-frow > label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t2) }
+.frc-file { font-size:var(--fs-sm); color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px }
+.frc-presets { margin-left: auto; display: flex; gap: var(--sp-1) }
+.frc-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--sp-2) }
+.frc-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
 .frc-map-grid > label { min-width: 180px; flex: 1 }
-.frc-file-input { font-size: 12px; padding: 6px }
+.frc-file-input { font-size:var(--fs-sm); padding: var(--sp-h6) }
 .frc-num { width: 90px }
-.frc-hint { font-size: 12px; color: var(--t2) }
-.frc-err { font-size: 12px; color: var(--bad); margin: 6px 0 }
+.frc-hint { font-size:var(--fs-sm); color: var(--t2) }
+.frc-err { font-size:var(--fs-sm); color: var(--bad); margin: var(--sp-h6) 0 }
 .frc-miss { border-color: var(--bad) }
-.frc-loaded { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; margin-top: 6px }
+.frc-loaded { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; font-size:var(--fs-sm); margin-top: var(--sp-h6) }
 .frc-ok { color: var(--ok) }
 .frc-sug { color: var(--t2) }
-.frc-chk { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--t2) }
-.frc-head-preview { margin-top: 8px }
-.frc-hp-lb { font-size: 12px; color: var(--t2); margin-bottom: 4px }
+.frc-chk { display: flex; gap: var(--sp-h6); align-items: center; font-size:var(--fs-sm); color: var(--t2) }
+.frc-head-preview { margin-top: var(--sp-2) }
+.frc-hp-lb { font-size:var(--fs-sm); color: var(--t2); margin-bottom: var(--sp-1) }
 .frc-hp-wrap { max-height: 180px; border: 1px solid var(--bd); border-radius: var(--radius-sm) }
-.frc-hp-tbl { font-size: 12px }
+.frc-hp-tbl { font-size:var(--fs-sm) }
 .frc-hp-tbl td { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis }
 .frc-hp-tbl tr { cursor: pointer }
 .frc-hp-tbl tr.frc-hp-on { background: rgba(47,107,255,.08) }
 .frc-hp-radio { width: 28px; text-align: center }
 .frc-radio { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--bd); border-radius: var(--radius-circle) }
 .frc-radio.on { border-color: var(--brand); background: var(--brand) }
-.frc-spec { padding: 14px 16px }
-.frc-run { display: flex; gap: 12px; align-items: center; margin: 14px 2px }
-.frc-run-hint { font-size: 12px; color: var(--bad) }
-.frc-warn { display: flex; gap: 8px; align-items: flex-start; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); color: var(--war); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; margin-bottom: 12px }
-.frc-note { font-size: 12px; color: var(--t2); background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 12px }
+.frc-spec { padding: var(--sp-h14) var(--sp-4) }
+.frc-run { display: flex; gap: var(--sp-3); align-items: center; margin: var(--sp-h14) var(--sp-h2) }
+.frc-run-hint { font-size:var(--fs-sm); color: var(--bad) }
+.frc-warn { display: flex; gap: var(--sp-2); align-items: flex-start; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); color: var(--war); border-radius: var(--radius-sm); padding: var(--sp-h10) var(--sp-3); font-size:var(--fs-base); margin-bottom: var(--sp-3) }
+.frc-note { font-size:var(--fs-sm); color: var(--t2); background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3) }
 .frc-card { padding: 0; overflow: hidden }
-.frc-filter { padding: 12px 14px 0 }
+.frc-filter { padding: var(--sp-3) var(--sp-h14) 0 }
 .frc-note-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .frc-detail td { background: var(--bg1) }
-.frc-detail-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+.frc-detail-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3) }
 @media (max-width: 900px) { .frc-detail-cols { grid-template-columns: 1fr } }
-.frc-d-lb { font-size: 12px; font-weight: 600; color: var(--t2); margin-bottom: 4px }
+.frc-d-lb { font-size:var(--fs-sm); font-weight: 600; color: var(--t2); margin-bottom: var(--sp-1) }
 .frc-empty { color: var(--t2); text-align: center }
 </style>

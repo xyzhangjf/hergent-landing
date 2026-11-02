@@ -71,10 +71,10 @@ const title = computed(() => {
    同行的 `.btn-sm` 也是 32 高 / 13px / radius-sm，两者并排时顶边与高度都该是 0 差。
    🔴 不写成 `.btn` 那一档（36 高 / 14px / radius-md）—— 那是主操作按钮，是主次分级差，不是错位。 */
 .tb-toggle{
-  display:inline-flex;align-items:center;gap:6px;
-  font-size:13px;font-weight:500;color:var(--t1);
+  display:inline-flex;align-items:center;gap:var(--sp-h6);
+  font-size:var(--fs-base);font-weight:500;color:var(--t1);
   background:transparent;border:1px solid var(--bd);border-radius:var(--radius-sm);
-  height:32px;padding:0 12px;white-space:nowrap;cursor:pointer;user-select:none;
+  height:32px;padding:0 var(--sp-3);white-space:nowrap;cursor:pointer;user-select:none;
   flex:0 0 auto;
 }
 .tb-toggle:hover{background:var(--bg2)}

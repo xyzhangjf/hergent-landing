@@ -306,51 +306,51 @@ onMounted(async () => {
    本页只保留「底部留白 60px」（页面自身的内容性间距，与宽度无关）。
    不要再在这里写 max-width / margin:0 auto / padding 左右 —— 见 UI-SPEC §3.1。 */
 .zp-wrap{padding:0 0 60px}
-.zp-hd{margin-bottom:14px}
-.zp-title{font-size:20px;font-weight:600;margin:0 0 6px;color:var(--t1)}
-.zp-sub{margin:0;font-size:13px;line-height:1.7;color:var(--t2)}
+.zp-hd{margin-bottom:var(--sp-h14)}
+.zp-title{font-size:var(--fs-xl);font-weight:600;margin:0 0 var(--sp-h6);color:var(--t1)}
+.zp-sub{margin:0;font-size:var(--fs-base);line-height:1.7;color:var(--t2)}
 .zp-card{background:var(--bg2);border:1px solid var(--bd);
-  border-radius:var(--radius-md);padding:16px 18px;margin-bottom:14px}
-.zp-rules{display:grid;gap:8px}
-.zp-rule{font-size:13px;line-height:1.8;color:var(--t2)}
+  border-radius:var(--radius-md);padding:var(--sp-4) var(--sp-h18);margin-bottom:var(--sp-h14)}
+.zp-rules{display:grid;gap:var(--sp-2)}
+.zp-rule{font-size:var(--fs-base);line-height:1.8;color:var(--t2)}
 .zp-rule b{color:var(--t1);font-weight:600}
-.zp-file{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.zp-file-input{font-size:13px}
-.zp-file-name{font-size:13px;color:var(--t2)}
-.zp-btn{padding:7px 16px;border-radius:var(--radius-sm);border:1px solid var(--bd);
-  background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer}
+.zp-file{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
+.zp-file-input{font-size:var(--fs-base)}
+.zp-file-name{font-size:var(--fs-base);color:var(--t2)}
+.zp-btn{padding:7px var(--sp-4);border-radius:var(--radius-sm);border:1px solid var(--bd);
+  background:var(--bg2);color:var(--t1);font-size:var(--fs-base);cursor:pointer}
 .zp-btn:disabled{opacity:.5;cursor:not-allowed}
 .zp-btn.zp-primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
-.zp-hint{margin:8px 0 0;font-size:12px;color:var(--t3);line-height:1.7}
-.zp-err{margin:10px 0 0;padding:8px 12px;border-radius:var(--radius-sm);background:var(--dan-bg);
-  color:var(--dan);font-size:13px}
-.zp-h2{margin:0 0 12px;font-size:15px;font-weight:600;color:var(--t1)}
-.zp-h3{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--t1)}
-.zp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:14px}
-.zp-stat{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:10px 12px}
-.zp-stat span{display:block;font-size:12px;color:var(--t2);margin-bottom:4px}
-.zp-stat b{font-size:15px;font-weight:600;color:var(--t1)}
+.zp-hint{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:1.7}
+.zp-err{margin:var(--sp-h10) 0 0;padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);background:var(--dan-bg);
+  color:var(--dan);font-size:var(--fs-base)}
+.zp-h2{margin:0 0 var(--sp-3);font-size:var(--fs-h4);font-weight:600;color:var(--t1)}
+.zp-h3{margin:0 0 var(--sp-2);font-size:var(--fs-base);font-weight:600;color:var(--t1)}
+.zp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--sp-h10);margin-bottom:var(--sp-h14)}
+.zp-stat{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3)}
+.zp-stat span{display:block;font-size:var(--fs-sm);color:var(--t2);margin-bottom:var(--sp-1)}
+.zp-stat b{font-size:var(--fs-h4);font-weight:600;color:var(--t1)}
 .zp-stat.zp-ok b{color:var(--ok-green)}
 .zp-stat.zp-warn b{color:var(--warn-amber)}
-.zp-running,.zp-done{margin:12px 0;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px}
+.zp-running,.zp-done{margin:var(--sp-3) 0;padding:var(--sp-h10) var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-base)}
 /* v271 进度条 */
 .zp-bar{height:8px;border-radius:var(--radius-2xs);background:var(--bd);overflow:hidden}
 .zp-bar-in{height:100%;background:var(--p-dark);border-radius:var(--radius-2xs);transition:width .4s ease}
 /* 分母未知时的流动条：宽度固定 35% 左右滑来滑去，告诉用户「在动，只是算不出百分比」 */
 .zp-bar-idle{width:35%;animation:zp-slide 1.2s ease-in-out infinite}
 @keyframes zp-slide{0%{margin-left:-35%}100%{margin-left:100%}}
-.zp-prog-txt{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--t2)}
+.zp-prog-txt{display:flex;align-items:center;gap:var(--sp-h14);flex-wrap:wrap;margin-top:var(--sp-h10);font-size:var(--fs-base);color:var(--t2)}
 .zp-prog-txt b{color:var(--p-dark)}
 .zp-running{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .zp-done{background:var(--ok-green-bg);color:var(--ok-green)}
-.zp-fold{margin-top:14px;font-size:13px;color:var(--t2)}
-.zp-fold summary{cursor:pointer;padding:6px 0}
-.zp-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
-.zp-tbl th{text-align:left;padding:7px 10px;border-bottom:1px solid var(--bd);
-  color:var(--t2);font-weight:500;font-size:12px}
-.zp-tbl td{padding:7px 10px;border-bottom:1px solid var(--bd);color:var(--t1)}
+.zp-fold{margin-top:var(--sp-h14);font-size:var(--fs-base);color:var(--t2)}
+.zp-fold summary{cursor:pointer;padding:var(--sp-h6) 0}
+.zp-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-base);margin-top:var(--sp-h6)}
+.zp-tbl th{text-align:left;padding:7px var(--sp-h10);border-bottom:1px solid var(--bd);
+  color:var(--t2);font-weight:500;font-size:var(--fs-sm)}
+.zp-tbl td{padding:7px var(--sp-h10);border-bottom:1px solid var(--bd);color:var(--t1)}
 .zp-tbl .zp-num{text-align:right}
-.zp-miss,.zp-warnbox{margin-top:16px}
-.zp-link{margin-top:8px;background:none;border:none;color:var(--p-dark);
-  font-size:13px;cursor:pointer;padding:0}
+.zp-miss,.zp-warnbox{margin-top:var(--sp-4)}
+.zp-link{margin-top:var(--sp-2);background:none;border:none;color:var(--p-dark);
+  font-size:var(--fs-base);cursor:pointer;padding:0}
 </style>

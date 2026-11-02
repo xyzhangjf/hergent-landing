@@ -20,7 +20,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <template v-else>
@@ -277,16 +277,16 @@ onMounted(load)
 </script>
 
 <style scoped>
-.rpt-acts { display: flex; gap: 10px; align-items: center; }
-.dh-stamp { font-size: 12px; color: var(--t2); }
+.rpt-acts { display: flex; gap: var(--sp-h10); align-items: center; }
+.dh-stamp { font-size:var(--fs-sm); color: var(--t2); }
 
 .dh-legend {
-  margin-top: 14px; padding: 10px 14px; font-size: 12px;
+  margin-top: var(--sp-h14); padding: var(--sp-h10) var(--sp-h14); font-size:var(--fs-sm);
   line-height: 2.1; color: var(--t2); background: var(--bg2);
 }
 .dh-chip {
-  display: inline-block; margin: 0 4px; padding: 0 7px; border-radius: var(--radius-2xs);
-  font-size: 11px; font-weight: 600; line-height: 18px;
+  display: inline-block; margin: 0 var(--sp-1); padding: 0 7px; border-radius: var(--radius-2xs);
+  font-size:var(--fs-xs); font-weight: 600; line-height: 18px;
 }
 .dh-chip.st-pass { color: var(--ok-green); background: var(--ok-green-bg); }
 .dh-chip.st-warn { color: var(--warn-amber); background: var(--warn-amber-bg); }
@@ -294,7 +294,7 @@ onMounted(load)
 .dh-chip.st-unavailable { color: var(--t2); background: var(--bg2); border: 1px dashed var(--bd); }
 
 .dh-card {
-  margin-top: 14px; padding: 14px 16px 12px;
+  margin-top: var(--sp-h14); padding: var(--sp-h14) var(--sp-4) var(--sp-3);
   border-left: 3px solid var(--bd);
 }
 .dh-card.st-pass { border-left-color: var(--ok-green); }
@@ -302,42 +302,42 @@ onMounted(load)
 .dh-card.st-fail { border-left-color: var(--danger-txt); }
 .dh-card.st-unavailable { border-left-color: var(--bd); border-left-style: dashed; }
 
-.dh-hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dh-hd { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .dh-dot { width: 8px; height: 8px; border-radius: var(--radius-circle); background: var(--t2); flex: none; }
 .st-pass .dh-dot { background: var(--ok-green); }
 .st-warn .dh-dot { background: var(--warn-amber); }
 .st-fail .dh-dot { background: var(--danger-txt); }
 .st-unavailable .dh-dot { background: var(--bd); }
 
-.dh-title { font-size: 14px; font-weight: 600; color: var(--t1); }
+.dh-title { font-size:var(--fs-md); font-weight: 600; color: var(--t1); }
 .dh-badge {
-  font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: var(--radius-2xs);
+  font-size:var(--fs-xs); font-weight: 600; padding: 1px 7px; border-radius: var(--radius-2xs);
   color: var(--t2); background: var(--bg2);
 }
 .st-pass .dh-badge { color: var(--ok-green); background: var(--ok-green-bg); }
 .st-warn .dh-badge { color: var(--warn-amber); background: var(--warn-amber-bg); }
 .st-fail .dh-badge { color: var(--danger-txt); background: var(--danger-bg); }
-.dh-headline { font-size: 13px; color: var(--t1); margin-left: 2px; }
+.dh-headline { font-size:var(--fs-base); color: var(--t1); margin-left: var(--sp-h2); }
 .st-fail .dh-headline { color: var(--danger-txt); font-weight: 600; }
 
 .dh-nums {
-  display: flex; flex-wrap: wrap; gap: 6px 22px;
-  margin-top: 10px; padding: 9px 12px; background: var(--bg2); border-radius: var(--radius-xs);
+  display: flex; flex-wrap: wrap; gap: var(--sp-h6) 22px;
+  margin-top: var(--sp-h10); padding: 9px var(--sp-3); background: var(--bg2); border-radius: var(--radius-xs);
 }
 .dh-num { display: flex; flex-direction: column; gap: 1px; min-width: 92px; }
-.dh-nk { font-size: 11px; color: var(--t2); }
-.dh-nv { font-size: 13px; font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; }
+.dh-nk { font-size:var(--fs-xs); color: var(--t2); }
+.dh-nv { font-size:var(--fs-base); font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; }
 
 .dh-why, .dh-hint {
-  margin: 10px 0 0; font-size: 12px; line-height: 1.95; color: var(--t2);
+  margin: var(--sp-h10) 0 0; font-size:var(--fs-sm); line-height: 1.95; color: var(--t2);
 }
 .dh-hint { color: var(--t1); }
 .dh-hint b { color: var(--warn-amber); }
 
-.dh-card .table-wrap { margin-top: 10px; }
-.dh-foot { margin: 6px 2px 0; font-size: 11px; color: var(--t2); }
+.dh-card .table-wrap { margin-top: var(--sp-h10); }
+.dh-foot { margin: var(--sp-h6) var(--sp-h2) 0; font-size:var(--fs-xs); color: var(--t2); }
 .dh-note {
-  margin: 16px 2px 0; font-size: 11px; line-height: 1.9; color: var(--t2);
+  margin: var(--sp-4) var(--sp-h2) 0; font-size:var(--fs-xs); line-height: 1.9; color: var(--t2);
 }
-.dh-note code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size: 11px; }
+.dh-note code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs); }
 </style>

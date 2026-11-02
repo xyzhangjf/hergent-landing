@@ -415,45 +415,45 @@ onBeforeUnmount(() => { clearTimeout(_t) })
 /* 前缀 sup- = 供应商档案（UI-SPEC §6.1）。
    能走全局层的一律走全局层：.page / .page-hd / .card / .btn* / .input / .table-wrap
    / .tbl / .num / .state-empty / .field-err —— 本页**不重定义**任何一个全局件（§6.2）。 */
-.sup-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
-.sup-stat{font-size:12px;color:var(--t2)}
-.sup-stat b{font-size:15px;color:var(--t1)}
-.sup-sync{font-size:12px;padding:3px 10px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sup-actions{display:flex;align-items:center;gap:var(--sp-2);flex-shrink:0;flex-wrap:wrap}
+.sup-stat{font-size:var(--fs-sm);color:var(--t2)}
+.sup-stat b{font-size:var(--fs-h4);color:var(--t1)}
+.sup-sync{font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sup-sync.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sup-sync.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
-.sup-panel{padding:18px;margin-bottom:14px}
-.sup-filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.sup-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
+.sup-filters{display:flex;gap:var(--sp-h10);flex-wrap:wrap;align-items:center;margin-bottom:var(--sp-3)}
 .sup-search{position:relative;display:flex;align-items:center;flex:0 1 300px;min-width:180px}
 .sup-search-ico{position:absolute;left:10px;width:15px;height:15px;color:var(--t3);pointer-events:none}
-.sup-kw{width:100%;padding-left:32px}
+.sup-kw{width:100%;padding-left:var(--sp-7)}
 
 .tbl td.sup-name{font-weight:600;color:var(--t1)}
 .sup-phone{font-variant-numeric:tabular-nums}
 .sup-ops{text-align:right;white-space:nowrap}
 
-.sup-pager{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
-.sup-pageinfo{font-size:12px;color:var(--t2)}
+.sup-pager{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-h14);flex-wrap:wrap}
+.sup-pageinfo{font-size:var(--fs-sm);color:var(--t2)}
 .sup-size{height:30px;width:auto}
 
 /* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画全部由 components/Modal.vue 提供，
    本页只保留「弹窗里长什么样」—— 这些 class 都挂在 slot 内的元素上） */
-.sup-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 12px;background:var(--bg2);padding:8px 12px;border-radius:var(--radius-sm)}
-.sup-hint{font-size:12px;color:var(--war);margin-right:auto}
+.sup-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin:0 0 var(--sp-3);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
+.sup-hint{font-size:var(--fs-sm);color:var(--war);margin-right:auto}
 
-.sup-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
-.sup-form-more{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-subtle)}
-.sup-f{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
-.sup-f>span{display:flex;align-items:baseline;gap:6px}
+.sup-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h14)}
+.sup-form-more{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px dashed var(--border-subtle)}
+.sup-f{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-sm);color:var(--t2)}
+.sup-f>span{display:flex;align-items:baseline;gap:var(--sp-h6)}
 .sup-f i{color:var(--dan);font-style:normal}
-.sup-f em{font-size:11px;color:var(--t3);font-style:normal}
-.sup-f .input{height:32px;padding:0 10px}
+.sup-f em{font-size:var(--fs-xs);color:var(--t3);font-style:normal}
+.sup-f .input{height:32px;padding:0 var(--sp-h10)}
 .sup-f-full{grid-column:1 / -1}
-.sup-ta{height:auto;min-height:60px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
-.sup-more{width:100%;margin-top:12px;padding:8px;border:1px dashed var(--border-subtle);border-radius:var(--radius-sm);
-  background:none;color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.sup-ta{height:auto;min-height:60px;padding:var(--sp-2) var(--sp-h10);line-height:1.6;resize:vertical;font-family:inherit}
+.sup-more{width:100%;margin-top:var(--sp-3);padding:var(--sp-2);border:1px dashed var(--border-subtle);border-radius:var(--radius-sm);
+  background:none;color:var(--t2);font-size:var(--fs-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:var(--sp-h6)}
 .sup-more:hover{color:var(--p-ink);border-color:var(--p)}
-.sup-caret{font-size:11px}
+.sup-caret{font-size:var(--fs-xs)}
 
 /* UI-SPEC §3.3：表单型页面**必须**有 640px 断点（四个档案页曾全部为 0 个 @media）。 */
 @media (max-width:640px){

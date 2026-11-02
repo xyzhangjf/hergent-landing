@@ -127,6 +127,6 @@ watch(tabs, (list) => {
    于是 商品档案的「补进价 / 新增 / 导入 / 导出」、员工与客户档案的「同步」全都点不到
    （`Archive.vue` 自 2026-08-31 引入 tab 壳起一直如此）。改法：只藏标题块，保留工具条并右对齐。 */
 .archive-panel :deep(.page-hd) { display: none; }
-.archive-panel :deep(.page-hd.split) { display: flex; justify-content: flex-end; margin: 0 0 12px; }
+.archive-panel :deep(.page-hd.split) { display: flex; justify-content: flex-end; margin: 0 0 var(--sp-3); }
 .archive-panel :deep(.page-hd.split > div:first-child) { display: none; }
 </style>

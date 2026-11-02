@@ -588,12 +588,12 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
      · 零 background / 零 border / 零 border-radius（用户明确拒绝圆形与圆角矩形容器）；
      · color 继承(var(--t2)) + 静息 opacity:.55（与侧边栏等权），hover 提至 1；
      · 16px（Forecast .exp-chev 同尺寸），padding:6px 仅扩点击热区、不产生可见形状。 */
-.sprint-card .panel-hd{ gap:8px }
+.sprint-card .panel-hd{ gap:var(--sp-2) }
 .sprint-card .panel-hd .sprint-toggle{
   margin-left:auto;
   flex:0 0 auto;
   display:inline-flex;align-items:center;justify-content:center;
-  padding:6px;
+  padding:var(--sp-h6);
   color:var(--t2);
   opacity:.55;
   background:none;
@@ -607,10 +607,10 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:18px;height:18px;vertical-align:middle}
 
 .sprint-card{}
-.sprint-card.is-pinned{margin:14px 0 4px;border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
-.sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:10px;margin-bottom:0}
+.sprint-card.is-pinned{margin:var(--sp-h14) 0 var(--sp-1);border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
+.sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:var(--sp-h10);margin-bottom:0}
 /* 决策横幅（A2）：一行承载「未达标数 / 总缺口 / 剩余到货机会 / 均单需报」，折叠与展开都常显 */
-.sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:9px 16px;font-size:var(--fs-sm);line-height:1.5;color:var(--t2)}
+.sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-h6);padding:9px var(--sp-4);font-size:var(--fs-sm);line-height:1.5;color:var(--t2)}
 .sprint-banner b{color:var(--t1);font-variant-numeric:tabular-nums}
 /* 数值状态色复用既有 .val-warn / .val-ok（见本文件 L6799-6800），不另造色类；
    因 .sprint-banner b 优先级更高，需显式压过，故写成 b.val-warn */
@@ -618,10 +618,10 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-banner .sep{color:var(--t3)}
 /* 虚线挂到明细区自己这一侧（border-top）—— 它能随 v-show 一起隐藏。
    若改挂在 .sprint-banner 的 border-bottom 上，折叠时会留下一条悬空线。 */
-.sprint-card .panel-body{padding-top:10px;border-top:1px dashed var(--border-subtle)}
+.sprint-card .panel-body{padding-top:var(--sp-h10);border-top:1px dashed var(--border-subtle)}
 /* 冲刺看板：行内时间进度（右对齐到页头行最右侧）+ 进度条上的时间进度虚线标记
    （虚线范式与仪表盘 .rr-bar-mark 一致：橙色 2px dashed，超出条形上下各 3px） */
-.sprint-card .sprint-tp{margin-left:auto;margin-right:2px;font-size:var(--fs-sm);color:var(--t3);white-space:nowrap}
+.sprint-card .sprint-tp{margin-left:auto;margin-right:var(--sp-h2);font-size:var(--fs-sm);color:var(--t3);white-space:nowrap}
 .sprint-card .sprint-tp b{color:var(--war);font-size:var(--fs-base);font-variant-numeric:tabular-nums}
 .sp-bar{position:relative}
 /* 仅冲刺面板加高到 12px：让时间进度虚线可读（实测行高 41px 由文字行盒决定，加高不改变行高）；
@@ -642,14 +642,14 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-card .sp-pace.pace-even{color:var(--t3)}
 /* 时间语义着色：达成未达时间进度=红，已超前=绿（复用全局 .progress>i 的绿/琥珀范式） */
 .sprint-card .progress.red>i{background:var(--dan)}
-.sprint-sum{margin:0 0 12px;font-size:13px;color:var(--t2);line-height:1.7}
+.sprint-sum{margin:0 0 var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:1.7}
 .sprint-sum b{color:var(--t1)}
 .sprint-sum .muted{color:var(--t3);font-size:var(--fs-sm)}
-.sprint-suggest{margin-top:12px;font-size:13px;color:var(--t2);line-height:1.8}
-.sprint-suggest ul{margin:6px 0 0;padding-left:18px}
-.sprint-suggest li{margin:4px 0}
-.sprint-prod{display:inline-block;margin:0 8px 0 4px;padding:1px 8px;background:var(--bg3);border-radius:var(--radius-md);font-size:12px;color:var(--t2)}
-.sprint-prod-empty{margin-left:4px;padding:1px 8px;font-size:12px;color:var(--warn-amber);background:color-mix(in srgb,var(--warn-amber) 10%,transparent);border-radius:var(--radius-md)}
+.sprint-suggest{margin-top:var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:1.8}
+.sprint-suggest ul{margin:var(--sp-h6) 0 0;padding-left:var(--sp-h18)}
+.sprint-suggest li{margin:var(--sp-1) 0}
+.sprint-prod{display:inline-block;margin:0 var(--sp-2) 0 var(--sp-1);padding:1px var(--sp-2);background:var(--bg3);border-radius:var(--radius-md);font-size:var(--fs-sm);color:var(--t2)}
+.sprint-prod-empty{margin-left:var(--sp-1);padding:1px var(--sp-2);font-size:var(--fs-sm);color:var(--warn-amber);background:color-mix(in srgb,var(--warn-amber) 10%,transparent);border-radius:var(--radius-md)}
 .sprint-card.is-pinned .panel-hd svg.ico{vertical-align:-3px}
 /* 数值状态色：模板里直接用裸 .val-warn / .val-ok（缺口/均单告警、全部达成）。
    ⚠️ 父级 Forecast.vue scoped 块里也有同名裸类，但 scoped 那份**只对父组件自己的 DOM 生效**，
@@ -665,7 +665,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 /* 折叠箭头在浮层里隐藏：内容是主动悬停唤出的，还留着"再折起来"只会有两种误读
    （以为浮层没加载完 / 手滑点掉后以为坏了）。 */
 .sprint-card.is-pinned.is-bare .panel-hd .sprint-toggle{display:none}
-.sprint-card.is-pinned.is-bare .panel-hd{padding-bottom:8px}
+.sprint-card.is-pinned.is-bare .panel-hd{padding-bottom:var(--sp-2)}
 /* 决策横幅横向内距归零：浮层自身已有 14px 内距，否则数字右移一截、与明细表左边缘不齐。 */
-.sprint-card.is-pinned.is-bare .sprint-banner{padding:8px 0}
+.sprint-card.is-pinned.is-bare .sprint-banner{padding:var(--sp-2) 0}
 </style>

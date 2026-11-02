@@ -6,7 +6,7 @@
     </div>
 
     <Skeleton v-if="loading" />
-    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button></div>
+    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button></div>
 
     <template v-else>
       <div class="card fsd-card">
@@ -66,6 +66,6 @@ onMounted(load)
 </script>
 
 <style scoped>
-.fsd-acts { display: flex; gap: 8px }
+.fsd-acts { display: flex; gap: var(--sp-2) }
 .fsd-card { padding: 0; overflow: hidden }
 </style>

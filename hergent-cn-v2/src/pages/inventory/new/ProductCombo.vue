@@ -108,28 +108,28 @@ function onBlur () { editing.value = false }
 .ipn-prod-combo .ipn-in { width: 100% }
 .ipn-prod-list {
   position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 30;
-  margin: 0; padding: 4px; list-style: none; max-height: 260px; overflow-y: auto;
+  margin: 0; padding: var(--sp-1); list-style: none; max-height: 260px; overflow-y: auto;
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-sm);
   box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
 }
 .ipn-prod-list li {
-  display: flex; align-items: center; gap: 8px; padding: 4px 8px;
-  border-radius: var(--radius-xs); cursor: pointer; font-size: 13px; color: var(--t1);
+  display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--radius-xs); cursor: pointer; font-size:var(--fs-base); color: var(--t1);
 }
 .ipn-prod-list li.active, .ipn-prod-list li:hover { background: var(--bg2) }
 .ipn-prod-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 /* v685：档位徽标。`flex:none` 且不换行 —— 它是"用来分辨同名商品"的信息，
    被省略号吃掉就等于没有。单档灰、无价红。 */
 .ipn-prod-tier {
-  flex: none; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: var(--radius-2xs);
+  flex: none; font-size:var(--fs-xs); line-height: 16px; padding: 0 5px; border-radius: var(--radius-2xs);
   color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .ipn-prod-tier.is-muted { color: var(--t3) }
 .ipn-prod-tier.is-warn { color: var(--danger-txt, var(--war)) }
-.ipn-prod-bar { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
+.ipn-prod-bar { flex: none; font-size:var(--fs-sm); color: var(--t3); font-variant-numeric: tabular-nums }
 .ipn-prod-empty {
   position: absolute; left: 0; right: 0; top: calc(100% + 2px); z-index: 30;
-  padding: 8px 10px; font-size: 13px; color: var(--t3);
+  padding: var(--sp-2) var(--sp-h10); font-size:var(--fs-base); color: var(--t3);
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-sm);
   box-shadow: 0 6px 18px rgba(0, 0, 0, .12);
 }
@@ -142,7 +142,7 @@ function onBlur () { editing.value = false }
          这条规范在四页上名存实亡。 */
 .ipn-v {
   display: block; width: 100%; min-height: 18px; line-height: 18px;
-  font-size: 13px; color: var(--t1); cursor: pointer; outline: none;
+  font-size:var(--fs-base); color: var(--t1); cursor: pointer; outline: none;
 }
 /* 紧凑档再收一档（与基准页同口径：18 → 16） */
 [data-density="compact"] .ipn-v { min-height: 16px; line-height: 16px }

@@ -11,7 +11,7 @@
         <b>数据备份</b>
         <span class="page-sub">每日 03:00 自动备份主库+所有租户库 · 日 7 / 周 4 保留 · 一键恢复</span>
       </div>
-      <div class="tb-group tb-right" style="margin-bottom:12px">
+      <div class="tb-group tb-right" style="margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-primary" :disabled="running" @click="runBackupNow">
           {{ running ? '备份中…' : '立即备份' }}
         </button>
@@ -66,7 +66,7 @@
         <b>AI 健康看板</b>
         <span class="page-sub">LLM 调用全链路 tracing · 24h 成功率/延迟/失败归因</span>
       </div>
-      <div class="tb-group tb-right" style="margin-bottom:12px">
+      <div class="tb-group tb-right" style="margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-ghost" @click="loadObs">刷新</button>
       </div>
       <div v-if="obs" class="bk-stat">
@@ -116,9 +116,9 @@
         <b>配方导入导出</b>
         <span class="page-sub">把货损/工资/预报三套配方当 JSON 备份，可回滚 / 跨店复用</span>
       </div>
-      <div class="tb-group tb-right" style="margin-bottom:12px">
+      <div class="tb-group tb-right" style="margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-primary" @click="exportRecipes">导出当前配方</button>
-        <label class="btn btn-sm btn-ghost" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer">
+        <label class="btn btn-sm btn-ghost" style="display:inline-flex;align-items:center;gap:var(--sp-1);cursor:pointer">
           导入文件…
           <input type="file" accept=".json" style="display:none" @change="importRecipesFile" />
         </label>
@@ -150,13 +150,13 @@
       <div v-if="recipeImportWarn" class="quota-sub" style="color:var(--danger-txt)">{{ recipeImportWarn }}</div>
 
       <!-- 版本历史 / 回滚 -->
-      <div class="recipe-ver" style="margin-top:16px;border-top:1px solid var(--border-subtle);padding-top:14px">
+      <div class="recipe-ver" style="margin-top:var(--sp-4);border-top:1px solid var(--border-subtle);padding-top:var(--sp-h14)">
         <div class="prof-hd" style="display:flex;justify-content:space-between;align-items:center">
           <span>配方版本历史 <span class="quota-sub">（每次导入/回滚自动快照，覆盖有解药）</span></span>
           <button class="btn btn-sm btn-ghost" :disabled="verLoading" @click="loadVersions">{{ verLoading ? '加载中…' : '刷新版本' }}</button>
         </div>
         <div v-if="verError" class="quota-sub" style="color:var(--danger-txt)">{{ verError }}</div>
-        <div v-if="verList && verList.length" class="ver-list" style="margin-top:10px">
+        <div v-if="verList && verList.length" class="ver-list" style="margin-top:var(--sp-h10)">
           <div v-for="v in verList" :key="v.id" class="obs-row" style="align-items:center">
             <span class="obs-prov-tag">{{ recipeLabel(v.key) }}</span>
             <span class="quota-sub">v{{ v.content_version }} · {{ v.change_summary }}</span>
@@ -174,7 +174,7 @@
         <b>审计日志</b>
         <span class="page-sub">销售/收款/调价/对账/库存全路径留痕，可按模块筛选</span>
       </div>
-      <div class="tb-group" style="margin-bottom:12px;gap:8px;flex-wrap:wrap">
+      <div class="tb-group" style="margin-bottom:var(--sp-3);gap:var(--sp-2);flex-wrap:wrap">
         <select v-model="auditFilter.module" class="fld" @change="loadAudit" style="min-width:120px">
           <option value="">全部模块</option>
           <option v-for="m in auditModules" :key="m.name" :value="m.name">{{ m.name }} ({{ m.count }})</option>
@@ -206,7 +206,7 @@
         <b>AI 兜底记录</b>
         <span class="page-sub">LLM 失败或低置信度时自动落档，连续 ≥2 次推通知升级</span>
       </div>
-      <div class="tb-group tb-right" style="margin-bottom:12px">
+      <div class="tb-group tb-right" style="margin-bottom:var(--sp-3)">
         <button class="btn btn-sm btn-ghost" @click="loadFallback">刷新</button>
         <button class="btn btn-sm btn-primary" :disabled="!fallbackList.length" @click="ackFallback">全部知道了</button>
       </div>
@@ -477,54 +477,54 @@ async function ackFallback() {
 </script>
 
 <style scoped>
-.aops{display:flex;flex-direction:column;gap:16px}
-.aops-tip{display:flex;align-items:baseline;gap:10px;padding:10px 14px;background:var(--bg2);border:1px dashed var(--border-subtle);border-radius:var(--radius-sm)}
-.aops-tip b{font-size:14px;font-weight:600;color:var(--t1);flex-shrink:0}
-.aops-tip span{font-size:12px;color:var(--t3)}
+.aops{display:flex;flex-direction:column;gap:var(--sp-4)}
+.aops-tip{display:flex;align-items:baseline;gap:var(--sp-h10);padding:var(--sp-h10) var(--sp-h14);background:var(--bg2);border:1px dashed var(--border-subtle);border-radius:var(--radius-sm)}
+.aops-tip b{font-size:var(--fs-md);font-weight:600;color:var(--t1);flex-shrink:0}
+.aops-tip span{font-size:var(--fs-sm);color:var(--t3)}
 
-.quota-sub{font-size:12px;color:var(--t3);margin-top:6px}
-.prof-hd{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:6px}
+.quota-sub{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
+.prof-hd{font-size:var(--fs-base);font-weight:600;color:var(--t1);margin-bottom:var(--sp-h6)}
 
 /* 数据备份 */
-.bk-stat{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
-.bk-pill{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:10px 14px;display:flex;flex-direction:column;gap:4px;min-width:160px}
-.bk-k{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.04em}
-.bk-v{font-size:15px;font-weight:600;color:var(--t1)}
-.bk-list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto}
-.bk-item{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
-.bk-main{display:flex;flex-direction:column;gap:2px}
-.bk-date{font-size:14px;font-weight:600;color:var(--t1)}
-.restore-box{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
-.restore-row{display:flex;align-items:center;gap:10px;padding:4px 0}
-.bd-tag{padding:2px 8px;border-radius:var(--radius-2xs);font-size:11px;font-weight:600;background:var(--bg3);color:var(--t2)}
+.bk-stat{display:flex;flex-wrap:wrap;gap:var(--sp-h10);margin-bottom:var(--sp-h14)}
+.bk-pill{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-h14);display:flex;flex-direction:column;gap:var(--sp-1);min-width:160px}
+.bk-k{font-size:var(--fs-xs);color:var(--t2);text-transform:uppercase;letter-spacing:.04em}
+.bk-v{font-size:var(--fs-h4);font-weight:600;color:var(--t1)}
+.bk-list{display:flex;flex-direction:column;gap:var(--sp-h6);max-height:280px;overflow:auto}
+.bk-item{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-h10) var(--sp-3);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
+.bk-main{display:flex;flex-direction:column;gap:var(--sp-h2)}
+.bk-date{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
+.restore-box{margin-top:var(--sp-h14);padding:var(--sp-3) var(--sp-h14);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
+.restore-row{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-1) 0}
+.bd-tag{padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-2xs);font-size:var(--fs-xs);font-weight:600;background:var(--bg3);color:var(--t2)}
 .bd-tag.ok{background:var(--ok-green-bg);color:var(--ok-green)}
 .bd-tag.err{background:var(--st-rejected-bg);color:var(--st-rejected-txt)}
 
 /* 健康看板 */
 .obs-warn{color:var(--danger-txt)}
-.obs-prov,.obs-fail{margin-top:14px;padding:12px 14px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
-.obs-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;gap:10px}
-.obs-prov-tag{font-size:13px;font-weight:600;color:var(--t1);padding:2px 8px;background:var(--info-blue-bg);border-radius:var(--radius-2xs)}
-.obs-fail-tag{font-size:12px;color:var(--danger-txt);background:var(--danger-bg);padding:2px 8px;border-radius:var(--radius-2xs);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.obs-prov,.obs-fail{margin-top:var(--sp-h14);padding:var(--sp-3) var(--sp-h14);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
+.obs-row{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-1) 0;gap:var(--sp-h10)}
+.obs-prov-tag{font-size:var(--fs-base);font-weight:600;color:var(--t1);padding:var(--sp-h2) var(--sp-2);background:var(--info-blue-bg);border-radius:var(--radius-2xs)}
+.obs-fail-tag{font-size:var(--fs-sm);color:var(--danger-txt);background:var(--danger-bg);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-2xs);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 
 /* 审计日志 */
-.audit-list{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow:auto}
-.audit-row{display:grid;grid-template-columns:120px 100px 90px 1fr 80px;gap:8px;padding:6px 10px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-xs);font-size:12px;align-items:center}
+.audit-list{display:flex;flex-direction:column;gap:var(--sp-1);max-height:340px;overflow:auto}
+.audit-row{display:grid;grid-template-columns:120px 100px 90px 1fr 80px;gap:var(--sp-2);padding:var(--sp-h6) var(--sp-h10);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-xs);font-size:var(--fs-sm);align-items:center}
 .audit-when{color:var(--t2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .audit-user{font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.audit-mod{background:var(--info-blue-bg);color:var(--info-blue);padding:2px 6px;border-radius:var(--radius-2xs);text-align:center;font-weight:600}
+.audit-mod{background:var(--info-blue-bg);color:var(--info-blue);padding:var(--sp-h2) var(--sp-h6);border-radius:var(--radius-2xs);text-align:center;font-weight:600}
 .audit-act{color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.audit-hash{color:var(--t2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;text-align:right}
+.audit-hash{color:var(--t2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-xs);text-align:right}
 
 /* 兜底记录 */
-.fb-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto}
-.fb-row{display:grid;grid-template-columns:130px 100px 1fr auto;gap:8px;padding:8px 10px;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-xs);font-size:12px;align-items:center}
+.fb-list{display:flex;flex-direction:column;gap:var(--sp-h6);max-height:300px;overflow:auto}
+.fb-row{display:grid;grid-template-columns:130px 100px 1fr auto;gap:var(--sp-2);padding:var(--sp-2) var(--sp-h10);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-xs);font-size:var(--fs-sm);align-items:center}
 .fb-when{color:var(--t2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.fb-kind{padding:2px 8px;border-radius:var(--radius-2xs);text-align:center;font-weight:600;font-size:11px}
+.fb-kind{padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-2xs);text-align:center;font-weight:600;font-size:var(--fs-xs)}
 .fb-kind.failure{background:var(--st-rejected-bg);color:var(--st-rejected-txt)}
 .fb-kind.low_confidence{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .fb-reason{color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fb-tag{padding:2px 6px;border-radius:var(--radius-2xs);font-size:11px;font-weight:600}
+.fb-tag{padding:var(--sp-h2) var(--sp-h6);border-radius:var(--radius-2xs);font-size:var(--fs-xs);font-weight:600}
 .fb-tag.notify{background:var(--info-blue-bg);color:var(--info-blue)}
 .fb-tag.ack{background:var(--ok-green-bg);color:var(--ok-green)}
 </style>

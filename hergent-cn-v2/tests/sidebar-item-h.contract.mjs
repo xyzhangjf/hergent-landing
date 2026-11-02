@@ -28,6 +28,9 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+/* 🔴 v727：尺寸现在走令牌（`font-size:var(--fs-base)`），裸 px 解析会得到 NaN。
+   契约该管「最终算出来多少」，不该管「源码里写没写 px」⇒ 用共享解析器。 */
+import { pxOf as tokenPx, padY as tokenPadY } from './lib/tokens.mjs'
 
 const ROOT = path.resolve(process.cwd())
 const SRC = path.join(ROOT, 'src')
@@ -61,35 +64,30 @@ const decl = (name) => {
 }
 
 const fsRaw = decl('font-size')
-const fsPx = fsRaw && /^(\d+(?:\.\d+)?)px$/.exec(fsRaw) ? Number(RegExp.$1) : null
-ok(fsPx !== null, '.sb-item 显式声明 font-size（px）', '现在是：' + fsRaw)
+const fsPx = tokenPx(fsRaw)
+ok(fsPx !== null, '.sb-item 显式声明 font-size（px 或字号令牌）', '现在是：' + fsRaw)
 
 const lhRaw = decl('line-height')
 ok(lhRaw !== null, '⛔ .sb-item 必须显式声明 line-height（否则平铺项 1.6 / button 走 UA normal ⇒ 两种行高）',
   '现在没有声明 ⇒ 平铺项与职能区按钮会分叉')
-let lhPx = null
-if (lhRaw) {
-  if (/^\d+(?:\.\d+)?px$/.test(lhRaw)) lhPx = parseFloat(lhRaw)
-  else if (/^\d+(?:\.\d+)?$/.test(lhRaw) && fsPx) lhPx = parseFloat(lhRaw) * fsPx
-  else if (lhRaw === 'normal') lhPx = null
-}
+const lhPx = lhRaw === 'normal' ? null : tokenPx(lhRaw, { fontSizePx: fsPx })
 ok(lhPx !== null && lhPx >= 18 && lhPx <= 22,
   'line-height 落在 18–22px（按 px 或「倍数 × font-size」折算）',
   `现在是：${lhRaw} ⇒ ${lhPx === null ? '无法折算（normal 会让 button 与 a 分叉）' : lhPx + 'px'}`)
 
 const padRaw = decl('padding')
-const padY = padRaw ? parseFloat((padRaw.match(/^(\d+(?:\.\d+)?)px/) || [])[1]) : null
-ok(padY !== null && padY >= PAD_MIN && padY <= PAD_MAX,
+const padYv = tokenPadY(padRaw)
+ok(padYv !== null && padYv >= PAD_MIN && padYv <= PAD_MAX,
   `纵向 padding 落在 ${PAD_MIN}–${PAD_MAX}px`,
   `现在是：${padRaw}`)
 
 ok(decl('height') === null, '⛔ .sb-item 不许写死 height（字号/行高一变就会把文字挤出去）',
   '现在是：height:' + decl('height'))
 
-if (padY !== null && lhPx !== null) {
-  const h = lhPx + padY * 2
+if (padYv !== null && lhPx !== null) {
+  const h = lhPx + padYv * 2
   ok(h >= H_MIN && h <= H_MAX, `推算行高 ${H_MIN}–${H_MAX}px（line-height + 2 × paddingY）`,
-    `现在 = ${lhPx} + ${padY} × 2 = ${h}px ⇒ ${h > H_MAX ? '又回到"松"档' : '太矮，16px 图标贴上下边'}`)
+    `现在 = ${lhPx} + ${padYv} × 2 = ${h}px ⇒ ${h > H_MAX ? '又回到"松"档' : '太矮，16px 图标贴上下边'}`)
 }
 
 /* ---------- 2. .sb-area-btn 不许再把字号冲回继承值 ---------- */

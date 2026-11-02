@@ -47,6 +47,6 @@ function onConfirm() {
 </script>
 
 <style scoped>
-.ui-pd-text{font-size:14px;color:var(--t1);line-height:1.6;margin-bottom:12px;white-space:pre-line}
+.ui-pd-text{font-size:var(--fs-md);color:var(--t1);line-height:1.6;margin-bottom:var(--sp-3);white-space:pre-line}
 .ui-pd-input{width:100%}
 </style>

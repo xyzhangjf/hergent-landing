@@ -143,7 +143,7 @@
     <div v-else class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <!-- 新建入库单 -->
@@ -395,34 +395,34 @@ defineExpose({ load })
 <style scoped>
 /* 页面私有类一律 `win-` 前缀（仓配·入库单）；全局件（.page/.card/.kpi-strip/.tbl/
    .seq-th/.num/.input/.tag/.state-empty/.state-error/.btn*）一律复用，不重定义。 */
-.win-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.win-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 
 .win-cap {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px; padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-bottom: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--war);
   border-radius: var(--radius-md); background: var(--bg2); color: var(--war);
 }
 
-.win-filter { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px }
-.win-f { display: flex; align-items: center; gap: 8px }
-.win-lb { font-size: 12px; color: var(--t3); white-space: nowrap }
+.win-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-3) }
+.win-f { display: flex; align-items: center; gap: var(--sp-2) }
+.win-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 .win-kw { min-width: 220px }
 .win-sel { min-width: 150px }
-.win-reset { margin-left: 4px }
-.win-cnt { margin-left: auto; font-size: 12px; color: var(--t3) }
+.win-reset { margin-left: var(--sp-1) }
+.win-cnt { margin-left: auto; font-size:var(--fs-sm); color: var(--t3) }
 .win-cnt b { color: var(--p-ink); font-variant-numeric: tabular-nums }
 
 .win-card { padding: 0; overflow: hidden }
 .win-tbl th, .win-tbl td { white-space: nowrap }
 .win-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
-.win-time { font-size: 12px; color: var(--t3) }
+.win-time { font-size:var(--fs-sm); color: var(--t3) }
 .win-clip { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .win-dash { color: var(--t3) }
 
-.win-op { display: flex; flex-wrap: wrap; gap: 2px 10px; justify-content: flex-end }
+.win-op { display: flex; flex-wrap: wrap; gap: var(--sp-h2) var(--sp-h10); justify-content: flex-end }
 .win-op-btn {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .win-op-btn:hover { text-decoration: underline }
@@ -430,27 +430,27 @@ defineExpose({ load })
 .win-op-btn:disabled { color: var(--t3); cursor: default; text-decoration: none }
 
 .win-pager {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 12px 14px; border-top: 1px solid var(--border-subtle);
+  display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-h14); border-top: 1px solid var(--border-subtle);
 }
-.win-pg-cnt { font-size: 12px; color: var(--t3); margin-right: auto }
-.win-pg-nums { display: inline-flex; align-items: center; gap: 4px }
+.win-pg-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
+.win-pg-nums { display: inline-flex; align-items: center; gap: var(--sp-1) }
 .win-pg {
-  min-width: 28px; height: 28px; padding: 0 6px;
+  min-width: 28px; height: 28px; padding: 0 var(--sp-h6);
   border: 1px solid var(--bd); border-radius: var(--radius-sm);
-  background: var(--bg); color: var(--t1); font-size: 13px; font-variant-numeric: tabular-nums;
+  background: var(--bg); color: var(--t1); font-size:var(--fs-base); font-variant-numeric: tabular-nums;
 }
 .win-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
 .win-pg:disabled { opacity: .45; cursor: not-allowed }
 .win-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
-.win-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
+.win-pg-size { width: auto; height: 28px; padding: 0 var(--sp-2); font-size:var(--fs-base); border-radius: var(--radius-sm) }
 
-.win-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
+.win-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
 
 /* 弹窗内的表单 */
-.win-form { display: flex; flex-direction: column; gap: 12px }
-.win-frow { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.win-fld { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 220px }
+.win-form { display: flex; flex-direction: column; gap: var(--sp-3) }
+.win-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.win-fld { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1; min-width: 220px }
 .win-req { color: var(--dan) }
-.win-items { margin-top: 14px }
+.win-items { margin-top: var(--sp-h14) }
 </style>

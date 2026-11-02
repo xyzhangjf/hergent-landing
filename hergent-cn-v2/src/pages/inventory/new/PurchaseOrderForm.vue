@@ -1591,7 +1591,7 @@ watch([copyId], () => { reinit() })
 .inv-page > .ipn-hd,
 .inv-page > .ipn-strip,
 .inv-page > .ipn-bottom { flex: 0 0 auto }
-.ipn-acts { display: flex; gap: 8px; flex-wrap: wrap }
+.ipn-acts { display: flex; gap: var(--sp-2); flex-wrap: wrap }
 .ipn-body {
   display: flex; flex-direction: column;
   /* v722：`flex-basis` 必须是 **0**，不是 `auto`。
@@ -1623,11 +1623,11 @@ watch([copyId], () => { reinit() })
 /* v417d（对照舟谱：单屏行数 ↑）页头单行 —— 标题与副标题回到**同一基线行**（原为竖排两行）。
    全局 `.page-hd` 的「内联 / 堆叠」由模板结构分派：外面包一层 div 就会回落到两行，
    故这里只给内层容器定对齐，**不动全局类**（16~17 个页面共用它）。 */
-.ipn-hd-t { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0 }
+.ipn-hd-t { display: flex; align-items: baseline; gap: var(--sp-h10); flex-wrap: wrap; min-width: 0 }
 
 /* 表单头。v438（复刻舟谱）：`align-items` 由 flex-end 改 center —— 标签改与框同行后，
    一行内没有「底部对齐」可言，居中才齐。 */
-.ipn-hd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px }
+.ipn-hd { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin-bottom: var(--sp-3) }
 /* v417d 去卡片包裹：本页「单头表单 / 明细」两块不再套 `.card` 的框。
    页面底 `.content{background:var(--bg)}` 与 `.card{background:var(--bg)}` 同色 ——
    那个框本来只是 border+shadow，去掉不影响配色（深色同理）。
@@ -1641,7 +1641,7 @@ watch([copyId], () => { reinit() })
       会把「经办人 / 部门 / 入库仓库」这类没有 min-width 的格挤窄，格内的
       「标签 + 下拉」随即被 `flex-wrap` **拆成上下两行**（老板报障的正是这三格）。
       改成 flex:none 后，宽度放不下时整格换行，永不把标签与框拆开。 */
-.ipn-f { display: flex; flex-direction: row; align-items: center; gap: 6px; flex-wrap: wrap; flex: none }
+.ipn-f { display: flex; flex-direction: row; align-items: center; gap: var(--sp-h6); flex-wrap: wrap; flex: none }
 /* v439：各格宽度按「6 格一行放得下」重新配平（实测：原宽合计 1480px，
    1412px 内容宽就挤掉「备注」换行）。现在合计 ≈1250px，1440 屏也一行放得下，
    宽屏则由「备注」吃掉余量（它是唯一 flex:1 的格）。 */
@@ -1652,23 +1652,23 @@ watch([copyId], () => { reinit() })
    而 v439 给 `.ipn-f` 加了 `flex: none`（不再回缩）⇒ 右侧会留一大片空白，
    把后面「供应商 / 退货仓库 / 原单状态」推到半屏外。380px = 标签 + 选择器（348）+ 余量。 */
 .ipn-f-po { width: 380px }
-.ipn-lb { font-size: 12px; color: var(--t3); white-space: nowrap; flex: none }
+.ipn-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap; flex: none }
 /* 必填标记。v439 改版：由「必填」两个字改成**红 `*`**（对齐舟谱的 `*供应商：`）——
    每个必填格省下 2 个字的宽度，一行更容易并下全部字段。
    `.ipn-opt`（原「选填」弱色标记）已随本轮**整体撤除**（舟谱那边选填不打标），
    故那条规则一并删掉，不留死 CSS。 */
-.ipn-req { color: var(--dan-ink); font-size: 13px; line-height: 1; margin-right: 2px }
+.ipn-req { color: var(--dan-ink); font-size:var(--fs-base); line-height: 1; margin-right: var(--sp-h2) }
 /* v455：必填项图例（复刻舟谱创建页右上角那枚）。钉在标题右侧，
    让表单头 / 明细表里散落的红 `*` 有一个统一的解释处。 */
 .ipn-legend {
   display: inline-flex; align-items: center; gap: 3px;
-  margin-left: 10px; padding: 2px 8px;
+  margin-left: var(--sp-h10); padding: var(--sp-h2) var(--sp-2);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-pill);
   background: var(--bg2);
-  font-size: 12px; color: var(--t2); vertical-align: middle;
+  font-size:var(--fs-sm); color: var(--t2); vertical-align: middle;
   transform: translateY(1px);
 }
-.ipn-legend .ipn-req { font-size: 12px; margin-right: 0 }
+.ipn-legend .ipn-req { font-size:var(--fs-sm); margin-right: 0 }
 
 /* ══ v439（复刻舟谱·字段框）════════════════════════════════════════════════
    舟谱建单头那排是「**一个描边框**里左边标签、右边值」（`*供应商: 🔍`｜`*经办人: 请选择 ▾`），
@@ -1703,7 +1703,7 @@ watch([copyId], () => { reinit() })
    留在框里会把那一格撑到 78px 高、四个框永远不等高；移出后表单头 = 四个 32px 等高的框。
    `max-width` 由 340 放到 900：它现在占整行，不必再挤在 380px 的格里反复换行。
    `-6px` 上边距用来抵掉表单头那 12px 的下外边距，让说明贴着它说明的那个头。 */
-.ipn-hint { font-size: 11px; color: var(--t3); line-height: 1.4; max-width: 900px; margin: -6px 0 12px }
+.ipn-hint { font-size:var(--fs-xs); color: var(--t3); line-height: 1.4; max-width: 900px; margin: -6px 0 var(--sp-3) }
 .ipn-hint b { color: var(--t2) }
 /* 只读值（退货模式的供应商 / 退货仓库 / 原单状态）：由原单带出，**改不了**
    （刻意不用 disabled input —— 那会让人以为点开能改）。
@@ -1716,9 +1716,9 @@ watch([copyId], () => { reinit() })
    （没选原单时值是 `—`，整格只有 86px；一选中又被撑宽）⇒ 表头跟着来回跳。
    `max-width` + 省略号：供应商 / 仓名的长度不可控，别让它把这一格撑爆。 */
 .ipn-ro {
-  display: flex; align-items: center; height:32px; padding: 0 2px;
+  display: flex; align-items: center; height:32px; padding: 0 var(--sp-h2);
   min-width: 112px; max-width: 260px; flex: none;
-  font-size: 14px; color: var(--t1); background: transparent; border: 0;
+  font-size:var(--fs-md); color: var(--t1); background: transparent; border: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* 「原采购单」格宽度放宽到 420px：框式头有 16px 左右内距，且框内控件收掉了全局
@@ -1731,7 +1731,7 @@ watch([copyId], () => { reinit() })
 .hd-box .ipn-f-po .ipn-kw { width: 130px }
 .hd-box .ipn-f-po .ipn-sel { width: 200px; min-width: 0 }
 /* 退货明细的工具条（全部可退 / 清零）：推到右侧，不与「退货明细」标题挤在一起 */
-.ipn-ret-quick { display: flex; gap: 8px; margin-left: auto }
+.ipn-ret-quick { display: flex; gap: var(--sp-2); margin-left: auto }
 /* 退货明细列少（9 列 vs 采购单 15 列）⇒ 表宽比采购单小一档，别跟着留 1758px 的横向滚动。
    🔴 v448 提权重到 `.ipn-tbl.ipn-ret-tbl`：原先写单类 `.ipn-ret-tbl`（0,1,0），
       在文件里排在 `.ipn-tbl { min-width: 1372px }`（同为 0,1,0）**之前** ⇒ 被静默吃掉，
@@ -1747,40 +1747,40 @@ watch([copyId], () => { reinit() })
 .ipn-cf-in { width: 160px; height: 32px }
 /* 退货模式「原采购单」搜索框 + 下拉：仍是两框并列（与采购单供应商组合框不同，这里保留旧式）。
    v428 把采购单的供应商选择改成了组合框，但原采购单选择器不动。 */
-.ipn-sup-pick { display: flex; gap: 6px }
+.ipn-sup-pick { display: flex; gap: var(--sp-h6) }
 /* v428：供应商组合框样式已抽到 SupplierCombo.vue（与采购退货单页共用，单一来源）。
    本页只保留框式头里对组合框的**布局**控制：`.hd-box .ipn-f .ipn-sup-combo` / `.ipn-sup-input`。 */
 /* v428：备注框与同排其它输入框同高（全局 .input 默认 40px，会高低不齐）。
    v438：`.ipn-f` 改横向后，备注框要自己**吃掉剩余宽度**（flex:1），否则只按
    原生 size 撑一小截，右半行留白。 */
-.ipn-note-in { flex: 1; min-width: 140px; height: 32px; padding: 0 10px }
+.ipn-note-in { flex: 1; min-width: 140px; height: 32px; padding: 0 var(--sp-h10) }
 /* v430：商品组合框（名称 + 条码 模糊查找），样式对齐供应商组合框（同用 --bg/--bd/--t1 变量） */
 .ipn-prod-combo { position: relative; flex: 1; min-width: 0 }
 .ipn-prod-combo .ipn-in { width: 100% }
 .ipn-prod-list {
   position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
-  margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto;
+  margin: 0; padding: var(--sp-1); list-style: none; max-height: 240px; overflow-y: auto;
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
 }
 .ipn-prod-list li {
-  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
-  border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--t1);
+  display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-h6) var(--sp-h10);
+  border-radius: var(--radius-sm); cursor: pointer; font-size:var(--fs-base); color: var(--t1);
 }
 .ipn-prod-list li.active, .ipn-prod-list li:hover { background: var(--bg2) }
 .ipn-prod-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 /* v685：档位徽标（同名商品靠它分辨多档 / 仅一档 / 无价）。不换行、不被省略号吃掉。 */
 .ipn-prod-tier {
-  flex: none; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: var(--radius-2xs);
+  flex: none; font-size:var(--fs-xs); line-height: 16px; padding: 0 5px; border-radius: var(--radius-2xs);
   color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .ipn-prod-tier.is-muted { color: var(--t3) }
 .ipn-prod-tier.is-warn { color: var(--danger-txt, var(--war)) }
-.ipn-prod-bar { flex: none; font-size: 12px; color: var(--t3); font-variant-numeric: tabular-nums }
+.ipn-prod-bar { flex: none; font-size:var(--fs-sm); color: var(--t3); font-variant-numeric: tabular-nums }
 .ipn-prod-empty {
   position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px);
-  padding: 10px; background: var(--bg); border: 1px solid var(--bd);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size: 12px; color: var(--t3);
+  padding: var(--sp-h10); background: var(--bg); border: 1px solid var(--bd);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md); font-size:var(--fs-sm); color: var(--t3);
 }
 .ipn-kw { width: 130px; height: 32px }
 /* v438：下拉 / 日期框各收窄 20~30px —— 标签同行后每格宽度 = 标签 + 6px + 控件，
@@ -1790,13 +1790,13 @@ watch([copyId], () => { reinit() })
 
 /* 供应商信息条（舟谱「应付/预付余额」的位置） */
 .ipn-strip {
-  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-  margin-bottom: 12px; padding: 9px 16px;
+  display: flex; align-items: center; gap: var(--sp-h18); flex-wrap: wrap;
+  margin-bottom: var(--sp-3); padding: 9px var(--sp-4);
   background: var(--p-bg); border: 1px solid var(--p-border);
-  border-radius: var(--radius-md); font-size: 13px; color: var(--t1);
+  border-radius: var(--radius-md); font-size:var(--fs-base); color: var(--t1);
 }
-.ipn-si { display: inline-flex; align-items: center; gap: 6px }
-.ipn-sk { color: var(--t3); font-size: 12px }
+.ipn-si { display: inline-flex; align-items: center; gap: var(--sp-h6) }
+.ipn-sk { color: var(--t3); font-size:var(--fs-sm) }
 .ipn-strip-amt { color: var(--p-ink); font-variant-numeric: tabular-nums }
 
 /* ---- 附件暂存条（v438）----------------------------------------------------
@@ -1804,24 +1804,24 @@ watch([copyId], () => { reinit() })
    这条是**尚未落库的待传文件** ⇒ 底色用中性 --bg2 而不是品牌色 --p-bg，
    不让它看起来像"已生效"。 */
 .ipn-at-bar {
-  display: flex; flex-direction: column; gap: 6px;
-  margin-bottom: 12px; padding: 9px 16px;
+  display: flex; flex-direction: column; gap: var(--sp-h6);
+  margin-bottom: var(--sp-3); padding: 9px var(--sp-4);
   background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius-md);
-  font-size: 13px; color: var(--t1);
+  font-size:var(--fs-base); color: var(--t1);
 }
-.ipn-at-hd { display: inline-flex; align-items: center; gap: 6px; color: var(--t2); font-size: 12px }
-.ipn-at-tip { color: var(--t3); font-style: normal; margin-left: 2px }
-.ipn-at-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px }
+.ipn-at-hd { display: inline-flex; align-items: center; gap: var(--sp-h6); color: var(--t2); font-size:var(--fs-sm) }
+.ipn-at-tip { color: var(--t3); font-style: normal; margin-left: var(--sp-h2) }
+.ipn-at-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-h6) }
 .ipn-at-list li {
-  display: inline-flex; align-items: center; gap: 6px; max-width: 280px;
-  padding: 2px 4px 2px 10px; background: var(--bg); border: 1px solid var(--bd);
-  border-radius: var(--radius-pill); font-size: 12px; color: var(--t1);
+  display: inline-flex; align-items: center; gap: var(--sp-h6); max-width: 280px;
+  padding: var(--sp-h2) var(--sp-1) var(--sp-h2) var(--sp-h10); background: var(--bg); border: 1px solid var(--bd);
+  border-radius: var(--radius-pill); font-size:var(--fs-sm); color: var(--t1);
 }
 
 /* 🔴 P0-7：复制原单失败时的明确错误态横幅 */
 .ipn-copy-err {
-  display: flex; gap: 12px; align-items: flex-start;
-  margin-bottom: 14px; padding: 12px 16px;
+  display: flex; gap: var(--sp-3); align-items: flex-start;
+  margin-bottom: var(--sp-h14); padding: var(--sp-3) var(--sp-4);
   background: color-mix(in srgb, var(--danger) 10%, var(--bg));
   border: 1px solid var(--danger); border-radius: var(--radius-md);
 }
@@ -1829,11 +1829,11 @@ watch([copyId], () => { reinit() })
   flex: 0 0 auto; width: 22px; height: 22px; line-height: 22px; text-align: center;
   font-weight: 700; color: #fff; background: var(--danger); border-radius: var(--radius-circle);
 }
-.ipn-copy-err-body { display: flex; flex-direction: column; gap: 4px }
+.ipn-copy-err-body { display: flex; flex-direction: column; gap: var(--sp-1) }
 .ipn-copy-err-t { font-weight: 600; color: var(--danger) }
-.ipn-copy-err-m { font-size: 13px; color: var(--t1) }
-.ipn-copy-err-acts { display: flex; align-items: center; gap: 12px; margin-top: 4px }
-.ipn-copy-err-hint { font-size: 12px; color: var(--t3) }
+.ipn-copy-err-m { font-size:var(--fs-base); color: var(--t1) }
+.ipn-copy-err-acts { display: flex; align-items: center; gap: var(--sp-3); margin-top: var(--sp-1) }
+.ipn-copy-err-hint { font-size:var(--fs-sm); color: var(--t3) }
 .ipn-at-nm { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .ipn-at-sz { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
 .ipn-at-x {
@@ -1842,12 +1842,12 @@ watch([copyId], () => { reinit() })
   color: var(--t3); cursor: pointer; border-radius: var(--radius-circle); flex: none;
 }
 .ipn-at-x:hover { background: var(--bg2); color: var(--dan) }
-.ipn-at-msg { margin: 0; font-size: 12px; color: var(--dan) }
+.ipn-at-msg { margin: 0; font-size:var(--fs-sm); color: var(--dan) }
 /* 页头按钮上的个数角标（对齐详情页附件入口的角标做法） */
 .ipn-at-badge {
-  margin-left: 5px; padding: 0 6px; border-radius: var(--radius-sm);
+  margin-left: 5px; padding: 0 var(--sp-h6); border-radius: var(--radius-sm);
   background: var(--bg2); color: var(--t2); border: 1px solid var(--bd);
-  font-size: 11px; font-variant-numeric: tabular-nums;
+  font-size:var(--fs-xs); font-variant-numeric: tabular-nums;
 }
 /* 隐藏的 file input：**不能用 display:none** —— 部分浏览器下 `.click()` 不触发。 */
 .ipn-at-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none }
@@ -1856,14 +1856,14 @@ watch([copyId], () => { reinit() })
 /* v417d：明细工具条由「两行」（工具条 + 口径提示）压成「一行」——
    筛选框与「加一行」上移到页头，这里只留「商品明细 + 项数 + 口径说明（默认折叠）」。
    折叠态下明细上方只占这一行，展开才补回说明文字（省约 26px ≈ 0.7 行）。 */
-.ipn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px }
+.ipn-bar { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin-bottom: var(--sp-2) }
 /* v455：「按小单位采购」总闸（复刻舟谱表格工具栏同款开关）。
    🔴 用**原生 checkbox** 而不是自绘开关：设置页 / 权限页全是原生勾选框，
       同页两套开关长相等于让用户学两次。`accent-color` 让它跟主题色走，
       不用写一行 transform 动画。 */
 .ipn-unitsw {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 12px; color: var(--t2); cursor: pointer; user-select: none;
+  font-size:var(--fs-sm); color: var(--t2); cursor: pointer; user-select: none;
   white-space: nowrap;
 }
 .ipn-unitsw input { width: 14px; height: 14px; margin: 0; cursor: pointer; accent-color: var(--p) }
@@ -1871,14 +1871,14 @@ watch([copyId], () => { reinit() })
 .ipn-unitsw.on { color: var(--t1) }
 .ipn-unitsw.on .ipn-unitsw-tx { font-weight: 500 }
 .ipn-tip {
-  display: flex; align-items: flex-start; gap: 6px;
-  font-size: 12px; color: var(--t2); margin: 0 0 10px;
+  display: flex; align-items: flex-start; gap: var(--sp-h6);
+  font-size:var(--fs-sm); color: var(--t2); margin: 0 0 var(--sp-h10);
 }
 .ipn-tip svg { color: var(--p-dark); flex: none; margin-top: 1px }
 /* v417：库存口径「展开/收起」链接按钮（无边框、像文字链接，对齐舟谱一行小字的疏朗感） */
 .ipn-tip-link {
-  margin-left: auto; padding: 0 2px; border: 0; background: none; cursor: pointer;
-  font-size: 12px; color: var(--p-dark); text-decoration: underline dotted;
+  margin-left: auto; padding: 0 var(--sp-h2); border: 0; background: none; cursor: pointer;
+  font-size:var(--fs-sm); color: var(--p-dark); text-decoration: underline dotted;
   white-space: nowrap;
 }
 .ipn-tip-link:hover { color: var(--p-ink) }
@@ -1903,9 +1903,9 @@ watch([copyId], () => { reinit() })
    🔴 选择器**必须**带 `table.ipn-tbl`：写成 `.ipn-tbl td` 的 specificity 低于全局
       `table.tbl td{padding:10px 14px}`（variables.css:530），会**静默失效**
       （样式看着写了、实际没生效）。 */
-table.ipn-tbl th { padding: 4px 8px }
-table.ipn-tbl td { padding: 2px 8px }
-table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
+table.ipn-tbl th { padding: var(--sp-1) var(--sp-2) }
+table.ipn-tbl td { padding: var(--sp-h2) var(--sp-2) }
+table.tbl.ipn-tbl td.seq-cell { padding: var(--sp-h2) var(--sp-1) }
 .ipn-c-stk { width: 78px; font-variant-numeric: tabular-nums; white-space: nowrap }
 /* 「实际有货、一件都不可售（全过期）」——必须扎眼，否则用户以为有货能卖 */
 .ipn-c-stk .danger { color: var(--danger-txt) }
@@ -1914,7 +1914,7 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
 .ipn-c-code { width: 100px; color: var(--t2); font-variant-numeric: tabular-nums }
 /* v409（P2-1）：单位列 64→92px 是给「下拉 + 换算浮层」的；v417g 浮层已不占宽，收到 84px。 */
 .ipn-c-unit { width: 84px }
-.ipn-unit-sel { height: 22px; padding: 0 4px }
+.ipn-unit-sel { height: 22px; padding: 0 var(--sp-1) }
 /* 换算 / 折价小字：**弱化色 + 不换行**，它是解释不是数据（数据仍以输入框里的为准）。
    ⚠️ 不加 `white-space: nowrap` 时「= 40 袋」会在窄列里断成两行，把行高顶起来。 */
 /* v417c：换算小字从「行内第二行」改为「指向该格才浮出的浮层」。
@@ -1925,8 +1925,8 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
 .ipn-conv {
   display: none; position: absolute; z-index: 6;
   left: 2px; top: calc(100% - 4px);
-  padding: 1px 6px; white-space: nowrap; pointer-events: none;
-  font-size: 11px; color: var(--t2); font-variant-numeric: tabular-nums;
+  padding: 1px var(--sp-h6); white-space: nowrap; pointer-events: none;
+  font-size:var(--fs-xs); color: var(--t2); font-variant-numeric: tabular-nums;
   background: var(--bg); border: 1px solid var(--bd);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
 }
@@ -1989,7 +1989,7 @@ table.tbl.ipn-tbl td.seq-cell { padding: 2px 4px }
       `inset box-shadow`（不占位）⇒ 1 + 3 = 4px，与文本态内距逐像素对齐，点激活时文字左右不动。
       同理左侧（input 有 border、span 没有），右侧（文字右对齐时按 padding-right 算）。
       两态对齐后文字位置完全一致，肉眼零跳动。 */
-.ipn-in { width: 100%; height:22px; font-size: 13px; padding: 0 3px; border-radius: var(--radius-sm) }
+.ipn-in { width: 100%; height:22px; font-size:var(--fs-base); padding: 0 3px; border-radius: var(--radius-sm) }
 /* v417h（对照舟谱·行密度）：**浏览态扁平化** —— 仍铺与表单头「供应商框」一致的底色（var(--bg3)）、只留极淡描边，
    整行看起来像「一排文���」，鼠标指向或键盘聚焦才浮起成可编辑的框。
    🔴 不这么做的代价：15 列全画成带底色的输入框，视觉噪音重、扫读时找不到当前行；
@@ -2041,8 +2041,8 @@ table.ipn-tbl .ipn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
       而「无底 + 极淡描边」在两套主题下都成立，也不会再引入一个要维护的色值。
    「哪里能填」改由**描边 + hover/focus 反馈**承载（下面两条），不再靠底色。 */
 .ipn-v {
-  display: block; min-height: 18px; line-height: 18px; padding: 0 4px;
-  font-size: 13px; color: var(--t1); cursor: text;
+  display: block; min-height: 18px; line-height: 18px; padding: 0 var(--sp-1);
+  font-size:var(--fs-base); color: var(--t1); cursor: text;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   /* v445：描边也撤掉（原 `inset 0 0 0 1px var(--bd)`）—— 与 `.ipn-in` 同一口径：
      默认态**既无底也无框**，「这格能填」完全交给 hover / focus 反馈承载。 */
@@ -2064,19 +2064,19 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 /* v686：业务员没配部门的提示条 —— 观感与采购退货页的 v684 退货提醒**逐值一致**
    （同一个「提醒但不拦截」家族，两种提示长得不一样会让人以为严重程度不同）。 */
 .ipn-hist-warn {
-  display: flex; align-items: flex-start; gap: 6px;
-  margin: 0 0 12px; padding: 7px 10px; max-width: 900px;
-  font-size: 12px; line-height: 1.5; color: var(--t1);
+  display: flex; align-items: flex-start; gap: var(--sp-h6);
+  margin: 0 0 var(--sp-3); padding: 7px var(--sp-h10); max-width: 900px;
+  font-size:var(--fs-sm); line-height: 1.5; color: var(--t1);
   background: rgba(var(--war-rgb), .1);
   border: 1px solid rgba(var(--war-rgb), .35);
   border-radius: var(--radius-xs);
 }
-.ipn-hist-warn svg { flex: 0 0 auto; margin-top: 2px; color: var(--war) }
+.ipn-hist-warn svg { flex: 0 0 auto; margin-top: var(--sp-h2); color: var(--war) }
 .ipn-v.is-ph { color: var(--t3) }
 /* v417k：本页自带更紧的行高（scoped specificity 高于全局），故紧凑档要**在这里**再收一档，
    否则开关对采购页无效（全局那条打不破 scoped 规则）—— 这是「开关全局生效」最容易漏的一处。 */
-[data-density="compact"] table.ipn-tbl td { padding: 1px 8px }
-[data-density="compact"] table.ipn-tbl th { padding: 3px 8px }
+[data-density="compact"] table.ipn-tbl td { padding: 1px var(--sp-2) }
+[data-density="compact"] table.ipn-tbl th { padding: 3px var(--sp-2) }
 [data-density="compact"] .ipn-v { min-height: 16px; line-height: 16px }
 /* 行内控件三处**一并**收（只收 .ipn-in 会让单位下拉/批次按钮仍撑着行高 = 半截生效） */
 [data-density="compact"] .ipn-in,
@@ -2085,10 +2085,10 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 /* v417i 批次格：常显摘要 + 点开小面板 */
 .ipn-c-batch { position: relative }
 .ipn-batch-btn {
-  display: flex; align-items: center; gap: 4px;
-  width: 100%; height: 22px; padding: 0 4px;
+  display: flex; align-items: center; gap: var(--sp-1);
+  width: 100%; height: 22px; padding: 0 var(--sp-1);
   border: 1px solid transparent; border-radius: var(--radius-sm);
-  background: none; cursor: pointer; font-size: 13px; color: var(--t1);
+  background: none; cursor: pointer; font-size:var(--fs-base); color: var(--t1);
 }
 .ipn-batch-btn:hover { border-color: var(--bd) }
 .ipn-batch-btn:disabled { cursor: default; opacity: .45 }
@@ -2100,27 +2100,27 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 .ipn-c-batch.batch-open .ipn-batch-caret { display: inline-flex }
 .ipn-batch-pop {
   position: absolute; z-index: 20; right: 0; top: calc(100% - 2px); width: 236px;
-  padding: 8px; background: var(--bg); border: 1px solid var(--bd);
+  padding: var(--sp-2); background: var(--bg); border: 1px solid var(--bd);
   border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
 }
-.ipn-bp-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px }
-.ipn-bp-lb { flex: none; width: 52px; font-size: 12px; color: var(--t3) }
-.ipn-bp-tip { margin: 0 0 6px; font-size: 11px; line-height: 1.4; color: var(--t3) }
+.ipn-bp-row { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-h6) }
+.ipn-bp-lb { flex: none; width: 52px; font-size:var(--fs-sm); color: var(--t3) }
+.ipn-bp-tip { margin: 0 0 var(--sp-h6); font-size:var(--fs-xs); line-height: 1.4; color: var(--t3) }
 .ipn-bp-done {
   width: 100%; height: 26px; border: 1px solid var(--bd); border-radius: var(--radius-sm);
-  background: var(--bg2); cursor: pointer; font-size: 12px; color: var(--t1);
+  background: var(--bg2); cursor: pointer; font-size:var(--fs-sm); color: var(--t1);
 }
 .ipn-in.num { text-align: right; font-variant-numeric: tabular-nums }
 .ipn-amt { font-variant-numeric: tabular-nums; white-space: nowrap }
-.ipn-unit { font-size: 13px; color: var(--t1) }
+.ipn-unit { font-size:var(--fs-base); color: var(--t1) }
 /* 档案没设报单单位时的回落值 —— 用弱化色标注，不静默 */
 .ipn-unit.fallback { color: var(--t3) }
 .ipn-unit.none { color: var(--t3) }
 .ipn-link {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer;
 }
-.ipn-link + .ipn-link { margin-left: 10px }
+.ipn-link + .ipn-link { margin-left: var(--sp-h10) }
 .ipn-link:hover { text-decoration: underline }
 .ipn-link.danger { color: var(--danger-txt) }
 /* v417b：行内「新增 / 删除」由文字链接改**图标按钮** —— 对齐舟谱逐行操作的密度：
@@ -2135,24 +2135,24 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
    现在 `.ipn-body` 自己滚动占满剩余高度，动作条自然落在它下面，无需 sticky，也不会盖住表格最后一行。
    负边距仍用于抵消 Shell `.view-wrap{padding:20px}`。 */
 .ipn-bottom {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
   flex: 0 0 auto;
-  margin: auto -20px -20px -20px; padding: 4px 20px;
+  margin: auto -20px -20px -20px; padding: var(--sp-1) var(--sp-5);
   background: var(--bg); border-top: 1px solid var(--border-subtle);
 }
-.ipn-total { font-size: 14px }
-.ipn-total b { font-size: 18px; font-variant-numeric: tabular-nums }
-.ipn-warn { font-size: 12px; color: var(--war) }
+.ipn-total { font-size:var(--fs-md) }
+.ipn-total b { font-size:var(--fs-stat); font-variant-numeric: tabular-nums }
+.ipn-warn { font-size:var(--fs-sm); color: var(--war) }
 /* v455：底部快捷键提示（复刻舟谱那行 Ctrl+S / Ctrl+Enter）。弱一档字色 ——
    它是「说明」，不是主操作；真快捷键见脚本层 onHotkey。 */
-.ipn-kbd-hint { font-size: 12px; color: var(--t3); white-space: nowrap }
+.ipn-kbd-hint { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 .ipn-kbd-hint kbd {
   display: inline-block; padding: 1px 5px;
   border: 1px solid var(--border-subtle); border-radius: var(--radius-2xs);
   background: var(--bg2);
-  font-family: inherit; font-size: 11px; line-height: 1.5; color: var(--t2);
+  font-family: inherit; font-size:var(--fs-xs); line-height: 1.5; color: var(--t2);
 }
-.ipn-kbd-hint em { margin: 0 6px; font-style: normal; color: var(--t3) }
+.ipn-kbd-hint em { margin: 0 var(--sp-h6); font-style: normal; color: var(--t3) }
 .ipn-save { position: relative; display: inline-flex; margin-left: auto }
 .ipn-save-main { border-top-right-radius: 0; border-bottom-right-radius: 0 }
 .ipn-save-caret {
@@ -2171,7 +2171,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
    也不伪装成已可用（点了没反应才是真静默失效）。 */
 .ipn-mi-disabled { color: var(--t3); cursor: default }
 .ipn-mi-tag {
-  margin-left: 4px; padding: 0 4px; font-size: 11px; color: var(--t3);
+  margin-left: var(--sp-1); padding: 0 var(--sp-1); font-size:var(--fs-xs); color: var(--t3);
   border: 1px solid var(--bd); border-radius: var(--radius-xs);
 }
 .ipn-caret {
@@ -2182,13 +2182,13 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 .ipn-caret.up { transform: rotate(180deg) }
 .ipn-menu {
   position: absolute; right: 0; bottom: calc(100% + 6px); z-index: var(--z-dropdown);
-  min-width: 160px; padding: 4px;
+  min-width: 160px; padding: var(--sp-1);
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
 }
 .ipn-mi {
-  display: block; width: 100%; padding: 8px 12px; border: none; background: none;
-  border-radius: var(--radius-sm); text-align: left; font-size: 13px; color: var(--t1);
+  display: block; width: 100%; padding: var(--sp-2) var(--sp-3); border: none; background: none;
+  border-radius: var(--radius-sm); text-align: left; font-size:var(--fs-base); color: var(--t1);
 }
 .ipn-mi:hover { background: var(--bg2) }
 

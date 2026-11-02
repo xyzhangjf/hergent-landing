@@ -1036,32 +1036,32 @@ onMounted(() => { loadAllocSetup() })
 
 <style scoped>
 .alloc-modal{width:min(720px,95vw)}
-.alloc-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px}
-.alloc-top label{font-size:13px;font-weight:600;color:var(--t1)}
+.alloc-top{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-h2) 0 var(--sp-2)}
+.alloc-top label{font-size:var(--fs-base);font-weight:600;color:var(--t1)}
 .alloc-num{width:96px;text-align:right}
-.alloc-unit{font-size:12px;color:var(--t3)}
-.alloc-conv{font-size:12px;color:var(--t3)}
-.alloc-note{background:var(--warn-amber-bg);border-radius:var(--radius-xs);padding:6px 8px;color:var(--warn-amber)}
+.alloc-unit{font-size:var(--fs-sm);color:var(--t3)}
+.alloc-conv{font-size:var(--fs-sm);color:var(--t3)}
+.alloc-note{background:var(--warn-amber-bg);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2);color:var(--warn-amber)}
 .alloc-tbl-wrap{max-height:290px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-2xs);background:var(--bg)}
-.alloc-tbl{width:100%;border-collapse:collapse;font-size:12px}
-.alloc-tbl th{position:sticky;top:0;z-index:1;background:var(--bg3);color:var(--t2);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
-.alloc-tbl td{padding:5px 8px;border-bottom:1px solid var(--bd);color:var(--t1)}
+.alloc-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+.alloc-tbl th{position:sticky;top:0;z-index:1;background:var(--bg3);color:var(--t2);font-weight:600;text-align:left;padding:var(--sp-h6) var(--sp-2);border-bottom:1px solid var(--bd);white-space:nowrap}
+.alloc-tbl td{padding:5px var(--sp-2);border-bottom:1px solid var(--bd);color:var(--t1)}
 .alloc-tbl .num{text-align:right}
-.alloc-mini{width:74px;text-align:right;padding:2px 5px;font-size:12px}
+.alloc-mini{width:74px;text-align:right;padding:var(--sp-h2) 5px;font-size:var(--fs-sm)}
 /* v657：勾选列（勾选模式才渲染）+ 别名后缀（同一员工多个报单门店时，如「东津/吾悦」） */
 .alloc-tbl .chk{width:34px;text-align:center}
 .alloc-tbl td.chk{text-align:center}
-.alloc-alias{color:var(--t3);font-size:12px;margin-left:2px}
+.alloc-alias{color:var(--t3);font-size:var(--fs-sm);margin-left:var(--sp-h2)}
 /* v659：名册态里的「未报单」标记（弱化，不抢数字的视线） */
-.alloc-idle{color:var(--t3);font-size:12px}
+.alloc-idle{color:var(--t3);font-size:var(--fs-sm)}
 /* v336：占比「只读」态 —— 来源是本期报单量推导（客观事实），不是可配置的档案比例。
    视觉上必须一眼看出"这格改不了"，否则用户会反复点进去以为输入框坏了。 */
 .alloc-mini.alloc-ro{background:var(--bg2);color:var(--t2);cursor:not-allowed;border-style:dashed}
-.alloc-empty{text-align:center;color:var(--t3);padding:14px 0}
+.alloc-empty{text-align:center;color:var(--t3);padding:var(--sp-h14) 0}
 .alloc-neg{color:var(--danger-txt);font-weight:600}
-.alloc-sum{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 0;font-size:12px;color:var(--t2)}
+.alloc-sum{display:flex;gap:var(--sp-4);flex-wrap:wrap;margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t2)}
 .alloc-sum .ok{color:var(--p-dark);font-weight:600}
 .alloc-sum .bad{color:var(--danger-txt);font-weight:600}
-.alloc-actions{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--bd)}
+.alloc-actions{display:flex;align-items:center;gap:var(--sp-2);margin-top:var(--sp-3);padding-top:var(--sp-h10);border-top:1px solid var(--bd)}
 .alloc-spacer{flex:1}
 </style>

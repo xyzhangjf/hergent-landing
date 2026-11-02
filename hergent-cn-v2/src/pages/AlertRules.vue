@@ -25,7 +25,7 @@
     <div v-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadAll()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadAll()">重试</button>
     </div>
 
     <Skeleton v-else-if="loading" />
@@ -478,37 +478,37 @@ onMounted(loadAll)
 /* 页面私有类一律 `ar-` 前缀；全局件（.page/.page-hd/.card/.kpi-strip/.kpi/.panel-hd/.table-wrap/
    .tbl/.seq-th/.seq-cell/.seq-num/.btn-row-ic/.input/.num/.state-error/.se-ic/.btn/.btn-sm/
    .btn-primary/.btn-ghost）一律复用，不重定义。 */
-.ar-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.ar-card { margin-top: 14px }
+.ar-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
+.ar-card { margin-top: var(--sp-h14) }
 .ar-op { white-space: nowrap; text-align: right }
 .ar-name { max-width: 240px }
 /* 🔴 flex 行里可能超长的文本必须 min-width:0，否则长规则名会把整列撑爆（v629 纪律） */
 .ar-cond, .ar-msg { min-width: 0; word-break: break-word }
 .ar-time { white-space: nowrap; color: var(--t2) }
-.ar-muted { color: var(--t3); font-size: 12px }
-.ar-badge { display: inline-block; padding: 1px 9px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 400; white-space: nowrap }
+.ar-muted { color: var(--t3); font-size:var(--fs-sm) }
+.ar-badge { display: inline-block; padding: 1px 9px; border-radius: var(--radius-sm); font-size:var(--fs-sm); font-weight: 400; white-space: nowrap }
 .ar-badge.on { background: var(--ok-green-bg); color: var(--ok) }
 .ar-badge.ok { background: var(--ok-green-bg); color: var(--ok) }
 .ar-badge.off { background: var(--bg2); color: var(--t3) }
 .ar-badge.warn { background: rgba(255, 149, 0, .14); color: var(--war) }
 .ar-badge.crit { background: rgba(255, 59, 48, .12); color: var(--dan-ink) }
 .ar-badge.info { background: var(--bg2); color: var(--t2) }
-.ar-empty { padding: 28px 4px }
-.ar-empty-note { font-size: 13px; color: var(--t2); margin: 0 }
-.ar-empty-guide { font-size: 12px; color: var(--t1); margin: 8px 0 0; line-height: 1.8 }
+.ar-empty { padding: 28px var(--sp-1) }
+.ar-empty-note { font-size:var(--fs-base); color: var(--t2); margin: 0 }
+.ar-empty-guide { font-size:var(--fs-sm); color: var(--t1); margin: var(--sp-2) 0 0; line-height: 1.8 }
 
 /* 弹窗内表单 */
-.ar-form-err { padding: 8px 10px; margin-bottom: 12px }
-.ar-fld { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px }
-.ar-lab { font-size: 12px; color: var(--t2) }
-.isn-req { color: var(--dan-ink); margin-left: 2px }
-.ar-hint { font-size: 12px; color: var(--t3) }
-.ar-row { display: flex; gap: 12px }
+.ar-form-err { padding: var(--sp-2) var(--sp-h10); margin-bottom: var(--sp-3) }
+.ar-fld { display: flex; flex-direction: column; gap: 5px; margin-bottom: var(--sp-h14) }
+.ar-lab { font-size:var(--fs-sm); color: var(--t2) }
+.isn-req { color: var(--dan-ink); margin-left: var(--sp-h2) }
+.ar-hint { font-size:var(--fs-sm); color: var(--t3) }
+.ar-row { display: flex; gap: var(--sp-3) }
 .ar-row .ar-fld { flex: 1; min-width: 0 }
-.ar-chips { display: flex; flex-wrap: wrap; gap: 8px }
-.ar-chip { padding: 5px 12px; border: 1px solid var(--bd); border-radius: var(--radius-lg); background: var(--bg2); color: var(--t2); font-size: 12px; cursor: pointer; transition: all var(--dur-base) }
+.ar-chips { display: flex; flex-wrap: wrap; gap: var(--sp-2) }
+.ar-chip { padding: 5px var(--sp-3); border: 1px solid var(--bd); border-radius: var(--radius-lg); background: var(--bg2); color: var(--t2); font-size:var(--fs-sm); cursor: pointer; transition: all var(--dur-base) }
 .ar-chip:hover { border-color: var(--p-dark); color: var(--p-dark) }
 .ar-chip.on { background: var(--p-bg); border-color: var(--p-dark); color: var(--p-dark); font-weight: 500 }
-.ar-chk { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--t1) }
+.ar-chk { display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; font-size:var(--fs-sm); color: var(--t1) }
 .ar-chk input { accent-color: var(--p) }
 </style>

@@ -501,7 +501,7 @@ function rankW(r) {
       与站内其它页一致；概览条用全局 `.kpi-strip`（规范明文「不再各页自造」）。
    ══════════════════════════════════════════════════════════════════ */
 .dsh {
-  margin-top: 16px;
+  margin-top: var(--sp-4);
 
   /* ── 图表语义色 · 浅色 ── */
   --c-gross: #f97316;   /* 货损毛额：橙 = 损失总量 */
@@ -537,35 +537,35 @@ html.dark .dsh {
 }
 
 /* ── 本块块头（「货损趋势」+ 区间/口径说明 + 两个状态胶囊）── */
-.dsh-hd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
-.dsh-hd b { font-size: 15px; font-weight: 600; color: var(--t1); }
-.dsh-sub { font-size: 12px; color: var(--t2); }
-.dsh-note { font-size: 12px; padding: 3px 9px; border-radius: var(--radius-pill); }
+.dsh-hd { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin: 0 0 var(--sp-3); }
+.dsh-hd b { font-size:var(--fs-h4); font-weight: 600; color: var(--t1); }
+.dsh-sub { font-size:var(--fs-sm); color: var(--t2); }
+.dsh-note { font-size:var(--fs-sm); padding: 3px 9px; border-radius: var(--radius-pill); }
 .dsh-note.war { color: var(--warn-amber); background: var(--warn-amber-bg); }
 
 /* ── 空态 / 「数据不全所以净额偏大」告警（左侧色条替掉整块底色，读起来不刺）── */
 .dsh-empty {
   padding: 26px 22px; border: 1px dashed var(--bd); border-radius: var(--radius-lg);
-  color: var(--t2); font-size: 13px; line-height: 1.7; text-align: center; background: var(--bg2);
+  color: var(--t2); font-size:var(--fs-base); line-height: 1.7; text-align: center; background: var(--bg2);
 }
 .dsh-warn {
-  margin: 12px 0 0; padding: 10px 14px;
+  margin: var(--sp-3) 0 0; padding: var(--sp-h10) var(--sp-h14);
   border-left: 3px solid var(--warn-amber); border-radius: var(--radius-sm);
-  font-size: 12px; line-height: 1.65;
+  font-size:var(--fs-sm); line-height: 1.65;
   color: var(--warn-amber); background: var(--warn-amber-bg);
 }
 
 /* ── 概览条：承载形态 = 全局 `.kpi-strip`，这里只做本页微调 ──
    `.kpi-strip` 自带 `padding:6px 0`（为"裸用"场景准备的），本处外层 `.card`
    已有内距，故清零，避免双份留白。 */
-.dsh-kpibox { padding: 6px 8px; }
+.dsh-kpibox { padding: var(--sp-h6) var(--sp-2); }
 .dsh-kpibox .kpi-strip { padding: 0; }
-.dsh-kpibox .kpi { padding: 10px 18px; display: flex; flex-direction: column; gap: 5px; }
-.dsh-kpibox .kpi-val { font-size: 26px; margin-bottom: 0; }
+.dsh-kpibox .kpi { padding: var(--sp-h10) var(--sp-h18); display: flex; flex-direction: column; gap: 5px; }
+.dsh-kpibox .kpi-val { font-size:var(--fs-num-lg); margin-bottom: 0; }
 .dsh-kpibox .kpi-val u {
-  font-size: 12px; font-weight: 400; color: var(--t2); text-decoration: none; margin-left: 4px;
+  font-size:var(--fs-sm); font-weight: 400; color: var(--t2); text-decoration: none; margin-left: var(--sp-1);
 }
-.dsh-kpibox .kpi-sub { font-size: 12px; line-height: 1.55; }
+.dsh-kpibox .kpi-sub { font-size:var(--fs-sm); line-height: 1.55; }
 .dsh-kpibox .kpi-sub.war { color: var(--warn-amber); }
 /* 数值按指标语义着色 —— 比"每张卡换一个边框色"安静，且颜色直接绑定数据 */
 .dsh-kpibox .val-gross { color: var(--c-gross); }
@@ -581,46 +581,46 @@ html.dark .dsh {
 .dsh-card {
   background: var(--bg); border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
-  padding: 16px 18px 14px; margin-top: 16px;
+  padding: var(--sp-4) var(--sp-h18) var(--sp-h14); margin-top: var(--sp-4);
 }
-.dsh-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.dsh-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
 @media (max-width: 1200px) { .dsh-grid { grid-template-columns: 1fr; } }
 
 /* 卡片标题用**全局** `.sec-hd` / `.sec-sub`（styles/variables.css）——
    本页与「按月一览」明细卡共用同一份，别再在这里写第二份。
    左竖条是"分区锚"，替代再加一行分区标题（本页文案不增）。 */
-.lg { display: flex; align-items: center; gap: 14px; margin-left: auto; font-size: 12px; color: var(--t2); font-weight: 400; }
-.lg-wrap { margin-left: 0; margin-top: 10px; flex-wrap: wrap; gap: 8px 16px; }
+.lg { display: flex; align-items: center; gap: var(--sp-h14); margin-left: auto; font-size:var(--fs-sm); color: var(--t2); font-weight: 400; }
+.lg-wrap { margin-left: 0; margin-top: var(--sp-h10); flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
 .lg i { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-2xs); margin-right: 5px; vertical-align: -1px; }
 .lg i.ln { height: 3px; border-radius: var(--radius-hair); width: 14px; }
 .lg span { display: inline-flex; align-items: center; }
 
-.dsh-svg { margin-top: 12px; }
-.dsh-svg-sm { margin-top: 10px; }
+.dsh-svg { margin-top: var(--sp-3); }
+.dsh-svg-sm { margin-top: var(--sp-h10); }
 .ch { width: 100%; height: auto; display: block; overflow: visible; }
 /* 轴刻度弱于正文（--t3）；但「未录入 / 已隐藏」是要读的信息，用 --t2 */
-.ax { font-size: 11px; fill: var(--t3); }
+.ax { font-size:var(--fs-xs); fill: var(--t3); }
 .ax-rate { fill: var(--c-rate); }
-.ax-u { font-size: 11px; }
-.xl { font-size: 11px; fill: var(--t2); }
-.xl-y { font-size: 11px; fill: var(--t3); }
-.xl-open { font-size: 11px; fill: var(--warn-amber); }
-.ph { font-size: 11px; fill: var(--t2); }
-.ph-s { font-size: 11px; fill: var(--t3); }
+.ax-u { font-size:var(--fs-xs); }
+.xl { font-size:var(--fs-xs); fill: var(--t2); }
+.xl-y { font-size:var(--fs-xs); fill: var(--t3); }
+.xl-open { font-size:var(--fs-xs); fill: var(--warn-amber); }
+.ph { font-size:var(--fs-xs); fill: var(--t2); }
+.ph-s { font-size:var(--fs-xs); fill: var(--t3); }
 .bars { cursor: pointer; }
 .bars rect { transition: opacity var(--dur-fast) ease; }
 .bars:hover rect { opacity: .86; }
 
 /* ── 主体排行：条加粗让"长度差"更好比；行 hover 给回定位反馈 ── */
-.rk { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+.rk { margin-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-1); }
 .rk-row {
   display: grid; grid-template-columns: 22px minmax(130px, 240px) 1fr 104px 78px 68px;
-  align-items: center; gap: 10px; font-size: 12px;
-  padding: 3px 6px; border-radius: var(--radius-sm); transition: background var(--dur-fast) ease;
+  align-items: center; gap: var(--sp-h10); font-size:var(--fs-sm);
+  padding: 3px var(--sp-h6); border-radius: var(--radius-sm); transition: background var(--dur-fast) ease;
 }
 .rk-row:hover { background: var(--bg2); }
 .rk-tag { width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: var(--radius-xs);
-  font-size: 11px; background: var(--bg4); color: var(--t2); }
+  font-size:var(--fs-xs); background: var(--bg4); color: var(--t2); }
 .rk-tag.k-store { background: var(--p-bg); color: var(--p-deep); }
 .rk-tag.k-operator { background: var(--warn-amber-bg); color: var(--warn-amber); }
 .rk-nm { color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -629,5 +629,5 @@ html.dark .dsh {
 .rk-v { text-align: right; color: var(--t1); font-variant-numeric: tabular-nums; }
 .rk-v.good { color: var(--suc); }
 .rk-r { text-align: right; color: var(--c-rate); font-variant-numeric: tabular-nums; }
-.rk-m { text-align: right; color: var(--t3); font-size: 12px; }
+.rk-m { text-align: right; color: var(--t3); font-size:var(--fs-sm); }
 </style>

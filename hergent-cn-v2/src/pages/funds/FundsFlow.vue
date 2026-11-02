@@ -6,7 +6,7 @@
     </div>
 
     <Skeleton v-if="loading" />
-    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button></div>
+    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button></div>
 
     <template v-else>
       <div class="card ff-filter">
@@ -77,9 +77,9 @@ onMounted(load)
 </script>
 
 <style scoped>
-.ff-acts { display: flex; gap: 8px }
-.ff-filter { margin: 14px 0 }
-.ff-frow { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end }
-.ff-frow > label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t2) }
+.ff-acts { display: flex; gap: var(--sp-2) }
+.ff-filter { margin: var(--sp-h14) 0 }
+.ff-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
+.ff-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
 .ff-card { padding: 0; overflow: hidden }
 </style>

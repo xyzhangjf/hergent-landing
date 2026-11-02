@@ -168,11 +168,11 @@ onMounted(() => { loadCustomers(); loadSalespersons(); load() })
 
 <style scoped>
 /* v649：维度筛选条（客户下拉）。沿用骨架筛选卡的版式语言，不新造一套。 */
-.cr-filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
-.cr-fl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t2) }
+.cr-filter { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap }
+.cr-fl { display: inline-flex; align-items: center; gap: var(--sp-h6); font-size:var(--fs-sm); color: var(--t2) }
 .cr-fl select {
-  min-width: 160px; padding: 5px 8px; font-size: 12px; color: var(--t1);
+  min-width: 160px; padding: 5px var(--sp-2); font-size:var(--fs-sm); color: var(--t1);
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-xs);
 }
-.cr-hint { font-size: 11px; color: var(--t3); line-height: 1.6 }
+.cr-hint { font-size:var(--fs-xs); color: var(--t3); line-height: 1.6 }
 </style>

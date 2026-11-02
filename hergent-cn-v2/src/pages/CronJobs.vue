@@ -44,7 +44,7 @@
         <b>任务列表</b>
         <span class="page-sub">到点自动执行，结论回流到下方「执行记录」</span>
       </div>
-    <div v-if="loading" class="skel-line" style="margin-bottom:12px"></div>
+    <div v-if="loading" class="skel-line" style="margin-bottom:var(--sp-3)"></div>
     <div v-else-if="error" class="state-error">{{ error }}</div>
     <div v-else-if="!jobs.length" class="state-empty">
       <div class="se-ic"><Icon name="clock" :size="22" /></div>
@@ -115,7 +115,7 @@
         </div>
         <button class="btn btn-ghost btn-sm" :disabled="execLoading" @click="loadExecutions">{{ execLoading ? '刷新中…' : '刷新' }}</button>
       </div>
-      <div v-if="execLoading" class="skel-line" style="margin:8px 0"></div>
+      <div v-if="execLoading" class="skel-line" style="margin:var(--sp-2) 0"></div>
       <div v-else-if="!executions.length" class="exec-empty">暂无执行记录。任务到点运行后，结论会自动出现在这里。</div>
       <ul v-else class="exec-list">
         <li v-for="e in executions" :key="e.id" class="exec-item">
@@ -333,46 +333,46 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .jobs-card{grid-column:span 7}
 .push-card{grid-column:span 5}
 .exec-card{grid-column:1/-1}
-.sub{font-size:12px;color:var(--t3);margin:2px 0 0}
+.sub{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-h2) 0 0}
 .tb-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer}
 .tb-btn:hover{background:var(--bg2);color:var(--dan)}
-.field{margin-bottom:14px}
-.field label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px}
-.field label.chk-label{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--t1)}
+.field{margin-bottom:var(--sp-h14)}
+.field label{display:block;font-size:var(--fs-sm);color:var(--t2);margin-bottom:var(--sp-h6)}
+.field label.chk-label{display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-size:var(--fs-sm);color:var(--t1)}
 .field label.chk-label input{accent-color:var(--p)}
-.field textarea{height:auto;resize:vertical;padding:10px 14px;line-height:1.6}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
-.chip{padding:6px 12px;border:1px solid var(--bd);border-radius:var(--radius-lg);background:var(--bg3);color:var(--t2);font-size:12px;cursor:pointer;transition:all var(--dur-base)}
+.field textarea{height:auto;resize:vertical;padding:var(--sp-h10) var(--sp-h14);line-height:1.6}
+.chips{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-bottom:var(--sp-h6)}
+.chip{padding:var(--sp-h6) var(--sp-3);border:1px solid var(--bd);border-radius:var(--radius-lg);background:var(--bg3);color:var(--t2);font-size:var(--fs-sm);cursor:pointer;transition:all var(--dur-base)}
 .chip:hover{border-color:var(--p-dark);color:var(--p-dark)}
 .chip.on{background:var(--p-bg);border-color:var(--p-dark);color:var(--p-dark);font-weight:500}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
 /* 推送状态卡（占宽已在顶部声明；grid 里由 gap 控距，不再用 margin） */
 .push-card.on{border-color:rgba(52,199,89,.35)}
-.push-row{display:flex;align-items:center;gap:12px}
-.push-ic{font-size:20px}
-.push-row b{font-size:14px;color:var(--t1)}
+.push-row{display:flex;align-items:center;gap:var(--sp-3)}
+.push-ic{font-size:var(--fs-xl)}
+.push-row b{font-size:var(--fs-md);color:var(--t1)}
 .push-row .btn{margin-left:auto;flex-shrink:0}
-.push-help{margin-top:12px;background:var(--bg2);border-radius:var(--radius-sm);padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8}
-.push-help ol{margin:4px 0 0;padding-left:18px}
-.push-set{display:flex;gap:8px;margin-top:12px}
-.push-set .input{flex:1;height:32px;padding:0 12px;font-size:13px}
-.push-test{margin-top:10px;font-size:12px;color:var(--suc);font-weight:500}
+.push-help{margin-top:var(--sp-3);background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);color:var(--t2);line-height:1.8}
+.push-help ol{margin:var(--sp-1) 0 0;padding-left:var(--sp-h18)}
+.push-set{display:flex;gap:var(--sp-2);margin-top:var(--sp-3)}
+.push-set .input{flex:1;height:32px;padding:0 var(--sp-3);font-size:var(--fs-base)}
+.push-test{margin-top:var(--sp-h10);font-size:var(--fs-sm);color:var(--suc);font-weight:500}
 .push-test.err{color:var(--dan)}
 /* ④ cron 执行结果回流 */
-.exec-hd{display:flex;align-items:center;gap:12px}
+.exec-hd{display:flex;align-items:center;gap:var(--sp-3)}
 .exec-hd .btn{margin-left:auto;flex-shrink:0}
-.exec-empty{margin:10px 0 2px;font-size:12px;color:var(--t3);line-height:1.7}
-.exec-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
-.exec-item{display:flex;gap:10px;align-items:flex-start}
-.exec-dot{width:8px;height:8px;border-radius:var(--radius-circle);margin-top:6px;background:var(--t3);flex-shrink:0}
+.exec-empty{margin:var(--sp-h10) 0 var(--sp-h2);font-size:var(--fs-sm);color:var(--t3);line-height:1.7}
+.exec-list{list-style:none;margin:var(--sp-h10) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--sp-h10)}
+.exec-item{display:flex;gap:var(--sp-h10);align-items:flex-start}
+.exec-dot{width:8px;height:8px;border-radius:var(--radius-circle);margin-top:var(--sp-h6);background:var(--t3);flex-shrink:0}
 .exec-dot.ok{background:var(--suc)}
 .exec-dot.bad{background:var(--dan)}
 .exec-body{flex:1;min-width:0}
-.exec-top{display:flex;align-items:baseline;gap:10px}
-.exec-name{font-size:13px;color:var(--t1)}
-.exec-time{font-size:12px;color:var(--t3);margin-left:auto;flex-shrink:0}
-.exec-result{margin:3px 0 0;font-size:12px;color:var(--t2);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.exec-top{display:flex;align-items:baseline;gap:var(--sp-h10)}
+.exec-name{font-size:var(--fs-base);color:var(--t1)}
+.exec-time{font-size:var(--fs-sm);color:var(--t3);margin-left:auto;flex-shrink:0}
+.exec-result{margin:3px 0 0;font-size:var(--fs-sm);color:var(--t2);line-height:1.6;white-space:pre-wrap;word-break:break-word}
 
 /* 窄屏：栅格降为 6 列 → 两栏各占整行；单列屏全部堆叠 */
 @media(max-width:1200px){

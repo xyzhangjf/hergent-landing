@@ -48,7 +48,7 @@
 
     <div v-if="loading && !loaded" class="rs-skel">
       <div class="skel-line" style="width:55%"></div>
-      <div class="skel-line" style="width:78%;margin-top:8px"></div>
+      <div class="skel-line" style="width:78%;margin-top:var(--sp-2)"></div>
     </div>
 
     <div v-else-if="!items.length" class="state-empty">
@@ -57,7 +57,7 @@
         结算节奏 = 每个月「几号前交上月的核销资料」「几号上账」。<br>
         通常先配一条<b>默认</b>的（所有品牌都用它），个别厂家节奏不同再单独添加。
       </p>
-      <button v-if="canDoWrite" class="btn btn-primary btn-sm" style="display:block;margin:12px auto 0" @click="openForm(null)">
+      <button v-if="canDoWrite" class="btn btn-primary btn-sm" style="display:block;margin:var(--sp-3) auto 0" @click="openForm(null)">
         配第一条结算节奏
       </button>
     </div>
@@ -379,47 +379,47 @@ onMounted(() => { loadBrands(); load() })
 </script>
 
 <style scoped>
-.rs{display:flex;flex-direction:column;gap:14px}
-.rs-bar{display:flex;align-items:flex-start;gap:14px}
-.rs-tip{font-size:12px;color:var(--t2);line-height:1.8;margin:0;flex:1}
-.rs-bar-acts{display:flex;gap:8px;flex-shrink:0}
-.rs-skel{padding:8px 0}
-.rs-empty-sub{font-size:12px;color:var(--t3);max-width:600px;margin:6px auto 0;line-height:1.8}
+.rs{display:flex;flex-direction:column;gap:var(--sp-h14)}
+.rs-bar{display:flex;align-items:flex-start;gap:var(--sp-h14)}
+.rs-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.8;margin:0;flex:1}
+.rs-bar-acts{display:flex;gap:var(--sp-2);flex-shrink:0}
+.rs-skel{padding:var(--sp-2) 0}
+.rs-empty-sub{font-size:var(--fs-sm);color:var(--t3);max-width:600px;margin:var(--sp-h6) auto 0;line-height:1.8}
 
-.rs-cal{padding:14px 16px}
+.rs-cal{padding:var(--sp-h14) var(--sp-4)}
 .rs-cal-off{background:var(--bg2)}
-.rs-cal-hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
-.rs-cal-hd b{font-size:14px}
-.rs-ym{font-size:12px;color:var(--t3);font-variant-numeric:tabular-nums}
-.rs-cal-rows{display:flex;flex-direction:column;gap:8px}
-.rs-cal-row{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:var(--radius-sm);background:var(--bg2)}
-.rs-cal-brand{flex-shrink:0;min-width:96px;font-size:12px;font-weight:600;color:var(--t1)}
-.rs-cal-txt{font-size:12px;color:var(--t2);line-height:1.75}
+.rs-cal-hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--sp-h10)}
+.rs-cal-hd b{font-size:var(--fs-md)}
+.rs-ym{font-size:var(--fs-sm);color:var(--t3);font-variant-numeric:tabular-nums}
+.rs-cal-rows{display:flex;flex-direction:column;gap:var(--sp-2)}
+.rs-cal-row{display:flex;gap:var(--sp-3);align-items:flex-start;padding:var(--sp-2) var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2)}
+.rs-cal-brand{flex-shrink:0;min-width:96px;font-size:var(--fs-sm);font-weight:600;color:var(--t1)}
+.rs-cal-txt{font-size:var(--fs-sm);color:var(--t2);line-height:1.75}
 .rs-cal-txt b{color:var(--t1);font-variant-numeric:tabular-nums}
 .rs-cal-txt b.bad,.rs-rest.bad{color:var(--err-red)}
-.rs-rest{margin-left:2px;color:var(--t3);font-size:12px}
-.rs-sep{margin:0 6px;color:var(--t3)}
+.rs-rest{margin-left:var(--sp-h2);color:var(--t3);font-size:var(--fs-sm)}
+.rs-sep{margin:0 var(--sp-h6);color:var(--t3)}
 .rs-nodoc{color:var(--t3)}
-.rs-cal-note{margin:10px 0 0;font-size:12px;color:var(--t3);line-height:1.7}
+.rs-cal-note{margin:var(--sp-h10) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:1.7}
 
 .rs-faded td{opacity:.6}
-.rs-def{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--radius-xs);font-size:11px;background:var(--p-bg);color:var(--p-dark)}
+.rs-def{display:inline-block;margin-left:var(--sp-h6);padding:0 var(--sp-h6);border-radius:var(--radius-xs);font-size:var(--fs-xs);background:var(--p-bg);color:var(--p-dark)}
 .rs-muted{color:var(--t3)}
-.rs-st{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);font-size:12px;white-space:nowrap}
+.rs-st{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-sm);white-space:nowrap}
 .rs-st.on{background:var(--ok-green-bg);color:var(--ok-green)}
 .rs-st.off{background:var(--bg2);color:var(--t3)}
 .rs-acts{white-space:nowrap;text-align:right}
-.rs-notes{margin:10px 2px 0;display:flex;flex-direction:column;gap:3px}
-.rs-note{font-size:12px;color:var(--t3);line-height:1.6}
+.rs-notes{margin:var(--sp-h10) var(--sp-h2) 0;display:flex;flex-direction:column;gap:3px}
+.rs-note{font-size:var(--fs-sm);color:var(--t3);line-height:1.6}
 
-.rs-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.rs-fld{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
-.rs-fld .input{height:32px;font-size:13px}
+.rs-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
+.rs-fld{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-sm);color:var(--t2)}
+.rs-fld .input{height:32px;font-size:var(--fs-base)}
 .rs-wide{grid-column:1/-1}
-.rs-preview{margin-top:14px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--p-bg);display:flex;flex-direction:column;gap:4px}
-.rs-pv-lbl{font-size:12px;color:var(--t3)}
-.rs-pv-txt{font-size:13px;color:var(--p-dark);line-height:1.7}
-.rs-form-tip{font-size:12px;color:var(--t3);margin:10px 0 0;line-height:1.7}
+.rs-preview{margin-top:var(--sp-h14);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-sm);background:var(--p-bg);display:flex;flex-direction:column;gap:var(--sp-1)}
+.rs-pv-lbl{font-size:var(--fs-sm);color:var(--t3)}
+.rs-pv-txt{font-size:var(--fs-base);color:var(--p-dark);line-height:1.7}
+.rs-form-tip{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-h10) 0 0;line-height:1.7}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-base) ease}
 .fade-enter-from,.fade-leave-to{opacity:0}
 .pop-enter-active,.pop-leave-active{transition:opacity var(--dur-base) ease,transform var(--dur-base) ease}
@@ -427,6 +427,6 @@ onMounted(() => { loadBrands(); load() })
 @media (max-width:900px){
   .rs-grid{grid-template-columns:1fr}
   .rs-bar{flex-direction:column}
-  .rs-cal-row{flex-direction:column;gap:4px}
+  .rs-cal-row{flex-direction:column;gap:var(--sp-1)}
 }
 </style>

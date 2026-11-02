@@ -6,7 +6,7 @@
     </div>
 
     <Skeleton v-if="loading" />
-    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button></div>
+    <div v-else-if="err" class="state-error"><div class="se-ic"><Icon name="alert" :size="22" /></div><p>{{ err }}</p><button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button></div>
 
     <template v-else>
       <div v-if="mode === 'query' || mode === 'qty'" class="card fc-filter">
@@ -101,12 +101,12 @@ onMounted(load)
 </script>
 
 <style scoped>
-.fc-acts { display: flex; gap: 8px }
-.fc-filter { margin: 14px 0 }
-.fc-frow { display: flex; gap: 12px; align-items: flex-end }
-.fc-frow > label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t2) }
+.fc-acts { display: flex; gap: var(--sp-2) }
+.fc-filter { margin: var(--sp-h14) 0 }
+.fc-frow { display: flex; gap: var(--sp-3); align-items: flex-end }
+.fc-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
 .fc-grow { flex: 1 }
 .fc-card { padding: 0; overflow: hidden }
-.fc-foot { font-size: 12px; color: var(--t2); margin: 8px 2px 0 }
+.fc-foot { font-size:var(--fs-sm); color: var(--t2); margin: var(--sp-2) var(--sp-h2) 0 }
 .fc-bad { background: var(--danger-bg) }
 </style>

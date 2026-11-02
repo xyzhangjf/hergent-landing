@@ -120,7 +120,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ err }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadList()">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadList()">重试</button>
       </div>
     </template>
 
@@ -222,7 +222,7 @@
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>
         <p>{{ dErr }}</p>
-        <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadDetail(detail.id)">重试</button>
+        <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadDetail(detail.id)">重试</button>
       </div>
     </template>
   </div>
@@ -355,13 +355,13 @@ defineExpose({ load: loadList })
 
 <style scoped>
 /* 页面私有类一律 `std-` 前缀（仓配·盘点差异单）。 */
-.std-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.std-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 
 .std-card { padding: 0; overflow: hidden }
 .std-mono { font-variant-numeric: tabular-nums; font-weight: 500 }
-.std-time { font-size: 12px; color: var(--t3) }
-.std-dim { color: var(--t3); font-size: 12px }
-.std-pct { color: var(--t3); font-size: 12px }
+.std-time { font-size:var(--fs-sm); color: var(--t3) }
+.std-dim { color: var(--t3); font-size:var(--fs-sm) }
+.std-pct { color: var(--t3); font-size:var(--fs-sm) }
 .std-bad { color: var(--dan); font-weight: 600 }
 
 .std-gain { color: var(--ok); font-variant-numeric: tabular-nums; font-weight: 600 }
@@ -372,18 +372,18 @@ defineExpose({ load: loadList })
 .std-nodiff .std-mono { color: var(--t2) }
 
 .std-op {
-  border: none; background: none; padding: 0; font-size: 13px;
+  border: none; background: none; padding: 0; font-size:var(--fs-base);
   color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .std-op:hover { text-decoration: underline }
 .std-op:disabled { color: var(--t3); cursor: not-allowed; text-decoration: none }
 
-.std-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
-.std-empty-hint { font-size: 12px; color: var(--t3); margin-top: 6px }
+.std-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.std-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .std-tip, .std-lock {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 12px; padding: 8px 12px; font-size: 12px;
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin-bottom: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size:var(--fs-sm);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: var(--bg2); color: var(--t2);
 }
@@ -391,13 +391,13 @@ defineExpose({ load: loadList })
 .std-lock { border-left: 3px solid var(--ok); color: var(--ok) }
 
 .std-meta {
-  display: flex; flex-wrap: wrap; gap: 18px;
-  margin-bottom: 12px; font-size: 12px; color: var(--t2);
+  display: flex; flex-wrap: wrap; gap: var(--sp-h18);
+  margin-bottom: var(--sp-3); font-size:var(--fs-sm); color: var(--t2);
 }
 .std-meta b { color: var(--t3); font-weight: 500 }
 
 .std-tbl { table-layout: fixed }
 .std-tbl th { white-space: nowrap }
 .std-name { font-weight: 500 }
-.std-bc { font-size: 11px; color: var(--t3); font-variant-numeric: tabular-nums; margin-top: 2px }
+.std-bc { font-size:var(--fs-xs); color: var(--t3); font-variant-numeric: tabular-nums; margin-top: var(--sp-h2) }
 </style>

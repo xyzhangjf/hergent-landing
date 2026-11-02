@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
   height:20px;padding:0 9px;
   border:1px solid var(--bd);border-radius:var(--radius-pill);
   background:var(--bg2);color:var(--t2);
-  font-size:12px;line-height:18px;white-space:nowrap;
+  font-size:var(--fs-sm);line-height:18px;white-space:nowrap;
   cursor:pointer;user-select:none;
   transition:background var(--dur-base) ease,border-color var(--dur-base) ease,color var(--dur-base) ease;
 }
@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
   left:50%;transform:translateX(-50%);
   width:min(1080px,calc(100vw - 24px));
   overflow:auto;overscroll-behavior:contain;
-  padding:12px 14px;
+  padding:var(--sp-3) var(--sp-h14);
   background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius);
   box-shadow:0 12px 32px rgba(15,23,42,.16);
 }

@@ -23,7 +23,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load">重试</button>
     </div>
 
     <template v-else>
@@ -189,37 +189,37 @@ onMounted(load)
 <style scoped>
 /* 本页私有类统一 `iw-` 前缀（UI-SPEC：页面私有类带页面前缀，公共视觉语言走全局层）。 */
 .inv-page { display: block }
-.iw-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.iw-lb { font-size: 12px; color: var(--t3) }
+.iw-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
+.iw-lb { font-size:var(--fs-sm); color: var(--t3) }
 .iw-wh-sel { height: 32px; min-width: 140px }
-.iw-go { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap }
+.iw-go { display: flex; gap: var(--sp-2); justify-content: center; margin-top: var(--sp-3); flex-wrap: wrap }
 
 .iw-warn {
   grid-column: 1 / -1;
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
   border-left: 3px solid var(--war);
   color: var(--t1);
 }
 .iw-warn svg { color: var(--war); flex: none }
-.iw-warn span { flex: 1; min-width: 200px; font-size: 13px }
+.iw-warn span { flex: 1; min-width: 200px; font-size:var(--fs-base) }
 
 .iw-exp { grid-column: span 7 }
 .iw-wh { grid-column: span 5 }
-.iw-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; flex-wrap: wrap }
-.iw-note { font-size: 12px; color: var(--t3) }
+.iw-hd { display: flex; align-items: baseline; gap: var(--sp-h10); margin-bottom: var(--sp-3); flex-wrap: wrap }
+.iw-note { font-size:var(--fs-sm); color: var(--t3) }
 
-.iw-chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px }
+.iw-chips { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-2) }
 .iw-chip {
-  padding: 10px 8px; border-radius: var(--radius-sm);
+  padding: var(--sp-h10) var(--sp-2); border-radius: var(--radius-sm);
   background: var(--bg2); text-align: center;
 }
 .iw-chip.bad  { background: var(--danger-bg); }
 .iw-chip.warn { background: var(--p-bg); }
-.iw-chip-lb  { font-size: 12px; color: var(--t2); margin-bottom: 4px }
-.iw-chip-val { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--t1) }
+.iw-chip-lb  { font-size:var(--fs-sm); color: var(--t2); margin-bottom: var(--sp-1) }
+.iw-chip-val { font-size:var(--fs-lg); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--t1) }
 .iw-chip.bad  .iw-chip-val { color: var(--dan) }
 .iw-chip.warn .iw-chip-val { color: var(--war) }
-.iw-chip-sub { font-size: 11px; color: var(--t3); margin-top: 2px }
+.iw-chip-sub { font-size:var(--fs-xs); color: var(--t3); margin-top: var(--sp-h2) }
 
 /* 640px 断点：分档变 2 列、两卡全宽（UI-SPEC 要求表单/密集页在窄屏可读） */
 @media (max-width: 900px) {

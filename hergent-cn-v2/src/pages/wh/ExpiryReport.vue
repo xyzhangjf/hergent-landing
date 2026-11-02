@@ -17,7 +17,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="load()">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="load()">重试</button>
     </div>
 
     <template v-else>
@@ -184,11 +184,11 @@ defineExpose({ load })
 <style scoped>
 /* 页面私有类一律 `wer-` 前缀（仓配·效期）；全局件（.page/.page-hd/.card/.kpi-strip/
    .table-wrap/.tbl/.num/.sec-hd/.state-empty/.state-error）一律复用，不重定义。 */
-.wer-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
-.wer-card { margin-bottom: 14px }
+.wer-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
+.wer-card { margin-bottom: var(--sp-h14) }
 /* `table.tbl` 已给序号列全局样式；这里只补「剩余天数」的语义色 */
 .wer-days { font-weight: 600 }
 .wer-days.bad { color: var(--dan) }
 .wer-days.warn { color: var(--war) }
-.wer-foot { font-size: 12px; color: var(--t2); margin-top: 4px; line-height: 1.7 }
+.wer-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-1); line-height: 1.7 }
 </style>

@@ -88,7 +88,7 @@
         <p class="set-desc">例如 22:00 ~ 08:00 之间不推企业微信，避免深夜打扰；站内信仍可正常查看。</p>
       </div>
 
-      <div class="set-row" style="margin-top:14px">
+      <div class="set-row" style="margin-top:var(--sp-h14)">
         <!-- v335 按钮级门禁：PUT /api/forecast/reminder-config ⇒ 模块 data / 动作 update -->
         <button v-if="canDo('data', 'update')" class="btn btn-primary" :disabled="remindSaving" @click="saveReminder">{{ remindSaving ? '保存中…' : '保存设置' }}</button>
         <span class="set-desc">保存后立即对后续所有期次生效；已发出的提醒不会撤回。</span>
@@ -171,15 +171,15 @@ loadReminder()
 <style scoped>
 /* 以下为提醒面板专有样式（其余布局类 .card/.btn/.input/.page-sub/.panel-hd/.state-empty/.skel-line 为全局，无需重复） */
 .remind-master{align-items:center}
-.set-block{margin-top:16px;padding-top:14px;border-top:1px solid var(--bd)}
-.set-block-hd{font-size:13px;font-weight:600;color:var(--t1);margin-bottom:10px}
-.chk{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);padding:5px 0;cursor:pointer}
+.set-block{margin-top:var(--sp-4);padding-top:var(--sp-h14);border-top:1px solid var(--bd)}
+.set-block-hd{font-size:var(--fs-base);font-weight:600;color:var(--t1);margin-bottom:var(--sp-h10)}
+.chk{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);padding:5px 0;cursor:pointer}
 .chk input{width:16px;height:16px;accent-color:var(--p)}
-.set-row{display:flex;align-items:center;gap:10px;padding:8px 0;flex-wrap:wrap}
+.set-row{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-2) 0;flex-wrap:wrap}
 .set-row>.input{flex:1 1 240px;width:auto;min-width:0}
 .set-row>.set-desc{flex:1 1 260px;min-width:0}
-.set-lb{display:inline-block;min-width:88px;font-size:13px;color:var(--t2)}
-.set-desc{font-size:12px;color:var(--t3);margin:0;line-height:1.7}
+.set-lb{display:inline-block;min-width:88px;font-size:var(--fs-base);color:var(--t2)}
+.set-desc{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:1.7}
 /* iOS 风格开关（沿用主题色变量） */
 .switch{position:relative;display:inline-block;width:42px;height:24px;flex:none}
 .switch input{opacity:0;width:0;height:0}

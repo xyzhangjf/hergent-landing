@@ -18,7 +18,7 @@
     <div v-else-if="err" class="state-error">
       <div class="se-ic"><Icon name="alert" :size="22" /></div>
       <p>{{ err }}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadBoard">重试</button>
+      <button class="btn btn-ghost btn-sm" style="margin-top:var(--sp-h10)" @click="loadBoard">重试</button>
     </div>
 
     <template v-else>
@@ -225,54 +225,54 @@ onMounted(loadBoard)
 
 <style scoped>
 /* 页面私有类一律 `dbd-` 前缀（仓配·司机任务看板），避免与兄弟页串味。 */
-.dbd-acts { display: flex; align-items: center; gap: 8px }
+.dbd-acts { display: flex; align-items: center; gap: var(--sp-2) }
 .dbd-date { width: 160px }
 
-.dbd-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px }
+.dbd-board { display: flex; gap: var(--sp-h14); overflow-x: auto; padding-bottom: var(--sp-2) }
 .dbd-col {
   min-width: 290px; max-width: 310px; flex: 0 0 auto;
-  background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius-md); padding: 12px;
+  background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius-md); padding: var(--sp-3);
 }
 /* 未分配列用虚线 + 警示色，让"待处理"一眼可见 */
 .dbd-col-warn { border-style: dashed; border-color: var(--dan) }
 
-.dbd-col-hd { display: flex; align-items: center; gap: 6px; margin-bottom: 6px }
+.dbd-col-hd { display: flex; align-items: center; gap: var(--sp-h6); margin-bottom: var(--sp-h6) }
 .dbd-col-hd b { font-weight: 600 }
-.dbd-veh { font-size: 12px; color: var(--t3); margin-left: auto }
-.dbd-col-sub { font-size: 12px; color: var(--t3); margin-bottom: 8px }
-.dbd-routes { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px }
+.dbd-veh { font-size:var(--fs-sm); color: var(--t3); margin-left: auto }
+.dbd-col-sub { font-size:var(--fs-sm); color: var(--t3); margin-bottom: var(--sp-2) }
+.dbd-routes { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-bottom: var(--sp-2) }
 .dbd-route { margin: 0 }
 
-.dbd-cards { display: flex; flex-direction: column; gap: 8px }
+.dbd-cards { display: flex; flex-direction: column; gap: var(--sp-2) }
 .dbd-card {
   background: var(--bg); border: 1px solid var(--bd);
-  border-radius: var(--radius-sm); padding: 10px;
+  border-radius: var(--radius-sm); padding: var(--sp-h10);
 }
-.dbd-card-hd { display: flex; align-items: center; gap: 6px }
-.dbd-mono { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t3) }
-.dbd-cust { font-weight: 600; margin-top: 4px }
-.dbd-addr { font-size: 12px; color: var(--t3); margin-top: 2px }
-.dbd-card-ft { display: flex; align-items: center; margin-top: 8px; gap: 8px }
+.dbd-card-hd { display: flex; align-items: center; gap: var(--sp-h6) }
+.dbd-mono { font-variant-numeric: tabular-nums; font-size:var(--fs-sm); color: var(--t3) }
+.dbd-cust { font-weight: 600; margin-top: var(--sp-1) }
+.dbd-addr { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h2) }
+.dbd-card-ft { display: flex; align-items: center; margin-top: var(--sp-2); gap: var(--sp-2) }
 .dbd-amt { font-weight: 600; color: var(--p-dark) }
 .dbd-btns { margin-left: auto }
 
 .dbd-btn {
-  display: inline-flex; align-items: center; gap: 4px;
+  display: inline-flex; align-items: center; gap: var(--sp-1);
   border: 1px solid var(--bd); background: none; border-radius: var(--radius-xs);
-  padding: 3px 8px; font-size: 12px; color: var(--p-dark); cursor: pointer; white-space: nowrap;
+  padding: 3px var(--sp-2); font-size:var(--fs-sm); color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .dbd-btn:hover { background: var(--p-bg) }
 .dbd-btn:disabled { color: var(--t3); cursor: not-allowed; background: none }
 .dbd-btn-fail { color: var(--dan) }
 .dbd-btn-fail:hover { background: rgba(var(--dan-rgb), .08) }
-.dbd-dim { font-size: 12px; color: var(--t3) }
+.dbd-dim { font-size:var(--fs-sm); color: var(--t3) }
 
 .dbd-empty {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 46px 20px; color: var(--t3); text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+  padding: 46px var(--sp-5); color: var(--t3); text-align: center;
 }
 .dbd-empty p { margin: 0 }
-.dbd-empty-hint { font-size: 12px; color: var(--t3); line-height: 1.7; max-width: 560px }
+.dbd-empty-hint { font-size:var(--fs-sm); color: var(--t3); line-height: 1.7; max-width: 560px }
 
-.dbd-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }
+.dbd-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
 </style>
