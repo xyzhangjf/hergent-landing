@@ -1,6 +1,6 @@
 # Hergent 记忆索引（判据首句 + 去哪查；细节一律 `topics/*.md`）
 
-前端 **v734**，下一版 **v735**（`hergent-cn-v2/src/main.js:71`）。唯一开发源 = `main`。
+前端 **v735**，下一版 **v736**（`hergent-cn-v2/src/main.js:71`）。唯一开发源 = `main`。
 「改了但用户说没变」先查 `window.__HG_BUILD__` + `html[data-build]`；判产物 `grep -o "v70x" dist/assets/index-*.js`（`mv dist-vNNN dist` 会嵌套 ⇒ 闭包全 200 也能骗过）。
 合并/解冲突后**必须** `npm test` + `npm run build`：重复 `export`／重复对象键／整段模板被覆盖 ⇒ **构建不报错**。
 
@@ -12,7 +12,8 @@
 - **域**：预报 `forecast-order-domain`｜返利 `rebate-domain`｜成本容量 `cost-and-capacity`｜账务 `accounting-gl-v716-v717`｜条码小程序 `miniprogram-and-brand-data`｜副驾租户 `copilot-tenant-memory`｜本机坑 `local-machine-pitfalls`｜库存 `inventory-psi`。
 - 🔴 **判库存只认 `inventory`**（`quantity`+`stock_value`）；`inventory_balance` 是**空表** ⇒ 按它判得「账面全 0」的假结论。流水 100% 是 `change_type='opening'` ⇒ 判「有没有动过」不能只看流水。
 
-## 🔴 UI 判据（高频；全文 `topics/frontend-ui.md`, v727–v734 在末节）
+## 🔴 UI 判据（高频；全文 `topics/frontend-ui.md`, v727–v735 在末节）
+🔴 **「字不够黑」先查层级倒挂，不是查某个色值**（v735）：侧栏未选中 5.25 ＞ 已选中 4.96 ⇒ 一屏里没有「深」的锚点，整片都显淡；改一处无用，要抬整条阶梯｜**文字 7:1 / UI 图形 3:1 分档**，只迁 `color`(247) 不碰 border(50)·accent(7)·SVG 描边 —— 一刀切加深边框 = 让边框变粗重｜`--t2`≡`--t3` 同值 ⇒「把 --t3 改成 --t2」是**零变化**，截图与肉眼都看不出｜🔴 改字色必须同批处理两件事：**hover 底**（`--bg` 与侧栏底差 3/255 ⇒ 该处 hover 唯一可见变化就是字色，字一改黑 hover 就没了）和 **`<a>` 下划线**（本仓无全局 `text-decoration:none`，字一压深下划线就显形，深色尤刺眼）｜🔴 **护栏必须接进「全部通过 → exit(0)」那个大 if**，否则违规也不打印直接放行（v735 首版四态对照全「通过」正是此因）。
 🔴 **字号归并 ≠ 行高归并**：行高只影响垂直，**字号改宽度** ⇒ 换行/截断/列宽。只收「同值」和「单点」的档｜🔴🔴 **最难发现的债是「同值两个名字」**（`--fs-h2` 20px ≡ `--fs-xl` 20px）：不影响渲染 ⇒ 视觉回归/对比度探针全看不见，用的人只会问「该用哪个」｜护栏查同值不查档位数（`checkFontRamp`）｜`rule.style.fontSize` 读 `var()` 返回**空串**（CSSOM 特性）⇒ 验令牌值走 `getPropertyValue` 或读产物 CSS 文本｜🔴 **改字号的迁移必须同时跑 1440 + 375**（`HG_VW=375`，产物落 `-m375` 目录）—— 字号改的是**宽度**；且「抓到图」≠「进了移动端」⇒ 判 `body.fontSize`=15（桌面 14）为 media 生效的硬证据｜🔴 **一个令牌两个语义**（`--fs-h4` = 四级标题 + 移动端正文）不能机械归一，只能**拆名**；拆完必须加护栏防合回去（`checkMobileBodyOnly`）｜🔴 **文字竖排 ≠ 字体问题**：容器被压到 `width:0` 且 `overflow:visible` 就会逐字换行 ⇒ 先量 `width===0`，再查 `flex-shrink:0` 固定项之和是否已超容器（276 vs 277.8）。
 🔴 **间距归一「收大留小」，别反着来**（v734）：判据不是「离不离 4 栅格」，是**这 2px 差人眼看不出看不出**。小间距 2/4/6/8/10/12 在密集区反复出现（`--sp-h6` 637 处里 **gap 占 255**）⇒ 看得出，6→8 等于全站多列容器重排 = 改设计；大间距 14/16/18/20 隔着整块内容 ⇒ 看不出，硬证据是 `--sp-h14` 与 `--sp-4` **同一条规则块共现 31 处**（作者自己也分不出层次）。**方向一律往上取整**（变小挤压 ⇒ 换行/裁切/溢出；变大只是页面变长）。令牌改值会撞契约的「基线自证」（`.card` 18→20 挂掉 `toolbar-density`）—— 那是**好失败**，改 `CARD_BASE` 常量 + 坏样本换成新令牌，别去改断言条件。
 🔴🔴 **「用行高当高度」≠ 行距**（`height:15px;line-height:15px` 是垂直居中）。改 flex 三坑：`text-align:center` 对**匿名 flex item 无效**必须换 `justify-content`｜同块有 `text-overflow:ellipsis` 的**不能改**（文本变匿名 flex item ⇒ 省略号消失）｜`<select>` 不吃 `align-items`，`line-height` 是它唯一手段。加 `display:flex` 前必查它原本是否 inline（靠父级 grid/flex 被 blockify 才让 width 生效，普通 inline span 变 flex 会从「按内容宽」变固定宽）｜🔴 **护栏要三态**：命中 / 新增报错 / **冻结数用不满也报错**（只写上限 = 空白支票）。
