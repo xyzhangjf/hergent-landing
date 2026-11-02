@@ -35,7 +35,12 @@
           </div>
         </div>
 
-        <div v-if="achvLoading" class="state-empty">加载中…</div>
+        <!-- v725：加载态不借用空态样式（虚框 + 居中灰字读作「这里空的」）。 -->
+        <div v-if="achvLoading" class="sk-block">
+          <span class="skel-line sk-h12" style="width:66%"></span>
+          <span class="skel-line sk-h12" style="width:52%"></span>
+          <span class="skel-line sk-h12" style="width:74%"></span>
+        </div>
         <EmptyState v-else-if="!dashboardModel || !dashboardModel.items.length" icon="clock">
           <p v-if="!rules.length">暂无返利规则，请先在「目标配置」创建品牌 / 商品目标。
             <!-- v132：全页空态唯一入口，直达创建（原「去创建目标」只切 tab，还要再点一次） -->
@@ -349,7 +354,12 @@
           </div>
         </div>
 
-        <div v-if="achvLoading" class="state-empty">加载中…</div>
+        <!-- v725：加载态不借用空态样式（虚框 + 居中灰字读作「这里空的」）。 -->
+        <div v-if="achvLoading" class="sk-block">
+          <span class="skel-line sk-h12" style="width:66%"></span>
+          <span class="skel-line sk-h12" style="width:52%"></span>
+          <span class="skel-line sk-h12" style="width:74%"></span>
+        </div>
         <div v-else-if="!achvRows.length" class="state-empty">
           <p>本月还没有可填报的行。请先在「目标配置」创建品牌 / 商品目标，或直接「Excel 导入」达成数据。</p>
         </div>
@@ -530,7 +540,12 @@
           <button v-if="canDo('sales', 'create')" class="btn btn-primary btn-sm" style="margin-left:auto" @click="openCreateContract">+ 录入年度合同</button>
         </div>
 
-        <div v-if="contractLoading" class="state-empty">加载中…</div>
+        <!-- v725：加载态不借用空态样式（虚框 + 居中灰字读作「这里空的」）。 -->
+        <div v-if="contractLoading" class="sk-block">
+          <span class="skel-line sk-h12" style="width:66%"></span>
+          <span class="skel-line sk-h12" style="width:52%"></span>
+          <span class="skel-line sk-h12" style="width:74%"></span>
+        </div>
         <EmptyState v-else-if="!contracts.length" icon="clock" desc="暂无返利结算。点击「录入年度合同」新增（如「蒙牛 2026 年度返利合同」）。" />
         <div v-else class="contract-list">
           <div v-for="c in filteredContracts" :key="c.id" class="contract-card">
@@ -1170,7 +1185,12 @@
           </div>
           <div class="modal-bd">
             <p class="cf-tip">按生效期锁定历史月份计提口径：计提某月时自动采用当时生效的版本阶梯，避免年中改阶梯后历史月份口径争议。</p>
-            <div v-if="versionLoading" class="state-empty">加载中…</div>
+            <!-- v725：加载态不借用空态样式（虚框 + 居中灰字读作「这里空的」）。 -->
+            <div v-if="versionLoading" class="sk-block">
+              <span class="skel-line sk-h12" style="width:66%"></span>
+              <span class="skel-line sk-h12" style="width:52%"></span>
+              <span class="skel-line sk-h12" style="width:74%"></span>
+            </div>
             <div v-else-if="!versionList.length" class="state-empty"><p>暂无版本。点「新增版本」把当前阶梯快照为一版（可设生效期）。</p></div>
             <table v-else class="dt-tier" style="margin-top:8px">
               <thead><tr><th>版本</th><th>生效期</th><th>阶梯</th><th>计法</th><th></th></tr></thead>

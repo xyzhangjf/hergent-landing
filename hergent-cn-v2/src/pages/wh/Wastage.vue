@@ -311,7 +311,12 @@
         </div>
       </template>
 
-      <div v-else-if="dLoading" class="state-empty">加载中…</div>
+      <!-- v725：加载态不借用空态样式（虚框 + 居中灰字读作「这里空的」）。 -->
+      <div v-else-if="dLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:66%"></span>
+        <span class="skel-line sk-h12" style="width:52%"></span>
+        <span class="skel-line sk-h12" style="width:74%"></span>
+      </div>
 
       <div v-else class="state-error">
         <div class="se-ic"><Icon name="alert" :size="22" /></div>

@@ -55,7 +55,12 @@
         </button>
         <button class="btn btn-sm btn-ghost" @click="loadReports">刷新</button>
       </div>
-      <div v-if="!reports.length" class="state-empty sm">还没有报告，在副驾里分析完点「存为报告」即可沉淀到这里</div>
+      <div v-if="reportsLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:56%"></span>
+        <span class="skel-line sk-h12" style="width:72%"></span>
+        <span class="skel-line sk-h12" style="width:44%"></span>
+      </div>
+      <div v-else-if="!reports.length" class="state-empty sm">还没有报告，在副驾里分析完点「存为报告」即可沉淀到这里</div>
       <div v-else class="rep-list">
         <div v-for="r in reports" :key="r.id" class="rep-item">
           <div class="rep-main" @click="openReport(r)">
@@ -137,6 +142,9 @@
         </div>
       </div>
       <div v-if="value" class="quota-sub">{{ value.month }} 月 · 节省金额待「金额回算」接入后展示（下一步）</div>
+      <div v-else-if="valueLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:50%"></span>
+      </div>
       <div v-else class="state-empty sm">暂无数据，去副驾里采纳/驳回几条建议，这里就会长出你的 AI 价值账单</div>
     </div>
 
@@ -196,7 +204,12 @@
         </template>
       </div>
 
-      <div v-if="!proposalsDenied && !proposals.length" class="state-empty sm">
+      <div v-if="!proposalsDenied && proposalsLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:74%"></span>
+        <span class="skel-line sk-h12" style="width:60%"></span>
+        <span class="skel-line sk-h12" style="width:80%"></span>
+      </div>
+      <div v-else-if="!proposalsDenied && !proposals.length" class="state-empty sm">
         暂无待审提案。当同类口径被反复改写（经验闭环判定）或运营手工提交时，提案会出现在这里等你拍板。
       </div>
       <div v-else-if="!proposalsDenied" class="prop-list">
@@ -293,6 +306,11 @@
         </div>
         <div v-if="profile.updated_at" class="quota-sub">更新于 {{ profile.updated_at }}</div>
       </div>
+      <div v-else-if="profileLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:66%"></span>
+        <span class="skel-line sk-h12" style="width:52%"></span>
+        <span class="skel-line sk-h12" style="width:74%"></span>
+      </div>
       <div v-else class="state-empty sm">
         画像将在你使用副驾（对话 / 纠正口径）后自动生成，点「刷新画像」立即提炼
       </div>
@@ -323,6 +341,14 @@ import { roleIn } from '../constants/roles'
 import { ADMIN_ROLES } from '../constants/pages'
 
 const reports = ref([])
+/* v725：onMounted 里 reports / value / profile / proposals 四块并发加载。
+   原先都无 loading 标志，加载期间分别显示「还没有报告」「暂无数据」
+   「暂无待审提案」「画像将自动生成」—— 四句都是**结论**。
+   最重的是「暂无待审提案」：审批台说没有，等于告诉老板不用看。
+   初始值取 true，因为 onMounted 必然会发起请求，避免首帧闪一下错误空态。 */
+const reportsLoading = ref(true)
+const valueLoading = ref(true)
+const profileLoading = ref(true)
 const savingReport = ref(false)
 const quota = ref(null)
 const quotaForm = ref({ tier: 'free' })
@@ -407,7 +433,7 @@ function tierLabel(t) {
 
 /* ②·6 口径提案审核台（M3）——后端 /api/ai/recipe-proposals（list / review） */
 const proposals = ref([])
-const proposalsLoading = ref(false)
+const proposalsLoading = ref(true)
 const proposalsDenied = ref(false)   // 🔴 403 与「真没有提案」必须分开说，别把「没权限」显示成「没有」
 const reviewing = ref(0)
 const MOD_LABEL = { loss: '货损', payroll: '工资', forecast: '预报', rebate: '返利' }
@@ -551,10 +577,11 @@ function fuelOf(p) {
 
 /* ① 报告 */
 async function loadReports() {
+  reportsLoading.value = true
   try {
     const d = await api('/api/ai/reports')
     reports.value = (d && d.reports) || []
-  } catch (_) {}
+  } catch (_) {} finally { reportsLoading.value = false }
 }
 function chatToMarkdown() {
   return store.chat.messages
@@ -636,12 +663,13 @@ async function applyQuota() {
 
 /* ②·5 价值账单 */
 async function loadValue() {
+  valueLoading.value = true
   try {
     const d = await api('/api/ai/value-summary')
     value.value = d && d.ok ? d : null
   } catch (_) {
     value.value = null
-  }
+  } finally { valueLoading.value = false }
 }
 
 /* ③ 洞察（T1-3：结论 + 指标级溯源；缺数据则拒答）*/
@@ -686,10 +714,11 @@ function pv(p) {
 
 /* ⑤ 画像 */
 async function loadProfile() {
+  profileLoading.value = true
   try {
     const d = await api('/api/ai/profile-llm')
     profile.value = (d && d.ok && d.profile) ? d.profile : null
-  } catch (_) {}
+  } catch (_) {} finally { profileLoading.value = false }
 }
 async function refreshProfile() {
   refreshing.value = true

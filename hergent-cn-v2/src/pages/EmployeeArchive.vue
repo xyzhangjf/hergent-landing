@@ -117,7 +117,12 @@
         配的是<b>登录账号</b>的所属部门。没配的人照样能开单、能保存，只是不会自动带出部门，
         需要手动选一次 —— 这不是错误，只是少一步省事。
       </p>
-      <div v-if="hdLoading" class="state-empty">加载中…</div>
+      <!-- v725：加载态不再借用空态样式（虚框居中读作「空的」）。 -->
+      <div v-if="hdLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:70%"></span>
+        <span class="skel-line sk-h12" style="width:56%"></span>
+        <span class="skel-line sk-h12" style="width:66%"></span>
+      </div>
       <div v-else-if="!hdUsers.length" class="state-empty">没有可配置的账号</div>
       <div v-else class="table-wrap freeze-list">
         <table class="tbl">
@@ -163,7 +168,11 @@
         开完号还要去 <b>预报订单管理 → 报单配置</b> 把<b>他的门店</b>配给他，小程序里才有东西可选。
       </p>
 
-      <div v-if="extLoading" class="state-empty">加载中…</div>
+      <div v-if="extLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:62%"></span>
+        <span class="skel-line sk-h12" style="width:80%"></span>
+        <span class="skel-line sk-h12" style="width:48%"></span>
+      </div>
       <div v-else-if="extAccounts.length" class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>

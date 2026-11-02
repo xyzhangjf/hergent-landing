@@ -71,7 +71,13 @@
         <b>待审品牌</b>
       </div>
 
-      <div v-if="pendingLoading" class="state-empty">加载中…</div>
+      <!-- v725：原先用 .state-empty 显示「加载中…」—— 空态是虚框 + 居中灰字，
+           视觉语言是「这里是空的」，与文案矛盾。改真骨架。 -->
+      <div v-if="pendingLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:64%"></span>
+        <span class="skel-line sk-h12" style="width:78%"></span>
+        <span class="skel-line sk-h12" style="width:52%"></span>
+      </div>
       <div v-else-if="pending.length" class="ba-pending-list">
         <div v-for="p in pending" :key="p.id" class="ba-pending-item">
           <div class="ba-pending-info">

@@ -1117,6 +1117,11 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 .skel-line{display:block;height:14px;border-radius:var(--radius-2xs);background:var(--bg4);animation:pulse 1.4s ease-in-out infinite}
 .skel-line.sk-h12{height:12px}
 .skel-line.sk-h22{height:22px}
+/* 多行骨架：替代「列表还没到就先说没有」的空态块（v725）。
+   放在 .state-empty 原本的位置，纵向间距对齐列表行距，避免数据到达时跳版。
+   统一一处定义，页面里不再各写副本。 */
+.sk-block{display:grid;gap:10px;padding:14px 2px}
+.sk-block .skel-line{width:100%}
 
 /* ============================================================
    v241 补齐：危险按钮 / 输入禁用·只读 / 表单错误态（S3 · S4 · S5）

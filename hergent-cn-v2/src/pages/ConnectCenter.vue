@@ -34,6 +34,11 @@
             <div class="ev-run-empty" v-else>本次进化未产生变化（AI 审查通过，无需改动）</div>
           </div>
         </div>
+        <div v-else-if="evoLoading" class="sk-block">
+          <span class="skel-line sk-h12" style="width:62%"></span>
+          <span class="skel-line sk-h12" style="width:78%"></span>
+          <span class="skel-line sk-h12" style="width:50%"></span>
+        </div>
         <div v-else class="state-empty">暂无进化记录</div>
       </div>
     </template>
@@ -270,6 +275,10 @@
             <div class="sk-what">{{ m.description }}</div>
           </div>
         </div>
+        <div v-else-if="skillLoading" class="sk-block">
+          <span class="skel-line sk-h12" style="width:70%"></span>
+          <span class="skel-line sk-h12" style="width:56%"></span>
+        </div>
         <div v-else class="state-empty">平台能力模块未返回</div>
       </div>
 
@@ -280,7 +289,13 @@
           <span class="page-sub">行业规则预置 + AI 从使用中自进化沉淀</span>
         </div>
 
-        <div v-if="skillLoading" class="state-empty">加载技能中…</div>
+        <!-- v725：原先用 .state-empty 显示「加载技能中…」——把加载态画成空态样式
+             （虚框、居中、灰字），读起来像「已经加载完且是空的」。改真骨架。 -->
+        <div v-if="skillLoading" class="sk-block">
+          <span class="skel-line sk-h12" style="width:64%"></span>
+          <span class="skel-line sk-h12" style="width:80%"></span>
+          <span class="skel-line sk-h12" style="width:52%"></span>
+        </div>
         <div v-else-if="!aiSkills.length" class="state-empty">AI 技能暂时连不上，请稍后重试。</div>
 
         <template v-else>
@@ -524,14 +539,17 @@ watch(() => route.query.tab, () => applyConnectTab())
 const evSkills = ref({ total: 0, items: [] })
 const evRuns = ref([])
 const evLastAt = ref('')
+/* v725：加载中 evRuns 为空 ⇒ 原先显示「暂无进化记录」，是结论而非状态。 */
+const evoLoading = ref(true)
 
 async function loadEvolution() {
+  evoLoading.value = true
   try {
     const r = await api('/api/ai/evolution')
     evRuns.value = (r && r.curator && r.curator.runs) || []
     evSkills.value = (r && r.skills) || { total: 0, items: [] }
     evLastAt.value = r ? (r.last_run_at || '').slice(0, 16).replace('T', ' ') : ''
-  } catch (e) { /* 静默 */ }
+  } catch (e) { /* 静默 */ } finally { evoLoading.value = false }
 }
 
 function fmtEvTime(t) {
@@ -542,7 +560,10 @@ function fmtEvTime(t) {
 /* ---- AI 技能库（预置 + AI 自进化） ---- */
 const aiSkills = ref([])
 const infraModules = ref([])
-const skillLoading = ref(false)
+/* v725：初始值必须是 true。onMounted 在**首次渲染之后**才执行 ⇒ 若初始 false，
+   首帧会闪一下「AI 技能暂时连不上，请稍后重试」「平台能力模块未返回」，
+   即界面先报了一个错、再改口。initially-true 才是「还没读到」的准确表达。 */
+const skillLoading = ref(true)
 const prebuiltSkills = computed(() => aiSkills.value.filter(s => s.source === 'prebuilt'))
 const generatedSkills = computed(() => aiSkills.value.filter(s => s.source === 'generated'))
 

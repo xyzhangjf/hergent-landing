@@ -44,7 +44,12 @@
           </div>
         </div>
       </div>
-      <div v-if="!backups.length" class="state-empty sm">还没有备份，点「立即备份」开始守护数据</div>
+      <div v-if="backupsLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:64%"></span>
+        <span class="skel-line sk-h12" style="width:82%"></span>
+        <span class="skel-line sk-h12" style="width:48%"></span>
+      </div>
+      <div v-else-if="!backups.length" class="state-empty sm">还没有备份，点「立即备份」开始守护数据</div>
       <div v-if="lastRestore" class="restore-box">
         <div class="prof-hd">恢复演练结果 · {{ lastRestore.date }}</div>
         <div v-for="p in lastRestore.plan" :key="p.name" class="restore-row">
@@ -98,7 +103,11 @@
           <span class="quota-sub">{{ f.count }} 次</span>
         </div>
       </div>
-      <div v-if="!obs" class="state-empty sm">还没有 LLM 调用记录（点刷新试试）</div>
+      <div v-if="obsLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:70%"></span>
+        <span class="skel-line sk-h12" style="width:52%"></span>
+      </div>
+      <div v-else-if="!obs" class="state-empty sm">还没有 LLM 调用记录（点刷新试试）</div>
     </div>
 
     <!-- ==================== ③ 配方导入导出 ==================== -->
@@ -174,7 +183,12 @@
         <button class="btn btn-sm btn-primary" @click="loadAudit">查询</button>
         <span class="page-sub" v-if="auditTotal">共 {{ auditTotal }} 条</span>
       </div>
-      <div v-if="auditLogs.length" class="audit-list">
+      <div v-if="auditLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:76%"></span>
+        <span class="skel-line sk-h12" style="width:58%"></span>
+        <span class="skel-line sk-h12" style="width:84%"></span>
+      </div>
+      <div v-else-if="auditLogs.length" class="audit-list">
         <div v-for="log in auditLogs" :key="log.id" class="audit-row">
           <span class="audit-when">{{ fmt(log.at) }}</span>
           <span class="audit-user">{{ log.user_name }}</span>
@@ -196,7 +210,11 @@
         <button class="btn btn-sm btn-ghost" @click="loadFallback">刷新</button>
         <button class="btn btn-sm btn-primary" :disabled="!fallbackList.length" @click="ackFallback">全部知道了</button>
       </div>
-      <div v-if="fallbackList.length" class="fb-list">
+      <div v-if="fbLoading" class="sk-block">
+        <span class="skel-line sk-h12" style="width:68%"></span>
+        <span class="skel-line sk-h12" style="width:80%"></span>
+      </div>
+      <div v-else-if="fallbackList.length" class="fb-list">
         <div v-for="f in fallbackList" :key="f.id" class="fb-row">
           <span class="fb-when">{{ fmt(f.at) }}</span>
           <span class="fb-kind" :class="f.kind">{{ FB_KIND_LABEL[f.kind] || '异常' }}</span>
@@ -232,6 +250,13 @@ const auditTotal = ref(0)
 const auditModules = ref([])
 const auditFilter = ref({ module: '', keyword: '' })
 const fallbackList = ref([])
+/* v725：四块数据都在 onMounted 并发加载。没有 loading 标志时，加载期间
+   「还没有备份」「暂无审计日志」「暂无兜底事件」都是**结论** —— 这页是安全位，
+   说「没有记录」比说「还没读到」危险得多：老板会据此认为数据无人守护。 */
+const backupsLoading = ref(true)
+const obsLoading = ref(true)
+const auditLoading = ref(true)
+const fbLoading = ref(true)
 
 const verList = ref([])
 const verLoading = ref(false)
@@ -292,11 +317,12 @@ function fmtSize(n) {
 
 /* ① 数据备份 */
 async function loadBackups() {
+  backupsLoading.value = true
   try {
     const d = await api('/api/admin/backups')
     backups.value = (d && d.backups) || []
     backupStatus.value = d || null
-  } catch (_) {}
+  } catch (_) {} finally { backupsLoading.value = false }
 }
 
 async function runBackupNow() {
@@ -328,10 +354,11 @@ async function dryRestore(date) {
 
 /* ② 健康看板 */
 async function loadObs() {
+  obsLoading.value = true
   try {
     const d = await api('/api/ai/observability/health?hours=24')
     obs.value = d || null
-  } catch (_) {}
+  } catch (_) {} finally { obsLoading.value = false }
 }
 
 /* ③ 配方导入导出 */
@@ -408,6 +435,7 @@ async function applyRecipeImport() {
 
 /* ④ 审计日志 */
 async function loadAudit() {
+  auditLoading.value = true
   try {
     const q = new URLSearchParams({
       module: auditFilter.value.module || '',
@@ -417,7 +445,7 @@ async function loadAudit() {
     const d = await api('/api/audit/logs?' + q)
     auditLogs.value = (d && d.items) || []
     auditTotal.value = (d && d.total) || 0
-  } catch (_) {}
+  } catch (_) {} finally { auditLoading.value = false }
 }
 
 async function loadAuditModules() {
@@ -429,10 +457,11 @@ async function loadAuditModules() {
 
 /* ⑤ 兜底记录 */
 async function loadFallback() {
+  fbLoading.value = true
   try {
     const d = await api('/api/ai/fallback/list?limit=30')
     fallbackList.value = (d && d.items) || []
-  } catch (_) {}
+  } catch (_) {} finally { fbLoading.value = false }
 }
 
 async function ackFallback() {

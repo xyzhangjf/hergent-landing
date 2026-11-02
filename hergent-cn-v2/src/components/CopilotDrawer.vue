@@ -84,7 +84,14 @@
               <div v-for="(sn, si) in h.snippets" :key="si" class="cp-hist-snippet">{{ sn }}</div>
             </div>
           </div>
-          <div v-if="!store.chat.sessions.length && !histHits.length" class="state-empty">{{ store.chat.sessionsLoading ? '正在加载历史会话…' : '还没有历史会话' }}</div>
+          <!-- v725：原先一个元素用三元在「正在加载」与「还没有」之间切换，
+               两者共用空态样式 ⇒ 加载中看起来就像「确实没有历史会话」。拆成两支。 -->
+          <div v-if="!store.chat.sessions.length && !histHits.length && store.chat.sessionsLoading" class="sk-block">
+            <span class="skel-line sk-h12" style="width:70%"></span>
+            <span class="skel-line sk-h12" style="width:56%"></span>
+            <span class="skel-line sk-h12" style="width:64%"></span>
+          </div>
+          <div v-else-if="!store.chat.sessions.length && !histHits.length" class="state-empty">还没有历史会话</div>
           <div v-else class="cp-hist-list">
             <div v-for="s in store.chat.sessions" :key="s.id" class="cp-hist-item" :class="{ on: s.id === store.chat.currentId }" @click="openSession(s.id)">
               <div class="cp-hist-title">{{ s.title }}</div>

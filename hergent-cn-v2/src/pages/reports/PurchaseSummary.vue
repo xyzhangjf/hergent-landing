@@ -32,6 +32,9 @@
             </tbody>
           </table>
         </div>
+        <!-- v725 勘察结论：这里的空态**不需要**加 loading 保护 —— 整个 #extra 插槽
+             位于 ReportTable 的 `<template v-else>` 内，loading 期间根本不渲染。
+             （初判为缺口，限速实测骨架峰值为 0 才反查出祖先挡住了分支。） -->
         <div v-else class="state-empty">暂无供应商采购数据。</div>
       </div>
     </template>

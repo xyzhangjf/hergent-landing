@@ -840,7 +840,12 @@
              本系统没有承运商 / 运单号 / 轨迹任何一张表，那一页只能是永久空态，
              放一个永远查不到东西的页签等于给用户一个假承诺。物流信息将来真接了
              （厂家 TMS / 手工填运单号）再加页签不迟。 -->
-        <div v-if="logsLoading" class="state-empty">加载中…</div>
+        <!-- v725：加载态不借用空态样式（虚框 + 居中灰字读作「这里空的」）。 -->
+        <div v-if="logsLoading" class="sk-block">
+          <span class="skel-line sk-h12" style="width:66%"></span>
+          <span class="skel-line sk-h12" style="width:52%"></span>
+          <span class="skel-line sk-h12" style="width:74%"></span>
+        </div>
         <div v-else-if="logsErr" class="state-error">
           <div class="se-ic"><Icon name="alert" :size="22" /></div>
           <p>{{ logsErr }}</p>
@@ -892,7 +897,12 @@
           {{ o.order_no || ('#' + oid) }} · {{ o.supplier_name || '供应商' }}（{{ attachCount }} 个）
         </p>
 
-        <div v-if="attLoading" class="state-empty">加载中…</div>
+        <!-- v725：加载态不借用空态样式（虚框 + 居中灰字读作「这里空的」）。 -->
+        <div v-if="attLoading" class="sk-block">
+          <span class="skel-line sk-h12" style="width:66%"></span>
+          <span class="skel-line sk-h12" style="width:52%"></span>
+          <span class="skel-line sk-h12" style="width:74%"></span>
+        </div>
         <div v-else-if="!attachCount" class="state-empty">这张单还没有附件。</div>
         <div v-else class="table-wrap ipd-logwrap">
           <table class="tbl">

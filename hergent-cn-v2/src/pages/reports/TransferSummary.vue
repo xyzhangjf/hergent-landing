@@ -37,6 +37,8 @@
             </tbody>
           </table>
         </div>
+        <!-- v725 勘察结论：同 PurchaseSummary —— loading 时整个 #extra 不渲染，
+             此空态不会在加载中误报，无需保护。 -->
         <div v-else class="state-empty">暂无调拨单明细。</div>
       </div>
     </template>
