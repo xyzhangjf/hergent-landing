@@ -2291,7 +2291,7 @@ onMounted(() => {
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
 .stopped-tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--st-draft-bg);color:var(--st-draft-txt)}
 .btn.danger{color:var(--dan)}
-.btn-danger{background:var(--dan);color:#fff;border:none}
+.btn-danger{background:var(--dan-solid);color:#fff;border:none}
 .btn-danger:hover{filter:brightness(.95)}
 
 /* 编辑弹窗布局 */

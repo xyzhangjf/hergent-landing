@@ -356,7 +356,7 @@ onMounted(() => {
 .ba-field-wide{grid-column:1 / -1}
 
 .btn.danger{color:var(--dan)}
-.btn-danger{background:var(--dan);color:#fff;border:none}
+.btn-danger{background:var(--dan-solid);color:#fff;border:none}
 .btn-danger:hover{filter:brightness(.95)}
 .warn-text{color:var(--dan);font-weight:500}
 

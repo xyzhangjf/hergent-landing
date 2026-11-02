@@ -449,7 +449,7 @@ defineExpose({ load })
 }
 .wob-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
 .wob-pg:disabled { opacity: .45; cursor: not-allowed }
-.wob-pg.on { background: var(--p-dark); border-color: var(--p-dark); color: #fff }
+.wob-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
 .wob-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
 
 .wob-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }

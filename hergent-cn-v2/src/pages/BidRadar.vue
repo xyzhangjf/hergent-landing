@@ -417,7 +417,7 @@ onMounted(load)
 .c-link{white-space:nowrap}
 .br-link{color:var(--p-dark);text-decoration:none;font-weight:500}
 .br-link:hover{text-decoration:underline}
-.br-new{display:inline-block;margin-right:6px;font-size:11px;font-weight:700;color:#fff;background:var(--dan);padding:1px 6px;border-radius:6px;vertical-align:middle}
+.br-new{display:inline-block;margin-right:6px;font-size:11px;font-weight:700;color:#fff;background:var(--dan-solid);padding:1px 6px;border-radius:6px;vertical-align:middle}
 .br-capex{display:inline-block;margin-right:6px;font-size:11px;font-weight:600;color:var(--war);background:rgba(245,158,11,.16);padding:1px 6px;border-radius:6px;vertical-align:middle}
 
 .tag{display:inline-block;padding:2px 9px;border-radius:8px;font-size:12px;font-weight:500;white-space:nowrap}

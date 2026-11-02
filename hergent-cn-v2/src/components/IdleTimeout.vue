@@ -134,7 +134,7 @@ onBeforeUnmount(() => {
 .ito-actions{display:flex;gap:10px;margin-top:20px}
 .ito-btn{flex:1;height:38px;border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:8px;font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .ito-btn:hover{border-color:var(--p);color:var(--p-dark)}
-.ito-btn.primary{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
+.ito-btn.primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .ito-btn.primary:hover{filter:brightness(1.06);color:#fff}
 
 .ito-fade-enter-active,.ito-fade-leave-active{transition:opacity var(--dur-base) ease}

@@ -609,7 +609,9 @@ function onHover(mo, i, key) {
 .mac-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
 .seg-btn { padding: 4px 12px; font-size: 12px; background: transparent; border: 0; cursor: pointer; color: var(--t2); }
 .seg-btn + .seg-btn { border-left: 1px solid var(--bd); }
-.seg-btn.on { background: var(--p); color: #fff; }
+/* v723：`--p` → `--p-solid`。全站另有 4 处 `.seg-btn.on` 早就用 `--p-solid`，
+   只有这里漏了 ⇒ 返利页「完整/分月」选中态深色下白字 1.81:1（整站最低）。 */
+.seg-btn.on { background: var(--p-solid); color: #fff; }
 
 .mac-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sel-year { height: 26px; padding: 0 6px; font-size: 12px; width: auto; }

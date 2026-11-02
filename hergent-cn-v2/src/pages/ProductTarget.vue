@@ -1408,8 +1408,8 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-fix-u{width:62px;text-align:center}
 .pt-fix-n{width:80px;text-align:center}
 .pt-fix-save{height:28px;padding:0 12px;border:none;border-radius:var(--radius-sm);
-  background:var(--p-dark);color:#fff;font-size:12px;cursor:pointer;white-space:nowrap}
-.pt-fix-save:hover:not(:disabled){background:var(--p-deep)}
+  background:var(--p-solid);color:#fff;font-size:12px;cursor:pointer;white-space:nowrap}
+.pt-fix-save:hover:not(:disabled){background:var(--p-solid-h)}
 .pt-fix-save:disabled{opacity:.45;cursor:not-allowed}
 .pt-fix-src{margin-top:7px;font-size:12px;color:var(--t2);line-height:1.5}
 .pt-fix-msg{margin-top:6px;font-size:12px;color:var(--danger-txt)}

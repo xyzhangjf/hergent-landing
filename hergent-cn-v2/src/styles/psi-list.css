@@ -289,7 +289,9 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 }
 .psi-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
 .psi-pg:disabled { opacity: .45; cursor: not-allowed }
-.psi-pg.on { background: var(--p-dark); border-color: var(--p-dark); color: #fff }
+/* v723：底色 `--p-dark` → `--p-solid`。深色下 `--p-dark` 是亮青 #06b6d4，白字只有 2.43:1，
+   当前页码反而比别的页码难读。`--p-solid` 深浅都是 #0e7490（白字 5.36）。 */
+.psi-pg.on { background: var(--p-solid); border-color: var(--p-solid); color: #fff }
 .psi-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
 .psi-pg-jump { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t3) }
 .psi-pg-in { width: 52px; height: 28px; padding: 0 6px; text-align: center; border-radius: var(--radius-sm) }

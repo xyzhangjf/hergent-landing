@@ -922,7 +922,7 @@ onMounted(async () => {
 .pc-card-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .pc-card-hd b{font-size:14px;color:var(--t1)}
 .pc-tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--bd);color:var(--t2)}
-.pc-tag.def{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
+.pc-tag.def{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .pc-tag.off{background:var(--bg2);color:var(--t3)}
 .pc-card-bd{flex:1;display:flex;flex-direction:column;gap:4px}
 .pc-ln{display:flex;justify-content:space-between;gap:10px;font-size:12px;line-height:1.6}

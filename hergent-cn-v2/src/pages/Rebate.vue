@@ -3758,8 +3758,8 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .cf-step{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3);padding:6px 10px;border-radius:var(--radius-sm);flex:1;justify-content:center}
 .cf-step span{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--bg2);color:var(--t2);font-size:12px;font-weight:700}
 .cf-step.active{color:var(--t1);font-weight:600;background:rgba(6,182,212,.1)}
-.cf-step.active span{background:var(--p-dark);color:#fff}
-.cf-step.done span{background:var(--suc);color:#fff}
+.cf-step.active span{background:var(--p-solid);color:#fff}
+.cf-step.done span{background:var(--suc-solid);color:#fff}
 .cf-step.done{color:var(--suc)}
 .cf-mo-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:4px 0 8px;flex-wrap:wrap}
 .cf-mo-label{font-size:13px;color:var(--t2);font-weight:600}

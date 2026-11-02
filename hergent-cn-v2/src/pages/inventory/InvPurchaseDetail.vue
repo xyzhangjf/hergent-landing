@@ -2446,7 +2446,7 @@ tfoot td { font-weight: 600 }
   position: absolute; top: -4px; right: -4px;
   min-width: 15px; height: 15px; padding: 0 3px;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px; background: var(--p-dark); color: #fff;
+  border-radius: 8px; background: var(--p-solid); color: #fff;
   font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums;
 }
 /* 🔴 全局 `.page-hd.split` 是 `align-items:flex-start` —— 左侧那个 div 里

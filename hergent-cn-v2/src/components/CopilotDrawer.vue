@@ -4009,7 +4009,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* Artifact 切换按钮（移动端可见） */
 .cp-art-toggle{position:relative}
 .cp-art-toggle.on{background:var(--p-bg);color:var(--p-dark)}
-.cp-art-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--dan);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.cp-art-badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--dan-solid);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center}
 
 /* ===== P1-3 经营一页纸 ===== */
 .cp-pager{flex:1;overflow:auto;padding:16px;background:var(--bg1)}
@@ -4059,7 +4059,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
    ④ 窄屏（≤760px）：头部 8 个图标已接近屏宽，再挂带文字的按钮必挤爆
       ⇒ 收成与图标同尺寸的方形按钮（仍是唯一的实心主操作，只是不写字）。 */
 .cp-new-btn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;height:30px;padding:0 10px;
-  border:none;border-radius:8px;background:var(--p-dark);color:#fff;font-size:12px;font-weight:500;
+  border:none;border-radius:8px;background:var(--p-solid);color:#fff;font-size:12px;font-weight:500;
   cursor:pointer;transition:filter var(--dur-base)}
 .cp-new-btn:hover{filter:brightness(1.12)}
 .cp-new-ic{flex:0 0 auto}
@@ -4168,7 +4168,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* v495b：每条消息的沟通时间（次级灰字，随气泡左/右对齐） */
 .msg-time{font-size:11px;color:var(--t3);line-height:1.4;padding:1px 4px;user-select:none;font-variant-numeric:tabular-nums}
 .msg-bubble{max-width:100%;padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
-.msg.user .msg-bubble{background:var(--p-dark);color:#fff;border-bottom-right-radius:4px}
+.msg.user .msg-bubble{background:var(--p-solid);color:#fff;border-bottom-right-radius:4px}
 .msg.assistant .msg-bubble{background:var(--bg2);border-bottom-left-radius:4px;color:var(--t1)}
 /* v634：用户消息里的「已收到附件」条（替代原先那段给模型看的英文上下文注）。
    配色跟随 user 气泡（深底白字）⇒ 半透明白描边而不是用边框色 token。
@@ -4212,7 +4212,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .msg-error{font-size:12px;color:var(--dan);padding:6px 2px;line-height:1.5}
 .err-hint{color:var(--t3);display:block;margin-top:2px}
 .cp-retry{margin-left:8px;padding:3px 12px;border:1px solid var(--dan);border-radius:8px;background:transparent;color:var(--dan);font-size:12px;cursor:pointer;vertical-align:middle}
-.cp-retry:hover{background:var(--dan);color:#fff}
+.cp-retry:hover{background:var(--dan-solid);color:#fff}
 
 /* v319（L2）：常驻「将由谁回答」行 + 角色切换分隔标记 + 角色决定权限档的说明 */
 .cp-who{display:flex;align-items:center;gap:6px;padding:0 2px 8px;font-size:12px;color:var(--t3);flex-wrap:wrap}
@@ -4298,13 +4298,13 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-slash-cmd{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--p-dark);flex-shrink:0;min-width:62px}
 .cp-slash-title{flex:1;color:var(--t1)}
 .cp-slash-hint{font-size:11px;color:var(--t3);flex-shrink:0}
-.cp-send{width:32px;height:32px;border:none;border-radius:999px;background:var(--p-dark);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background var(--dur-base),color var(--dur-base),box-shadow var(--dur-base);box-shadow:var(--shadow-sm)}
-.cp-send:not(:disabled):hover{background:var(--p-deep)}
+.cp-send{width:32px;height:32px;border:none;border-radius:999px;background:var(--p-solid);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background var(--dur-base),color var(--dur-base),box-shadow var(--dur-base);box-shadow:var(--shadow-sm)}
+.cp-send:not(:disabled):hover{background:var(--p-solid-h)}
 .cp-send:disabled{background:transparent;color:var(--t3);box-shadow:inset 0 0 0 1px var(--bd);cursor:default}
 /* v309：停止态 —— **与发送态同色**（对齐 WorkBuddy：--cr-send-button-fill-stop 与
    --cr-send-button-fill 是同值 rgba(0,0,0,.9)/rgba(255,255,255,.92)），只把箭头换成方块。
    刻意不用红色：一是 WB 也没有，二是「红=危险/报错」会把「正常中断」渲染成事故。 */
-.cp-send.is-stop{background:var(--p-dark);color:#fff;box-shadow:var(--shadow-sm);cursor:pointer}
+.cp-send.is-stop{background:var(--p-solid);color:#fff;box-shadow:var(--shadow-sm);cursor:pointer}
 .cp-send.is-stop:not(:disabled):active{transform:scale(.93)}
 /* 流式中但没有可停的请求（极短窗口）——按 WB 的 `--sending`：只能等，不能点 */
 .cp-send.is-busy{background:transparent;color:var(--t3);box-shadow:inset 0 0 0 1px var(--bd);cursor:default}
@@ -4420,8 +4420,8 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-prop-btn:disabled{opacity:.5;cursor:default}
 .cp-prop-btn.ghost{background:var(--bg);border-color:var(--border-subtle);color:var(--t2)}
 .cp-prop-btn.ghost:hover:not(:disabled){border-color:var(--t3);color:var(--t1)}
-.cp-prop-btn.primary{background:var(--p-dark);color:#fff;box-shadow:var(--shadow-sm)}
-.cp-prop-btn.primary:hover:not(:disabled){background:var(--p-deep)}
+.cp-prop-btn.primary{background:var(--p-solid);color:#fff;box-shadow:var(--shadow-sm)}
+.cp-prop-btn.primary:hover:not(:disabled){background:var(--p-solid-h)}
 .cp-prop-done{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--suc)}
 .cp-prop-done svg{flex-shrink:0}
 .cp-prop-done.rej{color:var(--t3)}
@@ -4470,7 +4470,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 /* M5 语音输入按钮 */
 .cp-voice{width:32px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all var(--dur-base);flex-shrink:0;border:none;background:none}
 .cp-voice:hover{background:var(--bg4);color:var(--t1)}
-.cp-voice.on{background:var(--p-dark);color:#fff;animation:cp-voice-pulse 1.2s infinite}
+.cp-voice.on{background:var(--p-solid);color:#fff;animation:cp-voice-pulse 1.2s infinite}
 @keyframes cp-voice-pulse{0%,100%{box-shadow:0 0 0 0 rgba(6,182,212,.4)}50%{box-shadow:0 0 0 5px rgba(6,182,212,0)}}
 /* M7 截图（剪刀）按钮：与 .cp-voice 同款几何（32px 圆形、currentColor 线性图标），对齐 UI 规范 */
 .cp-snap{width:32px;height:32px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:var(--t2);cursor:pointer;transition:all var(--dur-base);flex-shrink:0;border:none;background:none}
@@ -4576,7 +4576,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md :deep(blockquote.md-quote--ai){border-left-color:var(--p);background:rgba(6,182,212,.06)}
 .md :deep(blockquote.md-quote--src){border-left-color:var(--t3);background:rgba(148,163,184,.08);color:var(--t2)}
 .md :deep(blockquote.md-quote--key){border-left-color:var(--war);background:rgba(245,158,11,.10);color:var(--t1)}
-.md :deep(blockquote.md-quote--key .md-quote__tag){display:inline-block;margin-bottom:2px;padding:0 6px;border-radius:4px;background:var(--war);color:#fff;font-size:11px;font-weight:700;line-height:1.7}
+.md :deep(blockquote.md-quote--key .md-quote__tag){display:inline-block;margin-bottom:2px;padding:0 6px;border-radius:4px;background:var(--war-solid);color:#fff;font-size:11px;font-weight:700;line-height:1.7}
 /* —— P2-b 表格：横向滚动容器 + 表头吸顶 —— */
 .md :deep(.md-table-wrap){margin:8px 0;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
 .md :deep(th){position:sticky;top:0;z-index:1}

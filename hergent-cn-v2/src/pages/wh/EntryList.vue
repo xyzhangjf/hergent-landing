@@ -486,7 +486,7 @@ defineExpose({ load })
 }
 .woi-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
 .woi-pg:disabled { opacity: .45; cursor: not-allowed }
-.woi-pg.on { background: var(--p-dark); border-color: var(--p-dark); color: #fff }
+.woi-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
 .woi-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
 
 .woi-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }

@@ -320,7 +320,7 @@ onMounted(async () => {
 .zp-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--bd);
   background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer}
 .zp-btn:disabled{opacity:.5;cursor:not-allowed}
-.zp-btn.zp-primary{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
+.zp-btn.zp-primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .zp-hint{margin:8px 0 0;font-size:12px;color:var(--t3);line-height:1.7}
 .zp-err{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--dan-bg);
   color:var(--dan);font-size:13px}

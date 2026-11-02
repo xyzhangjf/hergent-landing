@@ -1124,9 +1124,9 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 /* C2：按钮对齐全局令牌（.btn/.btn-sm/.btn-primary/.btn-ghost/.btn-danger 为 scoped 复刻，尺寸/圆角与 variables.css 保持一致） */
 .btn{border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-md);padding:7px 13px;font-size:13px;color:var(--t1);cursor:pointer}
 .btn-sm{height:32px;padding:0 12px;font-size:13px;border-radius:var(--radius-sm)}
-.btn-primary{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
+.btn-primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .btn-ghost{background:transparent}
-.btn-danger{background:var(--dan);border-color:var(--dan);color:#fff}
+.btn-danger{background:var(--dan-solid);border-color:var(--dan);color:#fff}
 .btn.danger{color:var(--dan)}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 

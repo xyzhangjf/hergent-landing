@@ -1254,7 +1254,7 @@ onUnmounted(stopStatusPoll)
 .cc-name{font-size:15px;font-weight:500;color:var(--t1);margin-bottom:4px}
 .cc-desc{font-size:12px;color:var(--t3);margin-bottom:14px;min-height:18px}
 .cc-action{display:inline-block;height:32px;padding:0 14px;border-radius:8px;font-size:12px;line-height:32px;text-align:center}
-.cc-action.primary{background:var(--p-dark);color:#fff}
+.cc-action.primary{background:var(--p-solid);color:#fff}
 .cc-action.ghost{border:1px solid var(--bd);color:var(--t2)}
 
 .cc-logo-feishu{background:rgba(31,110,255,.16);color:var(--plt-feishu)}
@@ -1385,12 +1385,12 @@ onUnmounted(stopStatusPoll)
 /* 三步引导条 */
 .cc-guide{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
 .cc-guide-step{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--t2);background:var(--bg2);padding:6px 12px;border-radius:8px}
-.cgs-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--p-dark);color:#fff;font-size:11px;font-weight:600}
+.cgs-num{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--p-solid);color:#fff;font-size:11px;font-weight:600}
 .cgs-arrow{color:var(--t3);font-size:14px}
 
 /* 推荐角标（飞书） */
 .cc-card{position:relative}
-.cc-rec{position:absolute;top:-9px;right:-10px;z-index:2;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--p-dark);color:#fff;line-height:1.5;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.cc-rec{position:absolute;top:-9px;right:-10px;z-index:2;font-size:11px;font-weight:700;padding:2px 7px;border-radius:6px;background:var(--p-solid);color:#fff;line-height:1.5;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 
 /* 底部连接状态栏（对齐桌面 channel-gateway） */
 .cc-gateway{display:flex;align-items:center;gap:10px;padding:14px 18px;margin-top:16px;background:var(--bg);border:1px solid var(--bd);border-radius:12px;font-size:13px}

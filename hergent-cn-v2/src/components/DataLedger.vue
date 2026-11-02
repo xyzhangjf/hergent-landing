@@ -379,7 +379,7 @@ onMounted(load)
 .dl-btn{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;
   border-radius:8px;font-size:12px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer}
 .dl-btn:hover{border-color:var(--p-dark);color:var(--p-dark)}
-.dl-btn.primary{background:var(--p-dark);border-color:var(--p-dark);color:#fff}
+.dl-btn.primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .dl-foot{font-size:12px;color:var(--t3);line-height:1.7;margin:10px 0 0}
 .dl-err{display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border-radius:12px;
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);

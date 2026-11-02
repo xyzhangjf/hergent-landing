@@ -61,7 +61,7 @@ function onEnter() {
   padding:9px 12px;border-radius:var(--radius-sm)}
 .ui-cd-field{display:flex;flex-direction:column;gap:6px}
 .ui-cd-label{font-size:13px;color:var(--t2)}
-.ui-cd-danger{background:var(--dan);border-color:var(--dan);color:#fff}
-.ui-cd-danger:hover:not(:disabled){background:var(--dan);filter:brightness(.93);color:#fff}
+.ui-cd-danger{background:var(--dan-solid);border-color:var(--dan-solid);color:#fff}
+.ui-cd-danger:hover:not(:disabled){background:var(--dan-solid);filter:brightness(.93);color:#fff}
 .ui-cd-danger:disabled{opacity:.45;cursor:not-allowed}
 </style>

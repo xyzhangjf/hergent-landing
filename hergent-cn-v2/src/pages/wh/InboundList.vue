@@ -442,7 +442,7 @@ defineExpose({ load })
 }
 .win-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-dark) }
 .win-pg:disabled { opacity: .45; cursor: not-allowed }
-.win-pg.on { background: var(--p-dark); border-color: var(--p-dark); color: #fff }
+.win-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
 .win-pg-size { width: auto; height: 28px; padding: 0 8px; font-size: 13px; border-radius: var(--radius-sm) }
 
 .win-foot { font-size: 12px; color: var(--t2); margin-top: 12px; line-height: 1.7 }

@@ -1188,7 +1188,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-chip-quiet{color:var(--t3)}
 .la-pricing{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2)}
 .la-hint{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--bg4);color:var(--t3);font-size:11px;font-style:normal;cursor:help;flex:0 0 auto}
-.la-badge{display:inline-block;margin-left:5px;min-width:15px;height:15px;line-height:15px;padding:0 4px;border-radius:8px;background:var(--war);color:#fff;font-size:11px;text-align:center}
+.la-badge{display:inline-block;margin-left:5px;min-width:15px;height:15px;line-height:15px;padding:0 4px;border-radius:8px;background:var(--war-solid);color:#fff;font-size:11px;text-align:center}
 
 /* ── 编辑态提示条 ── */
 .la-editbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 14px;margin-bottom:12px;border-radius:8px;border:1px solid color-mix(in srgb,var(--p) 30%,transparent);background:var(--p-bg)}
@@ -1334,7 +1334,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-health li{display:flex;gap:9px;align-items:flex-start;padding:8px 10px;border-radius:8px;font-size:12px;line-height:1.6;margin-bottom:6px;background:var(--bg2)}
 .la-health .lv-warn{background:color-mix(in srgb,var(--war) 9%,transparent)}
 .la-health-lv{flex:0 0 auto;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--bg4);color:var(--t2)}
-.la-health .lv-warn .la-health-lv{background:var(--war);color:#fff}
+.la-health .lv-warn .la-health-lv{background:var(--war-solid);color:#fff}
 
 @media(max-width:1100px){
   .la-co-kpis{grid-template-columns:repeat(2,1fr)}
