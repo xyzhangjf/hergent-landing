@@ -491,7 +491,7 @@ onMounted(loadAll)
 .ar-badge.ok { background: var(--ok-green-bg); color: var(--ok) }
 .ar-badge.off { background: var(--bg2); color: var(--t3) }
 .ar-badge.warn { background: rgba(255, 149, 0, .14); color: var(--war) }
-.ar-badge.crit { background: rgba(255, 59, 48, .12); color: var(--dan) }
+.ar-badge.crit { background: rgba(255, 59, 48, .12); color: var(--dan-ink) }
 .ar-badge.info { background: var(--bg2); color: var(--t2) }
 .ar-empty { padding: 28px 4px }
 .ar-empty-note { font-size: 13px; color: var(--t2); margin: 0 }
@@ -501,7 +501,7 @@ onMounted(loadAll)
 .ar-form-err { padding: 8px 10px; margin-bottom: 12px }
 .ar-fld { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px }
 .ar-lab { font-size: 12px; color: var(--t2) }
-.isn-req { color: var(--dan); margin-left: 2px }
+.isn-req { color: var(--dan-ink); margin-left: 2px }
 .ar-hint { font-size: 12px; color: var(--t3) }
 .ar-row { display: flex; gap: 12px }
 .ar-row .ar-fld { flex: 1; min-width: 0 }

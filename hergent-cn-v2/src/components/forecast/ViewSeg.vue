@@ -41,7 +41,7 @@ function pick(m) {
 .view-seg{display:inline-flex;gap:4px;background:var(--bg3);border-radius:8px;padding:2px}
 .view-seg button{border:1px solid transparent;background:transparent;padding:3px 12px;border-radius:var(--radius-sm);font-size:13px;line-height:1.45;color:var(--t2);cursor:pointer;white-space:nowrap}
 .view-seg button:hover:not(.on){color:var(--p-dark)}
-.view-seg button.on{background:var(--bg4);color:var(--p-dark);box-shadow:var(--shadow-sm);border-color:var(--p);font-weight:500}
+.view-seg button.on{background:var(--bg4);color:var(--p-ink);box-shadow:var(--shadow-sm);border-color:var(--p);font-weight:500}
 .seg-tip{position:absolute;left:0;top:calc(100% + 6px);z-index:1240;width:340px;
   padding:8px 10px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);
   box-shadow:var(--shadow-md);font-size:12px;line-height:1.6;color:var(--t2);

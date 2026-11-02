@@ -1657,7 +1657,7 @@ watch([copyId], () => { reinit() })
    每个必填格省下 2 个字的宽度，一行更容易并下全部字段。
    `.ipn-opt`（原「选填」弱色标记）已随本轮**整体撤除**（舟谱那边选填不打标），
    故那条规则一并删掉，不留死 CSS。 */
-.ipn-req { color: var(--dan); font-size: 13px; line-height: 1; margin-right: 2px }
+.ipn-req { color: var(--dan-ink); font-size: 13px; line-height: 1; margin-right: 2px }
 /* v455：必填项图例（复刻舟谱创建页右上角那枚）。钉在标题右侧，
    让表单头 / 明细表里散落的红 `*` 有一个统一的解释处。 */
 .ipn-legend {

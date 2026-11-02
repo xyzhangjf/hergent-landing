@@ -1379,7 +1379,7 @@ onUnmounted(stopStatusPoll)
 .cc-tip-banner{display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:16px;background:var(--p-bg);border:1px solid transparent;border-radius:12px;font-size:13px;color:var(--p-dark)}
 .ctb-icon{flex-shrink:0;font-size:15px}
 .ctb-txt{flex:1;line-height:1.5}
-.ctb-close{flex-shrink:0;border:none;background:var(--bg4);color:var(--p-dark);font-size:12px;padding:4px 10px;border-radius:8px;cursor:pointer}
+.ctb-close{flex-shrink:0;border:none;background:var(--bg4);color:var(--p-ink);font-size:12px;padding:4px 10px;border-radius:8px;cursor:pointer}
 .ctb-close:hover{background:var(--bg4)}
 
 /* 三步引导条 */

@@ -50,6 +50,10 @@
   /* v723：**实心危险底**（配白字的红底：通知徽标等）。浅色 #C62828 白字 6.0 已达标；
      深色 `--dan` 是提亮的 #ff453a，白字只有 3.41 ⇒ 不能拿它当底。 */
   --dan-solid:#C62828;
+  /* v723：**危险色当文字**（星号 / 严重标签 / 待处理徽标）。浅色与 --dan 同值；
+     深色不能跟着 --dan 走 —— #ff453a 对 --bg3 只有 4.09、对 --bg4 只有 3.33，
+     而 13px 星号必须 ≥4.5。取 #f0908a：对 bg3 6.0、对 bg4 4.91。 */
+  --dan-ink:#C62828;
   /* v723：实心绿底 / 实心橙底（配白字的小徽标）。深色 `--suc:#30d158`、`--war:#ff9f0a`
      提亮后白字只有 2.02 / 2.05 —— 比红色那档更糟（绿橙天生亮度高，白字压不下来）。
      这两格深浅同取浅色值（白字 5.38 / 5.35），语义色 `--suc`/`--war` 本身不动。 */
@@ -379,7 +383,9 @@
      新增的 `--war-bg/--war-border/--suc-bg` 是警告与成功三件套里此前缺的底/边
      （文字色早有 `--war`/`--suc`，底色却靠各页硬编码 `#fff7e6/#e6f6ec`）。 */
   --brand:var(--p-dark);         /* 主色别名（此前 7 处兜底蓝 #2563eb/#2f6bff） */
-  --pri:var(--p-dark);           /* 报表中心主色别名（此前 3 处兜底蓝 #2b6cb0） */
+  /* v723：别名目标由 --p-dark 改 --p-solid —— 它只被当**白字底**用（.rb-save 等 2 处），
+     深色下 --p-dark 是亮青 #06b6d4 ⇒ 白字 2.43。浅色两者同值，外观不变。 */
+  --pri:var(--p-solid);
   --pri-w:var(--p-bg);           /* 主色浅底（此前 #eaf1fb 浅蓝） */
   --c-primary:var(--chart-1);    /* 图表主色系列位 */
   --c-blue:var(--chart-6);       /* 图表蓝系列位 */
@@ -428,6 +434,7 @@
   --dan:#ff453a; --dan-rgb:255,69,58;
   --dan-solid:#cf3327;    /* v723：实心危险底 —— 白字 5.05:1。不用 #ff453a（3.41），
                              也不用 #C62828（深底上偏暗、徽标不够醒目），取中间档。 */
+  --dan-ink:#f0908a;      /* v723：危险「文字」色 —— 对 bg3 6.0、对 bg4 4.91 */
   --suc-solid:#0F7B3F;    /* v723：白字 5.38:1 —— 深色下也不提亮，绿灯底天生压不住白字 */
   --war-solid:#AE4F08;    /* v723：白字 5.35:1 */
   --dan-bg:rgba(255,69,58,.16);
@@ -676,7 +683,9 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    视觉语言不新造，直接对齐同页已有的 .view-seg button.on（浅底 + 主色字 + 细阴影），
    另按 ghost 有边框这一点把边框一并染成主色，使「已展开」在带框按钮上同样成立。
    置于 .btn-ghost:hover 之后：同特异性（0,2,0）时后者胜，on 态不会被 hover 底色盖掉。 */
-.btn.on{background:var(--bg4);color:var(--p-dark);border-color:var(--p);box-shadow:var(--shadow-sm)}
+/* v723：文字色 --p-dark → --p-ink。深色下 --p-dark 是亮青 #06b6d4，对 --bg4 只有 4.0:1；
+   --p-ink 浅色与 --p-dark 同值 #0e7490（浅色零变化）、深色 #22d3ee（对 bg4 5.39）。 */
+.btn.on{background:var(--bg4);color:var(--p-ink);border-color:var(--p);box-shadow:var(--shadow-sm)}
 .btn-block{width:100%}
 
 /* ============================================================
@@ -982,9 +991,8 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .badge-green{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .badge-red{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
 /* v723：深色下 12% 红底 + `--dan` 红字实测 4.39:1（需 4.5，工作台「6 项待处理」）。
-   只差 0.11 但既然在做就补上 —— 该处红字要提亮一档，且只影响这一格。
-   ⚠️ 不动 `--dan` 本身：它被大量用作文字色，全局提亮会连带改一圈。 */
-:root.dark .badge-red{color:#ff6961}
+   ⚠️ 不动 `--dan` 本身（被大量用作文字色），改指 `--dan-ink`。 */
+.badge-red{color:var(--dan-ink)}
 .badge-amber{background:rgba(var(--war-rgb),.15);color:var(--war)}
 .badge-blue{background:var(--p-bg);color:var(--p-dark)}
 

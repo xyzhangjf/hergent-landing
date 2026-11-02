@@ -1705,7 +1705,7 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
    每个必填格省下 2 个字的宽度，一行更容易并下全部字段。
    `.ipn-opt`（原「选填」弱色标记）已随本轮**整体撤除**（舟谱那边选填不打标），
    故那条规则一并删掉，不留死 CSS。 */
-.ipn-req { color: var(--dan); font-size: 13px; line-height: 1; margin-right: 2px }
+.ipn-req { color: var(--dan-ink); font-size: 13px; line-height: 1; margin-right: 2px }
 
 /* ══ v439（复刻舟谱·字段框）════════════════════════════════════════════════
    舟谱建单头那排是「**一个描边框**里左边标签、右边值」（`*供应商: 🔍`｜`*经办人: 请选择 ▾`），

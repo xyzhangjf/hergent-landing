@@ -921,7 +921,7 @@ onMounted(() => { reset(); loadRefs() })
 .isn-lb { font-size: 12px; color: var(--t3); white-space: nowrap; flex: none }
 /* 必填标记：用**红 `*`**（对齐舟谱的 `*供应商：`）—— 每个必填格省下 2 个字的宽度，
    一行更容易并下全部字段。**不用**「必填」两个字，也**不写**「选填」（无 `*` 即选填）。 */
-.isn-req { color: var(--dan); font-size: 13px; line-height: 1; margin-right: 2px }
+.isn-req { color: var(--dan-ink); font-size: 13px; line-height: 1; margin-right: 2px }
 
 /* ══ 框式字段（复刻舟谱建单头）═════════════════════════════════════════════
    舟谱建单头那排是「**一个描边框**里左边标签、右边值」，不是「标签在框外、旁边再放一个框」。

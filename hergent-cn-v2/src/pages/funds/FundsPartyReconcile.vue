@@ -274,15 +274,19 @@ loadContacts()
 <style scoped>
 .pr-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 .pr-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
-.pr-seg-btn { padding: 6px 14px; border: 0; background: #fff; cursor: pointer; font-size: 13px; }
-.pr-seg-btn.on { background: var(--c-primary); color: #fff; }
+/* v723：`background:#fff` → `var(--bg)`。写死白底在深色下是白底 + 白字（--t1）= **1:1**，
+   整个按钮的文字直接消失。同类坑 CopilotDrawer.vue 的注释里早已记过，这里又犯一次。 */
+.pr-seg-btn { padding: 6px 14px; border: 0; background: var(--bg); cursor: pointer; font-size: 13px; }
+/* v723：`--c-primary` 别名到 `--chart-1`（**图表调色板色**），深色下是亮蓝 ⇒ 白字 1.81。
+   品牌实心底一律用 `--p-solid`（5.36）。 */
+.pr-seg-btn.on { background: var(--p-solid); color: #fff; }
 .pr-contact { min-width: 200px; }
 .pr-out { color: var(--t3); font-size: 13px; }
 .pr-out b { color: var(--t1); }
 .pr-out b.neg { color: var(--dan); }
 .pr-empty { color: var(--t3); padding: 40px; text-align: center; }
 .pr-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.pr-tab { padding: 6px 16px; border: 1px solid var(--bd); background: #fff; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.pr-tab { padding: 6px 16px; border: 1px solid var(--bd); background: var(--bg); border-radius: 8px; cursor: pointer; font-size: 13px; }
 .pr-tab.on { background: var(--p-bg); border-color: var(--c-primary); color: var(--c-primary); }
 .pr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .pr-col-full { margin-top: 12px; }
