@@ -2003,7 +2003,24 @@ onMounted(() => {
 
 /* 🔴 v675：分页条移到滚动容器外面后，滚动区高度要**减掉它**（按钮 32 + 上下间距 ≈ 46，取 52 稳妥），
    否则卡片总高会顶出一屏、页面多出一条整页滚动条（两条滚动条 = 用户分不清该滚哪个）。 */
-.pa-panel .table-wrap.freeze-list{max-height:calc(100vh - 292px)}
+/* v722：**填充版**页面 —— 页面本身不出滚动条，唯一滚动区是表格
+   （老板口径 2026-11-02：「能做成一个滚动区就不要做成两个滚动区」）。
+   🔴 为什么不用「表头吸附页面」那套：本表**横溢**（1440 实测 可见 1082 / 内容 1391），
+      必须有内滚容器承担横滚；若页面同时纵向滚 ⇒ 嵌套两层（v721 实测
+      页面 817/828 + 表格 591/2709，两层滚动条互相吃滚动事件）。
+   🔴 为什么不再用 `max-height:calc(100vh - 292px)` 凑：那个 292 是按页头一行高估的，
+      页头副标题一换行 / 窄屏就漏 11px（实测页面 817/828）⇒ 页面又出滚动条，
+      「两个滚动区」原样回来。改成结构性撑满，不依赖任何页头高度：
+      `.page` 高度确定（由 `.view-wrap` 的 `flex:1` 给出）⇒ 面板 flex:1
+      ⇒ 表格区 flex:1 恰好是剩余高度。
+   ⚠️ `min-height:200px` 是兜底：极端矮屏若页头就吃掉一屏，宁可整页滚一点，
+      也不要把表格压成 0（一行都看不见）。 */
+.page { display: flex; flex-direction: column; height: 100%; min-height: 0 }
+.card.pa-panel { display: flex; flex-direction: column; flex: 1 1 0; min-height: 200px; margin-bottom: 0 }
+.pa-panel > .pa-filters,
+.pa-panel > .pa-pager,
+.pa-panel > .state-empty { flex: 0 0 auto }
+.pa-panel .table-wrap.freeze-list { max-height: none; flex: 1 1 0; min-height: 0; overflow: auto }
 .pa-pager{display:flex;align-items:center;gap:12px;margin-top:10px;flex-wrap:wrap}
 .pa-pageinfo{font-size:12px;color:var(--t2)}
 .pa-size{height:30px;width:auto}

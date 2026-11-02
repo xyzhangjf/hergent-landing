@@ -105,6 +105,17 @@ watch(tabs, (list) => {
 </script>
 
 <style scoped>
+/* 🔴 v722：把高度链从 `.view-wrap` 一路打通到子页（`.page → .archive-panel → 子页 .page`）。
+   为什么必须在这里补：`.view-wrap` 高度确定（`flex:1;min-height:0`），但本文件的
+   `.page`（块级、高度 auto）和 `.archive-panel` 都在中间，于是子页那句
+   `height:100%` 解析不出确定高度（百分比在 auto 高度上退化为 auto）⇒ 子页的
+   「填充版」布局失效，`.card` 只剩 min-height（商品档案实测面板 198px、表格 61px）。
+   ⇒ 本层两个容器各补一句：`.page` 拿一屏高、`.archive-panel` 吃掉剩余高度。
+   ⚠️ 对其它档案子页零影响：它们不声明 `flex` ⇒ 仍是内容高度，超出照旧由
+      `.view-wrap` 出滚动条（overflow 仍 visible，溢出量计入 scrollHeight）。
+   用途见 `ProductArchive.vue` 的「填充版」注释（老板口径：一个页面只留一个滚动区）。 */
+.page { display: flex; flex-direction: column; height: 100% }
+.archive-panel { display: flex; flex-direction: column; flex: 1 1 0; min-height: 0 }
 /* v396：`.module-tabs` 的样式块已随页签条一起删除（净删除，无迁移遗漏）。
    ⚠️ 它本就是 UI-SPEC §6.2「同一视觉语言不写第二份」的一处历史欠账 ——
       全站页签早已统一用全局 `.main-tabs`，本页私有的这份从来就是重复；

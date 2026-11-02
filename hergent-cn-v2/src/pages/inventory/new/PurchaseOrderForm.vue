@@ -1594,20 +1594,20 @@ watch([copyId], () => { reinit() })
 .ipn-acts { display: flex; gap: 8px; flex-wrap: wrap }
 .ipn-body {
   display: flex; flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
+  /* v722：`flex-basis` 必须是 **0**，不是 `auto`。
+     🔴 治本（v720 只补了 `max-height` 魔数，页头一变高就又开始双滚动区）：
+        `basis:auto` ⇒ 基准尺寸 = **内容高度** ⇒ 45 行明细时 body 量出 1776px，
+        `.inv-page` 跟着长、整页出滚动条 ⇒ 「页面滚 + 表格滚」两个滚动区互相吃
+        滚动事件（鼠标停在表里滚页面不动，移到表外表格又跑了）。老板口径
+        2026-11-02：「能做成一个滚动区就不要做成两个滚动区」。
+        改成 `basis:0` + 容器高度确定（InventoryShell 的 `.page{height:100%}`）
+        ⇒ body 恰好吃「剩余高度」，页面永不出滚动条，唯一滚动区就是明细表。
+     ⚠️ `min-height:120px` 是**兜底**：极端矮屏（375×568 且单据头就吃掉一屏）下
+        保底约 3 行，宁可让整页滚一点，也不能把明细压成 0（一行都看不见最致命）。
+     ⚠️ 别把 `basis` 写回 `auto`：那会让本页退回「两个滚动区」。 */
+  flex: 1 1 0;
+  min-height: 120px;
   overflow: hidden;
-  /* v720：明细表头冻结的「舞台」限高。
-     🔴 为什么不靠上游 flex 链：InventoryShell 的 `.page > *{flex:1 1 auto}` 是
-        **刻意**让内容高时整页变高、`.view-wrap` 出滚动条（见 InventoryShell.vue
-        的 v403 注释，写 `flex:1` 会让长页面失去滚动，明令别改）。所以内容超一屏时
-        `.ipn-body` 的 flex:1 解析不出受限高度，`.table-wrap{flex:1;min-height:0}`
-        也就跟着长到内容高（实测 45 行时 1341px = 内容高）⇒ 容器永不纵向滚
-        ⇒ `thead th{sticky}` 没有吸附空间，表头跟着页面滚走。
-     给 body 自己一个上限：内容不足一屏时 flex:1 照常撑满（max-height 不参与），
-     动作条仍贴底；超一屏时 body 被截住，table-wrap 收缩并内部滚动，表头钉住。
-     上限取共享令牌 `--list-pane-max`（定义处有实测取法与按断点收窄的理由）。 */
-  max-height: var(--list-pane-max);
 }
 .ipn-body > .ipn-bar,
 .ipn-body > .ipn-tip,

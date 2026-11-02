@@ -323,22 +323,10 @@
   /* 间距阶梯（4 的倍数）。 */
   --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:14px; --sp-5:18px; --sp-6:20px;
 
-  /* ===== v721 表格可滚区高度上限（`sticky` 表头赖以生效的「舞台」）=====
-     🔴 为什么需要它：`position:sticky` 的表头必须有「有限高 + 纵向可滚」的容器才有
-        吸附空间。列表页靠 `.table-wrap.freeze-list{max-height:calc(100vh-240px)}` 自带；
-        建单/退货页的 `.ipn-body/.isn-body` 原本指望上游 flex 链，而 InventoryShell 的
-        `.page > *{flex:1 1 auto}` 是**刻意**让内容高时整页变高（v403：写 `flex:1` 会让
-        长页面失去滚动，注释里明令别改）⇒ 内容超一屏时 body 解析不出受限高度，
-        `.table-wrap{flex:1;min-height:0}` 跟着长到内容高 ⇒ 容器永不纵向滚
-        ⇒ 表头跟着页面一起滚走（v720 实测：注入 45 行后 1341px = 内容高）。
-
-     数值取法（1440×900 实测）：body 顶部 243（采购/销售）或 296（调拨，多一条工具条），
-        底部动作条 41 ⇒ 桌面可用 ≤ 563；375px 下页头与单据头换行，body 顶 418~495
-        ⇒ 可用 ≤ 364。取「留白优于溢出」：桌面 550、≤640px 340。
-        表格少显示几行不影响可用性（内部可滚），而动作条被挤出视口会让人找不到「保存」。
-     ⚠️ 调这里的数就够，6 个单据页都引用 `var(--list-pane-max)`，不必逐页改。 */
-  --list-pane-max: calc(100vh - 350px);
-  --list-pane-max: calc(100dvh - 350px);   /* 支持 dvh 时改动态视口，移动端地址栏更准 */
+  /* v722：v721 在这里加过 `--list-pane-max`（单据页明细体的 max-height 魔数），
+     **已废**。魔数只能"凑"到不溢出：页头一换行、提示条一展开就又溢出，
+     「页面 + 表格」两个滚动区立刻回来。改为结构性撑满 ——
+     InventoryShell 的 `.page{height:100%}` + 单据页 `.ipn-body{flex:1 1 0}`。 */
 
   /* ===== v362 通知条（toast）令牌 =====
      🔴 由来：原 `.toast{background:var(--t1);color:var(--bg)}` 是**反色**写法 ——
@@ -403,15 +391,6 @@
   --plt-feishu:#1f6eff;    /* 飞书 */
   --plt-dingtalk:#00a0e9;  /* 钉钉 */
   --plt-qq:#12b7f5;        /* QQ */
-}
-
-/* v721：窄屏（单据页页头与单据头会换行，实测 body 顶部下移到 418~495）⇒ 上限再收窄。
-   放在 :root 之外单独覆盖：变量同名，媒体查询内后声明者胜，不影响桌面取值。 */
-@media (max-width:640px){
-  :root{
-    --list-pane-max:calc(100vh - 560px);
-    --list-pane-max:calc(100dvh - 560px);
-  }
 }
 
 :root.dark{

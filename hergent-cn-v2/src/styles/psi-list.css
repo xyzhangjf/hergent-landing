@@ -363,3 +363,21 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
   .table-wrap.freeze-list > table > thead th,
   .table-wrap.freeze-list > table > tfoot td { position: static !important }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   v722 未采纳的尝试：`.table-wrap.freeze-page`（表头吸附到 `.view-wrap` / `.page`）
+   ----------------------------------------------------------------------
+   目标：多区块页（KPI 条 + 多卡 + 多表）想做到「页面滚动 + 表头吸在页面上」⇒ 单滚动区。
+   实测**在本仓不成立**（1440×900 真机）：
+     · 统一改成 `overflow:visible`、表头 computed `position:sticky` / `top:0` 全部正确；
+     · 祖先链干净（`.card` / `.page` 全 visible，唯一滚动者是 `.view-wrap`）；
+     · 但滚 400px 后表头**恰好跟着走 400px** ⇒ 吸附零生效；
+     · 合成对照试验（同页注入干净表格）证明这不是配置问题：
+         scroller 是普通 div ⇒ 嵌套 1 / 2 / 3 层**都能钉住**（含 border-collapse:collapse）；
+         scroller 换成 `.view-wrap`（`flex:1;min-height:0;overflow-y:auto`）或把 `.page`
+         自己变成 scroller ⇒ **都钉不住**。⇒ 本仓外壳这两个滚动器无法作 sticky 锚点。
+   ⇒ 结论：本仓只能用「表格自成滚动区」这一种冻结模型（`freeze-list`），
+      要做到一个页面只有一个滚动区，就必须让**页面本身不出滚动条**（表格区吃满剩余高度）。
+      多区块的多表页面（员工档案 3 张、告警规则 2 张、招标雷达 KPI + 表）暂时做不到 ——
+      要么拆成页签（一屏一表），要么保留两层。别再花时间试 `freeze-page`。
+   ══════════════════════════════════════════════════════════════════════ */

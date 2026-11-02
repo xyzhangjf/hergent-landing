@@ -57,6 +57,21 @@
 
    ⚠️ 作用域：`scoped` ⇒ 只作用于本容器的 `.page`（即进销存 8 个子页），
      不进全局层，不影响其它模块的同名 `.page`。 */
-.page { display: flex; flex-direction: column; min-height: 100% }
+
+/* 🔴 v722：`height:100%`（`min-height` 之外**必须有** `height`）—— 这是「一个页面
+   只留一个滚动区」的唯一支点（老板口径 2026-11-02：「能做成一个滚动区就不要做成
+   两个滚动区」，因为两层滚动条互相吃滚动事件，鼠标停在表里滚页面不动、移到表外
+   表格又跑了）。
+   为什么只加 `min-height` 不够：`min-height:100%` 让 `.page` **至多**撑到一屏，但高度
+   仍是 `auto`（`height` 未被确定）⇒ 子页那句 `.inv-page{height:100%}` 解析不出确定
+   高度（百分比在 auto 高度上退化为 auto）⇒ 卡片 / 明细体拿不到「剩余高度」这个数，
+   只能靠各自写死的 `max-height:calc(100vh-240px)` 凑 ⇒ 页头一换行就凑不准，整页又
+   出滚动条，于是「页面 + 表格」两个滚动区回来了（v721 列表页实测：817/946）。
+   加了 `height:100%` 后：`.view-wrap`（`flex:1;min-height:0`，高度确定）⇒ 本层拿到
+   一屏高 ⇒ 下方 flex 链一路算到明细体，表格区恰好是剩余高度，**页面本身永不滚**。
+   ⚠️ 不会让长页面失去滚动：内容仍可溢出（`overflow` 默认 visible）⇒ 溢出量照常计入
+      `.view-wrap` 的 scrollHeight，只是进销存这几页不该再有溢出（溢出都发生在
+      表格区内部）。 */
+.page { display: flex; flex-direction: column; height: 100%; min-height: 100% }
 .page > :deep(*) { flex: 1 1 auto; min-width: 0 }
 </style>
