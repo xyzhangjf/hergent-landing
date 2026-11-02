@@ -14,13 +14,13 @@
   ],
   "window": {
     "navigationBarTitleText": "小赫智体报单助手",
-    "navigationBarBackgroundColor": "#06b6d4",
+    "navigationBarBackgroundColor": "#0e7490",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#f5f5f7"
   },
   "tabBar": {
     "color": "#8e8e93",
-    "selectedColor": "#06b6d4",
+    "selectedColor": "#0e7490",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [

@@ -9,7 +9,7 @@
 /* v252：记住账号 —— 自绘复选框（不用原生 checkbox，避免各端样式不一致） */
 .remember{display:flex;align-items:center;margin:-4rpx 0 24rpx}
 .remember-box{width:36rpx;height:36rpx;border:1rpx solid #c7c7cc;border-radius:8rpx;background:#fff;box-sizing:border-box;display:flex;align-items:center;justify-content:center}
-.remember-box.on{background:#06b6d4;border-color:#06b6d4}
+.remember-box.on{background:var(--brand);border-color:var(--brand)}
 .remember-ck{font-size:24rpx;color:#fff;line-height:1}
 .remember-txt{font-size:26rpx;color:#86868b;margin-left:14rpx}
 /* 🔴 2026-09-20 修：按钮文字此前**垂直偏上 7rpx**（实测值，非估算）。
@@ -19,16 +19,16 @@
    ⇒ 改为**显式 flex 居中**（`align-items` 管垂直、`justify-content` 管水平），并把 `line-height`
    归一化：这样「文字居中」不再依赖 `height` 与 `line-height` 两个数字永远保持相等
    （依赖相等就是这个 bug 的成因，改高度时必然复发）。`padding:0` 清掉微信默认的左右 14px。 */
-.btn{height:96rpx;display:flex;align-items:center;justify-content:center;line-height:1.2;padding:0;background:#06b6d4;color:#fff;font-size:32rpx;border-radius:16rpx;margin-top:8rpx}
+.btn{height:96rpx;display:flex;align-items:center;justify-content:center;line-height:1.2;padding:0;background:var(--brand);color:#fff;font-size:32rpx;border-radius:16rpx;margin-top:8rpx}
 .btn[disabled]{opacity:.5}
-.forgot{font-size:26rpx;color:#06b6d4;text-align:right;margin-top:20rpx;padding-right:4rpx}
+.forgot{font-size:26rpx;color:var(--brand);text-align:right;margin-top:20rpx;padding-right:4rpx}
 .err{color:#ff3b30;font-size:26rpx;margin-top:20rpx;text-align:center}
 .tip{font-size:24rpx;color:#86868b;margin-top:48rpx;text-align:center}
 
 /* P0（2026-09-19）：登录页常驻协议入口 —— 不依赖 showPrivacy 状态，
    已同意过的用户同样可见可点（此前同意后即再无任何查阅入口）。 */
 .legal-links{display:flex;flex-direction:row;align-items:center;justify-content:center;margin-top:24rpx}
-.lk{font-size:24rpx;color:#06b6d4}
+.lk{font-size:24rpx;color:var(--brand)}
 .lk-sep{font-size:24rpx;color:#c7c7cc;margin:0 12rpx}
 
 /* A3 隐私同意弹窗：遮罩 + 卡片 + 可滚动正文
@@ -51,5 +51,5 @@
 .p-btn{flex:1;height:84rpx;line-height:84rpx;font-size:28rpx;border-radius:14rpx;margin:0;padding:0}
 .p-btn::after{border:none}
 .p-btn.disagree{background:#f2f2f7;color:#3a3a3c;margin-right:16rpx}
-.p-btn.agree{background:#06b6d4;color:#fff}
+.p-btn.agree{background:var(--brand);color:#fff}
 .pz-more{display:flex;flex-direction:row;align-items:center;justify-content:center;margin-top:20rpx}

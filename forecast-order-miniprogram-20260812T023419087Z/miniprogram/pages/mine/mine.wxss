@@ -1,6 +1,6 @@
 .page{min-height:100vh;background:#f5f5f7;padding-bottom:60rpx}
 .user-hd{display:flex;align-items:center;background:#fff;padding:40rpx 32rpx;border-bottom:1rpx solid #e5e5ea}
-.avatar{width:96rpx;height:96rpx;border-radius:50%;background:#06b6d4;color:#fff;font-size:40rpx;font-weight:600;display:flex;align-items:center;justify-content:center}
+.avatar{width:96rpx;height:96rpx;border-radius:50%;background:var(--brand);color:#fff;font-size:40rpx;font-weight:600;display:flex;align-items:center;justify-content:center}
 .user-info{flex:1;margin-left:24rpx}
 .user-name{font-size:34rpx;font-weight:600;color:#1d1d1f}
 .user-role{font-size:24rpx;color:#86868b;margin-top:6rpx}
@@ -30,7 +30,7 @@
 .status-rejected{color:#ff3b30;background:#ffeceb}
 .status-recalled{color:#86868b;background:#f2f2f7}
 .entry{display:flex;align-items:center;background:#fff;margin:24rpx 32rpx 0;padding:24rpx;border-radius:16rpx}
-.entry-ic{width:72rpx;height:72rpx;border-radius:16rpx;background:#06b6d4;color:#fff;font-size:32rpx;font-weight:600;display:flex;align-items:center;justify-content:center}
+.entry-ic{width:72rpx;height:72rpx;border-radius:16rpx;background:var(--brand);color:#fff;font-size:32rpx;font-weight:600;display:flex;align-items:center;justify-content:center}
 .entry-main{flex:1;margin-left:20rpx}
 .entry-title{font-size:30rpx;font-weight:600;color:#1d1d1f}
 .entry-sub{font-size:24rpx;color:#86868b;margin-top:4rpx}
@@ -42,7 +42,7 @@
   font-size:22rpx;font-weight:600;text-align:center;vertical-align:middle}
 .rec-items{border-top:1rpx solid #f2f2f7;padding-top:12rpx}
 .rec-item{display:flex;justify-content:space-between;padding:8rpx 0;font-size:26rpx;color:#3a3a3c}
-.it-qty{color:#06b6d4;font-weight:500}
+.it-qty{color:var(--brand);font-weight:500}
 /* 行尾（单号 / 共 N 件 / 撤回 / 展开）
    🔴 2026-09-22 修：此前 `.rec-total` / `.recall-btn` / `.rec-expand` **三个类名只有 wxml 引用、
    wxss 里一条样式都没有**（`.rec-no` 有）。后果：微信原生 `<button>` 按默认样式渲染
@@ -60,10 +60,10 @@
 /* v434：复制该期次到当前填报 —— 描边按钮，用品牌青（非红）。
    为什么与「撤回」同为描边钮却不同色：撤回是**破坏性**（红），复制只是把旧数据搬过来（建设性导入），
    并排时颜色就是"哪个会改数据、哪个只是复制"的第一眼区分。 */
-.rec-copy{margin-left:16rpx;font-size:24rpx;color:#06b6d4;background:#fff;border:none;box-shadow:inset 0 0 0 2rpx #06b6d4;border-radius:10rpx;padding:6rpx 20rpx;line-height:1.4;box-sizing:border-box}
+.rec-copy{margin-left:16rpx;font-size:24rpx;color:var(--brand);background:#fff;border:none;box-shadow:inset 0 0 0 2rpx var(--brand);border-radius:10rpx;padding:6rpx 20rpx;line-height:1.4;box-sizing:border-box}
 .rec-copy::after{display:none}
 /* 展开 / 收起：推到行尾，避免与撤回挤在一起 */
-.rec-expand{margin-left:auto;font-size:24rpx;color:#06b6d4;font-weight:400}
+.rec-expand{margin-left:auto;font-size:24rpx;color:var(--brand);font-weight:400}
 /* ===== v259：左滑删除 =====
    三层：.swipe = 舞台（相对定位 + 裁掉溢出）；.swipe-act = 藏在右下的红色删除按钮；
    .swipe-body = 可位移的内容层（白底、盖在上层，左滑时露出下层按钮）。
@@ -79,4 +79,4 @@
 /* 备案号（2026-09-22）：合规必需，但**弱化**处理，不与主功能抢注意力 */
 .beian{padding:40rpx 0 20rpx;text-align:center}
 .beian-no{font-size:24rpx;color:#86868b}
-.beian-link{font-size:22rpx;color:#06b6d4;margin-top:8rpx}
+.beian-link{font-size:22rpx;color:var(--brand);margin-top:8rpx}

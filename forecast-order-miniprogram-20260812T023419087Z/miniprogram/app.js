@@ -48,7 +48,7 @@ App({
         content: '新版本已准备好，重启后即可使用最新功能。',
         confirmText: '立即重启',
         cancelText: '稍后再说',
-        confirmColor: '#06b6d4',
+        confirmColor: '#0e7490',
         success: (r) => { if (r.confirm) um.applyUpdate() }
       })
     })

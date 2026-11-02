@@ -1,6 +1,6 @@
 /* 协议页共享样式（隐私政策 / 用户服务协议）
    两个页面各自的 wxss 仅 @import 本文件，避免长文排版样式重复维护。
-   视觉口径与 password/forgot 页一致：#f5f5f7 底、白色卡片、24rpx 圆角、#06b6d4 主色。 */
+   视觉口径与 password/forgot 页一致：#f5f5f7 底、白色卡片、24rpx 圆角、--brand 主色。 */
 .legal-page{min-height:100vh;background:#f5f5f7;padding:40rpx 40rpx 60rpx}
 .legal-card{background:#fff;border-radius:24rpx;padding:48rpx 40rpx;box-shadow:0 4rpx 24rpx rgba(0,0,0,.05)}
 .legal-h1{font-size:40rpx;font-weight:600;color:#1d1d1f;margin-bottom:16rpx}
@@ -10,7 +10,7 @@
 .legal-h3{font-size:28rpx;font-weight:600;color:#3a3a3c;margin:24rpx 0 8rpx}
 .legal-p{font-size:28rpx;color:#3a3a3c;line-height:1.85;margin:12rpx 0}
 .legal-li{font-size:28rpx;color:#3a3a3c;line-height:1.85;margin:10rpx 0;padding-left:28rpx;position:relative}
-.legal-li::before{content:"·";position:absolute;left:8rpx;color:#06b6d4;font-weight:600}
+.legal-li::before{content:"·";position:absolute;left:8rpx;color:var(--brand);font-weight:600}
 .legal-li-2{font-size:27rpx;color:#6b7280;line-height:1.8;margin:8rpx 0 8rpx 28rpx;padding-left:28rpx;position:relative}
 .legal-li-2::before{content:"—";position:absolute;left:0;color:#c7c7cc}
 .legal-b{color:#1d1d1f;font-weight:600}

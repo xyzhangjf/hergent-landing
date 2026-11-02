@@ -967,3 +967,20 @@ order_date = 期次的 order_start      # 不信任客户端传的日期
 - 后发现并行会话已用：**v429 = Web「业务数据源」拆三子页**（已提交 `96867ca` 已部署）、**v430~432 = 进销存新建采购单**。
 - ⇒ 两项小程序增强统一改号：**一键清空 = v433、复制 = v434**（首个空闲号；实搜两仓 `git log --all` + 未提交文件确认 v433/434 均空）。
 - 🔴 教训：**号是全局共享序列，多会话并行 ⇒ 「光看号表必撞号」** —— 起号前须「读号表 + 实搜未提交文件 + 两仓 `git log --all` + 同日改动 + `git worktree list`」。
+
+---
+
+## 小程序品牌色：唯一源 `app.wxss`（v736，2026-11-03）
+
+**判据：品牌色只许有一个值 `--brand = #0e7490`，与 Web 端 `--p-solid` 同值。**
+
+- 令牌在 `miniprogram/app.wxss` 的 `page{}`；wxss 里一律 `var(--brand)`，禁字面量。
+- 5 处吃不到 CSS 变量、必须手改且必须同批：`app.json`（navigationBarBackgroundColor / tabBar.selectedColor）、
+  `app.js`、`pages/fill/fill.js`（showModal confirmColor）、`privacy-settings.wxml`（`<switch color>`）。
+- 🔴 **`assets/tab-fill-active.png` / `tab-mine-active.png` 是单色位图，颜色烘在像素里**：
+  只改 selectedColor ⇒ 图标亮青 + 文字深青并排。改法 = 保持 alpha、只换 RGB（形状零变化）。
+- 护栏 `node laozhangai-product/.workbuddy/tools/check-miniprogram-brand.mjs`：字面量残留 / 令牌值 /
+  4 底色+白字对比度 / 5 原生载体 / **PNG 逐像素解码** / 令牌使用量下限 50。
+- tint 家族 `#ecfeff`（浅青底）、`#a5f3fc`（浅青描边）职责不同，不与 `--brand` 混用。
+- 历史：v393 把亮青 `#06b6d4` 当主色（白字 2.43:1），Web v717 就已改深，两边分叉到 v736 才合。
+  详细对照与前后图见 `docs/v736-品牌色统一-2026-11-03.md`。

@@ -24,6 +24,10 @@
     </picker>
     <text class="store-count" wx:if="{{period.arrival_date}}">到货 {{period.arrival_date}}</text>
   </view>
+  <view class="share-bar" wx:if="{{periods.length}}">
+    <text class="share-tip">把本期预报单分享到群里，同事点开直接报</text>
+    <button open-type="share" class="share-btn">分享到群</button>
+  </view>
   <view class="reported-note" wx:if="{{!periods.length}}">当前没有可报单的期次，请联系管理员建期次</view>
   <!-- v227（2026-09-21）：窗口状态由两态改**三态** —— 「尚未开始」≠「已过」。
        两者的可行动作完全不同：未开始 = 可以先做样单、等开放再提交；已过 = 只能求管理员重开。

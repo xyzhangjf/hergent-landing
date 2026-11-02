@@ -67,6 +67,18 @@
 - 头 `X-Tenant-Id`（首选）或 cookie `hergent_tenant`
 - 后端中间件优先级：头 > cookie > token 推导（fail-closed）
 
+### 10. 品牌色只有一个值：`var(--brand)` = `#0e7490`（v736，2026-11-03）
+- 令牌在 **`app.wxss` 的 `page{}`**，值必须等于 **Web 端 `--p-solid`**（同一个品牌，两边同值）。
+- **wxss 里一律写 `var(--brand)`，不许写字面量**。改色只改 `app.wxss` 那一行。
+- 吃不到 CSS 变量的 5 处必须同批手改，漏一个就出现"文字改了、图标还是旧色"的裂痕：
+  `app.json` navigationBarBackgroundColor / tabBar.selectedColor、`app.js` 与 `pages/fill/fill.js` 的 `confirmColor`、`privacy-settings.wxml` 的 `<switch color>`。
+- **选中态图标是 PNG，颜色藏在图里**：`assets/tab-*-active.png` 必须与 `--brand` 同值，改了文字色就得同时重新着色这两张图。
+- 提交前跑：`node laozhangai-product/.workbuddy/tools/check-miniprogram-brand.mjs`
+  （它校验：字面量残留 / 令牌值 / 各底色对比度 ≥4.5 / 5 个原生载体 / 图标逐像素 / 令牌使用量下限）
+- 背景：v393 曾把亮青 `#06b6d4` 当主色（实心底白字 **2.43:1**，远低于 AA），且
+  `#06b6d4` / `#0891b2` / `#0e7490` 三档青并存 ⇒ 用户直接看出"和 Web 端品牌色不一样"。
+  浅青底 `#ecfeff`、浅青描边 `#a5f3fc` 是 tint 家族（背景用），不与 `--brand` 混用。
+
 ---
 
 ## 项目结构
@@ -115,6 +127,7 @@ forecast-order-miniprogram-20260812T023419087Z/miniprogram/
 6. ❌ tabBar 直接挂角色专属入口（静态无法隐藏）
 7. ❌ 改 Web 端权限后未重启就上线（supervisor 默认无权限）
 8. ❌ 直接 JOIN 主库 contacts（跨租户隔离破坏）
+9. ❌ 在 wxss 里写品牌色字面量（必须 `var(--brand)`，否则又会长出第二个青）
 
 ---
 

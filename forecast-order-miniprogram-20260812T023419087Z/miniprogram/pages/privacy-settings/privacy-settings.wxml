@@ -37,7 +37,7 @@
         <view class="row-t">使用统计（存在我们自己的服务器）</view>
         <view class="row-s">记录登录 / 提交 / 页面浏览等业务事件名（不含账号密码与商品明细），用于排查异常与改进功能。关闭后不影响本程序任何功能。</view>
       </view>
-      <switch checked="{{statOn}}" bindchange="onStat" color="#06b6d4" />
+      <switch checked="{{statOn}}" bindchange="onStat" color="#0e7490" />
     </view>
   </view>
 

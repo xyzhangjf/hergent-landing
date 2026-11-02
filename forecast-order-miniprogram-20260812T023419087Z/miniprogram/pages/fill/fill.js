@@ -212,7 +212,10 @@ Page({
   _msgAt: 0,
 
   /* P2-3: 全局网络监听——断网提示 + 恢复后自动补传草稿（仅注册一次） */
-  onLoad() {
+  onLoad(options) {
+    // 2026-10-17：分享进入带参 —— 群成员从分享卡片点开时 options.periodId = 被分享的期次。
+    // 仅冷启动走 onLoad；存下，等 onShow→loadPeriods→_applyPeriods 落地时优先选中（用后即焚）。
+    this._sharedPeriodId = (options && options.periodId != null) ? String(options.periodId) : ''
     wx.getNetworkType({
       success: (r) => {
         const off = !r.networkType || r.networkType === 'none'
@@ -252,7 +255,9 @@ Page({
       wx.stopPullDownRefresh()
     })
   },
-  onShow() {
+  onShow(options) {
+    // 2026-10-17：分享进入（含小程序已打开时热启动点开分享卡片）也带 periodId，这里补接收
+    if (options && options.periodId != null) this._sharedPeriodId = String(options.periodId)
     const token = app.globalData.token || wx.getStorageSync('fs_token')
     if (!token) { wx.reLaunch({ url: '/pages/login/login' }); return }
     // P0-2（2026-09-20）：**权限闸的第二道**。登录时已判过一次，这里补的是「登录后被改角色」
@@ -292,6 +297,18 @@ Page({
     if (this._scrollTop > 0) {
       const st = this._scrollTop
       setTimeout(() => wx.pageScrollTo({ scrollTop: st, duration: 0 }), 150)
+    }
+  },
+  /* 2026-10-17：分享到群 —— 把当前报单期次打包成分享卡片。
+     群成员点开即进入本页并自动选中被分享的期次（见 onLoad + _applyPeriods 的 _sharedPeriodId 机制）。
+     路径带 periodId；身份仍由各人登录账号决定（内部群成员各有账号，点开进的是「自己账号 + 指定期次」报单页）。 */
+  onShareAppMessage() {
+    const p = this.data.period || {}
+    const pid = (p.id != null) ? p.id : ''
+    const name = p.name || '预报订单'
+    return {
+      title: `【${name}】预报订单填报`,
+      path: `/pages/fill/fill?periodId=${pid}`
     }
   },
   onPageScroll(e) {
@@ -458,7 +475,12 @@ Page({
     // 二期: 默认选中「未过窗口」的有效期次 —— 用户上次停留在已过期期次时，
     // 重新进入不应默认选中过期项（否则填完提交必被后端 400 拒绝）
     let idx = 0
-    if (savedId !== '' && savedId != null && savedId !== undefined) {
+    // 2026-10-17：分享带参优先 —— 群成员点开分享卡片时强制选中被分享期次（仅首次，用后即焚）
+    if (this._sharedPeriodId) {
+      const si = periods.findIndex(p => String(p.id) === this._sharedPeriodId)
+      if (si >= 0 && periods[si].in_window !== false) idx = si
+      this._sharedPeriodId = ''
+    } else if (savedId !== '' && savedId != null && savedId !== undefined) {
       const found = periods.findIndex(p => String(p.id) === String(savedId))
       if (found >= 0 && periods[found].in_window !== false) idx = found
       else {
@@ -898,7 +920,7 @@ Page({
         title: '覆盖当前已填内容？',
         content: '当前已填 ' + this.data.cartCount + ' 项 / ' + this.data.cartQty
                + ' 件，将被「' + src.name + '」的 ' + src.count + ' 项替换。',
-        confirmText: '覆盖', cancelText: '取消', confirmColor: '#06b6d4',
+        confirmText: '覆盖', cancelText: '取消', confirmColor: '#0e7490',
         success: (r) => { if (r.confirm) doIt() },
         fail: () => {}
       })

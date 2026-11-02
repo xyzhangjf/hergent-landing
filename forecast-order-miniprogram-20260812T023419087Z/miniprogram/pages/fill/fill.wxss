@@ -3,8 +3,8 @@
 .store-sel{display:flex;align-items:center}
 .store-name{font-size:32rpx;font-weight:600;color:#1d1d1f}
 /* v294：本人仓标识 —— 与门店区分（两者报的是不同的单：自提 vs 调拨） */
-.store-kind-tag{font-size:20rpx;font-weight:500;color:#0e7490;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:6rpx;padding:2rpx 10rpx;margin-left:12rpx}
-.store-arrow{font-size:24rpx;color:#06b6d4;margin-left:12rpx}
+.store-kind-tag{font-size:20rpx;font-weight:500;color:var(--brand);background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:6rpx;padding:2rpx 10rpx;margin-left:12rpx}
+.store-arrow{font-size:24rpx;color:var(--brand);margin-left:12rpx}
 .store-count{font-size:26rpx;color:#86868b}
 .search-bar{display:flex;align-items:center;gap:16rpx;padding:24rpx 32rpx 0}
 .search-ipt{flex:1;background:#fff;border-radius:16rpx;height:88rpx;padding:0 28rpx;font-size:30rpx;border:1rpx solid #e5e5ea}
@@ -21,8 +21,8 @@
 /* 品牌选中态：靛蓝（与 .recent-chip 同族）—— 品牌维度只能选中一个 */
 .fchip-on{background:#4338ca;border-color:#4338ca;color:#fff;font-weight:600}
 /* 「我的常报」用**青色系**与品牌区分：两者可叠加（品牌 ∧ 常报），同色会被读成单选 */
-.fchip-freq{background:#ecfeff;border-color:#a5f3fc;color:#0e7490;font-weight:600}
-.fchip-freq-on{background:#06b6d4;border-color:#06b6d4;color:#fff;font-weight:600}
+.fchip-freq{background:#ecfeff;border-color:#a5f3fc;color:var(--brand);font-weight:600}
+.fchip-freq-on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
 /* chip 上的条数：比"品牌名"淡一档，不抢主要信息 */
 .fchip-n{font-size:22rpx;opacity:.72;margin-left:6rpx}
 /* 全量铺开：列表标题 + 分页加载状态 */
@@ -47,6 +47,12 @@
    补回，与 no-store-note 同族（都是"你现在做不了这件事，原因在别处"）。
    🔴 教训：删一条 CSS 前要 grep **全部**引用点，而不是只看自己正在改的那个。 */
 .reported-note{margin:16rpx 32rpx 0;background:#fffbeb;border:1rpx solid #fde68a;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#92400e;line-height:1.6}
+/* 2026-10-17：分享到群条 —— 青色系（与 .fchip-freq-on / .store-arrow 同族），
+   区别于 amber 的 pending / red 的 warn；提供常驻「分享到群」入口。 */
+.share-bar{display:flex;align-items:center;justify-content:space-between;margin:16rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
+.share-tip{flex:1;font-size:24rpx;color:var(--brand);line-height:1.5;margin-right:16rpx}
+.share-btn{margin:0;background:var(--brand);color:#fff;font-size:24rpx;line-height:1.6;padding:8rpx 28rpx;border-radius:24rpx}
+.share-btn::after{border:none}
 /* v304（2026-09-28）：本期报单进度提醒条 —— 与 .reported-note 同族（amber 底），
    但它是**可行动的进度提示**（"还差几个没报"），故底色更暖一档 + 左侧色条，
    与"仅说明原因"的那几条（period-warn / reported-note）在视觉上区分开。
@@ -60,26 +66,27 @@
    但**换成青色系**：两条可能同屏（"该报单" 与 "有人改了我的量"），
    同色会被读成同一件事的两个状态；青色 = 品牌主色（与 .sample-bar / .store-kind-tag 同族），
    琥珀 = 待办紧迫感。颜色分工是这套样式唯一的表达职责，别改。
-   ⚠️ 文字色必须与底色同族（#0e7490 / #0891b2 配 #ecfeff）：直接沿用 .pending-title 的
+   ⚠️ 文字色必须与底色同族（--brand 配 #ecfeff 浅青底；v736 前这里是
+      #0e7490 标题 + #0891b2 副标题两档青，后者压浅青底只有 3.4:1，已并回一档）：直接沿用 .pending-title 的
       橙字会导致"青底橙字"，看起来像渲染错误。 */
 .msg-bar{display:flex;align-items:center;margin:16rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;overflow:hidden}
-.msg-accent{width:6rpx;align-self:stretch;background:#06b6d4;flex:none}
+.msg-accent{width:6rpx;align-self:stretch;background:var(--brand);flex:none}
 .msg-text{display:flex;flex-direction:column;padding:18rpx 24rpx;min-width:0;flex:1}
-.msg-title{font-size:26rpx;color:#0e7490;font-weight:600;line-height:1.5}
-.msg-sub{font-size:22rpx;color:#0891b2;line-height:1.5;margin-top:4rpx}
-.msg-go{font-size:36rpx;color:#06b6d4;flex:none;padding:0 24rpx 0 8rpx;line-height:1}
+.msg-title{font-size:26rpx;color:var(--brand);font-weight:600;line-height:1.5}
+.msg-sub{font-size:22rpx;color:var(--brand);line-height:1.5;margin-top:4rpx}
+.msg-go{font-size:36rpx;color:var(--brand);flex:none;padding:0 24rpx 0 8rpx;line-height:1}
 /* v227（2026-09-21）：复制生成样单 —— 入口条 + 来源回执 */
 .sample-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:#fff;border:1rpx dashed #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
 .sample-txt{font-size:24rpx;color:#86868b;flex:1;line-height:1.5}
-.sample-go{font-size:26rpx;color:#06b6d4;font-weight:600;flex:0 0 auto}
+.sample-go{font-size:26rpx;color:var(--brand);font-weight:600;flex:0 0 auto}
 .sample-info{display:flex;flex-direction:column;gap:6rpx;margin:12rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx;position:relative}
-.sample-info-t{font-size:24rpx;color:#0e7490;font-weight:600;line-height:1.5;padding-right:70rpx}
-.sample-info-s{font-size:22rpx;color:#0891b2;line-height:1.5}
+.sample-info-t{font-size:24rpx;color:var(--brand);font-weight:600;line-height:1.5;padding-right:70rpx}
+.sample-info-s{font-size:22rpx;color:var(--brand);line-height:1.5}
 .sample-info-warn{color:#b45309}
 .sample-info-x{position:absolute;top:14rpx;right:20rpx;font-size:22rpx;color:#86868b}
 /* P0-1（2026-09-20）：空门店说明条 —— 与 period-warn 同族（都是「你现在做不了这件事，原因在别处」） */
 .no-store-note{margin:16rpx 32rpx 0;background:#fffbeb;border:1rpx solid #fde68a;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#92400e;line-height:1.7}
-.no-store-lnk{display:block;margin-top:12rpx;color:#06b6d4;font-weight:600}
+.no-store-lnk{display:block;margin-top:12rpx;color:var(--brand);font-weight:600}
 .prod-list{padding:16rpx 32rpx 0}
 .prod-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx;border:2rpx solid transparent}
 .prod-row-on{background:#ecfeff;border-color:#a5f3fc}
@@ -91,30 +98,30 @@
    商品名（#1d1d1f 30rpx）> 规格（#86868b）> 库存/日均（#94a3b8）> 本行（最轻）。
    为什么不做成徽章/加粗：它是**参考值**，不是警告；抢眼了会让人误以为必须照它报。 */
 .prod-avg{display:inline-block;margin-top:6rpx;padding:2rpx 10rpx;border-radius:8rpx;
-  background:#ecfeff;color:#0891b2;font-size:22rpx;line-height:1.5}
+  background:#ecfeff;color:var(--brand);font-size:22rpx;line-height:1.5}
 /* 行内填报：− / 输入框 / +（P2-6: 触控目标 60→76rpx≈38px，减少手抖误触） */
 .qty-ctl{display:flex;align-items:center;gap:12rpx;flex:0 0 auto}
 .qty-ctl .qty-btn{width:76rpx;height:76rpx;font-size:44rpx}
 .qty-btn-off{color:#c7c7cc}
-.qty-btn-add{background:#06b6d4;color:#fff}
+.qty-btn-add{background:var(--brand);color:#fff}
 .qty-input{width:112rpx;height:76rpx;text-align:center;background:#f2f2f7;border-radius:12rpx;font-size:30rpx;color:#1d1d1f}
-.qty-input-on{background:#fff;border:1rpx solid #06b6d4;color:#0e7490;font-weight:600}
+.qty-input-on{background:#fff;border:1rpx solid var(--brand);color:var(--brand);font-weight:600}
 .qty-ph{color:#c7c7cc;font-weight:400}
 .cart-title{font-size:28rpx;color:#1d1d1f;font-weight:600;padding:32rpx 32rpx 16rpx;display:flex;align-items:center;justify-content:space-between}
-.cart-arrow{font-size:24rpx;color:#06b6d4;font-weight:400}
+.cart-arrow{font-size:24rpx;color:var(--brand);font-weight:400}
 .cart-list{padding:0 32rpx}
 .cart-row{display:flex;align-items:center;background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx;position:relative}
 .cart-info{flex:1;min-width:0}
 .cart-name{font-size:28rpx;color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cart-spec{font-size:22rpx;color:#86868b;margin-top:4rpx}
 .cart-qty{display:flex;align-items:center;gap:16rpx}
-.qty-btn{width:56rpx;height:56rpx;border-radius:12rpx;background:#f2f2f7;color:#06b6d4;font-size:36rpx;display:flex;align-items:center;justify-content:center}
+.qty-btn{width:56rpx;height:56rpx;border-radius:12rpx;background:#f2f2f7;color:var(--brand);font-size:36rpx;display:flex;align-items:center;justify-content:center}
 .qty-val{font-size:28rpx;color:#1d1d1f;min-width:90rpx;text-align:center}
 .cart-del{position:absolute;top:-14rpx;right:-10rpx;width:44rpx;height:44rpx;border-radius:50%;background:#ff3b30;color:#fff;font-size:24rpx;display:flex;align-items:center;justify-content:center;opacity:.9}
 .empty{text-align:center;color:#86868b;font-size:26rpx;padding:40rpx 0}
 .empty-txt{font-size:26rpx;color:#86868b;line-height:1.6;padding:0 60rpx}
 .empty-sub{font-size:24rpx;color:#a1a1a6;margin-top:6rpx}
-.retry-btn{display:inline-flex;align-items:center;margin-top:20rpx;padding:14rpx 44rpx;font-size:28rpx;color:#06b6d4;border:1rpx solid #06b6d4;border-radius:40rpx;background:#fff}
+.retry-btn{display:inline-flex;align-items:center;margin-top:20rpx;padding:14rpx 44rpx;font-size:28rpx;color:var(--brand);border:1rpx solid var(--brand);border-radius:40rpx;background:#fff}
 /* v224（2026-09-21）方案 A：底部固定区。
    ⚠️ 定位/边框/安全区**全部上提到 .bottom-dock**，提交栏本身不再 fixed ——
       若提交栏与结果卡各自 fixed、各算各的 bottom 偏移，必然出现「卡片压住按钮」或
@@ -123,7 +130,7 @@
 .submit-bar{display:flex;align-items:center;justify-content:space-between;padding:20rpx 32rpx}
 .submit-total{flex:1;min-width:0;font-size:26rpx;color:#1d1d1f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .total-num{font-size:40rpx;color:#ff9500;font-weight:700}
-.submit-btn{background:#06b6d4;color:#fff;font-size:32rpx;border-radius:16rpx;padding:0 64rpx;height:88rpx;line-height:88rpx}
+.submit-btn{background:var(--brand);color:#fff;font-size:32rpx;border-radius:16rpx;padding:0 64rpx;height:88rpx;line-height:88rpx}
 .submit-btn[disabled]{opacity:.5}
 
 /* M10: 最近报单门店快捷入口 */
@@ -135,7 +142,7 @@
 .draft-banner{display:flex;align-items:center;justify-content:space-between;margin:16rpx 32rpx 0;background:#fff7ed;border:1rpx solid #fed7aa;border-radius:14rpx;padding:18rpx 24rpx}
 .draft-txt{font-size:24rpx;color:#9a3412;flex:1}
 .draft-acts{display:flex;align-items:center;gap:24rpx}
-.draft-go{font-size:26rpx;color:#06b6d4;font-weight:600}
+.draft-go{font-size:26rpx;color:var(--brand);font-weight:600}
 .draft-clear{font-size:26rpx;color:#86868b}
 
 /* M9: 今日已报回执
@@ -147,9 +154,9 @@
 /* 2026-09-06 跨期次沿用：上次报单快照 / 本期已提交回执 */
 .last-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
 .last-bar-done{background:#ecfdf5;border-color:#a7f3d0}
-.last-txt{font-size:24rpx;color:#0e7490;flex:1;line-height:1.5}
+.last-txt{font-size:24rpx;color:var(--brand);flex:1;line-height:1.5}
 .last-bar-done .last-txt{color:#047857}
-.last-go{font-size:26rpx;color:#06b6d4;font-weight:600;flex:0 0 auto}
+.last-go{font-size:26rpx;color:var(--brand);font-weight:600;flex:0 0 auto}
 .last-go-plain{color:#86868b;font-weight:400}
 
 /* P2-3: 断网横幅 */
@@ -173,7 +180,7 @@
 .result-sid{display:flex;align-items:center;gap:16rpx;margin-top:16rpx;background:#fff;border:1rpx solid #a7f3d0;border-radius:12rpx;padding:14rpx 20rpx}
 .result-sid-lb{font-size:24rpx;color:#86868b;flex:0 0 auto}
 .result-sid-no{flex:1;font-size:36rpx;font-weight:700;color:#047857;letter-spacing:1rpx}
-.result-sid-cp{font-size:24rpx;color:#06b6d4;font-weight:600;flex:0 0 auto}
+.result-sid-cp{font-size:24rpx;color:var(--brand);font-weight:600;flex:0 0 auto}
 .result-meta{font-size:24rpx;color:#047857;margin-top:14rpx}
 .result-qty{font-size:26rpx;color:#065f46;font-weight:600;margin-top:4rpx}
 .result-skip{font-size:22rpx;color:#b45309;margin-top:8rpx;line-height:1.5}
@@ -185,7 +192,7 @@
 /* 通用按钮（结果卡 / 错误条共用，避免两套几乎相同的样式各自漂移） */
 .dock-btn{height:80rpx;line-height:80rpx;text-align:center;border-radius:14rpx;font-size:28rpx;box-sizing:border-box}
 .dock-btn-plain{background:#fff;color:#047857;border:1rpx solid #a7f3d0}
-.dock-btn-main{background:#06b6d4;color:#fff;font-weight:600}
+.dock-btn-main{background:var(--brand);color:#fff;font-weight:600}
 .result-acts .dock-btn{flex:1}
 .err-bar .dock-btn{flex:0 0 auto;padding:0 44rpx;height:72rpx;line-height:72rpx}
 .err-bar .dock-btn-plain{color:#b91c1c;border-color:#fecaca}
@@ -229,7 +236,7 @@
 /* v419（方案 2）：cf-dup 第二行 —— 原「本期已报过」弹窗正文里的「已报 n 项 / M 件」，
    外加原弹窗取消出口「去查看」的可点文字（承接跳「我的提交」）。 */
 .cf-dup-sub{margin-top:8rpx;font-size:24rpx;color:#b45309}
-.cf-link{color:#06b6d4}
+.cf-link{color:var(--brand)}
 .cf-sum{margin:20rpx 32rpx 0;background:#fef2f2;border:1rpx solid #fecaca;border-radius:14rpx;padding:16rpx 20rpx;font-size:24rpx;color:#b91c1c}
 /* v419（方案 2）：未达标提醒清单 —— 放在滚动区（.cf-body 已含左右 padding）里，与明细一起滚。
    它是「未填」商品**唯一**的可见出口（未填的不进 cart ⇒ 下方明细表里没有它们）。 */
@@ -240,9 +247,9 @@
 /* v420：明细层「未填」清单项可点 → 跳回列表定位该商品 */
 .cf-warn-line{position:relative;padding-right:96rpx}
 .cf-warn-line-h{background:#fff1f0}
-.cf-go{position:absolute;right:18rpx;top:50%;transform:translateY(-50%);color:#06b6d4;font-size:22rpx}
+.cf-go{position:absolute;right:18rpx;top:50%;transform:translateY(-50%);color:var(--brand);font-size:22rpx}
 /* v420：主列表被定位到的商品行：高亮闪烁 3 次，引导用户填数量 */
-.prod-row-flash{animation:cfRowFlash 1s ease 3;box-shadow:0 0 0 3rpx #06b6d4 inset;border-radius:14rpx}
+.prod-row-flash{animation:cfRowFlash 1s ease 3;box-shadow:0 0 0 3rpx var(--brand) inset;border-radius:14rpx}
 @keyframes cfRowFlash{0%,100%{background:#fff}50%{background:#ecfeff}}
 .cf-body{min-height:0;max-height:calc(78vh - 560rpx);padding:8rpx 32rpx 0}
 .cf-row{display:flex;align-items:center;gap:16rpx;padding:20rpx 0;border-bottom:1rpx solid #f0f0f2}
