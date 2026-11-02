@@ -115,7 +115,7 @@
 .ch-md-bar{}
 .ch-md-lbl{font-size:var(--fs-xs);fill:var(--t2);font-variant-numeric:tabular-nums}
 .ch-md-track{opacity:.6}
-.ch-md-cv{font-size:var(--fs-h4);font-weight:600;fill:var(--t1)}
+.ch-md-cv{font-size:var(--fs-lg);font-weight:600;fill:var(--t1)}
 .ch-md-legend{display:flex;flex-wrap:wrap;gap:var(--sp-1) var(--sp-3);margin-top:var(--sp-h6);font-size:var(--fs-xs);color:var(--t2)}
 .ch-md-lg{display:inline-flex;align-items:center;gap:var(--sp-1)}
 .ch-md-lg i{width:8px;height:8px;border-radius:var(--radius-hair);flex:none}

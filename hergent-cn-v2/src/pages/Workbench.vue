@@ -781,7 +781,7 @@ onMounted(loadData)
 .task-row.prio-amber::before{background:var(--war)}
 .task-row.prio-blue::before{background:var(--p)}
 .task-row .tag{flex-shrink:0;margin-top:1px;white-space:nowrap}
-.task-ic{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:var(--fs-h4);font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
+.task-ic{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:var(--fs-lg);font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .task-main{flex:1;min-width:0}
 .task-title{font-size:var(--fs-md);font-weight:500;color:var(--t1);margin-bottom:3px;letter-spacing:.1px}
 .task-sub{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}

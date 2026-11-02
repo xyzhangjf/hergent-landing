@@ -571,7 +571,7 @@ defineExpose({ load: loadList })
 .wl-time { font-size:var(--fs-sm); color: var(--t3) }
 .wl-dim { color: var(--t3); font-size:var(--fs-sm) }
 .wl-amt { color: var(--dan); font-variant-numeric: tabular-nums; font-weight: 600 }
-.wl-type-val { font-size:var(--fs-h4) }
+.wl-type-val { font-size:var(--fs-lg) }
 .wl-name { font-weight: 500 }
 
 .wl-op {

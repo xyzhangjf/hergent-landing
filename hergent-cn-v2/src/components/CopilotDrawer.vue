@@ -4021,7 +4021,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 /* ===== P1-3 经营一页纸 ===== */
 .cp-pager{flex:1;overflow:auto;padding:var(--sp-4);background:var(--bg1)}
 .cp-pager-hd{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-h14)}
-.cp-pager-hd b{font-size:var(--fs-h4);color:var(--t1)}
+.cp-pager-hd b{font-size:var(--fs-lg);color:var(--t1)}
 .cp-pager-sub{font-size:var(--fs-sm);color:var(--t3)}
 .cp-pager-back{margin-left:auto;border:1px solid var(--bd1);background:var(--bg2);color:var(--t2);border-radius:var(--radius-sm);padding:var(--sp-1) var(--sp-h10);font-size:var(--fs-sm);cursor:pointer}
 .cp-pager-back:hover{background:var(--bg3)}
@@ -4145,7 +4145,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .msg[data-hit]{box-shadow:0 0 0 2px var(--p), 0 0 0 6px var(--p-bg);border-radius:var(--radius-sm);transition:box-shadow var(--dur-slow) ease-out}
 .cp-welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:var(--sp-5)}
 .cp-w-ic{width:56px;height:56px;border-radius:var(--radius-xl);background:var(--p-bg);display:flex;align-items:center;justify-content:center;margin-bottom:var(--sp-h14)}
-.cp-w-title{font-size:var(--fs-h4);font-weight:500;color:var(--t1);margin:0 0 var(--sp-1)}
+.cp-w-title{font-size:var(--fs-lg);font-weight:500;color:var(--t1);margin:0 0 var(--sp-1)}
 .cp-w-sub{font-size:var(--fs-sm);color:var(--t3);margin:0 0 var(--sp-4)}
 .cp-w-chips{display:flex;flex-wrap:wrap;gap:var(--sp-2);justify-content:center}
 .cp-chip{padding:7px var(--sp-3);border:1px solid var(--bd);border-radius:var(--radius-lg);background:var(--bg);font-size:var(--fs-sm);color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
@@ -4290,7 +4290,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-role-item-tx{display:flex;flex-direction:column;min-width:0}
 .cp-role-item-name{font-size:var(--fs-base);font-weight:500;color:var(--t1)}
 .cp-role-item-desc{font-size:var(--fs-xs);color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.cp-input{display:block;width:100%;border:none;background:none;outline:none;resize:none;font-size:var(--fs-h4);line-height:var(--lh-normal);min-height:48px;max-height:240px;padding:13px var(--sp-3) 9px var(--sp-4);color:var(--t1);font-family:inherit;overflow-y:auto}
+.cp-input{display:block;width:100%;border:none;background:none;outline:none;resize:none;font-size:var(--fs-md);line-height:var(--lh-normal);min-height:48px;max-height:240px;padding:13px var(--sp-3) 9px var(--sp-4);color:var(--t1);font-family:inherit;overflow-y:auto}
 .cp-input::placeholder{color:var(--t3)}
 /* M1 斜杠命令浮层：锚在 composer 上方，不打断输入 */
 .cp-slash{position:absolute;left:0;right:0;bottom:calc(100% + 8px);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);box-shadow:0 12px 34px rgba(0,0,0,.20);max-height:44vh;overflow-y:auto;padding:var(--sp-h6);z-index:30}

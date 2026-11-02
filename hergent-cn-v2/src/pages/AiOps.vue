@@ -489,7 +489,7 @@ async function ackFallback() {
 .bk-stat{display:flex;flex-wrap:wrap;gap:var(--sp-h10);margin-bottom:var(--sp-h14)}
 .bk-pill{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-h14);display:flex;flex-direction:column;gap:var(--sp-1);min-width:160px}
 .bk-k{font-size:var(--fs-xs);color:var(--t2);text-transform:uppercase;letter-spacing:.04em}
-.bk-v{font-size:var(--fs-h4);font-weight:600;color:var(--t1)}
+.bk-v{font-size:var(--fs-lg);font-weight:600;color:var(--t1)}
 .bk-list{display:flex;flex-direction:column;gap:var(--sp-h6);max-height:280px;overflow:auto}
 .bk-item{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-h10) var(--sp-3);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
 .bk-main{display:flex;flex-direction:column;gap:var(--sp-h2)}

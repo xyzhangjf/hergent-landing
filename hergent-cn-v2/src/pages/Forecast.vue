@@ -14299,7 +14299,7 @@ provide('sprintSummary', sprintSummary)
 @media(min-width:1462px){ .grid-ctl-row .row-more{display:none} }
 @media(max-width:1461px){ .pin .pin-more,.edit-summary .pin-more{display:none} }
 .pin .big{font-size:var(--fs-base);font-weight:500}
-.pin .big b{color:var(--p-dark);font-size:var(--fs-h4)}
+.pin .big b{color:var(--p-dark);font-size:var(--fs-lg)}
 .pin .mini{font-size:var(--fs-sm);color:var(--t2)}
 .pin .mini b{color:var(--t1)}
 /* v666：「筛选后 N / 共 M 行」用主题色（这是本轮新增的口径说明），
@@ -14807,7 +14807,7 @@ provide('sprintSummary', sprintSummary)
 /* v604：推右交给常显容器 `.es-right`。原来 auto 挂在 `.pin-sprint` 上，而 SprintChip 根带
    `v-if="show"`（无冲刺数据时不渲染）⇒ 推手会整块消失、整行退化成左对齐（真机实测右侧空 211px）。 */
 .edit-summary>.es-right{margin-left:auto;align-self:center;display:flex;align-items:center;gap:var(--sp-3);flex-wrap:nowrap}
-.edit-summary b{color:var(--p-dark);font-size:var(--fs-h4)}
+.edit-summary b{color:var(--p-dark);font-size:var(--fs-lg)}
 /* v666：改单态合计恒为全量 —— 筛选生效时把这句话明写出来（避免"保存只存筛出来的"的误解） */
 .edit-summary>.es-note{font-size:var(--fs-sm);color:var(--t3)}
 .link-btn{border:none;background:none;color:var(--warn-amber);text-decoration:underline;cursor:pointer;font-size:var(--fs-sm);padding:0}

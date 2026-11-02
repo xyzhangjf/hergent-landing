@@ -35,8 +35,14 @@ const ROOT = path.resolve(import.meta.dirname, '../..')
 const BASE_DIR = path.join(ROOT, '.workbuddy/visual-baseline')
 const RUN_DIR = path.join(ROOT, '.workbuddy/visual-run')
 
-const VW = 1440
-const VH = 900
+/* 视口可用环境变量覆盖（v732 起）：字号/间距这类**改宽度**的迁移必须同时看窄屏。
+   1440 管「桌面首屏信息层级」，375 管「移动端换行与撑破」—— 后者是字号迁移唯一真正的风险面。
+   ============================================================================================ */
+const VW = parseInt(process.env.HG_VW || '1440', 10)
+const VH = parseInt(process.env.HG_VH || '900', 10)
+const MOBILE = process.env.HG_MOBILE === '1' || VW < 768
+/* 移动端产物落到 `candidate-m375` 这类子目录，绝不覆盖桌面基线 */
+const VP_SUFFIX = MOBILE ? '-m' + VW : ''
 
 const TOKEN = process.env.HG_TOKEN || ''
 if (!TOKEN) { console.error('缺 HG_TOKEN（见 MEMORY.md「免密码做生产 UI 真机验证」）'); process.exit(1) }
@@ -62,7 +68,7 @@ const PAGES = [
 /* ── 参数 ─────────────────────────────────────────────────────────── */
 const argv = process.argv.slice(2)
 const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : d }
-const SET = arg('set', 'candidate')
+const SET = arg('set', 'candidate') + VP_SUFFIX
 const THEMES = arg('themes', 'light,dark').split(',').map(s => s.trim()).filter(Boolean)
 const ONLY = arg('pages', '') ? arg('pages', '').split(',').map(s => s.trim()) : null
 
@@ -112,8 +118,13 @@ for (const c of [
 ]) await page.raw.send('Network.setCookie', { ...c, domain: 'hergent.cn', path: '/', secure: true, sameSite: 'Lax' })
 
 await page.raw.send('Emulation.setDeviceMetricsOverride', {
-  width: VW, height: VH, deviceScaleFactor: 1, mobile: false,
+  width: VW, height: VH, deviceScaleFactor: 1, mobile: MOBILE,
+  ...(MOBILE ? { screenWidth: VW, screenHeight: VH, positionX: 0, positionY: 0 } : {}),
 })
+if (MOBILE) {
+  /* mobile:true 只改「视口语义」，不启用触摸 ⇒ 悬停态/点按态判定会走桌面分支 */
+  await page.raw.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+}
 /* 动效直接按「用户要求减少动态」来解释 —— 比注入 CSS 更贴近真实，且 CSS 也照注一遍兜底 */
 await page.raw.send('Emulation.setEmulatedMedia', {
   features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],

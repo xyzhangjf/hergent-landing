@@ -324,12 +324,12 @@ onMounted(async () => {
 .zp-hint{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .zp-err{margin:var(--sp-h10) 0 0;padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);background:var(--dan-bg);
   color:var(--dan);font-size:var(--fs-base)}
-.zp-h2{margin:0 0 var(--sp-3);font-size:var(--fs-h4);font-weight:600;color:var(--t1)}
+.zp-h2{margin:0 0 var(--sp-3);font-size:var(--fs-lg);font-weight:600;color:var(--t1)}
 .zp-h3{margin:0 0 var(--sp-2);font-size:var(--fs-base);font-weight:600;color:var(--t1)}
 .zp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--sp-h10);margin-bottom:var(--sp-h14)}
 .zp-stat{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3)}
 .zp-stat span{display:block;font-size:var(--fs-sm);color:var(--t2);margin-bottom:var(--sp-1)}
-.zp-stat b{font-size:var(--fs-h4);font-weight:600;color:var(--t1)}
+.zp-stat b{font-size:var(--fs-lg);font-weight:600;color:var(--t1)}
 .zp-stat.zp-ok b{color:var(--ok-green)}
 .zp-stat.zp-warn b{color:var(--warn-amber)}
 .zp-running,.zp-done{margin:var(--sp-3) 0;padding:var(--sp-h10) var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-base)}

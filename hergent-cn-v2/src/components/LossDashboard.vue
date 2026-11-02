@@ -538,7 +538,7 @@ html.dark .dsh {
 
 /* ── 本块块头（「货损趋势」+ 区间/口径说明 + 两个状态胶囊）── */
 .dsh-hd { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin: 0 0 var(--sp-3); }
-.dsh-hd b { font-size:var(--fs-h4); font-weight: 600; color: var(--t1); }
+.dsh-hd b { font-size:var(--fs-lg); font-weight: 600; color: var(--t1); }
 .dsh-sub { font-size:var(--fs-sm); color: var(--t2); }
 .dsh-note { font-size:var(--fs-sm); padding: 3px 9px; border-radius: var(--radius-pill); }
 .dsh-note.war { color: var(--warn-amber); background: var(--warn-amber-bg); }

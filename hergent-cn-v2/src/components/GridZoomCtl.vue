@@ -36,7 +36,7 @@ function set(v) {
 .zoom-group .zb-btn{
   width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
   border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:var(--radius-sm);cursor:pointer;
-  font-size:var(--fs-h4);line-height:var(--lh-none);padding:0;
+  font-size:var(--fs-lg);line-height:var(--lh-none);padding:0;
 }
 .zoom-group .zb-btn:hover:not(:disabled){background:var(--bg2);color:var(--p-ink)}
 .zoom-group .zb-btn:disabled{opacity:.35;cursor:default}

@@ -507,7 +507,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 <style scoped>
 .cas-actions{display:flex;align-items:center;gap:var(--sp-2);flex-shrink:0;flex-wrap:wrap}
 .cas-stat{font-size:var(--fs-sm);color:var(--t2)}
-.cas-stat b{font-size:var(--fs-h4);color:var(--t1)}
+.cas-stat b{font-size:var(--fs-lg);color:var(--t1)}
 .sync-state{font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}

@@ -2295,7 +2295,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* 金额组：`margin-left:auto` 永远贴右（舟谱把总金额放在信息带右侧同一行）。 */
 .ipd-bmoney { margin-left: auto; display: flex; gap: 26px; flex-wrap: wrap }
 .ipd-bm { display: flex; align-items: baseline; gap: 7px; white-space: nowrap }
-.ipd-bmv { font-size:var(--fs-h4); font-weight: 500; font-variant-numeric: tabular-nums }
+.ipd-bmv { font-size:var(--fs-lg); font-weight: 500; font-variant-numeric: tabular-nums }
 /* v453（R1）供应商余额组：与本单金额之间一条竖线分隔 + 字色弱一档。
    左边三项是「这一单的钱」，右边两项是「这家供应商累计」，口径不同不混读。
    🔴 `.ipd-bmv-sub` 必须写在 `.ipd-bmv` **之后**（同特异度，后来者胜）。 */
@@ -2421,7 +2421,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   background: var(--bg2);
 }
 .ipd-total-lb { font-size:var(--fs-sm); color: var(--t3) }
-.ipd-total-amt { font-size:var(--fs-h4); font-weight: 500; font-variant-numeric: tabular-nums }
+.ipd-total-amt { font-size:var(--fs-lg); font-weight: 500; font-variant-numeric: tabular-nums }
 .ipd-total-note { margin-left: auto; font-size:var(--fs-sm); color: var(--t3) }
 
 /* v452（O9）表格密度对齐舟谱：默认 8px/12px（原 10px/14px）。
@@ -2467,7 +2467,7 @@ tfoot td { font-weight: 600 }
 /* ---- 货款 ---- */
 .ipd-pay { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: var(--sp-3); align-items: start }
 .ipd-info { display: flex; flex-direction: column; gap: var(--sp-h10) }
-.ipd-info-hd { font-size: var(--fs-h4); font-weight: 600; color: var(--t1) }
+.ipd-info-hd { font-size: var(--fs-lg); font-weight: 600; color: var(--t1) }
 .ipd-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); font-size:var(--fs-base) }
 .ipd-row > span:last-child, .ipd-row > b { text-align: right }
 .ipd-row-b { border-top: 1px solid var(--border-subtle); padding-top: var(--sp-h10); margin-top: var(--sp-h2) }
@@ -2502,7 +2502,7 @@ tfoot td { font-weight: 600 }
   z-index: var(--z-page-modal-overlay);
 }
 .ipd-dlg { width: min(420px, 92vw); padding: var(--sp-h18); position: relative; z-index: var(--z-page-modal) }
-.ipd-dlg-hd { font-size: var(--fs-h4); font-weight: 600; margin-bottom: var(--sp-2) }
+.ipd-dlg-hd { font-size: var(--fs-lg); font-weight: 600; margin-bottom: var(--sp-2) }
 .ipd-dlg-msg { font-size:var(--fs-sm); color: var(--t3); margin-bottom: var(--sp-h14) }
 .ipd-fl { display: block; margin-bottom: var(--sp-3) }
 .ipd-fl .ipd-lb { display: block; margin-bottom: var(--sp-h6) }

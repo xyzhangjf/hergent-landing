@@ -758,7 +758,7 @@ async function refreshProfile() {
    [data-v-x] 属性选择器），全局层的 .kpi-strip 特异性只有 0,1,0 盖不住，只能靠源顺序在这里补一条。 */
 .kpi-strip{padding:var(--sp-h6) 0}
 .panel-hd{display:flex;align-items:baseline;gap:var(--sp-h10);margin-bottom:var(--sp-3)}
-.panel-hd b{font-size:var(--fs-h4);font-weight:600;color:var(--t1)}
+.panel-hd b{font-size:var(--fs-lg);font-weight:600;color:var(--t1)}
 
 /* 报告列表 */
 .rep-list{display:flex;flex-direction:column;gap:var(--sp-2)}

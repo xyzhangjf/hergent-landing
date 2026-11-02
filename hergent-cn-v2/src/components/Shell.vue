@@ -1867,7 +1867,7 @@ function stopResize() {
    右边固定不缩 —— 与桌面 `.sb-pop-row` 同一套版式（名字长短不一时「＋」仍然右对齐）。 */
 .md-row{display:flex;align-items:center}
 .md-row>.md-item{flex:1;min-width:0;width:auto}
-.md-item{display:flex;align-items:center;gap:var(--sp-3);width:100%;padding:var(--sp-h14) var(--sp-5);border:none;background:none;font-size:var(--fs-h4);color:var(--t1);text-align:left}
+.md-item{display:flex;align-items:center;gap:var(--sp-3);width:100%;padding:var(--sp-h14) var(--sp-5);border:none;background:none;font-size:var(--fs-lg);color:var(--t1);text-align:left}
 .md-item:active{background:var(--bg4)}
 /* 手机端「＋」（L1 双入口的右半区）：横向紧 ⇒ 纯图标（桌面 `.sb-pop-new` 用「＋ 创建」文字）。
    ⚠️ 命中区靠 36×36 撑住，别缩成 16px 图标本身；`margin-right` 与条目右侧留白对齐。 */
@@ -1890,7 +1890,7 @@ function stopResize() {
    本元素非 Teleport（在 .shell 内），而 .shell 无 stacking context，改值即生效。 */
 .pf-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:1130;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .pf-modal{width:380px;max-width:92vw;background:var(--bg);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
-.pf-hd{padding:var(--sp-4) var(--sp-5);font-size:var(--fs-h4);font-weight:600;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
+.pf-hd{padding:var(--sp-4) var(--sp-5);font-size:var(--fs-lg);font-weight:600;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
 .pf-bd{padding:var(--sp-h18) var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-h14)}
 .pf-field{display:flex;flex-direction:column;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t2)}
 .pf-field input{height:40px;padding:0 var(--sp-3);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:var(--fs-md);outline:none}

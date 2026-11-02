@@ -278,7 +278,7 @@ onMounted(load)
 .pro-split-rows { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2) }
 .pro-split-row { display: flex; align-items: baseline; gap: var(--sp-h10); flex-wrap: wrap }
 .pro-split-k { font-size:var(--fs-base); color: var(--t1); min-width: 92px }
-.pro-split-v { font-size:var(--fs-h4); font-weight: 600; color: var(--t1) }
+.pro-split-v { font-size:var(--fs-lg); font-weight: 600; color: var(--t1) }
 .pro-split-s { font-size:var(--fs-sm); color: var(--t3) }
 .pro-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-h10); flex-wrap: wrap }
 .pro-tag {

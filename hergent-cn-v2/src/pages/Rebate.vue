@@ -3539,14 +3539,14 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 /* P0-1 维度入口卡片 */
 .entry-row{display:flex;gap:var(--sp-h14);margin-bottom:var(--sp-h14);flex-wrap:wrap}
 .entry-card{flex:1;min-width:260px;display:flex;flex-direction:column;gap:var(--sp-h10);padding:var(--sp-4) var(--sp-h18)}
-.entry-card h3{font-size:var(--fs-h4);font-weight:600;margin:0}
+.entry-card h3{font-size:var(--fs-lg);font-weight:600;margin:0}
 .entry-card p{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin:0;flex:1}
 .entry-card .btn{margin-top:var(--sp-1);align-self:flex-start}
 /* P0-3 状态标签（v112 R21：琥珀色统一用 --war 变量，适配暗黑主题） */
 
 /* P0-4 详情弹层 */
 .dt-head{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-h6)}
-.dt-name{font-size:var(--fs-h4);font-weight:600;color:var(--t1)}
+.dt-name{font-size:var(--fs-lg);font-weight:600;color:var(--t1)}
 .dt-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-h10) var(--sp-h18)}
 .dt-item{display:flex;flex-direction:column;gap:3px}
 .dt-l{font-size:var(--fs-xs);color:var(--t3)}
@@ -3608,7 +3608,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
    序号圈一并删除 —— 不留死 CSS。 */
 .rr-name{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .rr-scope{font-size:var(--fs-sm);color:var(--t3)}
-.rr-ach{margin-left:auto;font-size:var(--fs-h4);font-weight:700;color:var(--p-dark)}
+.rr-ach{margin-left:auto;font-size:var(--fs-lg);font-weight:700;color:var(--p-dark)}
 .rr-ach.val-warn{color:var(--dan)}
 .rr-bar{height:14px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);overflow:hidden;position:relative;cursor:help}
 .rr-bar-fill{height:100%;border-radius:var(--radius-sm);transition:width .35s ease;background:var(--p-dark)}

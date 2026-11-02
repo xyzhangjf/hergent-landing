@@ -2032,7 +2032,7 @@ onMounted(() => {
    TargetFormModal 的观感对不上（那两处早已用令牌）。 */
 .pa-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(520px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-modal);box-shadow:var(--shadow-lg)}
 .pa-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-subtle)}
-.pa-modal-hd b{font-size:var(--fs-h4);color:var(--t1)}
+.pa-modal-hd b{font-size:var(--fs-lg);color:var(--t1)}
 .pa-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer}
 .pa-modal-body{padding:var(--sp-h18) var(--sp-5)}
 .pa-modal-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-5);border-top:1px solid var(--border-subtle)}

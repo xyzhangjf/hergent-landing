@@ -1903,7 +1903,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   background: rgba(0, 0, 0, .35);
 }
 .ipl-dlg { width: min(400px, 92vw); padding: var(--sp-h18) }
-.ipl-dlg-hd { font-size: var(--fs-h4); font-weight: 600; margin-bottom: var(--sp-h10) }
+.ipl-dlg-hd { font-size: var(--fs-lg); font-weight: 600; margin-bottom: var(--sp-h10) }
 .ipl-dlg-msg { font-size:var(--fs-base); color: var(--t2); margin-bottom: var(--sp-3) }
 .ipl-dlg .input { margin-bottom: var(--sp-h14) }
 .ipl-dlg-ft { display: flex; justify-content: flex-end; gap: var(--sp-2) }

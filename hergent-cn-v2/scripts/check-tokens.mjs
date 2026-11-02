@@ -348,7 +348,7 @@ const FONT_RAMP = new Map([
   ['--fs-sm', 12],
   ['--fs-base', 13],
   ['--fs-md', 14],
-  ['--fs-h4', 15],   // 过渡档：四级标题 / 移动端 body，语义冲突，P1 决策
+  ['--fs-body-m', 15], // v732 从 --fs-h4 拆出：**只给移动端 body**，UI 规则里出现就报错
   ['--fs-lg', 16],
   ['--fs-stat', 18],
   ['--fs-xl', 20],
@@ -369,6 +369,30 @@ function checkFontRamp () {
   const byVal = new Map()
   for (const [k, v] of seen) byVal.set(v, [...(byVal.get(v) || []), k])
   for (const [v, ks] of byVal) if (ks.length > 1) bad.push({ k: ks.join(' ≡ '), v, why: `同值 ${v}px，同一件事两个名字（用的人只会问"该用哪个"，答案都一样）` })
+  return bad
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   v732 · `--fs-body-m` 只能用在移动端 body 上
+   ─────────────────────────────────────────────────────────────────────────────
+   由来：`--fs-h4` 15px 之所以是债，不是"多了个档"，而是**一个名字两个语义**
+   （四级标题 / 移动端正文字号）。机械归并必伤一头：改 16 则 375px 正文变宽 6.7%
+   换行全变，改 14 则二十处标题缩水。所以拆成两个名字 —— 但**拆开之后必须防止再合回去**。
+   这一条守的就是"拆开"这个状态：body-m 出现在任何一条 UI 规则里 ⇒ 语义又开始混了。
+   （判据只管"出现在哪"，不管值 —— 值由 checkFontRamp 锁。） */
+function checkMobileBodyOnly () {
+  const bad = []
+  const ALLOW = /^body\s*\{[^}]*font-size\s*:\s*var\(--fs-body-m\)/
+  for (const abs of walk(SRC)) {
+    if (!/\.(vue|css)$/.test(abs)) continue
+    const rel = relative(ROOT, abs).split('\\').join('/')
+    const lines = stripComments(readFileSync(abs, 'utf8')).split('\n')
+    lines.forEach((ln, i) => {
+      if (!ln.includes('var(--fs-body-m)')) return
+      if (rel === TOKEN_FILE && ALLOW.test(ln.trim())) return
+      bad.push({ rel, line: i + 1, text: ln.trim().slice(0, 110) })
+    })
+  }
   return bad
 }
 
@@ -433,6 +457,7 @@ const spBad = checkSpacing()
 const lhBad = checkLineHeights()
 const lhRampBad = checkLineHeightRamp()
 const fontRampBad = checkFontRamp()
+const mobileBodyBad = checkMobileBodyOnly()
 if (args.has('--update')) {
   const obj = {}
   for (const k of [...current.keys()].sort()) obj[k] = [...current.get(k)].sort()
@@ -471,7 +496,7 @@ for (const [file, vals] of current) {
   if (added.length) violations.push({ file, kind: 'new-color', vals: added })
 }
 
-if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length && !lhRampBad.length && !fontRampBad.length) {
+if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length && !lhRampBad.length && !fontRampBad.length && !mobileBodyBad.length) {
   const files = Object.keys(base).length
   const total = Object.values(base).reduce((a, b) => a + b.length, 0)
   console.log(`✓ 设计令牌护栏通过（存量待清：${files} 个文件 / ${total} 条，见 --list）`)
@@ -482,6 +507,7 @@ if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length 
   console.log(`✓ 行高护栏通过（只许 var(--lh-*) / 0 / normal）`)
   console.log(`✓ 行高阶梯通过（5 档：1 / 1.2 / 1.4 / 1.6 / 1.8）`)
   console.log(`✓ 字号阶梯通过（11 档：11 / 12 / 13 / 14 / 15 / 16 / 18 / 20 / 22 / 24 / 26，无同值重名）`)
+  console.log(`✓ 移动端正文隔离通过（--fs-body-m 只出现在 @media 的 body 规则里）`)
   process.exit(0)
 }
 
@@ -518,18 +544,29 @@ if (lhRampBad.length) {
 if (fontRampBad.length) {
   console.error('\n✗ 字号阶梯：variables.css 的 --fs-* 档位被改动\n')
   for (const b of fontRampBad) console.error(`  ${b.k}: ${b.v ?? '（已删除）'}  ← ${b.why}`)
-  console.error('\n阶梯锁死为 11 档（v730 决策，理由见 variables.css 该段注释）：')
-  console.error('  11 xs / 12 sm / 13 base / 14 md / 15 h4(过渡) / 16 lg / 18 stat / 20 xl / 22 num / 24 h1 / 26 num-lg')
+  console.error('\n阶梯锁死为 11 档（v732 决策，理由见 variables.css 该段注释）：')
+  console.error('  11 xs / 12 sm / 13 base / 14 md / 15 body-m(仅移动端 body) / 16 lg')
+  console.error('  18 stat / 20 xl / 22 num / 24 h1 / 26 num-lg')
   console.error('🔴 字号归并与行高风险不同档：行高只影响垂直，字号会改变**文字宽度** ⇒')
-  console.error('   换行、截断、表格列宽。所以只收「同值」和「单点」的档，15px（43 处 + 移动端 body）留给 P1。\n')
+  console.error('   换行、截断、表格列宽。改任何一档都要同时跑 1440 与 375 两套视觉回归。\n')
+}
+
+if (mobileBodyBad.length) {
+  console.error('\n✗ --fs-body-m 用到了 UI 规则上\n')
+  for (const b of mobileBodyBad) console.error(`  ${b.rel}:${b.line}\n    ${b.text}`)
+  console.error('\n--fs-body-m(15px) 是**移动端正文基准**，只许出现一次：')
+  console.error('  @media(max-width:768px){ body{font-size:var(--fs-body-m)} }')
+  console.error('UI 用途请用 --fs-md 14（正文/输入框）或 --fs-lg 16（标题/行内数值）。')
+  console.error('这条守的是 v732 把 --fs-h4 拆开的成果 —— 一旦 body-m 回到 UI 规则里，「一个名字两个语义」就复活了。\n')
 }
 
 if (fsBad.length) {
   console.error('\n✗ 字号护栏：出现了 var(--fs-*) 之外的 font-size\n')
   for (const b of fsBad) console.error(`  ${b.rel}\n    font-size: ${b.val}`)
-  console.error('\n字号只分 12 档（定义见 src/styles/variables.css）：')
-  console.error('  11 角标/密集表格（中文下限）　12 提示　13 表格/控件　14 正文　15 面板标题')
-  console.error('  16 弹窗标题　17 卡片标题　18 统计值　20 页头　22 KPI 数值　24 主标题　26 大数值')
+  console.error('\n字号只分 11 档（定义见 src/styles/variables.css）：')
+  console.error('  11 角标/密集表格（中文下限）　12 提示　13 表格/控件　14 正文/输入框')
+  console.error('  15 移动端正文（只有 body 能用）　16 标题/行内数值　18 成块统计值')
+  console.error('  20 页头　22 KPI 数值　24 主标题　26 大数值')
   console.error('\n允许例外：0（消除空白符）、1.45em（markdown 相对层级）。')
   console.error('改档位请去 variables.css 改令牌值，不要就地写 px —— 就地写只有这一处跟着变。\n')
 }

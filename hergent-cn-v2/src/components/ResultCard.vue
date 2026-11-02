@@ -265,10 +265,10 @@ function capOf(ch) {
 .rc:hover{box-shadow:var(--shadow-md);border-color:var(--bd)}
 .rc.compact{padding:var(--sp-h10) var(--sp-3);gap:7px}
 .rc.compact .rc-title{font-size:var(--fs-base)}
-.rc.compact .rc-m-value{font-size:var(--fs-h4)}
+.rc.compact .rc-m-value{font-size:var(--fs-lg)}
 
 .rc-head{display:flex;align-items:center;gap:var(--sp-2)}
-.rc-ic{width:28px;height:28px;border-radius:var(--radius-sm);background:var(--p-bg);display:flex;align-items:center;justify-content:center;font-size:var(--fs-h4);flex-shrink:0}
+.rc-ic{width:28px;height:28px;border-radius:var(--radius-sm);background:var(--p-bg);display:flex;align-items:center;justify-content:center;font-size:var(--fs-lg);flex-shrink:0}
 .rc-title{font-size:var(--fs-md);font-weight:600;color:var(--t1);flex:1;line-height:var(--lh-tight)}
 .rc-badge{display:inline-flex;align-items:center;height:20px;padding:0 var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-xs);font-weight:500;flex-shrink:0}
 .badge-red{background:rgba(var(--dan-rgb),.12);color:var(--dan)}

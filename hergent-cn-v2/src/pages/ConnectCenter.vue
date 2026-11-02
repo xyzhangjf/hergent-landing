@@ -1272,7 +1272,7 @@ onUnmounted(stopStatusPoll)
 .cc-op:hover:not(:disabled){border-color:var(--p-dark);color:var(--p-dark)}
 .cc-op:disabled{opacity:.5;cursor:default}
 .cc-health{font-size:var(--fs-xs);color:var(--t3);margin-bottom:var(--sp-3);line-height:var(--lh-normal)}
-.cc-name{font-size:var(--fs-h4);font-weight:500;color:var(--t1);margin-bottom:var(--sp-1)}
+.cc-name{font-size:var(--fs-lg);font-weight:500;color:var(--t1);margin-bottom:var(--sp-1)}
 .cc-desc{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-h14);min-height:18px}
 .cc-action{display:inline-flex;align-items:center;justify-content:center;height:32px;padding:0 var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:var(--lh-none)}
 .cc-action.primary{background:var(--p-solid);color:#fff}
@@ -1352,7 +1352,7 @@ onUnmounted(stopStatusPoll)
 .wf-top{display:flex;align-items:center;gap:var(--sp-3)}
 .wf-icon{width:40px;height:40px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:var(--fs-lg);font-weight:600;flex-shrink:0}
 .wf-name-wrap{flex:1}
-.wf-name{font-size:var(--fs-h4);font-weight:500;color:var(--t1);margin-bottom:var(--sp-h2)}
+.wf-name{font-size:var(--fs-lg);font-weight:500;color:var(--t1);margin-bottom:var(--sp-h2)}
 .wf-state{font-size:var(--fs-xs);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3)}
 .wf-state.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .wf-desc{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
@@ -1400,7 +1400,7 @@ onUnmounted(stopStatusPoll)
 /* ===== 对齐桌面「连接手机」页面 ===== */
 /* 顶部提示条 */
 .cc-tip-banner{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-3) var(--sp-h14);margin-bottom:var(--sp-4);background:var(--p-bg);border:1px solid transparent;border-radius:var(--radius-md);font-size:var(--fs-base);color:var(--p-dark)}
-.ctb-icon{flex-shrink:0;font-size:var(--fs-h4)}
+.ctb-icon{flex-shrink:0;font-size:var(--fs-lg)}
 .ctb-txt{flex:1;line-height:var(--lh-normal)}
 .ctb-close{flex-shrink:0;border:none;background:var(--bg4);color:var(--p-ink);font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-h10);border-radius:var(--radius-sm);cursor:pointer}
 .ctb-close:hover{background:var(--bg4)}

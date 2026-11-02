@@ -653,7 +653,7 @@ onMounted(load)
 .gr-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs) }
 .gr-hollow { padding: 28px var(--sp-6); max-width: 720px; text-align: center }
 .gr-hollow-ic { color: var(--t3); margin-bottom: var(--sp-h6) }
-.gr-hollow h2 { font-size:var(--fs-h4); font-weight: 600; color: var(--t1); margin-bottom: var(--sp-h10) }
+.gr-hollow h2 { font-size:var(--fs-lg); font-weight: 600; color: var(--t1); margin-bottom: var(--sp-h10) }
 .gr-hollow-desc { font-size:var(--fs-base); color: var(--t2); line-height: var(--lh-loose); margin-bottom: var(--sp-h10) }
 .gr-hollow-foot { font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-loose)}
 .gr-hollow code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs) }

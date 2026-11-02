@@ -447,7 +447,7 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 .act-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:980}
 .act-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(440px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.2)}
 .act-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-subtle)}
-.act-hd b{font-size:var(--fs-h4)}
+.act-hd b{font-size:var(--fs-lg)}
 .act-x{border:none;background:none;font-size:var(--fs-sm);color:var(--t3);cursor:pointer}
 .act-body{padding:var(--sp-5)}
 .act-step{font-size:var(--fs-md);font-weight:500;color:var(--t1);margin:0 0 var(--sp-2)}

@@ -417,7 +417,7 @@ onBeforeUnmount(() => { clearTimeout(_t) })
    / .tbl / .num / .state-empty / .field-err —— 本页**不重定义**任何一个全局件（§6.2）。 */
 .sup-actions{display:flex;align-items:center;gap:var(--sp-2);flex-shrink:0;flex-wrap:wrap}
 .sup-stat{font-size:var(--fs-sm);color:var(--t2)}
-.sup-stat b{font-size:var(--fs-h4);color:var(--t1)}
+.sup-stat b{font-size:var(--fs-lg);color:var(--t1)}
 .sup-sync{font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sup-sync.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sup-sync.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}

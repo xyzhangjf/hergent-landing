@@ -796,7 +796,7 @@ table.isn-tbl .isn-in.err:focus { box-shadow: 0 0 0 3px var(--dan-bg) }
 
 /* 「调出 → 调入」之间的方向符号。
    `align-self:center` 让它对着两个**字段框**的中线（框高 32px），不是文字基线。 */
-.isn-arrow { flex: none; align-self: center; font-size:var(--fs-h4); line-height: var(--lh-none); color: var(--t3); padding: 0 var(--sp-h2) }
+.isn-arrow { flex: none; align-self: center; font-size:var(--fs-lg); line-height: var(--lh-none); color: var(--t3); padding: 0 var(--sp-h2) }
 
 /* 草稿 / 已过账提示条（调拨页专用）。
    为什么不是 `.isn-strip`：那条是**读数**（已有的数据）；这条是**动作提示** ——

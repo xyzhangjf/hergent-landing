@@ -502,7 +502,7 @@ onMounted(() => { load(); loadCatalog() })
 .rm-av-emoji{font-size:var(--fs-num-lg);line-height:var(--lh-none)}
 
 .rm-main{flex:1;min-width:0}
-.rm-name{font-size:var(--fs-h4);font-weight:600;color:var(--t1);display:flex;align-items:center;gap:var(--sp-2)}
+.rm-name{font-size:var(--fs-lg);font-weight:600;color:var(--t1);display:flex;align-items:center;gap:var(--sp-2)}
 .tag{font-size:var(--fs-xs);font-weight:500;padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t2)}
 .rm-open{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-1);line-height:var(--lh-normal)}
 .rm-sys{font-size:var(--fs-base);color:var(--t2);margin-top:var(--sp-h6);line-height:var(--lh-normal);white-space:pre-wrap;max-height:84px;overflow:hidden}

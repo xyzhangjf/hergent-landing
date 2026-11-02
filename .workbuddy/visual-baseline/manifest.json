@@ -1,11 +1,11 @@
 {
  "set": "baseline",
- "tookAt": "2026-11-02T11:41:13.146Z",
+ "tookAt": "2026-11-02T12:11:59.334Z",
  "viewport": [
   1440,
   900
  ],
- "build": "v731",
+ "build": "v732",
  "pages": [
   {
    "theme": "light",
@@ -14,7 +14,7 @@
    "route": "/workbench",
    "nodes": 392,
    "h1": "经营工作台",
-   "bytes": 152282
+   "bytes": 152586
   },
   {
    "theme": "light",
@@ -59,7 +59,7 @@
    "route": "/reports/gross-profit",
    "nodes": 525,
    "h1": "毛利分析",
-   "bytes": 171636
+   "bytes": 171483
   },
   {
    "theme": "light",
@@ -68,7 +68,7 @@
    "route": "/reports/inventory-turnover",
    "nodes": 2021,
    "h1": "库存周转",
-   "bytes": 183299
+   "bytes": 183791
   },
   {
    "theme": "light",
@@ -113,7 +113,7 @@
    "route": "/settings",
    "nodes": 204,
    "h1": "账号与组织",
-   "bytes": 63172
+   "bytes": 63180
   },
   {
    "theme": "dark",
@@ -122,7 +122,7 @@
    "route": "/workbench",
    "nodes": 392,
    "h1": "经营工作台",
-   "bytes": 152022
+   "bytes": 152584
   },
   {
    "theme": "dark",
@@ -167,7 +167,7 @@
    "route": "/reports/gross-profit",
    "nodes": 525,
    "h1": "毛利分析",
-   "bytes": 173257
+   "bytes": 173191
   },
   {
    "theme": "dark",
@@ -176,7 +176,7 @@
    "route": "/reports/inventory-turnover",
    "nodes": 2021,
    "h1": "库存周转",
-   "bytes": 186238
+   "bytes": 186763
   },
   {
    "theme": "dark",
@@ -221,7 +221,7 @@
    "route": "/settings",
    "nodes": 204,
    "h1": "账号与组织",
-   "bytes": 64218
+   "bytes": 64226
   }
  ]
 }

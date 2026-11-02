@@ -347,16 +347,25 @@
      🔴 字号的归并与行高**风险不同档**：行高只影响垂直，字号会改变文字宽度 ⇒ 换行、截断、
         表格列宽。所以这一版只动「同值」和「单点」的档，不碰有 43 处引用的 15px。
 
-     ⚠️ 已知过渡档只剩 `--fs-h4` 15px（43 处 + `@media(max-width:768px){body}`）。
-        它同时被当「四级标题」和「移动端正文字号」用 —— 语义已经冲突，P1 要连同 body 那条一起决策。
+     ⚠️ v732 拆掉最后一个过渡档 `--fs-h4` 15px —— 它不是"多了个档"，是**两个语义挤在一个名字里**：
+        `43 处 UI`（面板标题 / 行内统计值 / 插图字符 / 输入框）+ `移动端 body 正文`。
+        任何单向归并必伤另一头（改 16 则 375px 正文变宽 6.7%、换行全变；改 14 则二十处标题缩水），
+        所以按语义**一分为二**：
+          · UI 用途 40 处 → `--fs-lg` 16（含 12px 标签旁的行内数值，见下）
+          · 两个输入框 → `--fs-md` 14（与正文一致；`.md` 副驾消息正文本来就是 14，
+            输入框 15 意味着「打字时看到的字比发出后大」—— 本来就该 14，不是缩小）
+          · `@media(max-width:768px){body}` → 新增 `--fs-body-m` 15（语义独立，仍 15px 不变）
+        🔴 行内数值（`.sup-stat b` / `.cas-stat b` / `.zp-stat b` / `.ipd-bmv` 等）**没有**跟着改 18：
+           它们是 `12px 标签 + 数值` 的 `align-items:baseline` 行内组，18 会拉大基线落差并撑高工具条。
+           `--fs-stat` 18 只给「独立成块的统计值」。
         新增样式一律从下面取，不要再写裸 px。 */
   --fs-xs:11px;    /* 角标/计数/密集表格；中文下限，禁止再小 */
   --fs-sm:12px;    /* 提示/次要信息 */
   --fs-base:13px;  /* 表格/表单控件 */
-  --fs-md:14px;    /* 正文 */
-  --fs-h4:15px;    /* 过渡档｜四级标题 / 移动端 body（语义冲突，P1 处理） */
-  --fs-lg:16px;    /* 弹窗标题 */
-  --fs-stat:18px;  /* 统计值/次级数字（窄屏 KPI 降级值也用它） */
+  --fs-md:14px;    /* 正文 / 输入框 / 副驾消息 */
+  --fs-body-m:15px;/* 移动端正文基准 —— 只给 @media(max-width:768px){body}，UI 别用 */
+  --fs-lg:16px;    /* 标题主力：面板/分区/弹窗标题 + 行内数值 + 图标字符 */
+  --fs-stat:18px;  /* 独立成块的统计值/次级数字（窄屏 KPI 降级值也用它） */
   --fs-xl:20px;    /* 页头 h2 / 二级页头 */
   --fs-num:22px;   /* KPI 主数值 */
   --fs-h1:24px;    /* 一级页头（大盘/工作台主标题） */
@@ -1027,7 +1036,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    ============================================================ */
 .sec-hd{
   display:flex;align-items:baseline;gap:var(--sp-2);flex-wrap:wrap;
-  font-size:var(--fs-h4);font-weight:600;color:var(--t1);
+  font-size:var(--fs-lg);font-weight:600;color:var(--t1);
   padding-bottom:var(--sp-h10);border-bottom:1px solid var(--border-subtle);
   position:relative;
 }
@@ -1175,7 +1184,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
    裸 `<b><Icon/> 标题</b>` 是 inline 上下文，svg 走 `vertical-align:middle`
    （对齐文字 x-height 中线），而中文汉字的视觉中心更高 ⇒ 图标实测偏高 2px。
    与 .btn 用同一套写法（inline-flex + align-items:center + gap:6px），保持同构。 */
-.panel-hd b{font-size:var(--fs-h4);font-weight:600;display:inline-flex;align-items:center;gap:var(--sp-h6)}
+.panel-hd b{font-size:var(--fs-lg);font-weight:600;display:inline-flex;align-items:center;gap:var(--sp-h6)}
 
 /* 空态样式已上移到「空/错态」段，此处不再重复定义（v717 去重）。 */
 
@@ -1280,7 +1289,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 
 /* 移动端基础 */
 @media(max-width:768px){
-  body{font-size:var(--fs-h4)}
+  body{font-size:var(--fs-body-m)}
 }
 
 /* ============================================================
