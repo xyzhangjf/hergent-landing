@@ -22,6 +22,21 @@
       </div>
       <p class="pr-tip">没有技术参数，只有你熟悉的业务问题。员工档案里写了工资的，优先用档案；没写的用下面的兜底值。</p>
 
+      <!-- 🔴 v726：配方没回来之前**不能露表单**。
+           表单初值是硬编码的兜底配方（5000 元 / 提成 0%），露出来就是一套假配置；
+           用户看着像真的，手快一点「保存并算工资」，全员工资就按假配方算了。 -->
+      <Skeleton v-if="recipeLoading" :rows="6"
+                :widths="['26%','26%','18%','26%','18%','26%']"
+                label="正在读取工资算法" />
+
+      <template v-else>
+      <!-- 配方没取回来：表单照常可用（用户可能就是没配过），但必须说清这些是默认值 -->
+      <p v-if="recipeErr" class="pr-warn">
+        <Icon name="alert" :size="14" />
+        <span>工资算法没取回来（{{ recipeErr }}）。下面显示的是<b>系统默认值</b>，
+          不是你上次保存的算法 —— 请逐项核对后再算工资。</span>
+      </p>
+
       <div class="pr-form">
         <div class="pr-grid">
           <label class="pr-field">
@@ -99,6 +114,7 @@
           {{ running ? '计算中…' : '保存并算工资 →' }}
         </button>
       </div>
+      </template>
     </div>
 
     <!-- 步骤 2/3：结果 -->
@@ -196,6 +212,7 @@
 
 <script setup>
 import Icon from '../components/Icon.vue'
+import Skeleton from '../components/Skeleton.vue'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -246,6 +263,15 @@ const step = ref(1)
 const running = ref(false)
 const result = ref(null)
 const confirmed = ref('')
+
+/* 🔴 v726：`recipeLoading` 初值必须 `true`。
+   病根：`form` 下面这套是**硬编码的兜底配方**（基本工资 5000 / 提成 0% / 绩效 0），
+   `onMounted` 才去读已保存的配方并覆盖。而 onMounted 在首次渲染之后才跑
+   ⇒ 首帧会渲染一套「看起来像真配置」的假值。用户手快直接点「保存并算工资」，
+   就按假配方算了全员工资。骨架管不了这件事，**必须挡住表单**。
+   `recipeErr` 非空时明确告知「下面是默认值」，绝不再用空 catch 把错误静默吞掉。 */
+const recipeLoading = ref(true)
+const recipeErr = ref('')
 
 const nowMonth = new Date().toISOString().slice(0, 7)
 
@@ -344,7 +370,13 @@ onMounted(async () => {
       deduction_other: r.recipe?.deduction_other ?? 0,
       tax_standard_deduction: r.recipe?.tax_standard_deduction ?? 5000,
     })
-  } catch (e) { /* 用默认 */ }
+  } catch (e) {
+    /* 🔴 v726：原先是空 catch（注释「用默认」）—— 接口挂了照样按兜底值算工资，
+       界面上一句提示都没有。改成明确告知：现在看到的是默认值。 */
+    recipeErr.value = e?.message || String(e) || '取回失败'
+  } finally {
+    recipeLoading.value = false
+  }
 })
 </script>
 
@@ -357,6 +389,12 @@ onMounted(async () => {
 
 .pr-panel{}
 .pr-tip{font-size:12px;color:var(--t2);margin:4px 0 16px;line-height:1.6}
+/* v726：配方读取失败时的告示。用 --war / --war-bg（浅深同值的安全组合），
+   不用 --warning 那类「深色下提亮」的令牌当底色。 */
+.pr-warn{display:flex;gap:8px;align-items:flex-start;margin:0 0 16px;padding:10px 12px;
+  font-size:12px;line-height:1.7;color:var(--t1);
+  border:1px solid var(--war);border-radius:var(--radius-sm);background:var(--war-bg)}
+.pr-warn>span b{color:var(--t1)}
 .pr-form{display:flex;flex-direction:column;gap:18px}
 .pr-field{display:flex;flex-direction:column;gap:8px}
 .pr-label{font-size:13px;font-weight:500;color:var(--t1)}

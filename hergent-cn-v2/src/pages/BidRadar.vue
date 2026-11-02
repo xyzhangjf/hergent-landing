@@ -88,7 +88,11 @@
     <div v-if="regionNotice" class="br-notice">{{ regionNotice }}</div>
 
     <!-- 列表 -->
-    <div v-if="loading" class="br-state">加载中…</div>
+    <!-- 🔴 v726：加载中原先用 `.br-state`（48px 内距 + 居中灰字，与 `.state-empty` 同族），
+         形状读作「这里没有商机」，而实际是「还在查」。换成与列表同容器的骨架。 -->
+    <div v-if="loading" class="table-wrap freeze-list">
+      <Skeleton :rows="10" :widths="['6%','11%','9%','10%','12%','10%','30%','8%']" label="加载中" />
+    </div>
     <!-- 请求失败 ≠ 无数据：原实现把两者都渲染成「暂无匹配」，会把 403/超时误报成「该地区没商机」 -->
     <div v-else-if="loadError" class="br-state br-empty">
       <p class="br-empty-t">加载失败：{{ loadError }}</p>
@@ -152,6 +156,7 @@ import { api } from '../api/client'
 // 列设置齿轮（替换「序号」表头）：复用共享 useColSettings + ColMenuPanel，不新建基础设施。
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
+import Skeleton from '../components/Skeleton.vue'
 import Icon from '../components/Icon.vue'
 
 const items = ref([])
@@ -168,7 +173,10 @@ const COLS = [
   { key: 'link', label: '原文', core: false },
 ]
 const { isVisible, toggleCol, resetCols } = useColSettings('bid-radar', COLS)
-const loading = ref(false)
+/* 🔴 v726：初值 `true` —— `onMounted(load)` 必然发请求，而 onMounted 在首次渲染之后才跑。
+   取 `false` 会先渲染「暂无匹配」的空态（`!items.length` 分支），那是关于商机的一句
+   错误结论，比空白危险。 */
+const loading = ref(true)
 const recentCount = ref(0)
 const loadError = ref('')          // 请求失败原因（与「真的没有数据」分开呈现，避免误报）
 const regionNotice = ref('')       // 记住的地区已失效时的一句话说明

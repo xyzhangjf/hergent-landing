@@ -25,6 +25,10 @@
     </div>
 
     <div v-if="!contactId" class="pr-empty">请先选择{{ partyType === 'customer' ? '客户' : '供应商' }}。</div>
+    <!-- v726：换往来方后到新数据回来之间，给骨架而不是空表格（旧数据已在 onContactChange 清空） -->
+    <div v-else-if="blankLoading" class="card">
+      <Skeleton :rows="6" :widths="['6%','22%','16%','16%','20%','20%']" label="正在读取往来明细" />
+    </div>
 
     <template v-else>
       <div class="pr-tabs">
@@ -127,6 +131,7 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue'
 import Icon from '../../components/Icon.vue'
+import Skeleton from '../../components/Skeleton.vue'
 import { partyLedgerApi } from '../../api/partyLedger'
 import { fmtMoney } from '../../constants/psiLabels'
 
@@ -156,6 +161,11 @@ const diffHint = computed(() => {
 })
 const canSubmitAdvance = computed(() => sumApply.value > 0 && Math.abs(sumApply.value - sumUse.value) < 0.005)
 const canSubmitCash = computed(() => sumPay.value > 0)
+
+/* v726：只在「一块数据都还没有」时出骨架。
+   已选客户点「刷新」时旧数据仍在，那属于「刷新中」，不该把内容换成骨架。 */
+const blankLoading = computed(() =>
+  loading.value && !receivables.value.length && !advances.value.length && !ledger.value.length)
 
 async function loadContacts() {
   try {
@@ -188,6 +198,12 @@ async function reloadAll() {
 
 function onContactChange() {
   outstanding.value = null
+  /* 🔴 v726：换往来方必须**立刻清空**这三份数据。
+     原实现只清 `outstanding`，新数据回来前表格里仍是**上一个客户**的未收单据和账本 ——
+     那是一句关于别人的结论，比空白危险得多（差点被当成这个客户的账核销掉）。 */
+  receivables.value = []
+  advances.value = []
+  ledger.value = []
   if (contactId.value) reloadAll()
 }
 

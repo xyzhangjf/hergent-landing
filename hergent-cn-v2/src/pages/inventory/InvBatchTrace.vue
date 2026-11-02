@@ -22,8 +22,12 @@
       </div>
     </div>
 
-    <!-- 搜索中 -->
-    <div v-else-if="loading" class="state-empty">追溯中…</div>
+    <!-- 搜索中：
+         🔴 v726：原来是 `.state-empty">追溯中…` —— 用「这里是空的」的形状语言说「正在加载」，
+            形状盖过文案，读作「这个批次没有记录」。换成骨架，形状与「有数据在来」一致。 -->
+    <div v-else-if="loading" class="card">
+      <Skeleton :rows="6" label="追溯中" />
+    </div>
 
     <!-- 失败 -->
     <div v-else-if="err" class="state-error">
@@ -115,7 +119,7 @@
                LEFT JOIN contacts ON contact_name=name 按**客户名**匹配电话 ——
                联系人重名时电话可能错配，必须明示让人工核对 -->
           <p class="ibt-hint">召回清单按客户名匹配电话，若客户重名请人工核对后再联系。</p>
-          <div v-if="recallLoading" class="state-empty">正在查召回清单…</div>
+          <Skeleton v-if="recallLoading" :rows="3" :widths="['28%','22%','20%','12%','14%']" label="正在查召回清单" />
           <div v-else-if="recallErr" class="state-error">
             <p>{{ recallErr }}</p>
             <button class="btn btn-ghost btn-sm" style="margin-top:10px" @click="loadRecall(tracedNo)">重试</button>
@@ -154,6 +158,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Icon from '../../components/Icon.vue'
+import Skeleton from '../../components/Skeleton.vue'
 import { batchTraceApi } from '../../api/batchTrace'
 import { fmtMoney } from '../../constants/psiLabels'
 

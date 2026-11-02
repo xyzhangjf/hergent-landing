@@ -27,7 +27,12 @@
       <span>不同经销商对接的系统不一样：有人只做永辉，有人做永辉＋沃尔玛＋美联，有人压根不分渠道。所以系统<b>不预置任何零售商名</b> —— 渠道由你自己命名、自己决定取哪个价、加几条都行。</span>
     </div>
 
-    <div v-if="loading" class="pc-empty">正在加载渠道…</div>
+    <!-- 🔴 v726：加载中原先用 `.pc-empty`（居中灰字）说「正在加载渠道…」，
+         形状与下方「还没有渠道」完全一致 ⇒ 用户分不出是「在加载」还是「真没有」。
+         改成骨架（与全站其它列表一致，放在 card 内）。 -->
+    <div v-if="loading" class="card">
+      <Skeleton :rows="5" label="正在加载渠道" />
+    </div>
     <!-- v713：空态分两种 —— 渠道全被停用时说「还没有渠道」是谎报（渠道在，只是被收起） -->
     <div v-else-if="!channelsAll.length" class="pc-empty">还没有渠道。点右上角「新建渠道」开始。</div>
     <div v-else-if="!channels.length" class="pc-empty">
@@ -118,7 +123,9 @@
         <br/>改动<b>只覆盖你填了的档</b>：某一档留空 = 不动库里已有的价（所以只改「中单位价」不会把小单位价清掉）。
       </div>
 
-      <div v-if="cpLoading" class="pc-empty">正在加载客户专属价…</div>
+      <Skeleton v-if="cpLoading" :rows="5"
+                :widths="['6%','20%','22%','10%','12%','12%','12%','6%']"
+                label="正在加载客户专属价" />
       <template v-else-if="cpRows.length">
         <table class="pc-tb seq-host">
           <thead>
@@ -322,7 +329,9 @@
           <div class="pc-mx-note">
             价格是<b>「填了就覆盖」</b>（价格表每月会变，所以不是"只补空"）。留空不动已录的价；要清空就填 <b>0</b>。
           </div>
-          <div v-if="mxLoading" class="pc-empty">正在加载商品…</div>
+          <Skeleton v-if="mxLoading" :rows="6"
+                    :widths="['6%','28%','16%','16%','14%','10%']"
+                    label="正在加载商品" />
           <table v-else class="pc-tb seq-host">
             <thead>
               <tr><th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenuMatrix" title="列设置"><Icon name="settings" :size="16" /></button></th><th>商品</th><th v-if="isVisibleMatrix('barcode')">条码</th><th v-if="isVisibleMatrix('extcode')">该渠道商品编码</th><th>该渠道价格</th><th>状态</th></tr>
@@ -373,8 +382,12 @@ import { toast, canDo, confirm } from '../store'
 // 列设置齿轮（替换「序号」表头）：复用共享 useColSettings + ColMenuPanel，不新建基础设施。
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
+import Skeleton from '../components/Skeleton.vue'
 
-const loading = ref(false)
+/* 🔴 v726：初值必须 `true` —— `onMounted` 必然调 `load()`，而 onMounted 在首次渲染
+   之后才跑。取 `false` 会先渲染「还没有渠道。点右上角「新建渠道」开始。」，
+   那是**一句错误结论**（渠道在库里，只是还没取回来），比空白严重得多。 */
+const loading = ref(true)
 
 /* ---- 列设置齿轮（替换「序号」表头，复用共享 useColSettings）---- */
 /* 两张表各自独立：客户价表 + 渠道价矩阵表，分别记各自的列显隐偏好。 */
@@ -617,7 +630,10 @@ async function saveMatrix() {
 /* ---------------- 客户专属价（v228） ---------------- */
 
 const cpRows = ref([])
-const cpLoading = ref(false)
+/* 🔴 v726：初值 `true` —— `onMounted` 末尾必然调 `loadCustPrices(0)`（有意不 await，
+   以不拖慢渠道列表），但首次渲染发生在 onMounted 之前 ⇒ 取 `false` 会先闪一帧
+   「没有客户专属价」的假结论。 */
+const cpLoading = ref(true)
 const cpBusy = ref(false)
 const cpKw = ref('')
 const cpOnlyPriced = ref(false)
