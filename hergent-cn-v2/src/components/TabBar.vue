@@ -181,7 +181,7 @@ function close(t) {
 .tb-strip{flex:1;min-width:0;display:flex;gap:4px;overflow:hidden}
 
 .tab-item{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;height:26px;
-  padding:0 7px 0 5px;border:1px solid transparent;border-radius:8px;background:transparent;
+  padding:0 7px 0 5px;border:1px solid transparent;border-radius:var(--radius-sm);background:transparent;
   color:var(--t2);font-size:12px;cursor:pointer;max-width:200px;
   transition:background var(--dur-base),color var(--dur-base),border-color var(--dur-base)}
 .tab-item:hover{background:var(--bg3);color:var(--t1)}
@@ -190,7 +190,7 @@ function close(t) {
 .tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 .tab-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
-  border-radius:6px;color:var(--t3);flex-shrink:0;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);
+  border-radius:var(--radius-xs);color:var(--t3);flex-shrink:0;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);
   /* v719 P2：**视觉 16px 不变、点击热区撑到 22×26**。
      🔴 为什么不是评审建议的 30×30：本条目高 26px（v677 老板要求调矮，硬约束），
         图标放到 30px 会把整条标签栏撑高、作废 v677 的交付。
@@ -206,15 +206,15 @@ function close(t) {
 
 .tab-more{flex:0 0 auto;position:relative}
 .tab-more-btn{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;
-  border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg);color:var(--t2);
+  border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg);color:var(--t2);
   font-size:12px;cursor:pointer;transition:background var(--dur-base),color var(--dur-base)}
 .tab-more-btn:hover{background:var(--bg3);color:var(--t1)}
 .tab-more-n{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;
-  padding:0 4px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);font-size:11px;font-weight:600}
+  padding:0 4px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);font-size:11px;font-weight:600}
 .tab-more-menu{position:absolute;top:32px;right:0;min-width:180px;max-height:320px;overflow-y:auto;
-  background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:6px;
+  background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);padding:6px;
   box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:40}
-.tab-more-row{display:flex;align-items:center;gap:4px;border-radius:8px;padding:0 4px 0 6px}
+.tab-more-row{display:flex;align-items:center;gap:4px;border-radius:var(--radius-sm);padding:0 4px 0 6px}
 .tab-more-row:hover{background:var(--bg2)}
 .tab-more-item{flex:1;min-width:0;display:flex;align-items:center;height:26px;border:none;
   background:none;color:var(--t2);font-size:12px;cursor:pointer;text-align:left;padding:0}

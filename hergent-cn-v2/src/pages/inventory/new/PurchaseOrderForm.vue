@@ -1663,7 +1663,7 @@ watch([copyId], () => { reinit() })
 .ipn-legend {
   display: inline-flex; align-items: center; gap: 3px;
   margin-left: 10px; padding: 2px 8px;
-  border: 1px solid var(--border-subtle); border-radius: 999px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-pill);
   background: var(--bg2);
   font-size: 12px; color: var(--t2); vertical-align: middle;
   transform: translateY(1px);
@@ -1771,7 +1771,7 @@ watch([copyId], () => { reinit() })
 .ipn-prod-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 /* v685：档位徽标（同名商品靠它分辨多档 / 仅一档 / 无价）。不换行、不被省略号吃掉。 */
 .ipn-prod-tier {
-  flex: none; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px;
+  flex: none; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: var(--radius-2xs);
   color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .ipn-prod-tier.is-muted { color: var(--t3) }
@@ -1815,7 +1815,7 @@ watch([copyId], () => { reinit() })
 .ipn-at-list li {
   display: inline-flex; align-items: center; gap: 6px; max-width: 280px;
   padding: 2px 4px 2px 10px; background: var(--bg); border: 1px solid var(--bd);
-  border-radius: 999px; font-size: 12px; color: var(--t1);
+  border-radius: var(--radius-pill); font-size: 12px; color: var(--t1);
 }
 
 /* 🔴 P0-7：复制原单失败时的明确错误态横幅 */
@@ -1827,7 +1827,7 @@ watch([copyId], () => { reinit() })
 }
 .ipn-copy-err-ico {
   flex: 0 0 auto; width: 22px; height: 22px; line-height: 22px; text-align: center;
-  font-weight: 700; color: #fff; background: var(--danger); border-radius: 50%;
+  font-weight: 700; color: #fff; background: var(--danger); border-radius: var(--radius-circle);
 }
 .ipn-copy-err-body { display: flex; flex-direction: column; gap: 4px }
 .ipn-copy-err-t { font-weight: 600; color: var(--danger) }
@@ -1839,13 +1839,13 @@ watch([copyId], () => { reinit() })
 .ipn-at-x {
   display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px; padding: 0; border: 0; background: transparent;
-  color: var(--t3); cursor: pointer; border-radius: 50%; flex: none;
+  color: var(--t3); cursor: pointer; border-radius: var(--radius-circle); flex: none;
 }
 .ipn-at-x:hover { background: var(--bg2); color: var(--dan) }
 .ipn-at-msg { margin: 0; font-size: 12px; color: var(--dan) }
 /* 页头按钮上的个数角标（对齐详情页附件入口的角标做法） */
 .ipn-at-badge {
-  margin-left: 5px; padding: 0 6px; border-radius: 8px;
+  margin-left: 5px; padding: 0 6px; border-radius: var(--radius-sm);
   background: var(--bg2); color: var(--t2); border: 1px solid var(--bd);
   font-size: 11px; font-variant-numeric: tabular-nums;
 }
@@ -2069,7 +2069,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
   font-size: 12px; line-height: 1.5; color: var(--t1);
   background: rgba(var(--war-rgb), .1);
   border: 1px solid rgba(var(--war-rgb), .35);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 .ipn-hist-warn svg { flex: 0 0 auto; margin-top: 2px; color: var(--war) }
 .ipn-v.is-ph { color: var(--t3) }
@@ -2148,7 +2148,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 .ipn-kbd-hint { font-size: 12px; color: var(--t3); white-space: nowrap }
 .ipn-kbd-hint kbd {
   display: inline-block; padding: 1px 5px;
-  border: 1px solid var(--border-subtle); border-radius: 4px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-2xs);
   background: var(--bg2);
   font-family: inherit; font-size: 11px; line-height: 1.5; color: var(--t2);
 }
@@ -2172,7 +2172,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 .ipn-mi-disabled { color: var(--t3); cursor: default }
 .ipn-mi-tag {
   margin-left: 4px; padding: 0 4px; font-size: 11px; color: var(--t3);
-  border: 1px solid var(--bd); border-radius: 6px;
+  border: 1px solid var(--bd); border-radius: var(--radius-xs);
 }
 .ipn-caret {
   width: 0; height: 0;

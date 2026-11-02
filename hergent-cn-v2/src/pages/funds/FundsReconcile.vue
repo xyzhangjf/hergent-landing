@@ -541,7 +541,7 @@ function exportCsv() {
 @media (max-width: 900px) { .frc-sides { grid-template-columns: 1fr } }
 .frc-side { padding: 14px 16px }
 .frc-side-hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px }
-.frc-side-tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px }
+.frc-side-tag { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-xs) }
 .frc-tag-a { background: rgba(47,107,255,.12); color: var(--brand) }
 .frc-tag-b { background: rgba(245,158,11,.14); color: var(--war) }
 .frc-file { font-size: 12px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px }
@@ -560,19 +560,19 @@ function exportCsv() {
 .frc-chk { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--t2) }
 .frc-head-preview { margin-top: 8px }
 .frc-hp-lb { font-size: 12px; color: var(--t2); margin-bottom: 4px }
-.frc-hp-wrap { max-height: 180px; border: 1px solid var(--bd); border-radius: 8px }
+.frc-hp-wrap { max-height: 180px; border: 1px solid var(--bd); border-radius: var(--radius-sm) }
 .frc-hp-tbl { font-size: 12px }
 .frc-hp-tbl td { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis }
 .frc-hp-tbl tr { cursor: pointer }
 .frc-hp-tbl tr.frc-hp-on { background: rgba(47,107,255,.08) }
 .frc-hp-radio { width: 28px; text-align: center }
-.frc-radio { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--bd); border-radius: 50% }
+.frc-radio { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--bd); border-radius: var(--radius-circle) }
 .frc-radio.on { border-color: var(--brand); background: var(--brand) }
 .frc-spec { padding: 14px 16px }
 .frc-run { display: flex; gap: 12px; align-items: center; margin: 14px 2px }
 .frc-run-hint { font-size: 12px; color: var(--bad) }
-.frc-warn { display: flex; gap: 8px; align-items: flex-start; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); color: var(--war); border-radius: 8px; padding: 10px 12px; font-size: 13px; margin-bottom: 12px }
-.frc-note { font-size: 12px; color: var(--t2); background: var(--bg1); border: 1px solid var(--bd); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px }
+.frc-warn { display: flex; gap: 8px; align-items: flex-start; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); color: var(--war); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 13px; margin-bottom: 12px }
+.frc-note { font-size: 12px; color: var(--t2); background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--radius-sm); padding: 8px 12px; margin-bottom: 12px }
 .frc-card { padding: 0; overflow: hidden }
 .frc-filter { padding: 12px 14px 0 }
 .frc-note-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }

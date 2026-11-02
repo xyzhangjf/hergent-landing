@@ -1064,7 +1064,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
    死 CSS 与死代码同罪，会被后人当成"还在用"）。 */
 .health-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:rgba(var(--war-rgb),.06);border:1px solid var(--border-subtle);border-left:3px solid var(--war);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:14px;cursor:pointer}
 .health-bar.ok{background:rgba(var(--suc-rgb),.10);border-color:rgba(var(--suc-rgb),.35)}
-.hb-dot{width:8px;height:8px;border-radius:50%;background:var(--war);flex-shrink:0}
+.hb-dot{width:8px;height:8px;border-radius:var(--radius-circle);background:var(--war);flex-shrink:0}
 .health-bar.ok .hb-dot{background:var(--suc)}
 .hb-toggle{margin-left:auto;color:var(--p-ink);font-size:12px}
 .health-detail{margin-bottom:12px;padding:14px 16px}
@@ -1075,7 +1075,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 /* 历史门店授权提示条：与「配置体检」同构但用中性色 —— 它是「待收敛」不是「有错」。 */
 .legacy-bar{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t1);background:var(--bg2);border:1px solid var(--border-subtle);border-left:3px solid var(--t3);padding:9px 14px;border-radius:var(--radius-md);margin-bottom:14px;cursor:pointer}
-.lb-dot{width:8px;height:8px;border-radius:50%;background:var(--t3);flex-shrink:0}
+.lb-dot{width:8px;height:8px;border-radius:var(--radius-circle);background:var(--t3);flex-shrink:0}
 .lb-toggle{margin-left:auto;color:var(--p-ink);font-size:12px}
 .legacy-detail{margin-bottom:12px;padding:14px 16px}
 .lb-tip{font-size:12px;color:var(--t2);line-height:1.8;margin:8px 0 0}
@@ -1084,7 +1084,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .lb-row{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
 .lb-arrow{color:var(--t3)}
 .lb-revoke{margin-left:4px}
-.chip{font-size:12px;padding:3px 9px;background:var(--bg2);border-radius:8px;color:var(--t2)}
+.chip{font-size:12px;padding:3px 9px;background:var(--bg2);border-radius:var(--radius-sm);color:var(--t2)}
 
 /* v712：加了「显示已停用」开关后，工具栏三件宽度 ≈ 380px —— 375 宽时刚好放下，
    320 宽的老机型就会横向溢出。`flex-wrap` 在放得下时**完全无副作用**（不换行），
@@ -1118,7 +1118,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .tbl .ops{text-align:right;white-space:nowrap}
 .empty{text-align:center;color:var(--t3);padding:28px}
 
-.tag{font-size:12px;padding:2px 9px;border-radius:8px;background:var(--bg2);color:var(--t2)}
+.tag{font-size:12px;padding:2px 9px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t2)}
 .num{font-variant-numeric:tabular-nums}
 
 /* C2：按钮对齐全局令牌（.btn/.btn-sm/.btn-primary/.btn-ghost/.btn-danger 为 scoped 复刻，尺寸/圆角与 variables.css 保持一致） */
@@ -1151,7 +1151,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .combo-input:focus{border-color:var(--p-dark)}
 .combo-caret{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:11px;pointer-events:none}
 .combo-panel{position:absolute;z-index:30;left:0;right:0;top:calc(100% + 4px);max-height:260px;overflow:auto;background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-md);box-shadow:var(--shadow-md);padding:4px}
-.combo-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:8px;font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.combo-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:var(--radius-sm);font-size:13px;color:var(--t1);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .combo-item.on{background:var(--bg2)}
 .combo-item.sel{color:var(--p-ink);font-weight:600}
 .combo-sel{color:var(--p-ink);font-size:12px;flex:none}
@@ -1161,7 +1161,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .al-hd{position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:-4px -4px 4px;padding:6px 10px 7px;font-size:12px;color:var(--t3);background:var(--bg);border-bottom:1px solid var(--border-subtle)}
 .al-from{color:var(--p-ink);flex:none}
 .al-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.al-tag{flex:none;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--bg2);color:var(--t3)}
+.al-tag{flex:none;font-size:11px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3)}
 .al-tag.war{background:rgba(var(--war-rgb),.14);color:var(--war)}
 .al-tag.mine{background:var(--p-bg);color:var(--p-dark)}
 /* 输入框下方那行判定：绿=接管既有列 / 黄=会新增一列 / 红=撞名会被拒 */
@@ -1176,7 +1176,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .al-hint.err{color:var(--dan);background:rgba(var(--dan-rgb),.10)}
 /* v295：相近列头的一键改选（把"会新增一列"的警告变成一个可点的动作，而不是光提示） */
 .al-near{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--t3);line-height:1.8}
-.al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:8px;padding:2px 9px;font-size:12px;cursor:pointer}
+.al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:var(--radius-sm);padding:2px 9px;font-size:12px;cursor:pointer}
 .al-near-btn:hover{background:var(--p-solid);color:#fff}
 .al-near-tip{color:var(--t3)}
 .upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:14px 18px;font-size:13px;color:var(--p-ink);cursor:pointer;text-align:center}

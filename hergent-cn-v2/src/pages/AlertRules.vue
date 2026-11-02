@@ -486,7 +486,7 @@ onMounted(loadAll)
 .ar-cond, .ar-msg { min-width: 0; word-break: break-word }
 .ar-time { white-space: nowrap; color: var(--t2) }
 .ar-muted { color: var(--t3); font-size: 12px }
-.ar-badge { display: inline-block; padding: 1px 9px; border-radius: 8px; font-size: 12px; font-weight: 400; white-space: nowrap }
+.ar-badge { display: inline-block; padding: 1px 9px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 400; white-space: nowrap }
 .ar-badge.on { background: var(--ok-green-bg); color: var(--ok) }
 .ar-badge.ok { background: var(--ok-green-bg); color: var(--ok) }
 .ar-badge.off { background: var(--bg2); color: var(--t3) }
@@ -506,7 +506,7 @@ onMounted(loadAll)
 .ar-row { display: flex; gap: 12px }
 .ar-row .ar-fld { flex: 1; min-width: 0 }
 .ar-chips { display: flex; flex-wrap: wrap; gap: 8px }
-.ar-chip { padding: 5px 12px; border: 1px solid var(--bd); border-radius: 16px; background: var(--bg2); color: var(--t2); font-size: 12px; cursor: pointer; transition: all var(--dur-base) }
+.ar-chip { padding: 5px 12px; border: 1px solid var(--bd); border-radius: var(--radius-lg); background: var(--bg2); color: var(--t2); font-size: 12px; cursor: pointer; transition: all var(--dur-base) }
 .ar-chip:hover { border-color: var(--p-dark); color: var(--p-dark) }
 .ar-chip.on { background: var(--p-bg); border-color: var(--p-dark); color: var(--p-dark); font-weight: 500 }
 .ar-chk { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--t1) }

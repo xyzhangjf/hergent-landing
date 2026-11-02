@@ -246,7 +246,7 @@ onMounted(loadBoard)
 .dbd-cards { display: flex; flex-direction: column; gap: 8px }
 .dbd-card {
   background: var(--bg); border: 1px solid var(--bd);
-  border-radius: 8px; padding: 10px;
+  border-radius: var(--radius-sm); padding: 10px;
 }
 .dbd-card-hd { display: flex; align-items: center; gap: 6px }
 .dbd-mono { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--t3) }
@@ -258,7 +258,7 @@ onMounted(loadBoard)
 
 .dbd-btn {
   display: inline-flex; align-items: center; gap: 4px;
-  border: 1px solid var(--bd); background: none; border-radius: 6px;
+  border: 1px solid var(--bd); background: none; border-radius: var(--radius-xs);
   padding: 3px 8px; font-size: 12px; color: var(--p-dark); cursor: pointer; white-space: nowrap;
 }
 .dbd-btn:hover { background: var(--p-bg) }

@@ -257,7 +257,7 @@ function confLabel(r) {
 .im-rdanger{display:flex;align-items:flex-start;gap:4px;margin-top:4px;font-size:12px;line-height:1.45;color:var(--danger-txt)}
 .im-smp{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--t2);word-break:break-all}
 .im-off .im-hd,.im-off .im-smp{color:var(--t3)}
-.im-cc{display:inline-block;padding:1px 8px;border-radius:8px;font-size:12px;white-space:nowrap;background:var(--bg2);color:var(--t3)}
+.im-cc{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);font-size:12px;white-space:nowrap;background:var(--bg2);color:var(--t3)}
 .im-cc-high{background:var(--ok-green-bg);color:var(--ok-green)}
 .im-cc-ai{background:var(--info-blue-bg);color:var(--info-blue)}
 .im-cc-cross{background:var(--p-bg);color:var(--p-dark)}

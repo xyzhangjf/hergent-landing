@@ -1041,8 +1041,8 @@ onMounted(() => { loadAllocSetup() })
 .alloc-num{width:96px;text-align:right}
 .alloc-unit{font-size:12px;color:var(--t3)}
 .alloc-conv{font-size:12px;color:var(--t3)}
-.alloc-note{background:var(--warn-amber-bg);border-radius:6px;padding:6px 8px;color:var(--warn-amber)}
-.alloc-tbl-wrap{max-height:290px;overflow:auto;border:1px solid var(--bd);border-radius:4px;background:var(--bg)}
+.alloc-note{background:var(--warn-amber-bg);border-radius:var(--radius-xs);padding:6px 8px;color:var(--warn-amber)}
+.alloc-tbl-wrap{max-height:290px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-2xs);background:var(--bg)}
 .alloc-tbl{width:100%;border-collapse:collapse;font-size:12px}
 .alloc-tbl th{position:sticky;top:0;z-index:1;background:var(--bg3);color:var(--t2);font-weight:600;text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
 .alloc-tbl td{padding:5px 8px;border-bottom:1px solid var(--bd);color:var(--t1)}

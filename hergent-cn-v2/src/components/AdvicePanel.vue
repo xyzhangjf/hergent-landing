@@ -85,11 +85,11 @@ defineExpose({ load })
 .adv-hd-right{display:flex;gap:8px;align-items:center}
 
 .adv-list{display:flex;flex-direction:column;gap:10px}
-.adv-item{padding:12px 14px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);transition:border-color var(--dur-base)}
+.adv-item{padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);transition:border-color var(--dur-base)}
 .adv-item.pending{border-color:rgba(var(--war-rgb),.35)}
 .adv-item-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
-.adv-type{font-size:12px;font-weight:500;color:var(--p-dark);background:var(--p-bg);padding:2px 8px;border-radius:6px}
-.adv-status{font-size:11px;padding:2px 8px;border-radius:8px}
+.adv-type{font-size:12px;font-weight:500;color:var(--p-dark);background:var(--p-bg);padding:2px 8px;border-radius:var(--radius-xs)}
+.adv-status{font-size:11px;padding:2px 8px;border-radius:var(--radius-sm)}
 .adv-status.pending{background:rgba(var(--war-rgb),.15);color:var(--war)}
 .adv-status.confirmed,.adv-status.approved,.adv-status.executed{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .adv-status.rejected,.adv-status.undone{background:rgba(var(--dan-rgb),.1);color:var(--dan)}

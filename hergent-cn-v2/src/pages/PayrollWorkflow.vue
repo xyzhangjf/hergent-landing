@@ -350,7 +350,7 @@ onMounted(async () => {
 
 <style scoped>
 .pr-steps{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-.pr-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--border-subtle)}
+.pr-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
 .pr-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
 .pr-arrow{color:var(--t3);font-size:12px}
 .pr-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:14px;font-weight:500;color:var(--t1);padding:0}
@@ -377,7 +377,7 @@ onMounted(async () => {
 .pr-kpi-sub{font-size:12px;color:var(--t3)}
 .pr-net{font-weight:600;color:var(--t1)}
 .pr-footnote{font-size:12px;color:var(--t3)}
-.pr-confirm-ok{margin-top:14px;padding:12px 16px;border-radius:8px;background:rgba(var(--suc-rgb),.1);color:var(--suc);font-size:13px;font-weight:500}
+.pr-confirm-ok{margin-top:14px;padding:12px 16px;border-radius:var(--radius-sm);background:rgba(var(--suc-rgb),.1);color:var(--suc);font-size:13px;font-weight:500}
 
 @media(max-width:768px){
   .pr-grid{grid-template-columns:1fr}

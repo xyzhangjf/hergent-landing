@@ -739,12 +739,12 @@ onMounted(loadData)
 .task-list{display:flex;flex-direction:column;gap:10px}
 .task-row{position:relative;display:flex;align-items:flex-start;gap:12px;padding:14px 16px 14px 18px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);transition:transform var(--dur-base) ease,box-shadow var(--dur-base) ease,border-color var(--dur-base) ease}
 .task-row:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--bd)}
-.task-row::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 2px 2px 0}
+.task-row::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 var(--radius-hair) var(--radius-hair) 0}
 .task-row.prio-red::before{background:var(--dan)}
 .task-row.prio-amber::before{background:var(--war)}
 .task-row.prio-blue::before{background:var(--p)}
 .task-row .tag{flex-shrink:0;margin-top:1px;white-space:nowrap}
-.task-ic{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
+.task-ic{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .task-main{flex:1;min-width:0}
 .task-title{font-size:14px;font-weight:500;color:var(--t1);margin-bottom:3px;letter-spacing:.1px}
 .task-sub{font-size:12px;color:var(--t2);line-height:1.55}
@@ -786,7 +786,7 @@ onMounted(loadData)
 
 /* 空账套导入引导 —— 占整行，横向三段：图标 / 文案 / 操作 */
 .import-guide{grid-column:1/-1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px dashed var(--bd)}
-.ig-ic{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
+.ig-ic{width:40px;height:40px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .ig-txt{flex:1;min-width:220px}
 .ig-title{font-size:14px;font-weight:500;color:var(--t1)}
 .ig-sub{font-size:12px;color:var(--t3);margin-top:3px;line-height:1.55}

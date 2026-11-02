@@ -310,32 +310,32 @@ onMounted(async () => {
 .zp-title{font-size:20px;font-weight:600;margin:0 0 6px;color:var(--t1)}
 .zp-sub{margin:0;font-size:13px;line-height:1.7;color:var(--t2)}
 .zp-card{background:var(--bg2);border:1px solid var(--bd);
-  border-radius:12px;padding:16px 18px;margin-bottom:14px}
+  border-radius:var(--radius-md);padding:16px 18px;margin-bottom:14px}
 .zp-rules{display:grid;gap:8px}
 .zp-rule{font-size:13px;line-height:1.8;color:var(--t2)}
 .zp-rule b{color:var(--t1);font-weight:600}
 .zp-file{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .zp-file-input{font-size:13px}
 .zp-file-name{font-size:13px;color:var(--t2)}
-.zp-btn{padding:7px 16px;border-radius:8px;border:1px solid var(--bd);
+.zp-btn{padding:7px 16px;border-radius:var(--radius-sm);border:1px solid var(--bd);
   background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer}
 .zp-btn:disabled{opacity:.5;cursor:not-allowed}
 .zp-btn.zp-primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .zp-hint{margin:8px 0 0;font-size:12px;color:var(--t3);line-height:1.7}
-.zp-err{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--dan-bg);
+.zp-err{margin:10px 0 0;padding:8px 12px;border-radius:var(--radius-sm);background:var(--dan-bg);
   color:var(--dan);font-size:13px}
 .zp-h2{margin:0 0 12px;font-size:15px;font-weight:600;color:var(--t1)}
 .zp-h3{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--t1)}
 .zp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:14px}
-.zp-stat{border:1px solid var(--bd);border-radius:8px;padding:10px 12px}
+.zp-stat{border:1px solid var(--bd);border-radius:var(--radius-sm);padding:10px 12px}
 .zp-stat span{display:block;font-size:12px;color:var(--t2);margin-bottom:4px}
 .zp-stat b{font-size:15px;font-weight:600;color:var(--t1)}
 .zp-stat.zp-ok b{color:var(--ok-green)}
 .zp-stat.zp-warn b{color:var(--warn-amber)}
-.zp-running,.zp-done{margin:12px 0;padding:10px 14px;border-radius:8px;font-size:13px}
+.zp-running,.zp-done{margin:12px 0;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px}
 /* v271 进度条 */
-.zp-bar{height:8px;border-radius:4px;background:var(--bd);overflow:hidden}
-.zp-bar-in{height:100%;background:var(--p-dark);border-radius:4px;transition:width .4s ease}
+.zp-bar{height:8px;border-radius:var(--radius-2xs);background:var(--bd);overflow:hidden}
+.zp-bar-in{height:100%;background:var(--p-dark);border-radius:var(--radius-2xs);transition:width .4s ease}
 /* 分母未知时的流动条：宽度固定 35% 左右滑来滑去，告诉用户「在动，只是算不出百分比」 */
 .zp-bar-idle{width:35%;animation:zp-slide 1.2s ease-in-out infinite}
 @keyframes zp-slide{0%{margin-left:-35%}100%{margin-left:100%}}

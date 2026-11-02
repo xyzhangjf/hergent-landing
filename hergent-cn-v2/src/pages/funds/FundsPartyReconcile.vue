@@ -273,7 +273,7 @@ loadContacts()
 
 <style scoped>
 .pr-toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
-.pr-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
+.pr-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: var(--radius-sm); overflow: hidden; }
 /* v723：`background:#fff` → `var(--bg)`。写死白底在深色下是白底 + 白字（--t1）= **1:1**，
    整个按钮的文字直接消失。同类坑 CopilotDrawer.vue 的注释里早已记过，这里又犯一次。 */
 .pr-seg-btn { padding: 6px 14px; border: 0; background: var(--bg); cursor: pointer; font-size: 13px; }
@@ -286,7 +286,7 @@ loadContacts()
 .pr-out b.neg { color: var(--dan); }
 .pr-empty { color: var(--t3); padding: 40px; text-align: center; }
 .pr-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.pr-tab { padding: 6px 16px; border: 1px solid var(--bd); background: var(--bg); border-radius: 8px; cursor: pointer; font-size: 13px; }
+.pr-tab { padding: 6px 16px; border: 1px solid var(--bd); background: var(--bg); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; }
 .pr-tab.on { background: var(--p-bg); border-color: var(--c-primary); color: var(--c-primary); }
 .pr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .pr-col-full { margin-top: 12px; }

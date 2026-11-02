@@ -125,14 +125,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .ito-mask{position:fixed;inset:0;z-index:9998;background:rgba(15,23,42,.42);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:20px}
-.ito-card{width:100%;max-width:392px;background:var(--bg);color:var(--t1);border:1px solid var(--border-subtle);border-radius:16px;padding:24px 24px 18px;box-shadow:var(--shadow-lg);text-align:center}
-.ito-ic{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;background:rgba(var(--war-rgb),.14);color:var(--war);margin-bottom:12px}
+.ito-card{width:100%;max-width:392px;background:var(--bg);color:var(--t1);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:24px 24px 18px;box-shadow:var(--shadow-lg);text-align:center}
+.ito-ic{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:var(--radius-circle);background:rgba(var(--war-rgb),.14);color:var(--war);margin-bottom:12px}
 .ito-title{font-size:16px;font-weight:600;margin-bottom:8px}
 .ito-desc{font-size:13px;line-height:1.75;color:var(--t2)}
 .ito-desc b{color:var(--t1);font-weight:600}
 .ito-sec{display:inline-block;min-width:1.6em;font-variant-numeric:tabular-nums;color:var(--war)}
 .ito-actions{display:flex;gap:10px;margin-top:20px}
-.ito-btn{flex:1;height:38px;border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:8px;font-size:13px;cursor:pointer;transition:all var(--dur-base)}
+.ito-btn{flex:1;height:38px;border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:var(--radius-sm);font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .ito-btn:hover{border-color:var(--p);color:var(--p-dark)}
 .ito-btn.primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .ito-btn.primary:hover{filter:brightness(1.06);color:#fff}

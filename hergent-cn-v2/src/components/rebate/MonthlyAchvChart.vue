@@ -606,7 +606,7 @@ function onHover(mo, i, key) {
 .mac-ti { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .mac-ti b { font-size: 14px; font-weight: 500; color: var(--t1); }
 .mac-sub { font-size: 12px; color: var(--t3); }
-.mac-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
+.mac-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: var(--radius-sm); overflow: hidden; }
 .seg-btn { padding: 4px 12px; font-size: 12px; background: transparent; border: 0; cursor: pointer; color: var(--t2); }
 .seg-btn + .seg-btn { border-left: 1px solid var(--bd); }
 /* v723：`--p` → `--p-solid`。全站另有 4 处 `.seg-btn.on` 早就用 `--p-solid`，
@@ -620,7 +620,7 @@ function onHover(mo, i, key) {
 
 .mac-legend { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .lg-item { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--t2); }
-.lg-item i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid transparent; display: inline-block; }
+.lg-item i { width: 10px; height: 10px; border-radius: var(--radius-hair); border: 1px solid transparent; display: inline-block; }
 .lg-gap { margin-left: 2px; }
 /* v185 R1：合并后的图例里「深色段」色块与前半句之间要留一口气 */
 .lg-sep { margin-left: 8px; }
@@ -633,7 +633,7 @@ function onHover(mo, i, key) {
 .mac-body { height: 468px; }
 .mac-skel { display: flex; align-items: flex-end; gap: 6px; padding: 10px 0; }
 .sk-col { flex: 1; display: flex; align-items: flex-end; gap: 2px; height: 100%; }
-.sk-col span { flex: 1; background: var(--border-subtle); border-radius: 2px; animation: macpulse 1.2s ease-in-out infinite; }
+.sk-col span { flex: 1; background: var(--border-subtle); border-radius: var(--radius-hair); animation: macpulse 1.2s ease-in-out infinite; }
 @keyframes macpulse { 0%, 100% { opacity: .45; } 50% { opacity: .9; } }
 .mac-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--t3); font-size: 13px; }
 
@@ -678,7 +678,7 @@ function onHover(mo, i, key) {
    ⚠️ pointer-events: none 必须保留：盒子挪到柱外侧后会盖住相邻月份的悬停区，一旦吃掉事件就换不了柱。 */
 .mac-tip {
   position: absolute;
-  min-width: 210px; padding: 10px 12px; border-radius: 8px; pointer-events: none;
+  min-width: 210px; padding: 10px 12px; border-radius: var(--radius-sm); pointer-events: none;
   background: var(--bg); border: 1px solid var(--bd);
   box-shadow: 0 6px 20px rgba(0, 0, 0, .12); font-size: 12px; z-index: 5;
 }

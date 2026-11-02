@@ -721,7 +721,7 @@ onMounted(load)
 .isl-sort-ind svg.ico { width: 12px; height: 12px }
 .isl-op { color: var(--p-dark); white-space: nowrap }
 /* v525：待他人审批时的占位提示（无按钮、纯信息） */
-.isl-appr-wait { font-size: 12px; color: var(--t3); padding: 2px 6px; border: 1px dashed var(--bd); border-radius: 6px }
+.isl-appr-wait { font-size: 12px; color: var(--t3); padding: 2px 6px; border: 1px dashed var(--bd); border-radius: var(--radius-xs) }
 /* v496：删 `.isl-op-hd{width:1%}` —— 操作列宽进 colgroup（OP_W=120），宽度唯一权威。 */
 .isl-ops { display: inline-flex; align-items: center; gap: 6px }
 .isl-op-btn {

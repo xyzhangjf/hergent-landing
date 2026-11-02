@@ -217,10 +217,10 @@ onMounted(load)
 .wh-hd-right{display:flex;align-items:center;gap:10px;flex-shrink:0}
 .df-panel{padding:18px;margin-bottom:14px}
 .df-tip{font-size:12px;color:var(--t2);margin:4px 0 14px;line-height:1.7}
-.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:8px;font-size:12px}
+.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:var(--radius-sm);font-size:12px}
 
 /* 仓号（DB3）：与报单配置里的「本人仓」标识同源，方便对账时口头引用 */
-.wh-id{display:inline-block;margin-left:6px;font-size:11px;padding:1px 6px;border-radius:6px;background:var(--bg2);color:var(--t3);font-variant-numeric:tabular-nums}
+.wh-id{display:inline-block;margin-left:6px;font-size:11px;padding:1px 6px;border-radius:var(--radius-xs);background:var(--bg2);color:var(--t3);font-variant-numeric:tabular-nums}
 .wh-muted{font-size:12px;color:var(--t3)}
 .wh-ops{white-space:nowrap}
 

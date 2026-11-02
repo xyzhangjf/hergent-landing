@@ -183,28 +183,28 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 
 .sp-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .sp-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
-  padding: 3px 4px 3px 9px; border-radius: 14px; font-size: 12px;
+  padding: 3px 4px 3px 9px; border-radius: var(--radius-lg); font-size: 12px;
   background: rgba(0, 122, 255, .1); border: 1px solid rgba(0, 122, 255, .28); color: var(--t1); }
 .sp-chip-nm { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-chip-x { flex: none; width: 17px; height: 17px; line-height: 1; border: 0; border-radius: 50%;
+.sp-chip-x { flex: none; width: 17px; height: 17px; line-height: 1; border: 0; border-radius: var(--radius-circle);
   background: transparent; color: var(--t2); cursor: pointer; font-size: 14px; }
 .sp-chip-x:hover { background: rgba(0, 0, 0, .08); color: var(--dan); }
 .sp-clear { border: 0; background: transparent; color: var(--t3); font-size: 12px; cursor: pointer; padding: 2px 4px; }
 .sp-clear:hover { color: var(--dan); }
 
 .sp-trigger { display: flex; align-items: center; gap: 7px; width: 100%; height: 34px; padding: 0 10px;
-  border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); color: var(--t1);
+  border: 1px solid var(--bd); border-radius: var(--radius-sm); background: var(--bg); color: var(--t1);
   font-size: 13px; cursor: pointer; text-align: left; }
 .sp-trigger:hover { border-color: var(--t3); }
 .sp-trigger:disabled { opacity: .55; cursor: not-allowed; }
 .sp-trigger-t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .sp-panel { display: flex; flex-direction: column; gap: 8px; padding: 10px;
-  border: 1px solid var(--bd); border-radius: 8px; background: var(--bg2); }
+  border: 1px solid var(--bd); border-radius: var(--radius-sm); background: var(--bg2); }
 .sp-hd { display: grid; grid-template-columns: 1fr 170px; gap: 8px; }
 .sp-search, .sp-cat { height: 32px; font-size: 12px; }
 
-.sp-list { max-height: 210px; overflow-y: auto; border: 1px solid var(--bd); border-radius: 8px;
+.sp-list { max-height: 210px; overflow-y: auto; border: 1px solid var(--bd); border-radius: var(--radius-sm);
   background: var(--bg); }
 .sp-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 13px;
   cursor: pointer; border-bottom: 1px solid var(--bd); }
@@ -215,7 +215,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 .sp-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sp-code { flex: none; font-size: 12px; color: var(--t3); }
 .sp-catb { flex: none; font-size: 11px; color: var(--t3); padding: 1px 6px;
-  border-radius: 8px; background: var(--bg2); border: 1px solid var(--bd); }
+  border-radius: var(--radius-sm); background: var(--bg2); border: 1px solid var(--bd); }
 .sp-empty { padding: 14px 10px; font-size: 12px; color: var(--t3); text-align: center; line-height: 1.6; }
 
 .sp-ft { display: flex; align-items: center; gap: 8px; }

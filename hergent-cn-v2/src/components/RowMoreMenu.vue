@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
 .row-more-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px; padding: 0; border: none; background: none;
-  border-radius: 4px; color: var(--t3); cursor: pointer; line-height: 1;
+  border-radius: var(--radius-2xs); color: var(--t3); cursor: pointer; line-height: 1;
 }
 .row-more-btn:hover { color: var(--p-dark); background: var(--bg3) }
 .row-more-btn.on { color: var(--p-dark); background: var(--bg3) }
@@ -142,13 +142,13 @@ onBeforeUnmount(() => {
   position: fixed; z-index: var(--z-page-menu, 1101);
   display: flex; flex-direction: column; min-width: 96px; padding: 4px;
   background: var(--bg2); border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md, 8px); box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, .12));
+  border-radius: var(--radius-md); box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, .12));
   font-size: 13px;
 }
 .row-more-mi {
   display: block; width: 100%; padding: 6px 10px; border: none; background: none;
   text-align: left; white-space: nowrap; color: var(--t1); cursor: pointer;
-  border-radius: 6px; font-size: 13px; line-height: 18px;
+  border-radius: var(--radius-xs); font-size: 13px; line-height: 18px;
 }
 .row-more-mi:hover { background: var(--bg3) }
 .row-more-mi.danger { color: var(--danger-txt) }

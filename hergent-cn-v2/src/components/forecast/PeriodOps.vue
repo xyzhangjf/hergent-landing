@@ -209,14 +209,14 @@ async function confirmClose() {
 .close-nf-hd{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px}
 .close-nf-none{margin:4px 0;font-size:12px;color:var(--t3);line-height:1.6}
 .close-nf-none.bad{color:var(--danger-txt)}
-.close-nf-wrap{max-height:216px;overflow:auto;border:1px solid var(--bd);border-radius:4px;background:var(--bg)}
+.close-nf-wrap{max-height:216px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-2xs);background:var(--bg)}
 .close-nf-tbl{width:100%;border-collapse:collapse;font-size:12px}
 .close-nf-tbl th{position:sticky;top:0;z-index:1;background:var(--bg3);color:var(--t2);font-weight:600;text-align:left;padding:5px 7px;border-bottom:1px solid var(--bd);white-space:nowrap}
 .close-nf-tbl td{padding:5px 7px;border-bottom:1px solid var(--bd);vertical-align:top;color:var(--t1)}
 .close-nf-tbl .num{text-align:right}
 .close-nf-tbl tr.not-full td{background:var(--warn-amber-bg)}
 .cn-name{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cn-exp{font-size:11px;padding:1px 6px;border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--t3);cursor:pointer}
+.cn-exp{font-size:11px;padding:1px 6px;border:1px solid var(--bd);border-radius:var(--radius-2xs);background:var(--bg);color:var(--t3);cursor:pointer}
 .cn-exp:hover{border-color:var(--p-dark);color:var(--p-dark)}
 .cn-detail td{background:var(--bg3)}
 .cn-p{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--t2);padding:2px 0;line-height:1.6}

@@ -724,7 +724,7 @@ async function refreshProfile() {
 .ops-hint{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3);margin-top:-8px}
 .ops-hint a{color:var(--p-ink);text-decoration:none;font-weight:500}
 .ops-hint a:hover{text-decoration:underline}
-.card{background:var(--bg2);border:1px solid var(--border-subtle);border-radius:14px;padding:16px 18px}
+.card{background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:16px 18px}
 /* KPI 条要覆盖上面这条 scoped .card 的内距 —— 两者特异性同为 0,2,0（scoped 会被加上
    [data-v-x] 属性选择器），全局层的 .kpi-strip 特异性只有 0,1,0 盖不住，只能靠源顺序在这里补一条。 */
 .kpi-strip{padding:6px 0}
@@ -733,7 +733,7 @@ async function refreshProfile() {
 
 /* 报告列表 */
 .rep-list{display:flex;flex-direction:column;gap:8px}
-.rep-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border-radius:8px}
+.rep-item{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg3);border-radius:var(--radius-sm)}
 .rep-main{flex:1;min-width:0;cursor:pointer}
 .rep-title{font-size:14px;color:var(--t1);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rep-meta{font-size:12px;color:var(--t3);margin-top:2px}
@@ -743,38 +743,38 @@ async function refreshProfile() {
 .quota-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .quota-tier{font-size:14px;color:var(--t1);font-weight:500}
 .quota-tier.over{color:var(--dan)}
-.quota-badge{margin-left:6px;font-style:normal;font-size:11px;background:var(--dan-bg);color:var(--dan);padding:1px 8px;border-radius:8px}
+.quota-badge{margin-left:6px;font-style:normal;font-size:11px;background:var(--dan-bg);color:var(--dan);padding:1px 8px;border-radius:var(--radius-sm)}
 .quota-num{font-size:13px;color:var(--t2)}
-.quota-bar{height:10px;background:var(--bg3);border-radius:6px;overflow:hidden}
-.quota-fill{height:100%;background:var(--p);border-radius:6px;transition:width .3s}
+.quota-bar{height:10px;background:var(--bg3);border-radius:var(--radius-xs);overflow:hidden}
+.quota-fill{height:100%;background:var(--p);border-radius:var(--radius-xs);transition:width .3s}
 .quota-fill.over{background:var(--dan)}
 .quota-sub{font-size:12px;color:var(--t3);margin-top:6px}
 .quota-set{margin-top:10px;display:flex;align-items:center;gap:8px}
 
 /* 价值账单 */
 .value-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.value-item{background:var(--bg3);border-radius:8px;padding:14px 10px;text-align:center}
+.value-item{background:var(--bg3);border-radius:var(--radius-sm);padding:14px 10px;text-align:center}
 .value-num{font-size:26px;font-weight:600;color:var(--t1);line-height:1.1}
 .value-num.good{color:var(--suc)}
 .value-label{font-size:12px;color:var(--t3);margin-top:6px}
 
 /* 洞察 / 画像 */
-.insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:8px;padding:12px 14px;font-size:14px;line-height:1.7;color:var(--t1);white-space:pre-wrap}
+.insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:var(--radius-sm);padding:12px 14px;font-size:14px;line-height:1.7;color:var(--t1);white-space:pre-wrap}
 /* T1-3 缺数据拒答：必须看起来就"不是一条洞察"，否则老板会把说明当结论读 */
-.blocked-box{background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:8px;padding:12px 14px;color:var(--t1)}
+.blocked-box{background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:var(--radius-sm);padding:12px 14px;color:var(--t1)}
 .blocked-box b{display:block;font-size:14px;color:var(--warn-amber);margin-bottom:6px}
 .blocked-txt{font-size:13px;line-height:1.7;white-space:pre-wrap}
 /* T1-3 指标级溯源表 */
 .prov{margin-top:12px;border-top:1px dashed var(--border-subtle);padding-top:11px}
 .prov-hd{font-size:12px;color:var(--t2);margin-bottom:8px}
 .prov-hd b{color:var(--p-dark);font-size:14px}
-.prov-tb{display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden}
+.prov-tb{display:flex;flex-direction:column;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);overflow:hidden}
 .prov-tr{display:grid;grid-template-columns:112px 1fr 52px 108px;gap:8px;padding:7px 10px;font-size:12px;color:var(--t2);border-top:1px solid var(--border-subtle)}
 .prov-tr:first-child{border-top:none}
 .prov-tr.prov-th{background:var(--bg3);color:var(--t3);font-weight:600;font-size:12px}
 .prov-tr .num{text-align:right;font-variant-numeric:tabular-nums}
 .prov-tr.pv-error{background:var(--dan-bg)}
-.prov-e{font-style:normal;font-size:11px;margin-left:5px;padding:1px 6px;border-radius:8px;background:var(--bg3);color:var(--t3)}
+.prov-e{font-style:normal;font-size:11px;margin-left:5px;padding:1px 6px;border-radius:var(--radius-sm);background:var(--bg3);color:var(--t3)}
 .prov-e.bad{background:var(--dan-bg);color:var(--dan)}
 .prov-warn{margin-top:8px;font-size:12px;color:var(--warn-amber);line-height:1.6}
 .prov-tip{margin-top:7px;font-size:12px;color:var(--t3);line-height:1.55}
@@ -794,25 +794,25 @@ async function refreshProfile() {
 }
 /* M3 口径提案审核台 */
 .prop-list{display:flex;flex-direction:column;gap:10px}
-.prop-item{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border-subtle);border-radius:8px;padding:11px 13px;background:var(--bg)}
+.prop-item{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:11px 13px;background:var(--bg)}
 .prop-item.done{opacity:.62}
 .prop-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .prop-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.prop-mod{font-size:11px;padding:1px 8px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
+.prop-mod{font-size:11px;padding:1px 8px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);flex-shrink:0}
 .prop-name{font-size:14px;font-weight:600;color:var(--t1)}
-.prop-st{font-size:11px;padding:1px 8px;border-radius:8px;flex-shrink:0}
+.prop-st{font-size:11px;padding:1px 8px;border-radius:var(--radius-sm);flex-shrink:0}
 .prop-st.st-pending{background:var(--p-bg);color:var(--p-dark)}
 .prop-st.st-accepted{color:var(--suc);background:var(--dan-bg)}
 .prop-st.st-rejected{color:var(--dan);background:var(--dan-bg)}
 .prop-why{font-size:12px;color:var(--t2);line-height:1.55}
-.prop-chg{font-size:12px;color:var(--t1);background:var(--bg2);border-radius:8px;padding:5px 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+.prop-chg{font-size:12px;color:var(--t1);background:var(--bg2);border-radius:var(--radius-sm);padding:5px 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
 .prop-meta{font-size:11px;color:var(--t3)}
 .prop-fuel{font-size:11px;color:var(--p-dark)}
 .prop-ops{display:flex;gap:6px;align-items:center;flex-shrink:0}
 /* T1-5 记录一次口径（与审核台同卡） */
 .cal-hint{font-size:12px;color:var(--t3);margin-bottom:10px;line-height:1.6}
 .cal-hint b{color:var(--t2)}
-.cal-form{background:var(--bg3);border:1px solid var(--border-subtle);border-radius:8px;padding:12px;margin-bottom:12px}
+.cal-form{background:var(--bg3);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:12px;margin-bottom:12px}
 .cal-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .cal-f1{width:130px}.cal-f2{width:250px}.cal-f3{width:150px}.cal-f4{flex:1;min-width:160px}
 .cal-tip{font-size:12px;color:var(--t3);margin-top:7px;line-height:1.55}

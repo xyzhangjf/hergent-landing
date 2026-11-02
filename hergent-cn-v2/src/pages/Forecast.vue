@@ -13640,13 +13640,13 @@ provide('sprintSummary', sprintSummary)
    放在「保存」按钮之后 ⇒ 阅读顺序自然变成「点保存 → 往右看结果」。
    三态用「小圆点 + 中文文案」，不依赖图标字体；底色用半透明 ⇒ 浅色与深色主题都可读。 */
 .tb-edit-group>.save-state{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;
-  padding:0 10px;height:28px;border-radius:14px;font-size:12px;white-space:nowrap;line-height:1}
+  padding:0 10px;height:28px;border-radius:var(--radius-lg);font-size:12px;white-space:nowrap;line-height:1}
 /* ① 工具栏内：独占整行（工具栏最末一段，视觉上紧贴下方表格） */
 .toolbar>.tb-edit-group{flex:0 0 100%}
 /* ② 表格工具行内：与同行控件并列 —— 不占满行、自身也不换行
       （行级换行统一由 .grid-ctl-row 的 flex-wrap 决定，避免「组内换行」产生视觉断层） */
 .grid-ctl-row>.tb-edit-group{flex:0 0 auto;flex-wrap:nowrap}
-.save-state .ss-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.save-state .ss-dot{width:6px;height:6px;border-radius:var(--radius-circle);background:currentColor;flex:0 0 auto}
 .save-state.clean{color:var(--t3);background:var(--bg4)}
 .save-state.saved{color:var(--ok-green);background:var(--ok-green-bg)}
 .save-state.dirty{color:var(--warn-amber);background:var(--warn-amber-bg)}
@@ -13718,7 +13718,7 @@ provide('sprintSummary', sprintSummary)
 .draft-seg{margin-left:4px}
 .ph-actions{margin-left:auto;display:inline-flex;gap:8px}
 /* 2026-08-27 期次确认徽标（经理保存汇总表=审批定稿） */
-.confirm-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:8px;font-weight:500;white-space:nowrap}
+.confirm-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:3px 10px;border-radius:var(--radius-sm);font-weight:500;white-space:nowrap}
 .confirm-badge.ok{background:rgba(var(--suc-rgb),.14);color:var(--confirm-green)}
 .confirm-badge.draft{background:var(--bg3);color:var(--t3)}
 .confirm-badge.filter{background:var(--p-bg);color:var(--p-deep)}
@@ -13771,7 +13771,7 @@ provide('sprintSummary', sprintSummary)
          「＋」是结构编辑、不是高频动作，仍只在悬停时露出。 */
 .cross-tbl thead th .th-qa,.cross-tbl thead th .th-funnel{position:absolute;top:1px;z-index:6;
   align-items:center;justify-content:center;width:14px;height:14px;padding:0;
-  border:1px solid transparent;border-radius:3px;background:transparent;color:var(--t2);
+  border:1px solid transparent;border-radius:var(--radius-2xs);background:transparent;color:var(--t2);
   cursor:pointer;line-height:1}
 .cross-tbl thead th .th-funnel{right:8px;display:inline-flex;opacity:.3}   /* 常显 = Excel 习惯 */
 .cross-tbl thead th .th-qa{right:26px;display:none}
@@ -13917,7 +13917,7 @@ provide('sprintSummary', sprintSummary)
 .cross-tbl,.edit-tbl{border-collapse:separate;border-spacing:0;table-layout:fixed}
 .cross-tbl :deep(>tbody>tr>td), .edit-tbl :deep(>tbody>tr>td){position:relative}
 .col-resizer{position:absolute;top:0;right:-3px;width:9px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
-.col-resizer::after{content:'';position:absolute;right:3px;top:8%;height:84%;width:2px;border-radius:2px;background:var(--resizer-bg)}
+.col-resizer::after{content:'';position:absolute;right:3px;top:8%;height:84%;width:2px;border-radius:var(--radius-hair);background:var(--resizer-bg)}
 .col-resizer:hover::after,.col-resizer.active::after{background:var(--p)}
 /* v593：`position:relative` 是拖动填充虚线框的**定位基准**（覆盖层是它的绝对定位子元素）。
    `.fill-handle` 等原本就有的 absolute 元素都挂在 td 上（td 自己 relative）⇒ 不受影响。 */
@@ -13989,7 +13989,7 @@ provide('sprintSummary', sprintSummary)
 .edit-grid-wrap+.col-total-bar{margin-top:-10px}
 .col-total-vp>table{transform:translateX(var(--foot-sl,0));will-change:transform}
 .caliber-q{display:flex;align-items:center;justify-content:center;width:16px;height:16px;padding:0;margin:0 auto;
-  border:0;border-radius:50%;background:none;color:var(--t3);cursor:pointer;vertical-align:middle}
+  border:0;border-radius:var(--radius-circle);background:none;color:var(--t3);cursor:pointer;vertical-align:middle}
 .caliber-q:hover{color:var(--p-dark);background:var(--bg2)}
 .caliber-q[aria-expanded="true"]{color:var(--p-dark);background:var(--p-bg)}
 .caliber-pop{position:absolute;z-index:30;left:0;right:0;bottom:100%;margin-bottom:6px;padding:10px 12px;max-width:760px;
@@ -14051,7 +14051,7 @@ provide('sprintSummary', sprintSummary)
 .cross-viewport::-webkit-scrollbar,
 .edit-grid-wrap::-webkit-scrollbar{height:18px;width:14px}
 .cross-viewport::-webkit-scrollbar-thumb,
-.edit-grid-wrap::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:8px;min-height:44px}
+.edit-grid-wrap::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:var(--radius-sm);min-height:44px}
 .cross-viewport::-webkit-scrollbar-thumb:hover,
 .edit-grid-wrap::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
 .cross-viewport::-webkit-scrollbar-track,
@@ -14090,7 +14090,7 @@ provide('sprintSummary', sprintSummary)
 .grid-tail{display:flex;align-items:center;gap:6px;margin-left:auto;flex:0 0 auto}
 .grid-fs-btn{
   width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
-  border:none;background:none;border-radius:8px;color:var(--t2);cursor:pointer;
+  border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;
 }
 .grid-fs-btn:hover:not(:disabled){background:var(--bg2);color:var(--t1)}
 .grid-fs-btn:disabled{opacity:.35;cursor:default}
@@ -14142,7 +14142,7 @@ provide('sprintSummary', sprintSummary)
    光晕不贴合胶囊边界，变成凭空浮在胶囊内部的一圈淡青方框（且 input 高 32px 溢出
    容器 30px 内容区，光晕上下还会顶出胶囊）。修法：焦点反馈上移到胶囊整体，
    对齐 CopilotDrawer 的 .cp-composer:focus-within 范式。 */
-.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);flex:0 0 auto;transition:border-color var(--dur-slow),box-shadow var(--dur-slow)}
+.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--radius-sm);color:var(--t2);flex:0 0 auto;transition:border-color var(--dur-slow),box-shadow var(--dur-slow)}
 .tb-search:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
 .tb-search .fld:focus{box-shadow:none}
@@ -14254,7 +14254,7 @@ provide('sprintSummary', sprintSummary)
      它是**要人去处理的告警**，不是"已完成"那种回执，两者必须一眼能分开。 */
 :deep(.pt-alloc-btn){position:absolute;bottom:0;right:1px;z-index:4;
   font-size:11px;line-height:1;padding:1px 3px;letter-spacing:-.2px;
-  border:1px solid var(--bd);border-radius:3px;background:var(--bg);color:var(--t3);cursor:pointer}
+  border:1px solid var(--bd);border-radius:var(--radius-2xs);background:var(--bg);color:var(--t3);cursor:pointer}
 :deep(.pt-alloc-btn:hover){border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
 .pt-xm-b.has-short{color:var(--danger-txt)}
 :deep(.pt-xm.has-short .pt-xm-b){color:var(--danger-txt)}
@@ -14290,7 +14290,7 @@ provide('sprintSummary', sprintSummary)
 /* v621：「另有 N 个在售商品未显示」从工具行挪到合计行。页脚是 baseline 对齐，胶囊要 align-self:center
    才不会把行高顶歪；尺寸比工具行那版小一号（24 高），因为这里挨着的都是 12px 小字。 */
 .pin .pin-more,.edit-summary .pin-more{align-self:center;display:inline-flex;align-items:center;
-  font-size:12px;line-height:18px;padding:2px 9px;border-radius:8px;
+  font-size:12px;line-height:18px;padding:2px 9px;border-radius:var(--radius-sm);
   background:var(--p-bg);color:var(--p-deep);cursor:pointer;white-space:nowrap}
 .pin .pin-more:hover,.edit-summary .pin-more:hover{color:var(--p-dark);text-decoration:underline}
 /* v621：这条计数有两个落点，按视口宽度二选一（见模板里 .row-more 的注释）：
@@ -14310,7 +14310,7 @@ provide('sprintSummary', sprintSummary)
 .pin .pin-src{color:var(--t3);font-size:12px;font-weight:400}
 .pin .pin-clr{margin-left:5px;padding:0 4px;height:16px;line-height:16px;font-size:12px;
   color:var(--p-ink);background:none;border:1px solid color-mix(in srgb,var(--p) 35%,transparent);
-  border-radius:4px;cursor:pointer}
+  border-radius:var(--radius-2xs);cursor:pointer}
 .pin .pin-clr:hover{background:color-mix(in srgb,var(--p) 12%,transparent)}
 .pin .pin-all{color:var(--t3);font-size:12px}
 /* v585：冲刺胶囊靠页脚最右。align-self:center 抵消 .pin 的 baseline 对齐 ——
@@ -14404,7 +14404,7 @@ provide('sprintSummary', sprintSummary)
 .batch-pop{width:312px;min-width:312px;gap:8px;max-height:min(70vh,440px);overflow:auto}
 .batch-pop .bp-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--t2)}
 .batch-item{display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 10px;
-  border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--t1);
+  border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);
   font-size:13px;cursor:pointer;text-align:left}
 .batch-item:hover:not(:disabled){background:var(--bg3);border-color:var(--p)}
 .batch-item:disabled{opacity:.4;cursor:not-allowed}
@@ -14477,7 +14477,7 @@ provide('sprintSummary', sprintSummary)
    Delete / 方向键才到得了 @keydown。焦点可见性的替代**不是** outline，而是选中本身
    （整行 / 整列高亮 + 左侧竖条）；见 UI-SPEC §4「禁止 outline:none 后不补替代」。 */
 .cross-tbl.edit-tbl:focus{outline:none}
-:deep(.fill-handle){position:absolute;right:-4px;bottom:-4px;width:9px;height:9px;background:var(--p);border:1.5px solid #fff;border-radius:2px;cursor:crosshair;z-index:9;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+:deep(.fill-handle){position:absolute;right:-4px;bottom:-4px;width:9px;height:9px;background:var(--p);border:1.5px solid #fff;border-radius:var(--radius-hair);cursor:crosshair;z-index:9;box-shadow:0 1px 2px rgba(0,0,0,.25)}
 :deep(.fill-handle:hover){background:var(--p-dark)}
 .ctx-overlay{position:fixed;inset:0;z-index:var(--z-ctx-overlay)}
 .ctx-menu{position:fixed;z-index:var(--z-ctx-menu);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:5px;min-width:172px;font-size:var(--fs-sm);max-height:calc(100vh - 16px);overflow-y:auto}
@@ -14485,7 +14485,7 @@ provide('sprintSummary', sprintSummary)
 .ctx-menu button:hover{background:var(--bg3)}
 .ctx-menu button:disabled{opacity:.4;cursor:default}
 .ctx-menu button.danger:hover{background:var(--dan-bg,rgba(239,68,68,.1));color:var(--dan)}
-.ctx-menu kbd{margin-left:auto;padding:0 5px;border:1px solid var(--bd);border-bottom-width:2px;border-radius:4px;background:var(--bg2);font-family:var(--mono,ui-monospace,monospace);font-size:var(--fs-xs);color:var(--t2);font-weight:400}
+.ctx-menu kbd{margin-left:auto;padding:0 5px;border:1px solid var(--bd);border-bottom-width:2px;border-radius:var(--radius-2xs);background:var(--bg2);font-family:var(--mono,ui-monospace,monospace);font-size:var(--fs-xs);color:var(--t2);font-weight:400}
 .ctx-menu .ctx-sep{height:1px;background:var(--border-subtle);margin:4px 2px}
 .ctx-menu .ctx-note{padding:6px 10px;color:var(--t3);font-size:11px}
 .ctx-menu .ctx-ipt-row{display:flex;gap:6px;padding:6px 8px}
@@ -14529,7 +14529,7 @@ provide('sprintSummary', sprintSummary)
 .ctx-fx-cond{margin-top:4px;border-top:1px solid var(--border-subtle);padding-top:2px}
 .ctx-menu .ctx-fx-cond-hd{width:100%;padding:6px 10px;color:var(--t2);font-size:11px;gap:6px;align-items:center}
 .ctx-fx-cond-hd .ico{margin-left:auto;width:12px;height:12px;color:var(--t3)}
-.ctx-fx-cond-on{margin-left:6px;padding:0 6px;border-radius:999px;background:var(--p-bg);color:var(--p-ink);font-size:11px;line-height:16px}
+.ctx-fx-cond-on{margin-left:6px;padding:0 6px;border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-ink);font-size:11px;line-height:16px}
 .ctx-fx-foot{border-top:1px solid var(--border-subtle);padding-top:7px}
 .ctx-ipt-unit{color:var(--t2)}
 /* 条件格式：库存<安全库存 整行高亮 */
@@ -14544,9 +14544,9 @@ provide('sprintSummary', sprintSummary)
 .stat-sample b{font-weight:600;white-space:pre-wrap;text-align:right}
 
 /* 表头右键「筛选」激活提示 */
-.filter-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--p);background:color-mix(in srgb,var(--p) 12%,var(--bg));color:var(--p-ink);border-radius:999px;font-size:12px;white-space:nowrap;max-width:280px}
+.filter-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;border:1px solid var(--p);background:color-mix(in srgb,var(--p) 12%,var(--bg));color:var(--p-ink);border-radius:var(--radius-pill);font-size:12px;white-space:nowrap;max-width:280px}
 .filter-chip{overflow:hidden;text-overflow:ellipsis}
-.filter-chip .chip-x{border:none;background:transparent;color:var(--p-ink);cursor:pointer;font-size:12px;line-height:1;padding:0 2px;border-radius:50%}
+.filter-chip .chip-x{border:none;background:transparent;color:var(--p-ink);cursor:pointer;font-size:12px;line-height:1;padding:0 2px;border-radius:var(--radius-circle)}
 .filter-chip .chip-x:hover{background:color-mix(in srgb,var(--p) 22%,var(--bg));color:var(--p-ink)}
 
 /* ---- P0-2 Excel 导入弹窗 ---- */
@@ -14603,7 +14603,7 @@ provide('sprintSummary', sprintSummary)
 .imp-arch{margin-top:12px;padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
 .imp-arch-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin-bottom:8px}
 .imp-arch-line{display:flex;gap:10px;flex-wrap:wrap}
-.imp-arch-tag{font-size:var(--fs-sm);color:var(--t2);padding:3px 10px;border-radius:999px;background:var(--bg3)}
+.imp-arch-tag{font-size:var(--fs-sm);color:var(--t2);padding:3px 10px;border-radius:var(--radius-pill);background:var(--bg3)}
 .imp-arch-tag b{color:var(--t1);font-size:14px;margin-left:2px}
 .imp-arch-tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .imp-arch-tag.ok b{color:var(--suc)}
@@ -14620,7 +14620,7 @@ provide('sprintSummary', sprintSummary)
    原先只写了两个具体户头名的类（`.oe-<户头名>`），后果有二：
    ① 真实户头名随产品交付到客户机器；② 其它租户的主体徽标匹配不到任何类 → 永远没有配色（只有裸徽标）。
    现改为通用色板 oe-c0..oe-c5，同名恒定同色，与主体名具体叫什么无关。 */
-.oe-badge{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:999px;font-size:var(--fs-xs);margin-left:6px;vertical-align:1px}
+.oe-badge{display:inline-flex;align-items:center;height:16px;padding:0 6px;border-radius:var(--radius-pill);font-size:var(--fs-xs);margin-left:6px;vertical-align:1px}
 /* v179：本批导入角标（信息蓝，与户头徽标的彩色系区分开 —— 户头是"谁下单"，这个是"哪来的"） */
 /* v250：「导入」来源标已撤（用户反馈徽章形似按钮、看着像要点击）；原 .imp-tag 样式随之删除，不留死 CSS */
 /* v179：不在「在售档案」里的行（已停用/已删除）—— 琥珀色，与「导入」蓝明确区分 */
@@ -14637,7 +14637,7 @@ provide('sprintSummary', sprintSummary)
       账号数恒为 1。类名刻意用 store 而非 people，防止后人又按「人」去理解。
    中性灰而非户头的彩色系 —— 户头是「谁的下单主体」，这个是「几家店报了」，量级不同。
    ⚠️ 放在 .pname 内（同 .oe-badge 范式）：品名超长时随省略号一起被截断，这是既有行为，不额外处理。 */
-.store-badge{display:inline-flex;align-items:center;height:15px;padding:0 5px;border-radius:999px;
+.store-badge{display:inline-flex;align-items:center;height:15px;padding:0 5px;border-radius:var(--radius-pill);
   /* v575：`vertical-align:1px`（相对基线上移）会让 15px 的 inline-flex 把品名行盒从 20px 顶到
      20.4px ⇒ 表格取整后整行 25px，比不带角标的 24px 高 1px、也比编辑态高。
      改成 `middle` 后角标在 20px 行盒内居中，行高与「无角标 / 编辑态」完全一致。 */
@@ -14693,7 +14693,7 @@ provide('sprintSummary', sprintSummary)
 .empty-row :deep( td){background:transparent;border-bottom:none;padding:34px 16px!important;text-align:center}
 .empty-row .er-t{font-size:14px;font-weight:600;color:var(--t1);margin-bottom:6px}
 .empty-row .er-s{font-size:var(--fs-sm);color:var(--t3);line-height:1.7;margin-bottom:14px}
-.empty-row .er-ic{width:48px;height:48px;border-radius:14px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.empty-row .er-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
 .empty-row .er-ic svg{width:24px;height:24px}
 .empty-row .er-ops{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .pe-grid{display:grid;grid-template-columns:76px 1fr;gap:10px 12px;align-items:center}
@@ -14830,9 +14830,9 @@ provide('sprintSummary', sprintSummary)
 :deep(.cell-dirty-dot){position:absolute;right:0;top:0;width:0;height:0;border-top:6px solid var(--p);border-left:6px solid transparent;z-index:4;pointer-events:none;opacity:.9}
 /* v598（C2）：跳转框。固定垂直位置在视口上方 14%（不遮住当前行），水平居中；
    z-index 高于页面浮层（--z-page-fs=1000）与表体浮层（1250 同档），避免被全屏网格压住。 */
-.jump-pop{position:fixed;left:50%;top:14vh;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;box-shadow:0 14px 36px rgba(0,0,0,.18);min-width:380px;box-sizing:border-box}
+.jump-pop{position:fixed;left:50%;top:14vh;transform:translateX(-50%);z-index:1250;display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-sm);box-shadow:0 14px 36px rgba(0,0,0,.18);min-width:380px;box-sizing:border-box}
 .jump-ic{display:flex;align-items:center;flex:none;color:var(--t2)}
-.jump-input{flex:1;min-width:190px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--t1);font-size:13px;outline:none;box-sizing:border-box}
+.jump-input{flex:1;min-width:190px;height:32px;padding:0 10px;border:1px solid var(--bd);border-radius:var(--radius-xs);background:var(--bg);color:var(--t1);font-size:13px;outline:none;box-sizing:border-box}
 .jump-input:focus{border-color:var(--p)}
 /* v212（P2-2）：软警告角标（黄=疑）—— 与红角标**同形不同角**，靠颜色深浅分两档。
    位置：**右上角**（红在左上、填充柄在右下、左下留给行号格的红条，四角不打架）。
@@ -14850,9 +14850,9 @@ provide('sprintSummary', sprintSummary)
 .name-badges :deep(>span){margin-left:0;pointer-events:auto}
 /* v613：「待上架」角标。沿用 v606 那条纪律 —— 格内行内控件的尺寸必须自己钉死，
    否则它会按基线/默认行高把 21px 数据行顶高（`.btn-del` 30×30 就是这么把表撑到 31px 的）。 */
-:deep(.listadd-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--p-bg);color:var(--p-dark);font-size:11px;white-space:nowrap;vertical-align:middle}
+:deep(.listadd-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:var(--radius-2xs);background:var(--p-bg);color:var(--p-dark);font-size:11px;white-space:nowrap;vertical-align:middle}
 /* v614：撤下角标 —— 与上架角标同尺寸（14 高 / 10 号字），只换配色，避免行内出现两种高度 */
-:deep(.listdel-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:3px;background:var(--danger-bg);color:var(--danger-txt);font-size:11px;white-space:nowrap;vertical-align:middle}
+:deep(.listdel-badge){display:inline-block;height:14px;line-height:14px;padding:0 4px;border-radius:var(--radius-2xs);background:var(--danger-bg);color:var(--danger-txt);font-size:11px;white-space:nowrap;vertical-align:middle}
 :deep(.warn-badge){display:inline-block;margin-left:3px;font-size:11px;color:var(--danger-txt);vertical-align:middle}
 :deep(.warn-badge.short){color:var(--warn-amber)}
 :deep(.diff-chg){outline:2px solid var(--p);outline-offset:-2px}
@@ -14881,10 +14881,10 @@ provide('sprintSummary', sprintSummary)
 .grp-btn.danger{color:var(--dan);border-color:rgba(var(--dan-rgb),.4)}
 .grp-btn.danger:hover{border-color:var(--dan)}
 .grp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg2);border:0.5px solid var(--bd);border-radius:var(--radius-md)}
-.batch-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:8px;font-size:12px}
+.batch-panel{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding:8px 10px;background:var(--bg3);border-radius:var(--radius-sm);font-size:12px}
 .batch-val{width:84px;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:4px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
 .snap-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px}
-.recipe-panel{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;font-size:12px}
+.recipe-panel{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px 10px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:12px}
 .recipe-panel>span{display:inline-flex;align-items:center;gap:4px;color:var(--t2)}
 .recipe-val{width:64px;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:3px 6px;font-size:12px;background:var(--bg);color:var(--t1)}
 :deep(.loss-badge){cursor:help;font-size:11px;margin-left:2px}
@@ -14893,7 +14893,7 @@ provide('sprintSummary', sprintSummary)
 :deep(.note-badge){cursor:pointer;font-size:11px;margin-left:2px;opacity:.65}
 :deep(.note-badge:hover){opacity:1}
 :deep(.moq-below){background:var(--sev-risk-bg);color:var(--sev-risk);font-weight:500}
-.info-panel{margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;font-size:12px}
+.info-panel{margin-top:10px;padding:10px 12px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:12px}
 .info-panel .panel-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .info-panel .imp-x{margin-left:auto;border:none;background:none;cursor:pointer;color:var(--t2);font-size:14px;line-height:1}
 /* v591：前端构建号（很淡，只在需要核对版本时才被看到） */
@@ -14901,7 +14901,7 @@ provide('sprintSummary', sprintSummary)
 /* v174：查错结果面板 —— 上排是「按原因分组」的总览（点一下只看该类），
    下面是逐条明细，每条自带「第几行 · 商品 · 列」，点一条跳到那一格。 */
 .err-grps{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 8px}
-.err-grp{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:999px;padding:2px 9px;font-size:12px;line-height:1.7;cursor:pointer}
+.err-grp{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:var(--radius-pill);padding:2px 9px;font-size:12px;line-height:1.7;cursor:pointer}
 .err-grp:hover{border-color:var(--p);color:var(--t1)}
 .err-grp.on{border-color:var(--p);background:var(--p-bg);color:var(--p-deep);font-weight:600}
 .err-list-wrap{max-height:240px;overflow:auto}
@@ -14932,7 +14932,7 @@ provide('sprintSummary', sprintSummary)
 .fix-rest{flex:1 1 auto;font-size:12px;color:var(--dan)}
 .fix-ft .btn:first-of-type{margin-left:auto}
 /* v219 打磨⑥：数量上限入口与编辑弹窗 */
-.err-rulebtn{margin-left:auto;border:1px dashed var(--bd);background:none;color:var(--t2);border-radius:999px;padding:2px 9px;font-size:12px;line-height:1.7;cursor:pointer;white-space:nowrap}
+.err-rulebtn{margin-left:auto;border:1px dashed var(--bd);background:none;color:var(--t2);border-radius:var(--radius-pill);padding:2px 9px;font-size:12px;line-height:1.7;cursor:pointer;white-space:nowrap}
 .err-rulebtn:hover{border-color:var(--p);color:var(--p-deep)}
 .rule-dlg{width:min(420px,94vw)}
 .rule-body{padding:14px 16px;display:flex;flex-direction:column;gap:8px}
@@ -14945,7 +14945,7 @@ provide('sprintSummary', sprintSummary)
 .health-list li{cursor:pointer;display:flex;align-items:center;gap:6px}
 .health-list li:hover{text-decoration:underline}
 .sev-risk{color:var(--sev-risk)}.sev-warn{color:var(--sev-warn)}.sev-info{color:var(--sev-info)}
-.sev-dot{width:7px;height:7px;border-radius:50%;flex:none;display:inline-block}
+.sev-dot{width:7px;height:7px;border-radius:var(--radius-circle);flex:none;display:inline-block}
 .sev-risk .sev-dot{background:var(--sev-risk)}.sev-warn .sev-dot{background:var(--sev-warn)}.sev-info .sev-dot{background:var(--sev-info)}
 /* v166 修改日志面板：已从编辑态网格区搬到工具栏正下方，成为 .page 的直属元素（不再是卡片内
    的次级面板），故按 .card 的外观给（白底 / 同半径 / 同边框），免得与其它卡片割裂。 */
@@ -15043,7 +15043,7 @@ provide('sprintSummary', sprintSummary)
 .ns-name{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;font-weight:500}
 .ns-spec{flex:0 0 auto;color:var(--t3);font-size:var(--fs-sm)}
 .ns-code{flex:0 0 auto;color:var(--t3);font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
-.st-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dan);margin-right:5px;vertical-align:middle}
+.st-dot{display:inline-block;width:8px;height:8px;border-radius:var(--radius-circle);background:var(--dan);margin-right:5px;vertical-align:middle}
 :deep(.sort-ind svg.ico){width:12px;height:12px;vertical-align:middle;margin-left:3px}
 :deep(.zb-btn svg.ico){width:14px;height:14px;vertical-align:middle}
 /* 品牌筛选下拉 + 期次复制弹窗 */
@@ -15061,7 +15061,7 @@ provide('sprintSummary', sprintSummary)
    清空 = 一个都不勾（两者在「不勾 = 不过滤」口径下都显示全部行，但按钮角标不同）。 */
 .brand-pop .bp-selall{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;
   font-size:12px;font-weight:400;color:var(--t2);cursor:pointer;user-select:none;
-  white-space:nowrap;padding:2px 5px;border-radius:6px;transition:background-color var(--dur-base),color var(--dur-base)}
+  white-space:nowrap;padding:2px 5px;border-radius:var(--radius-xs);transition:background-color var(--dur-base),color var(--dur-base)}
 .brand-pop .bp-selall:hover{background:var(--bg2);color:var(--p-ink)}
 .brand-pop .bp-selall.is-off{cursor:not-allowed;color:var(--t3);opacity:.55}
 .brand-pop .bp-selall.is-off:hover{background:none;color:var(--t3)}
@@ -15104,7 +15104,7 @@ provide('sprintSummary', sprintSummary)
 .rc-v b{font-variant-numeric:tabular-nums}
 .rc-dist{display:flex;flex-wrap:wrap}
 .rc-none{color:var(--t3)}
-.cb-chip{display:inline-block;margin:1px 6px 1px 0;padding:1px 6px;border-radius:4px;
+.cb-chip{display:inline-block;margin:1px 6px 1px 0;padding:1px 6px;border-radius:var(--radius-2xs);
   background:var(--bg3);color:var(--t2);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .cb-chip.unset{background:var(--warn-amber-bg);color:var(--warn-amber)}
 /* 设置行：标签 + 输入 + 说明同基线；窄屏说明自然折到下一行 */

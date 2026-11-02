@@ -362,7 +362,7 @@ onMounted(load)
 </script>
 
 <style scoped>
-.dl-list{border:1px solid var(--bd);border-radius:12px;overflow:hidden;background:var(--bg)}
+.dl-list{border:1px solid var(--bd);border-radius:var(--radius-md);overflow:hidden;background:var(--bg)}
 .dl-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--border-subtle)}
 .dl-row:first-child{border-top:none}
 .dl-name{flex:1;min-width:0}
@@ -372,20 +372,20 @@ onMounted(load)
 .dl-count{font-size:13px;color:var(--t1);font-weight:500}
 .dl-count.dim{color:var(--t3);font-weight:400}
 .dl-last{font-size:12px;color:var(--t3)}
-.dl-tag{flex:0 0 auto;font-size:11px;padding:3px 9px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.dl-tag{flex:0 0 auto;font-size:11px;padding:3px 9px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 .dl-tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .dl-tag.stale{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .dl-tag.empty,.dl-tag.err{background:rgba(var(--dan-rgb),.12);color:var(--danger-txt)}
 .dl-btn{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 12px;
-  border-radius:8px;font-size:12px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer}
+  border-radius:var(--radius-sm);font-size:12px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer}
 .dl-btn:hover{border-color:var(--p-dark);color:var(--p-dark)}
 .dl-btn.primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .dl-foot{font-size:12px;color:var(--t3);line-height:1.7;margin:10px 0 0}
-.dl-err{display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border-radius:12px;
+.dl-err{display:flex;align-items:flex-start;gap:8px;padding:12px 14px;border-radius:var(--radius-md);
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);
   font-size:12px;color:var(--war);line-height:1.6}
 
-.dl-risk{display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;padding:11px 13px;border-radius:8px;
+.dl-risk{display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;padding:11px 13px;border-radius:var(--radius-sm);
   background:rgba(245,158,11,.12);color:var(--war);font-size:12px;line-height:1.7}
 .dl-risk svg{flex:0 0 15px;margin-top:3px}
 .dl-pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}

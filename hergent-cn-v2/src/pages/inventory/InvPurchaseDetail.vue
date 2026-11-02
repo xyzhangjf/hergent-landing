@@ -2151,7 +2151,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipd-appr-wait {
   display: inline-flex; align-items: center; height: 30px; padding: 0 12px;
   font-size: 13px; color: var(--t2);
-  background: var(--bg-2); border: 1px solid var(--bd); border-radius: var(--radius-sm, 8px);
+  background: var(--bg-2); border: 1px solid var(--bd); border-radius: var(--radius-sm);
 }
 /* 两半拼成一个按钮：去掉中间的重复边框与内侧圆角，否则接缝处是双线 */
 .ipd-pm-main { border-top-right-radius: 0; border-bottom-right-radius: 0 }
@@ -2225,7 +2225,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* v452-followup（O10）：行内编辑 —— 字段旁铅笔图标（不往动作区加按钮，遵守工具栏精简纪律）。 */
 .ipd-pencil {
   margin-left: 6px; padding: 2px; border: 0; background: transparent; cursor: pointer;
-  color: var(--t3); line-height: 0; border-radius: 6px;
+  color: var(--t3); line-height: 0; border-radius: var(--radius-xs);
 }
 .ipd-pencil:hover { color: var(--c-blue); background: rgba(47, 111, 237, .08) }
 /* 🔵 v696（2026-10-26）编辑态控件改「下划线式就地改」，弃白底圆角框。
@@ -2446,7 +2446,7 @@ tfoot td { font-weight: 600 }
   position: absolute; top: -4px; right: -4px;
   min-width: 15px; height: 15px; padding: 0 3px;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px; background: var(--p-solid); color: #fff;
+  border-radius: var(--radius-sm); background: var(--p-solid); color: #fff;
   font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums;
 }
 /* 🔴 全局 `.page-hd.split` 是 `align-items:flex-start` —— 左侧那个 div 里
@@ -2516,7 +2516,7 @@ tfoot td { font-weight: 600 }
    ⚠️ 这些是**本页私有**样式：附件 UI 目前只有采购单详情页一处。将来第二处要用时，
       按 UI-SPEC §8「同选择器 ≥3 次且逐字同 ⇒ 上提全局类」再上提 —— 现在上提是过度设计。 */
 .ipd-at-badge {
-  margin-left: 6px; padding: 0 6px; border-radius: 999px;
+  margin-left: 6px; padding: 0 6px; border-radius: var(--radius-pill);
   background: var(--bg2); color: var(--t2);
   font-size: 11px; font-variant-numeric: tabular-nums;
 }

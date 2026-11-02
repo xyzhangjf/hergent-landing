@@ -211,13 +211,13 @@ defineExpose({ load })
 @media (max-width: 1100px) { .sos-charts { grid-template-columns: minmax(0, 1fr) } }
 .sos-card { margin-top: 14px }
 .sos-note { margin: 0; padding-left: 18px; font-size: 12px; color: var(--t2); line-height: 1.8 }
-.sos-note code { background: var(--bg2); padding: 1px 5px; border-radius: 4px; font-size: 11px }
+.sos-note code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size: 11px }
 /* v650：业务员筛选条（与 CustomerRank 同一版式语言）。 */
 .sos-filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
 .sos-fl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t2) }
 .sos-fl select {
   min-width: 170px; padding: 5px 8px; font-size: 12px; color: var(--t1);
-  background: var(--bg); border: 1px solid var(--bd); border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-xs);
 }
 .sos-hint { font-size: 11px; color: var(--t3); line-height: 1.6 }
 </style>

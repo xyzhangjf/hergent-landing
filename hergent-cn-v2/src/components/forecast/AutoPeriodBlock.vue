@@ -223,12 +223,12 @@ onMounted(load)
 </script>
 
 <style scoped>
-.ap-chip{font-size:11px;padding:1px 9px;border-radius:8px;font-weight:500}
+.ap-chip{font-size:11px;padding:1px 9px;border-radius:var(--radius-sm);font-weight:500}
 .ap-chip.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .ap-chip.off{background:var(--bg2);color:var(--t3)}
 .ap-meta{font-size:12px;color:var(--t2)}
 .ap-strong{font-size:12px;color:var(--p-dark);font-weight:500}
-.ap-warnchip{font-size:12px;color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px 8px;border-radius:8px}
+.ap-warnchip{font-size:12px;color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px 8px;border-radius:var(--radius-sm)}
 .ap-tip{font-size:12px;color:var(--t2);line-height:1.65;margin:12px 0}
 .ap-grid{display:grid;grid-template-columns:max-content minmax(180px,1fr) repeat(3,140px);gap:12px;padding:2px 0 6px}
 .ap-grid .field{display:flex;flex-direction:column;gap:5px}
@@ -241,22 +241,22 @@ onMounted(load)
 .seg-btn{padding:6px 14px;border:0;background:transparent;cursor:pointer;font-size:13px;color:var(--t2);font-family:inherit}
 .seg-btn.on{background:var(--p-solid);color:#fff}
 .seg-btn:disabled{opacity:.6;cursor:not-allowed}
-.ap-mirror{margin:6px 0;font-size:12px;color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs, 6px);padding:6px 9px;line-height:1.55}
+.ap-mirror{margin:6px 0;font-size:12px;color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:6px 9px;line-height:1.55}
 .ap-mirror-warn{color:var(--war);background:rgba(var(--war-rgb),.08)}
 .ap-edit{margin-left:8px;color:var(--p-dark);text-decoration:none;border-bottom:1px dashed var(--p);font-size:12px;white-space:nowrap}
-.ap-warn{margin:6px 0;font-size:12px;color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs, 6px);padding:6px 9px;line-height:1.55}
+.ap-warn{margin:6px 0;font-size:12px;color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:6px 9px;line-height:1.55}
 .ap-prev{margin-top:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px;background:var(--bg2)}
 .ap-prev-hd{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--t3);margin-bottom:8px}
 /* v365：被「不到货」排除的期次 —— 说明条 + 行内标记。颜色全走既有令牌，零硬编码色 */
-.ap-excl{margin:0 0 8px;font-size:12px;color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs, 6px);padding:6px 9px;line-height:1.6}
+.ap-excl{margin:0 0 8px;font-size:12px;color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:6px 9px;line-height:1.6}
 .ap-row-off td{color:var(--t3);text-decoration:line-through}
 .ap-row-off .ap-offchip{text-decoration:none}
-.ap-offchip{display:inline-block;margin-left:6px;font-size:11px;padding:1px 6px;border-radius:var(--radius-xs, 4px);background:rgba(var(--war-rgb),.14);color:var(--war);text-decoration:none}
+.ap-offchip{display:inline-block;margin-left:6px;font-size:11px;padding:1px 6px;border-radius:var(--radius-xs);background:rgba(var(--war-rgb),.14);color:var(--war);text-decoration:none}
 .ap-tbl{width:100%;border-collapse:collapse;font-size:12px}
 .ap-tbl th{text-align:left;color:var(--t3);font-weight:500;padding:4px 6px;border-bottom:1px solid var(--border-subtle)}
 .ap-tbl td{padding:5px 6px;border-bottom:1px solid var(--border-subtle);vertical-align:middle}
 .ap-dim{color:var(--t3);font-size:11px}
-.ap-brand{display:inline-block;background:rgba(var(--p-rgb),.12);color:var(--p-dark);border-radius:var(--radius-xs, 4px);padding:1px 6px;margin:1px 4px 1px 0;font-size:11px}
+.ap-brand{display:inline-block;background:rgba(var(--p-rgb),.12);color:var(--p-dark);border-radius:var(--radius-xs);padding:1px 6px;margin:1px 4px 1px 0;font-size:11px}
 .ap-brand i{font-style:normal;opacity:.7;margin-left:2px}
 .ap-actions{display:flex;align-items:center;gap:10px;margin-top:12px}
 @media(max-width:900px){ .ap-grid{grid-template-columns:1fr 1fr} }

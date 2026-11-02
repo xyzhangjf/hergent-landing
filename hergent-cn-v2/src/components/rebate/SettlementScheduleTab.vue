@@ -392,7 +392,7 @@ onMounted(() => { loadBrands(); load() })
 .rs-cal-hd b{font-size:14px}
 .rs-ym{font-size:12px;color:var(--t3);font-variant-numeric:tabular-nums}
 .rs-cal-rows{display:flex;flex-direction:column;gap:8px}
-.rs-cal-row{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:8px;background:var(--bg2)}
+.rs-cal-row{display:flex;gap:12px;align-items:flex-start;padding:8px 10px;border-radius:var(--radius-sm);background:var(--bg2)}
 .rs-cal-brand{flex-shrink:0;min-width:96px;font-size:12px;font-weight:600;color:var(--t1)}
 .rs-cal-txt{font-size:12px;color:var(--t2);line-height:1.75}
 .rs-cal-txt b{color:var(--t1);font-variant-numeric:tabular-nums}
@@ -403,9 +403,9 @@ onMounted(() => { loadBrands(); load() })
 .rs-cal-note{margin:10px 0 0;font-size:12px;color:var(--t3);line-height:1.7}
 
 .rs-faded td{opacity:.6}
-.rs-def{display:inline-block;margin-left:6px;padding:0 6px;border-radius:6px;font-size:11px;background:var(--p-bg);color:var(--p-dark)}
+.rs-def{display:inline-block;margin-left:6px;padding:0 6px;border-radius:var(--radius-xs);font-size:11px;background:var(--p-bg);color:var(--p-dark)}
 .rs-muted{color:var(--t3)}
-.rs-st{display:inline-block;padding:1px 8px;border-radius:8px;font-size:12px;white-space:nowrap}
+.rs-st{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);font-size:12px;white-space:nowrap}
 .rs-st.on{background:var(--ok-green-bg);color:var(--ok-green)}
 .rs-st.off{background:var(--bg2);color:var(--t3)}
 .rs-acts{white-space:nowrap;text-align:right}
@@ -416,7 +416,7 @@ onMounted(() => { loadBrands(); load() })
 .rs-fld{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
 .rs-fld .input{height:32px;font-size:13px}
 .rs-wide{grid-column:1/-1}
-.rs-preview{margin-top:14px;padding:10px 12px;border-radius:8px;background:var(--p-bg);display:flex;flex-direction:column;gap:4px}
+.rs-preview{margin-top:14px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--p-bg);display:flex;flex-direction:column;gap:4px}
 .rs-pv-lbl{font-size:12px;color:var(--t3)}
 .rs-pv-txt{font-size:13px;color:var(--p-dark);line-height:1.7}
 .rs-form-tip{font-size:12px;color:var(--t3);margin:10px 0 0;line-height:1.7}

@@ -126,7 +126,7 @@ onBeforeUnmount(() => {
 
 .toast{
   display:flex;align-items:flex-start;gap:10px;
-  padding:10px 16px;border-radius:12px;
+  padding:10px 16px;border-radius:var(--radius-md);
   background:var(--toast-bg);color:var(--toast-fg);
   border:1px solid var(--toast-bd);
   font-size:13px;line-height:1.6;text-align:left;
@@ -135,7 +135,7 @@ onBeforeUnmount(() => {
 .toast-msg{flex:1 1 auto;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
 .toast-x{
   flex:0 0 auto;margin:-1px -6px 0 0;padding:0 5px;
-  background:transparent;border:none;border-radius:6px;
+  background:transparent;border:none;border-radius:var(--radius-xs);
   color:inherit;opacity:.6;font:inherit;line-height:1.6;cursor:pointer;
 }
 .toast-x:hover{opacity:1}
@@ -155,12 +155,12 @@ onBeforeUnmount(() => {
 /* v306c：部署自检提示（坞内的小胶囊，不再自己绝对定位） */
 .upd-tip{
   display:inline-flex;align-items:center;gap:8px;
-  padding:9px 16px;border-radius:999px;border:1px solid transparent;
+  padding:9px 16px;border-radius:var(--radius-pill);border:1px solid transparent;
   background:var(--toast-bg);color:var(--toast-fg);
   font:inherit;font-size:13px;line-height:1;cursor:pointer;box-shadow:var(--shadow-lg);
 }
 .upd-tip:hover{opacity:.92}
-.upd-dot{width:7px;height:7px;border-radius:50%;background:var(--suc);flex:none}
+.upd-dot{width:7px;height:7px;border-radius:var(--radius-circle);background:var(--suc);flex:none}
 .upd-act{opacity:.72;text-decoration:underline;text-underline-offset:2px}
 .upd-tip.toast-enter-from,.upd-tip.toast-leave-to{opacity:0;transform:translateY(8px)}
 </style>

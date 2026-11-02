@@ -1011,7 +1011,7 @@ onMounted(() => { reset(); loadRefs() })
   font-size: 12px; line-height: 1.5; color: var(--t1);
   background: rgba(var(--war-rgb), .1);
   border: 1px solid rgba(var(--war-rgb), .35);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 .isn-hist-warn svg { flex: 0 0 auto; margin-top: 2px; color: var(--war) }
 .isn-hist-dot {

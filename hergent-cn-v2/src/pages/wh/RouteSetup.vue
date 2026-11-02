@@ -503,7 +503,7 @@ onMounted(loadAll)
 .rts-stop-preview { margin-top: 10px; display: flex; flex-direction: column; gap: 4px }
 .rts-stop-row {
   display: flex; align-items: center; gap: 8px; font-size: 13px;
-  padding: 6px 8px; background: var(--bg2); border-radius: 6px;
+  padding: 6px 8px; background: var(--bg2); border-radius: var(--radius-xs);
 }
 .rts-stop-no { width: 20px; color: var(--t3) }
 .rts-stop-name { font-weight: 500 }

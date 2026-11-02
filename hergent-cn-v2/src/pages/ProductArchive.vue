@@ -1891,7 +1891,7 @@ onMounted(() => {
 /* v157 「补进价」入口：仅当有商品未录进价时出现，补完自动消失（不是常驻按钮） */
 .pa-fp-btn{color:var(--war);border-color:rgba(var(--war-rgb),.35);gap:5px}
 .pa-fp-btn:hover{background:rgba(var(--war-rgb),.1);color:var(--war)}
-.pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:rgba(var(--war-rgb),.16);font-size:12px;font-weight:600;line-height:16px;text-align:center}
+.pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:var(--radius-pill);background:rgba(var(--war-rgb),.16);font-size:12px;font-weight:600;line-height:16px;text-align:center}
 
 /* v157 进价列（行内可编） */
 .pa-fp-cell{white-space:nowrap}
@@ -1899,7 +1899,7 @@ onMounted(() => {
 .pa-fp-val:hover{border-bottom-color:var(--p);color:var(--p-ink)}
 .pa-fp-from{cursor:pointer;color:var(--txt-3);font-size:12px;border-bottom:1px dashed transparent}
 .pa-fp-from:hover{border-bottom-color:var(--p);color:var(--p-ink)}
-.pa-fp-miss{display:inline-block;padding:1px 8px;border-radius:8px;background:rgba(var(--war-rgb),.14);color:var(--war);font-size:12px;cursor:pointer}
+.pa-fp-miss{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);background:rgba(var(--war-rgb),.14);color:var(--war);font-size:12px;cursor:pointer}
 .pa-fp-miss:hover{background:rgba(var(--war-rgb),.24)}
 .pa-fp-input{width:92px;height:32px;text-align:right;padding:0 8px}
 /* v241：11px + --t3 的实测对比度只有 **2.5:1**（WCAG AA 正文要求 4.5:1，11px 不属
@@ -1993,7 +1993,7 @@ onMounted(() => {
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
 .pa-name{font-weight:600;color:var(--t1)}
 .pa-mono{font-size:12px;color:var(--t3);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.pa-brand{display:inline-block;min-width:48px;padding:2px 8px;border-radius:8px;background:var(--bg2);color:var(--t1);cursor:pointer;transition:var(--dur-base)}
+.pa-brand{display:inline-block;min-width:48px;padding:2px 8px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;transition:var(--dur-base)}
 .pa-brand:hover{background:rgba(var(--p-rgb,6,182,212),.14);color:var(--p-ink)}
 .pa-brand-input{height:32px;min-width:120px}
 /* v717：前景色改用状态胶囊令牌 —— 原 --suc(#34c759) 对本浅绿底仅 2.01:1，
@@ -2036,7 +2036,7 @@ onMounted(() => {
 .pa-x{border:none;background:none;font-size:14px;color:var(--t3);cursor:pointer}
 .pa-modal-body{padding:18px 20px}
 .pa-modal-ft{display:flex;justify-content:flex-end;gap:10px;padding:14px 20px;border-top:1px solid var(--border-subtle)}
-.pa-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 14px;background:var(--bg2);padding:8px 12px;border-radius:8px}
+.pa-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 14px;background:var(--bg2);padding:8px 12px;border-radius:var(--radius-sm)}
 
 /* 详情网格 */
 /* ---- v184c 商品编辑弹窗（原 .pa-detail-* 只读样式随弹窗改造一并删除，避免死 CSS）----
@@ -2088,7 +2088,7 @@ onMounted(() => {
 .pa-imp-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pa-file-btn{position:relative;overflow:hidden}
 .pa-fname{font-size:12px;color:var(--t2)}
-.pa-imp-result{margin-top:12px;padding:10px 14px;border-radius:8px;font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc)}
+.pa-imp-result{margin-top:12px;padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc)}
 .pa-imp-result.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
 .pa-errs{display:flex;flex-direction:column;gap:2px;margin-top:6px}
 .pa-err{font-size:12px;color:var(--t2)}
@@ -2112,7 +2112,7 @@ tr.pa-row-off td{opacity:.5}
 .pa-fp-count{font-size:12px;color:var(--t2);margin-right:auto}
 .pa-fp-count b{color:var(--t1)}
 /* v158 进价闸门开关：默认（未开启）走中性底色，开启后转成功色 —— 开关状态一眼可辨 */
-.pa-fp-gate{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd);font-size:12px;line-height:1.6}
+.pa-fp-gate{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd);font-size:12px;line-height:1.6}
 .pa-fp-gate.on{background:rgba(var(--suc-rgb),.08);border-color:rgba(var(--suc-rgb),.35)}
 .pa-fp-switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;color:var(--t1);white-space:nowrap;user-select:none}
 .pa-fp-switch input{width:15px;height:15px;margin:0;cursor:pointer;accent-color:var(--suc)}

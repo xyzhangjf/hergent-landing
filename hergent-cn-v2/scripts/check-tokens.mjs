@@ -122,10 +122,52 @@ function checkIconSizes() {
   return bad
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   v724 · 圆角护栏
+   ─────────────────────────────────────────────────────────────────────────────
+   由来：全站圆角曾散成 **14 档字面量**（2/3/4/5.5/8/11/12/14/16/18/20/22/24/99/999），
+   其中 11/18/20/5.5px 全是「把元素半高写死」的胶囊 —— 元素一改高，胶囊就不成立了。
+   v724 收敛到 9 档令牌（hair/2xs/xs/sm/md/lg/xl/pill/circle，定义见 variables.css）。
+
+   判据：`border-radius` 的值只许由三样东西组成 —— `var(--radius-*)` 令牌、`0`、`inherit`。
+   把这三样剥掉后还剩任何字符（裸 px、裸 %、calc…）⇒ 构建失败。
+
+   为什么允许 `0`：直角是刻意选择（表格单元格、紧贴相邻元素的一侧），不是「忘了令牌」。
+   为什么单独留 `--radius-hair:2px`：1-3px 是「柔化 1px 边缘」不是「组件圆角」，
+   4px 圆角落在 8×8 图例点上就是半圆了，合并这两档是错的。
+   为什么有 `--radius-pill`：胶囊的正确表达是「不管多高都半圆」，写死 11px 只是个巧合。 */
+const RADIUS_OK = new Set([
+  '--radius', '--radius-hair', '--radius-2xs', '--radius-xs', '--radius-sm',
+  '--radius-md', '--radius-lg', '--radius-xl', '--radius-pill', '--radius-circle',
+])
+const RADIUS_DECL = /border-radius\s*:\s*([^;}]+)/g
+const RADIUS_TOKEN = /var\(\s*(--radius[A-Za-z0-9-]*)\s*\)/g
+
+function checkRadius() {
+  const bad = []
+  for (const abs of walk(SRC)) {
+    const rel = relative(ROOT, abs).split('\\').join('/')
+    const src = stripComments(readFileSync(abs, 'utf8'))
+    for (const m of src.matchAll(RADIUS_DECL)) {
+      const val = m[1].trim()
+      const rest = val
+        .replace(RADIUS_TOKEN, (full, name) => (RADIUS_OK.has(name) ? '' : '\u0000UNKNOWN:' + name))
+        .replace(/\b0(?:px)?\b/g, '')
+        .replace(/\binherit\b/g, '')
+        /* `!important` 是优先级声明、不是取值；`0 !important` 是完全合法的直角写法。
+           少写这一条会让护栏第一跑就冤枉一个正确的地方 —— 假阳性一次就没人信它了。 */
+        .replace(/!\s*important/gi, '')
+        .trim()
+      if (rest) bad.push({ rel, val })
+    }
+  }
+  return bad
+}
+
 const args = new Set(process.argv.slice(2))
 const current = collect()
 const iconBad = checkIconSizes()
-
+const radiusBad = checkRadius()
 if (args.has('--update')) {
   const obj = {}
   for (const k of [...current.keys()].sort()) obj[k] = [...current.get(k)].sort()
@@ -164,12 +206,24 @@ for (const [file, vals] of current) {
   if (added.length) violations.push({ file, kind: 'new-color', vals: added })
 }
 
-if (!violations.length && !iconBad.length) {
+if (!violations.length && !iconBad.length && !radiusBad.length) {
   const files = Object.keys(base).length
   const total = Object.values(base).reduce((a, b) => a + b.length, 0)
   console.log(`✓ 设计令牌护栏通过（存量待清：${files} 个文件 / ${total} 条，见 --list）`)
   console.log(`✓ 图标尺寸护栏通过（允许 ${[...ICON_SIZES].join(' / ')} 四档）`)
+  console.log(`✓ 圆角护栏通过（只许 --radius-* / 0 / inherit）`)
   process.exit(0)
+}
+
+if (radiusBad.length) {
+  console.error('\n✗ 圆角护栏：出现了令牌之外的 border-radius\n')
+  for (const b of radiusBad) console.error(`  ${b.rel}\n    border-radius: ${b.val}`)
+  console.error('\n圆角只分 9 档（定义见 src/styles/variables.css）：')
+  console.error('  hair 2px 指示条/图例点/把手（柔化 1px 边，不要并进 2xs）')
+  console.error('  2xs 4px 单元格/小标签　xs 6px 小控件　sm 8px 按钮输入（主档）')
+  console.error('  md 12px 卡片　lg 16px 大卡片/面板　xl 22px 弹窗')
+  console.error('  pill 999px 胶囊（不管多高都半圆）　circle 50% 正圆')
+  console.error('\n不要在局部写死 px —— 元素高度一变，写死的半高就不再是胶囊了。\n')
 }
 
 if (iconBad.length) {

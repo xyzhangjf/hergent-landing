@@ -382,7 +382,7 @@ function reload() { emit('reload') }
 .imp-arch{margin-top:12px;padding:12px 14px;border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
 .imp-arch-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin-bottom:8px}
 .imp-arch-line{display:flex;gap:10px;flex-wrap:wrap}
-.imp-arch-tag{font-size:var(--fs-sm);color:var(--t2);padding:3px 10px;border-radius:999px;background:var(--bg3)}
+.imp-arch-tag{font-size:var(--fs-sm);color:var(--t2);padding:3px 10px;border-radius:var(--radius-pill);background:var(--bg3)}
 .imp-arch-tag b{color:var(--t1);font-size:14px;margin-left:2px}
 .imp-arch-tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .imp-arch-tag.ok b{color:var(--suc)}

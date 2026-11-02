@@ -145,7 +145,7 @@
 .col-menu-list li:hover .col-menu-del { opacity: 1 }
 .col-menu-del:hover { background: var(--bg4); color: var(--danger-txt) }
 
-.col-core-tag { font-size: 11px; color: var(--t2); background: var(--bg2); border-radius: 4px; padding: 0 5px; margin-left: 2px; flex: none }
+.col-core-tag { font-size: 11px; color: var(--t2); background: var(--bg2); border-radius: var(--radius-2xs); padding: 0 5px; margin-left: 2px; flex: none }
 
 /* 列方案：下拉独占一行（撑满面板宽），名字输入 + 按钮一行（输入框吃掉剩余宽度）。
    🔴 下拉必须 `display:block; width:100%` —— select 默认是 inline-block 的内容宽，
@@ -165,7 +165,7 @@
       而"能拖"这件事 hover 时给出反馈就够了（与齿轮按钮同一个显隐口径）。 */
 .col-rsz {
   float: right; width: 7px; height: 20px; margin-right: -7px;
-  background: transparent; border-radius: 2px; cursor: col-resize;
+  background: transparent; border-radius: var(--radius-hair); cursor: col-resize;
 }
 .col-rsz:hover { background: var(--p-dark); opacity: .35 }
 /* 拖动进行中：光标钉死为 col-resize（鼠标拖出 th 后光标会跟着元素变，

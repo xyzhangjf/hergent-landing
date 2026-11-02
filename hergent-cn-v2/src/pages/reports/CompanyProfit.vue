@@ -131,7 +131,7 @@ onMounted(load)
 <style scoped>
 /* 仅保留仍被引用的私有类（警示条 / 合计卡挂在 #extra 插槽，插槽内容在本页作用域编译）。 */
 .warn-banner {
-  margin-top: 14px; padding: 10px 14px; border-radius: 8px;
+  margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-sm);
   background: var(--warn-bg); color: var(--warn-t);
   border: 1px solid var(--warn-bd); font-size: 12px; line-height: 1.8;
 }

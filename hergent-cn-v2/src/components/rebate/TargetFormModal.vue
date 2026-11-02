@@ -1078,12 +1078,12 @@ async function save() {
 .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .cf-tip{font-size:13px;color:var(--t2);line-height:1.6;margin:0 0 12px}
 /* v702：作用对象说明 —— 选中范围与生效规则（"多选=几条独立目标，不是合计"）就靠这块说清 */
-.sp-note{font-size:12px;line-height:1.65;color:var(--t2);padding:6px 8px;border-radius:8px;
+.sp-note{font-size:12px;line-height:1.65;color:var(--t2);padding:6px 8px;border-radius:var(--radius-sm);
   background:var(--bg2);border:1px solid var(--bd)}
 .sp-note-link{color:var(--war);background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4)}
 .yh-scope{color:var(--t3);font-size:12px;margin-left:2px}
 /* v125：重复目标预检提示（黄底，与红色硬错误区分：只是提醒，保存仍由后端裁决） */
-.dup-warn{display:flex;gap:8px;align-items:flex-start;margin:2px 0 8px;padding:8px 10px;border-radius:8px;
+.dup-warn{display:flex;gap:8px;align-items:flex-start;margin:2px 0 8px;padding:8px 10px;border-radius:var(--radius-sm);
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);font-size:12px;color:var(--t2);line-height:1.6}
 .dup-warn svg,.dup-warn .icon{width:15px;height:15px;flex:none;margin-top:2px;color:var(--war)}
 .dup-warn b{color:var(--t1)}

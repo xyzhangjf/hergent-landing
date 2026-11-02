@@ -190,11 +190,27 @@
   --shadow-md:0 4px 16px rgba(0,0,0,.06),0 2px 6px rgba(0,0,0,.04);
   --shadow-lg:0 12px 40px rgba(0,0,0,.10);
 
-  /* 圆角 */
+  /* 圆角阶梯（v724 定稿 9 档，护栏在 scripts/check-tokens.mjs）
+     用途分工 —— 挑档先看「这是什么」，别看「别的页用了多少」：
+       hair   发丝：1–3px 的指示条 / 图例小点 / 拖动把手。它柔化的是 1-2px 的边，
+              不是组件的角，所以不能并进 2xs —— 4px 圆角落在 8×8 图例点上就是半圆了。
+       2xs    极小：单元格、小标签（10-16px 高那一档）
+       xs     小控件；sm 按钮/输入（主档，占比最大）；md 卡片
+       lg     大卡片/面板/空态图标盒；xl 弹窗/大面板
+       pill   胶囊：语义是「不管多高都保持半圆」，比写死半高更稳 ——
+              元素高度一改，写死的 11/18/20px 就不再是胶囊了，pill 仍然是。
+       circle 正圆：头像、圆点。
+     2026-11 收敛前全站有 14 档字面量（2/3/4/5.5/8/11/12/14/16/18/20/22/24/99/999），
+     其中 11/18/20/5.5px 全是「元素半高」写死的胶囊，已统一改 pill（视觉等价）。 */
+  --radius-hair:2px;
+  --radius-2xs:4px;
+  --radius-xs:6px;
   --radius-sm:8px;
   --radius-md:12px;
   --radius-lg:16px;
   --radius-xl:22px;
+  --radius-pill:999px;
+  --radius-circle:50%;
 
   /* 过渡时长（P1/v717）：原先散落 6 档（.15s ×119、.2s ×31、.18s ×21、
      .12s ×13、.16s ×8、.25s ×6），肉眼分不出 150ms 和 180ms 的差别，
@@ -615,7 +631,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 }
 /* 滚动条：加粗放粗，方便鼠标点击/拖动（v454） */
 ::-webkit-scrollbar{width:14px;height:14px}
-::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:8px}
+::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:var(--radius-sm)}
 ::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
 ::-webkit-scrollbar-track{background:var(--scroll-track)}
 /* Firefox：给出可见颜色（宽度取浏览器默认 auto，比 thin 更粗） */
@@ -748,7 +764,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    渲染成「品牌 2 ⌄」这种与相邻按钮不同构的排版，且计数与标签之间只靠文本空格分隔。
    这里给成一个 18px 高的小胶囊：字号降一档以示「这是计数不是标签」，主色系与站内
    .confirm-badge 同源；高度写死使它在 32px 按钮内不参与撑高。 */
-.btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:8px;background:var(--p-bg);color:var(--p-deep);font-size:11px;font-weight:600;line-height:1;white-space:nowrap}
+.btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-deep);font-size:11px;font-weight:600;line-height:1;white-space:nowrap}
 .btn-badge.err{background:var(--danger-bg);color:var(--danger-txt)}
 .btn-icon{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background var(--dur-base),color var(--dur-base)}
 .btn-icon svg{width:16px;height:16px}
@@ -848,7 +864,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .main-tab{padding:10px 18px;border:none;background:none;font-size:14px;color:var(--t2);cursor:pointer;position:relative;font-weight:500}
 .main-tab:hover{color:var(--t1)}
 .main-tab.on{color:var(--p-dark)}
-.main-tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:2px}
+.main-tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:var(--radius-hair)}
 
 /* 通用卡片 */
 /* 内距 18px 为全站默认值（基线统计：18px 占 18/33，为绝对主流）。
@@ -948,7 +964,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 }
 .sec-hd::before{
   content:'';position:absolute;left:-18px;top:3px;
-  width:3px;height:14px;border-radius:0 2px 2px 0;background:var(--p-dark);
+  width:3px;height:14px;border-radius:0 var(--radius-hair) var(--radius-hair) 0;background:var(--p-dark);
 }
 .sec-sub{font-weight:400;font-size:12px;color:var(--t3);line-height:1.6}
 /* 标题若写成 `<b>xxx</b>`（多数页面如此），让它继承 600 而不是 UA 的 700 —— 否则同一
@@ -986,7 +1002,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 /* 徽章 */
 .badge{
   display:inline-flex;align-items:center;height:20px;padding:0 8px;
-  border-radius:8px;font-size:12px;font-weight:500;
+  border-radius:var(--radius-sm);font-size:12px;font-weight:500;
 }
 .badge-green{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .badge-red{background:rgba(var(--dan-rgb),.12);color:var(--dan)}
@@ -997,8 +1013,8 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
 .badge-blue{background:var(--p-bg);color:var(--p-dark)}
 
 /* 进度条 */
-.progress{height:6px;border-radius:99px;background:var(--bg4);overflow:hidden}
-.progress>i{display:block;height:100%;border-radius:99px;background:var(--p-dark);transition:width .5s}
+.progress{height:6px;border-radius:var(--radius-pill);background:var(--bg4);overflow:hidden}
+.progress>i{display:block;height:100%;border-radius:var(--radius-pill);background:var(--p-dark);transition:width .5s}
 .progress.green>i{background:var(--suc)}
 .progress.amber>i{background:var(--war)}
 
@@ -1011,7 +1027,7 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--t1)}
    新写空态请直接用 components/EmptyState.vue，别在页面里再写一遍 .state-empty。 */
 .state-empty,.state-error{padding:48px 20px;text-align:center;color:var(--t3);font-size:13px}
 .state-empty.sm,.state-error.sm{padding:12px 4px;font-size:12px}
-.state-empty .se-ic{width:48px;height:48px;border-radius:14px;background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.state-empty .se-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
 
 /* 表格 */
 .table-wrap{overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-subtle)}
@@ -1070,7 +1086,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 .tag-row{display:flex;gap:6px;flex-wrap:wrap}
 .tag{
   display:inline-flex;align-items:center;height:22px;padding:0 8px;
-  border-radius:6px;font-size:12px;font-weight:500;background:var(--bg4);color:var(--t2);
+  border-radius:var(--radius-xs);font-size:12px;font-weight:500;background:var(--bg4);color:var(--t2);
 }
 .tag.ok,.tag.suc{background:rgba(var(--suc-rgb),.12);color:var(--st-ok-txt)}
 .tag.warn{background:rgba(var(--war-rgb),.15);color:var(--st-warn-txt)}
@@ -1095,7 +1111,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 /* 空态样式已上移到「空/错态」段，此处不再重复定义（v717 去重）。 */
 
 /* 加载骨架 */
-.skel-line{height:14px;border-radius:4px;background:var(--bg4);animation:pulse 1.4s ease-in-out infinite}
+.skel-line{height:14px;border-radius:var(--radius-2xs);background:var(--bg4);animation:pulse 1.4s ease-in-out infinite}
 
 /* ============================================================
    v241 补齐：危险按钮 / 输入禁用·只读 / 表单错误态（S3 · S4 · S5）

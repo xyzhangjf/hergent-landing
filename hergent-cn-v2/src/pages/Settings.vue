@@ -1530,14 +1530,14 @@ onMounted(() => {
 .tb-title{font-size:14px;font-weight:600;color:var(--t1)}
 .tb-right{margin-left:auto}
 /* 胶囊 + 内层无边框 input：焦点反馈挂胶囊整体，避免全局 .fld:focus 光晕悬空浮在胶囊内（同 Forecast） */
-.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;color:var(--t2);transition:border-color var(--dur-slow),box-shadow var(--dur-slow)}
+.tb-search{display:inline-flex;align-items:center;gap:6px;padding:0 10px;height:32px;background:var(--bg3);border:1px solid var(--bd);border-radius:var(--radius-sm);color:var(--t2);transition:border-color var(--dur-slow),box-shadow var(--dur-slow)}
 .tb-search:focus-within{border-color:var(--p-dark);box-shadow:0 0 0 3px var(--p-bg)}
 .tb-search .fld{border:none;background:transparent;outline:none;font-size:13px;color:var(--t1);width:150px;height:100%}
 .tb-search .fld:focus{box-shadow:none}
 .tb-search .fld::placeholder{color:var(--t3)}
 
 /* 全局无定义的类，本页补齐（沿用各页面统一口径） */
-.btn-mini{border:1px solid var(--bd);background:none;border-radius:6px;padding:3px 10px;font-size:12px;color:var(--t2);cursor:pointer}
+.btn-mini{border:1px solid var(--bd);background:none;border-radius:var(--radius-xs);padding:3px 10px;font-size:12px;color:var(--t2);cursor:pointer}
 .btn-mini:hover{border-color:var(--p);color:var(--p-dark)}
 
 /* 通用行 / 描述：允许换行 + 子项可收缩，避免长文本/输入框顶破卡片 */
@@ -1584,7 +1584,7 @@ onMounted(() => {
 .plog-target{max-width:170px;overflow:hidden;text-overflow:ellipsis}
 .plog-type{width:104px}
 /* 操作类型标签：中性底；「删除角色」是破坏性操作 ⇒ 警示色单独标出，扫一眼就能定位 */
-.plog-tag{display:inline-block;padding:1px 8px;border-radius:8px;font-size:11px;
+.plog-tag{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);font-size:11px;
           background:var(--bg3);color:var(--t2)}
 .plog-tag.danger{background:var(--dan-bg);color:var(--dan);font-weight:600}
 .plog-detail{min-width:260px;white-space:normal;color:var(--t1);line-height:1.7;word-break:break-all}
@@ -1637,7 +1637,7 @@ onMounted(() => {
 .pr-name{font-weight:600;color:var(--t1)}
 /* 「自定义角色」用主色小标签，「系统自带」用中性小标签 —— 一眼能分辨，
    且两者都只是"角色类型"的注脚，不需要抢眼到干扰扫读。 */
-.pr-type{display:inline-block;padding:1px 8px;border-radius:8px;font-size:11px;
+.pr-type{display:inline-block;padding:1px 8px;border-radius:var(--radius-sm);font-size:11px;
          background:var(--bg3);color:var(--t2)}
 .pr-type.custom{background:var(--p-bg);color:var(--p-dark)}
 .pr-end{color:var(--t2)}
@@ -1695,7 +1695,7 @@ onMounted(() => {
       再叠一层展开/收起就是多余的两次点击。 */
 .domtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
 .domtabs button{border:1px solid var(--bd);background:var(--bg);color:var(--t2);
-  border-radius:999px;padding:5px 14px;font-size:13px;cursor:pointer;transition:all var(--dur-base)}
+  border-radius:var(--radius-pill);padding:5px 14px;font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .domtabs button:hover{border-color:var(--p);color:var(--p-dark)}
 .domtabs button.on{background:var(--p-bg);border-color:var(--p);color:var(--p-dark);font-weight:600}
 /* 页签上的数字：没搜索时 = 该域有几行；搜索时 = 命中几个。
@@ -1729,7 +1729,7 @@ onMounted(() => {
 /* AI 记忆 */
 .mem-block{margin:14px 0}
 .mem-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.mem-tag{font-size:12px;padding:2px 8px;border-radius:8px}
+.mem-tag{font-size:12px;padding:2px 8px;border-radius:var(--radius-sm)}
 .mem-tag.user{background:var(--p-bg);color:var(--p-dark)}
 .mem-tag.agent{background:var(--bg3);color:var(--t2)}
 .mem-count{font-size:12px;color:var(--t3)}

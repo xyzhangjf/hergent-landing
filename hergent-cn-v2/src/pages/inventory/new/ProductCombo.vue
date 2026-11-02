@@ -114,14 +114,14 @@ function onBlur () { editing.value = false }
 }
 .ipn-prod-list li {
   display: flex; align-items: center; gap: 8px; padding: 4px 8px;
-  border-radius: 6px; cursor: pointer; font-size: 13px; color: var(--t1);
+  border-radius: var(--radius-xs); cursor: pointer; font-size: 13px; color: var(--t1);
 }
 .ipn-prod-list li.active, .ipn-prod-list li:hover { background: var(--bg2) }
 .ipn-prod-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 /* v685：档位徽标。`flex:none` 且不换行 —— 它是"用来分辨同名商品"的信息，
    被省略号吃掉就等于没有。单档灰、无价红。 */
 .ipn-prod-tier {
-  flex: none; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: 4px;
+  flex: none; font-size: 11px; line-height: 16px; padding: 0 5px; border-radius: var(--radius-2xs);
   color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .ipn-prod-tier.is-muted { color: var(--t3) }
@@ -150,5 +150,5 @@ function onBlur () { editing.value = false }
 /* v686：锁定态 —— `not-allowed` 光标 + 去掉 hover 的「可点」边框（否则看起来像能点）。 */
 .ipn-v.is-locked { color: var(--t3); cursor: not-allowed }
 .ipn-v.is-locked:hover { box-shadow: none }
-.ipn-v:focus, .ipn-v:hover { box-shadow: inset 0 0 0 1px var(--bd); border-radius: 4px }
+.ipn-v:focus, .ipn-v:hover { box-shadow: inset 0 0 0 1px var(--bd); border-radius: var(--radius-2xs) }
 </style>

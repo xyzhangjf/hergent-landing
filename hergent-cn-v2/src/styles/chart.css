@@ -22,7 +22,7 @@
 .ch-lg-item.is-hit{cursor:pointer;user-select:none}
 .ch-lg-item.is-hit:hover{color:var(--t1)}
 .ch-lg-item.is-off{opacity:.4;text-decoration:line-through}
-.ch-lg-dot{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+.ch-lg-dot{width:10px;height:10px;border-radius:var(--radius-2xs);display:inline-block;flex:none}
 .ch-lg-line{width:12px;height:0;border-top-width:2px;border-top-style:solid;display:inline-block;flex:none}
 
 /* —— 画布：窄屏用横向滚动兜底，绝不压缩到看不清 —— */
@@ -51,13 +51,13 @@
 .ch-retry{margin-top:2px}
 /* 骨架屏：条形按循环节奏呼吸 —— 与正文同尺寸，避免切态时页面跳一下 */
 .ch-skel{display:flex;align-items:flex-end;gap:6px;padding:10px 0}
-.ch-skel i{flex:1;background:var(--border-subtle);border-radius:2px;animation:chpulse 1.2s ease-in-out infinite}
+.ch-skel i{flex:1;background:var(--border-subtle);border-radius:var(--radius-hair);animation:chpulse 1.2s ease-in-out infinite}
 @keyframes chpulse{0%,100%{opacity:.45}50%{opacity:.9}}
 
 /* —— tooltip：位置全部由 script 按几何算好，CSS 只保留"翻转"这一件事 ——
    ⚠️ pointer-events:none 必须保留：盒子挪到被 hover 对象外侧后会盖住相邻元素的悬停区，
       一旦吃掉事件就换不了点。 */
-.ch-tip{position:absolute;min-width:180px;padding:9px 11px;border-radius:8px;pointer-events:none;
+.ch-tip{position:absolute;min-width:180px;padding:9px 11px;border-radius:var(--radius-sm);pointer-events:none;
   background:var(--bg);border:1px solid var(--bd);box-shadow:var(--shadow-md);
   font-size:12px;z-index:5}
 .ch-tip.to-left{transform:translateX(-100%)}
@@ -75,7 +75,7 @@
 .ch-donut-svg{flex:none}
 .ch-donut-lg{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
 .ch-donut-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);min-width:0}
-.ch-donut-row .ch-lg-dot{width:8px;height:8px;border-radius:2px}
+.ch-donut-row .ch-lg-dot{width:8px;height:8px;border-radius:var(--radius-hair)}
 .ch-donut-row .ch-dn-name{color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ch-donut-row .ch-dn-val{margin-left:auto;color:var(--t1);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ch-donut-row .ch-dn-pct{color:var(--t3);font-variant-numeric:tabular-nums;width:46px;text-align:right;flex:none}
@@ -91,7 +91,7 @@
 .ch-note{font-size:12px;color:var(--t3)}
 /* —— 图表操作（导出图片）—— */
 .ch-act{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 8px;font-size:12px;
-  color:var(--t2);background:transparent;border:1px solid var(--bd);border-radius:6px}
+  color:var(--t2);background:transparent;border:1px solid var(--bd);border-radius:var(--radius-xs)}
 .ch-act:hover{color:var(--t1);background:var(--bg3)}
 .ch-act:disabled{opacity:.5;cursor:default}
 
@@ -105,7 +105,7 @@
       整幅等比缩放，**绝不拉扁**（v487 那版是 `none`，没有文字所以看不出来；
       现在有轴标签，一拉扁数字就变形）。
    ============================================================================ */
-.ch-md-card{margin:8px 0;padding:10px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg2)}
+.ch-md-card{margin:8px 0;padding:10px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg2)}
 .ch-md-ti{font-size:12px;font-weight:500;color:var(--t1);margin-bottom:6px}
 .ch-md-svg{width:100%;height:auto;display:block}
 .ch-md-grid{stroke:var(--chart-grid);stroke-width:1;stroke-dasharray:3 3}
@@ -118,9 +118,9 @@
 .ch-md-cv{font-size:15px;font-weight:600;fill:var(--t1)}
 .ch-md-legend{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:11px;color:var(--t2)}
 .ch-md-lg{display:inline-flex;align-items:center;gap:4px}
-.ch-md-lg i{width:8px;height:8px;border-radius:2px;flex:none}
+.ch-md-lg i{width:8px;height:8px;border-radius:var(--radius-hair);flex:none}
 /* 形态切换（走势 / 对比 / 占比） */
-.ch-md-seg{display:inline-flex;border:1px solid var(--bd);border-radius:6px;overflow:hidden;margin-bottom:6px}
+.ch-md-seg{display:inline-flex;border:1px solid var(--bd);border-radius:var(--radius-xs);overflow:hidden;margin-bottom:6px}
 .ch-md-segbtn{padding:2px 9px;font:inherit;font-size:11px;line-height:1.7;background:transparent;border:0;color:var(--t2);cursor:pointer}
 .ch-md-segbtn + .ch-md-segbtn{border-left:1px solid var(--bd)}
 .ch-md-segbtn.on{background:var(--p-solid);color:#fff}
@@ -129,7 +129,7 @@
 .ch-md-donut .ch-md-svg{flex:1 1 200px;min-width:150px}
 .ch-md-dl{flex:1 1 180px;display:flex;flex-direction:column;gap:4px;min-width:0}
 .ch-md-drow{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--t2);min-width:0}
-.ch-md-drow i{width:8px;height:8px;border-radius:2px;flex:none}
+.ch-md-drow i{width:8px;height:8px;border-radius:var(--radius-hair);flex:none}
 .ch-md-dn{color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .ch-md-dv{margin-left:auto;color:var(--t1);font-variant-numeric:tabular-nums;white-space:nowrap}
 .ch-md-dp{width:42px;text-align:right;color:var(--t3);font-variant-numeric:tabular-nums;flex:none}

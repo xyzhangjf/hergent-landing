@@ -68,7 +68,7 @@ function clearSel() { emit('update:modelValue', []) }
 .bf-mask { position: fixed; inset: 0; z-index: 40; }
 .bf-panel {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 42;
-  width: 250px; padding: 10px 12px; border-radius: var(--radius-sm, 8px);
+  width: 250px; padding: 10px 12px; border-radius: var(--radius-sm);
   background: var(--bg); border: 1px solid var(--bd); box-shadow: var(--shadow-md);
 }
 .bf-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; color: var(--t1); }

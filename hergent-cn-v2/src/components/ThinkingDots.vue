@@ -100,7 +100,7 @@ const ariaText = computed(() => (props.text || '加载中').replace(/…+$/, '')
 .td-dots i {
   width: var(--td-size, 6px);
   height: var(--td-size, 6px);
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: var(--td-color, var(--t3));
   animation: td-bounce var(--td-dur, 1.2s) infinite;
   will-change: transform, opacity;

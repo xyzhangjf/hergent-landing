@@ -508,7 +508,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 .cas-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap}
 .cas-stat{font-size:12px;color:var(--t2)}
 .cas-stat b{font-size:15px;color:var(--t1)}
-.sync-state{font-size:12px;padding:3px 10px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sync-state{font-size:12px;padding:3px 10px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
@@ -531,7 +531,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 
 /* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画统一由 components/Modal.vue 提供，
    本页只保留弹窗内部排版 —— 这些 class 都挂在 slot 内的元素上） */
-.cas-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 12px;background:var(--bg2);padding:8px 12px;border-radius:8px}
+.cas-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 12px;background:var(--bg2);padding:8px 12px;border-radius:var(--radius-sm)}
 
 .cas-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
 .cas-form-more{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-subtle)}
@@ -542,7 +542,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 .cas-f .input{height:32px;padding:0 10px}
 .cas-f-full{grid-column:1 / -1}
 .cas-ta{height:auto;min-height:60px;padding:8px 10px;line-height:1.6;resize:vertical;font-family:inherit}
-.cas-more{width:100%;margin-top:12px;padding:8px;border:1px dashed var(--border-subtle);border-radius:8px;
+.cas-more{width:100%;margin-top:12px;padding:8px;border:1px dashed var(--border-subtle);border-radius:var(--radius-sm);
   background:none;color:var(--t2);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .cas-more:hover{color:var(--p-ink);border-color:var(--p)}
 .cas-caret{font-size:11px}

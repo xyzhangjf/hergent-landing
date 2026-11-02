@@ -634,7 +634,7 @@ onMounted(load)
 .gr-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
 .gr-sel { padding: 4px 8px }
 .gr-date {
-  padding: 4px 8px; font-size: 12px; border-radius: 6px;
+  padding: 4px 8px; font-size: 12px; border-radius: var(--radius-xs);
   border: 1px solid var(--line); background: var(--bg1); color: var(--t1);
 }
 .gr-tilde { color: var(--t3); font-size: 12px }
@@ -650,11 +650,11 @@ onMounted(load)
 .gr-warn p { margin: 6px 0 0; font-size: 12px; line-height: 1.9; color: var(--t2) }
 .gr-foot { margin: 14px 2px 0; font-size: 12px; line-height: 1.9; color: var(--t2) }
 .gr-foot-dim { color: var(--t3) }
-.gr-foot code { background: var(--bg2); padding: 1px 5px; border-radius: 4px; font-size: 11px }
+.gr-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size: 11px }
 .gr-hollow { padding: 28px 24px; max-width: 720px; text-align: center }
 .gr-hollow-ic { color: var(--t3); margin-bottom: 6px }
 .gr-hollow h2 { font-size: 15px; font-weight: 600; color: var(--t1); margin-bottom: 10px }
 .gr-hollow-desc { font-size: 13px; color: var(--t2); line-height: 1.9; margin-bottom: 10px }
 .gr-hollow-foot { font-size: 12px; color: var(--t3); line-height: 1.8 }
-.gr-hollow code { background: var(--bg2); padding: 1px 5px; border-radius: 4px }
+.gr-hollow code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs) }
 </style>

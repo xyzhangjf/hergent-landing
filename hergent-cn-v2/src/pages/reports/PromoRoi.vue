@@ -283,7 +283,7 @@ onMounted(load)
 .pro-sec { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap }
 .pro-tag {
   display: inline-block; margin-left: 6px; padding: 0 6px; font-size: 11px; font-weight: 400;
-  border-radius: 8px; background: var(--warn-amber-bg); color: var(--warn);
+  border-radius: var(--radius-sm); background: var(--warn-amber-bg); color: var(--warn);
 }
 .pro-empty { padding: 6px 2px }
 .pro-empty-note { font-size: 12px; color: var(--t2); line-height: 1.9; margin: 0 }

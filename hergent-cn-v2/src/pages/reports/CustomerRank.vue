@@ -172,7 +172,7 @@ onMounted(() => { loadCustomers(); loadSalespersons(); load() })
 .cr-fl { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t2) }
 .cr-fl select {
   min-width: 160px; padding: 5px 8px; font-size: 12px; color: var(--t1);
-  background: var(--bg); border: 1px solid var(--bd); border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-xs);
 }
 .cr-hint { font-size: 11px; color: var(--t3); line-height: 1.6 }
 </style>

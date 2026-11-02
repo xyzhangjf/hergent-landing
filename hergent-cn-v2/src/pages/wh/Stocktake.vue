@@ -537,7 +537,7 @@ defineExpose({ load: loadList })
 /* 进度 */
 .wst-prog { display: flex; align-items: center; gap: 12px; margin-bottom: 12px }
 .wst-prog-bar {
-  flex: 1; height: 8px; border-radius: 999px; overflow: hidden;
+  flex: 1; height: 8px; border-radius: var(--radius-pill); overflow: hidden;
   background: var(--bg2); border: 1px solid var(--border-subtle);
 }
 .wst-prog-bar i { display: block; height: 100%; background: var(--p); transition: width var(--dur-slow) }

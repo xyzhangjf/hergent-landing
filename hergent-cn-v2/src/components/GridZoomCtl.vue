@@ -35,7 +35,7 @@ function set(v) {
 .zoom-group{display:inline-flex;align-items:center;gap:6px;margin-left:0;font-size:12px}
 .zoom-group .zb-btn{
   width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
-  border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:8px;cursor:pointer;
+  border:1px solid var(--bd);background:var(--bg);color:var(--t1);border-radius:var(--radius-sm);cursor:pointer;
   font-size:15px;line-height:1;padding:0;
 }
 .zoom-group .zb-btn:hover:not(:disabled){background:var(--bg2);color:var(--p-ink)}

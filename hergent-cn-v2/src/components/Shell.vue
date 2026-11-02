@@ -1680,30 +1680,30 @@ function stopResize() {
 <style scoped>
 .shell{display:flex;flex-direction:column;height:100vh;background:radial-gradient(1200px 420px at 72% -8%,rgba(6,182,212,.07),transparent 60%),var(--bg2)}
 .topbar{height:var(--topbar-h);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 20px;background:var(--glass-bg);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-bottom:1px solid var(--glass-border);flex-shrink:0;z-index:10}
-.tb-demo{margin-left:10px;font-size:11px;background:rgba(255,149,0,.15);color:var(--war);padding:2px 10px;border-radius:8px}
+.tb-demo{margin-left:10px;font-size:11px;background:rgba(255,149,0,.15);color:var(--war);padding:2px 10px;border-radius:var(--radius-sm)}
 /* v417f：标签栏插进顶栏中间 ⇒ 左右三组**都不许收缩**，否则标签一多就把
    右侧动作区（通知 / 主题 / 用户）挤没了。收缩只由中间的 `.tabbar` 承担。 */
 .tb-brand{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
-.tb-brand-logo{width:22px;height:22px;border-radius:6px;display:block}
+.tb-brand-logo{width:22px;height:22px;border-radius:var(--radius-xs);display:block}
 .tb-brand b{font-size:16px;font-weight:600;letter-spacing:.2px}
-.tb-sub{font-size:12px;color:var(--t3);padding:3px 8px;border-radius:8px;background:var(--p-bg);color:var(--p-dark)}
+.tb-sub{font-size:12px;color:var(--t3);padding:3px 8px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark)}
 .tb-right{display:flex;align-items:center;gap:8px;flex:1;min-width:0;justify-content:flex-end}
 /* v708：`.tb-btn` 与 `.tb-user` 都不许收缩 —— 顶栏空间不够时，宁可让空间从
    `.tb-brand`（有 flex:1 且 min-width:0）那里让出来，也不要挤压图标和名字。 */
-.tb-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2);flex-shrink:0}
+.tb-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);flex-shrink:0}
 .tb-btn:hover{background:var(--bg2);color:var(--p-dark)}
 /* 通知铃铛：未读数用中文数目直接显示，不用英文缩写 */
 .tb-bell{position:relative}
 /* v723：底色 `--dan` → `--dan-solid`。11px 白字在深色提亮红 #ff453a 上只有 3.41:1（需 4.5），
    徽标数字是本条最要紧的信息，不能是整页最淡的字。 */
-.tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--dan-solid);color:#fff;font-size:11px;line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
-.tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:16px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;max-width:180px}
+.tb-bell-n{position:absolute;top:2px;right:2px;min-width:15px;height:15px;padding:0 4px;border-radius:var(--radius-sm);background:var(--dan-solid);color:#fff;font-size:11px;line-height:15px;text-align:center;font-weight:600;box-shadow:0 0 0 2px var(--bg)}
+.tb-user{height:32px;display:flex;align-items:center;padding:0 12px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;flex-shrink:0;max-width:180px}
 /* v708：名字单行 + 过长省略（hover 有 title 看全）。`min-width:0` 是让 ellipsis 真正生效的前提
    —— flex item 默认 min-width:auto，内容多长就多长，省略号永远不出现。 */
 .tb-user-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
 .tb-ai{display:flex;align-items:center;gap:12px;flex-shrink:0}
-.tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:18px;background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all var(--dur-base)}
+.tb-copilot{display:flex;align-items:center;gap:8px;height:34px;padding:0 13px 0 11px;border:1px solid transparent;border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-dark);font-size:13px;font-weight:500;cursor:pointer;transition:all var(--dur-base)}
 .tb-copilot:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .tb-cp-ic{display:flex;align-items:center;justify-content:center}
 
@@ -1732,7 +1732,7 @@ function stopResize() {
    🔴 高度**不写死**：加 `height:38px` 会在字号/行高一变时把文字挤出去
       （`.psi-tbl` 就踩过"内容盒 8px < 复选框 13px"的同类坑）。
    🔴 纵向 padding 下限 5px：再小 16px 图标会贴上下边、圆角 10px 会吃到图标。 */
-.sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:8px;color:var(--t2);text-decoration:none;font-size:13px;line-height:1.6;transition:all var(--dur-base)}
+.sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:var(--radius-sm);color:var(--t2);text-decoration:none;font-size:13px;line-height:1.6;transition:all var(--dur-base)}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
 .sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 /* ⚠️ v390（2026-10-07）：原 `.sb-grp`（分组标题：经营 / 核算 / 配置）**已随分组一起删除**
@@ -1776,7 +1776,7 @@ function stopResize() {
    `flex-wrap:wrap` 是列数过多时的兜底（配合 `_placePop` 给的 `maxWidth`）。 */
 .sb-pop{position:fixed;min-width:168px;display:flex;align-items:flex-start;flex-wrap:wrap;
   background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);
-  border:1px solid var(--bd);border-radius:12px;padding:6px;z-index:var(--z-shell-pop);
+  border:1px solid var(--bd);border-radius:var(--radius-md);padding:6px;z-index:var(--z-shell-pop);
   /* v643：`maxHeight` 由 `_placePop` 按视口算好 ⇒ 内容超长时在弹窗**内部滚动**，
      不再溢出屏幕底部（改之前无高度约束，长列会被截断且无法滚到）。 */
   overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
@@ -1793,7 +1793,7 @@ function stopResize() {
    条目名字长短不一时，右边的「创建」仍然**左右对齐**（§八 风险 6：靠分离度防误触）。 */
 .sb-pop-row{display:flex;align-items:center;gap:4px}
 .sb-pop-row>.sb-pop-item{flex:1;min-width:0;width:auto}
-.sb-pop-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:8px;
+.sb-pop-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border-radius:var(--radius-sm);
   color:var(--t2);text-decoration:none;font-size:13px;white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-item:hover{background:var(--bg);color:var(--t1)}
 /* 🔴 v390：高亮判据由 `.router-link-active` 换成 `.cur`（判定见 `isCur()` 段注释）——
@@ -1803,17 +1803,17 @@ function stopResize() {
 .sb-pop-item.cur{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 /* 行尾「创建」（L1 双入口的右半区）。桌面用**文字**而非纯图标：横向空间够，
    「创建」不需要学习成本（§七：手机端横向紧才改用 `＋`，那随批次 5 一起做）。 */
-.sb-pop-new{display:flex;align-items:center;gap:3px;flex-shrink:0;padding:6px 9px;border-radius:8px;
+.sb-pop-new{display:flex;align-items:center;gap:3px;flex-shrink:0;padding:6px 9px;border-radius:var(--radius-sm);
   background:var(--p-bg);color:var(--p-dark);text-decoration:none;font-size:12px;
   white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-new:hover{background:var(--p-solid);color:#fff}
 /* v640（2026-10-22）：借鉴舟谱弹窗内「明细」次级入口 + 状态标签。
    两者都 `flex-shrink:0` 右对齐（行内 `.sb-pop-item` 是 `flex:1` 吃掉剩余宽度）；
    与 `.sb-pop-new`（L1 双入口右半区）同一套版式语言。 */
-.sb-pop-drill{font-size:11px;line-height:1;padding:3px 7px;border-radius:6px;
+.sb-pop-drill{font-size:11px;line-height:1;padding:3px 7px;border-radius:var(--radius-xs);
   background:var(--p-bg);color:var(--p-dark);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-drill:hover{background:var(--p-solid);color:#fff}
-.sb-pop-badge{font-size:11px;line-height:1;padding:2px 6px;border-radius:6px;white-space:nowrap;flex-shrink:0}
+.sb-pop-badge{font-size:11px;line-height:1;padding:2px 6px;border-radius:var(--radius-xs);white-space:nowrap;flex-shrink:0}
 .sb-pop-badge.tone-warn{background:var(--war-bg);color:var(--war)}
 .sb-pop-badge.tone-danger{background:var(--dan-bg);color:var(--dan)}
 .sb-pop-badge.tone-info{background:var(--p-bg);color:var(--p-dark)}
@@ -1821,12 +1821,12 @@ function stopResize() {
 .sb-pop-recent{display:flex;align-items:center;gap:6px;flex-wrap:wrap;
   padding:4px 8px 8px;margin:2px 0 6px;border-bottom:1px solid var(--bd);width:100%}
 .sb-pop-recent-lb{font-size:11px;color:var(--t3);letter-spacing:.5px;flex-shrink:0}
-.sb-pop-recent-chip{font-size:12px;padding:3px 8px;border-radius:999px;background:var(--bg);
+.sb-pop-recent-chip{font-size:12px;padding:3px 8px;border-radius:var(--radius-pill);background:var(--bg);
   color:var(--t2);text-decoration:none;white-space:nowrap;max-width:160px;overflow:hidden;
   text-overflow:ellipsis;transition:all var(--dur-base)}
 .sb-pop-recent-chip:hover{background:var(--p-bg);color:var(--p-dark)}
 /* 已打开：条目名右侧一个小圆点（不占额外行高，避免改动行节奏）。 */
-.sb-pop-dot{width:5px;height:5px;border-radius:50%;background:var(--p);flex-shrink:0;margin-left:auto}
+.sb-pop-dot{width:5px;height:5px;border-radius:var(--radius-circle);background:var(--p);flex-shrink:0;margin-left:auto}
 
 .md-group-hd{font-size:11px;font-weight:500;color:var(--t3);padding:14px 20px 4px;letter-spacing:.8px}
 
@@ -1861,8 +1861,8 @@ function stopResize() {
    ⚠️ 为什么是 `100vh - 96px` 而不是 `100vh`：留出上方一段，让用户仍能看出这是个
       **底部弹层**、并且点得到 `.md-overlay` 关掉它。`dvh` 那行是移动端浏览器
       地址栏收放导致 `vh` 偏大的兜底（不支持 `dvh` 的旧内核自动忽略第二行）。 */
-.md-sheet{position:fixed;left:0;right:0;bottom:0;max-height:calc(100vh - 96px);max-height:calc(100dvh - 96px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:16px 16px 0 0;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:1130}
-.md-grab{width:36px;height:4px;border-radius:2px;background:var(--bd);margin:6px auto 10px}
+.md-sheet{position:fixed;left:0;right:0;bottom:0;max-height:calc(100vh - 96px);max-height:calc(100dvh - 96px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--glass-bg-strong);backdrop-filter:var(--glass-blur);-webkit-backdrop-filter:var(--glass-blur);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:8px 0 calc(12px + env(safe-area-inset-bottom));z-index:1130}
+.md-grab{width:36px;height:4px;border-radius:var(--radius-hair);background:var(--bd);margin:6px auto 10px}
 /* v393：抽屉一行 = 左「条目」+（可选）右「＋」。`.md-row` 让左边吃掉剩余宽度、
    右边固定不缩 —— 与桌面 `.sb-pop-row` 同一套版式（名字长短不一时「＋」仍然右对齐）。 */
 .md-row{display:flex;align-items:center}
@@ -1871,7 +1871,7 @@ function stopResize() {
 .md-item:active{background:var(--bg4)}
 /* 手机端「＋」（L1 双入口的右半区）：横向紧 ⇒ 纯图标（桌面 `.sb-pop-new` 用「＋ 创建」文字）。
    ⚠️ 命中区靠 36×36 撑住，别缩成 16px 图标本身；`margin-right` 与条目右侧留白对齐。 */
-.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:14px;border-radius:8px;background:var(--p-bg);color:var(--p-dark);text-decoration:none}
+.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:14px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);text-decoration:none}
 .md-item-new:active{background:var(--p-solid);color:#fff}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
@@ -1880,8 +1880,8 @@ function stopResize() {
 
 .tb-user-caret{margin-left:5px;opacity:.7;transition:transform var(--dur-base)}
 .tb-menu-mask{position:fixed;inset:0;z-index:40}
-.tb-menu{position:absolute;top:44px;right:18px;background:var(--bg);border:1px solid var(--glass-border);border-radius:12px;box-shadow:0 10px 34px rgba(0,0,0,.14);padding:6px;min-width:150px;z-index:50}
-.tb-menu-item{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:none;border-radius:8px;color:var(--t1);font-size:13px;cursor:pointer;transition:background var(--dur-base)}
+.tb-menu{position:absolute;top:44px;right:18px;background:var(--bg);border:1px solid var(--glass-border);border-radius:var(--radius-md);box-shadow:0 10px 34px rgba(0,0,0,.14);padding:6px;min-width:150px;z-index:50}
+.tb-menu-item{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:none;border-radius:var(--radius-sm);color:var(--t1);font-size:13px;cursor:pointer;transition:background var(--dur-base)}
 .tb-menu-item:hover{background:var(--bg2)}
 .tb-menu-item.danger{color:var(--dan)}
 
@@ -1889,18 +1889,18 @@ function stopResize() {
    于是「修改资料」打开时工具栏的导出/复制报单/品牌三个按钮浮在遮罩之上、可点穿。
    本元素非 Teleport（在 .shell 内），而 .shell 无 stacking context，改值即生效。 */
 .pf-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:1130;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
-.pf-modal{width:380px;max-width:92vw;background:var(--bg);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.pf-modal{width:380px;max-width:92vw;background:var(--bg);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
 .pf-hd{padding:16px 20px;font-size:15px;font-weight:600;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
 .pf-bd{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
 .pf-field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--t2)}
-.pf-field input{height:40px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--bg2);color:var(--t1);font-size:14px;outline:none}
+.pf-field input{height:40px;padding:0 12px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:14px;outline:none}
 .pf-field input:focus{border-color:var(--p)}
 .pf-field small{color:var(--t3);font-size:11px}
 .pf-msg{font-size:12px}
 .pf-msg.ok{color:var(--suc)}
 .pf-msg.err{color:var(--dan)}
 .pf-ft{padding:14px 20px;display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border-subtle)}
-.pf-btn{height:36px;padding:0 18px;border-radius:8px;border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer;transition:all var(--dur-base)}
+.pf-btn{height:36px;padding:0 18px;border-radius:var(--radius-sm);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer;transition:all var(--dur-base)}
 .pf-btn:hover{background:var(--bg3)}
 .pf-btn.primary{background:var(--p-solid);border-color:var(--p-solid);color:#fff}
 .pf-btn.primary:hover{opacity:.92}

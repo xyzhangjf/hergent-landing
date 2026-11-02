@@ -331,7 +331,7 @@ onMounted(async () => {
 
 <style scoped>
 .lf-steps{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-.lf-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:16px;background:var(--bg2);border:1px solid var(--border-subtle)}
+.lf-step{font-size:13px;color:var(--t3);padding:6px 14px;border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
 .lf-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
 .lf-arrow{color:var(--t3);font-size:12px}
 .lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:14px;font-weight:500;color:var(--t1);padding:0}
@@ -346,7 +346,7 @@ onMounted(async () => {
 
 .lf-radios{display:flex;flex-wrap:wrap;gap:8px}
 .lf-radios.inline{gap:12px}
-.lf-radio{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--bd);border-radius:8px;font-size:13px;color:var(--t2);cursor:pointer;transition:all var(--dur-base);background:var(--bg)}
+.lf-radio{display:flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:13px;color:var(--t2);cursor:pointer;transition:all var(--dur-base);background:var(--bg)}
 .lf-radio input{display:none}
 .lf-radio.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark);font-weight:500}
 
@@ -370,8 +370,8 @@ onMounted(async () => {
 .lf-group-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;margin-bottom:6px}
 .lf-group-name{font-weight:500;color:var(--t1)}
 .lf-group-meta{font-size:12px;color:var(--t2);white-space:nowrap}
-.lf-group-bar{height:8px;border-radius:4px;background:var(--bg4);overflow:hidden}
-.lf-group-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--war),var(--dan));transition:width .5s}
+.lf-group-bar{height:8px;border-radius:var(--radius-2xs);background:var(--bg4);overflow:hidden}
+.lf-group-fill{height:100%;border-radius:var(--radius-2xs);background:linear-gradient(90deg,var(--war),var(--dan));transition:width .5s}
 
 .lf-spec{display:inline-block;margin-left:6px;font-size:11px;color:var(--t3)}
 .lf-footnote{font-size:12px;color:var(--t3)}

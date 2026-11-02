@@ -1,6 +1,6 @@
 <template>
   <!-- v126：品牌目标 = 一张 12 行月表。年度只是「铺满 12 格」，单期只是「只填 1 格」 -->
-  <div class="monthly-block" style="margin:8px 0 4px;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;background:rgba(var(--p-rgb),.04)">
+  <div class="monthly-block" style="margin:8px 0 4px;border:1px solid var(--bd);border-radius:var(--radius-sm);padding:10px 12px;background:rgba(var(--p-rgb),.04)">
     <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
       <b>品牌目标</b>
       <span class="page-sub" style="flex:1;min-width:220px">
@@ -86,6 +86,6 @@ defineEmits([
 
 <style scoped>
 .monthly-block .page-sub{font-size:12px;color:var(--t3);line-height:1.5}
-.ap-warn{font-size:12px;color:var(--danger);background:rgba(192,57,43,.08);border-radius:6px;padding:6px 8px;margin-bottom:6px;line-height:1.5}
+.ap-warn{font-size:12px;color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:6px 8px;margin-bottom:6px;line-height:1.5}
 .mg-default{margin-top:10px;border-top:1px dashed var(--bd);padding-top:6px}
 </style>

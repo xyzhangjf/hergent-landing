@@ -263,7 +263,7 @@ onMounted(load)
    与 `.ap-excl`（报单自动化面板里那条）同族：都用主色 6% 底 + 主深字。 */
 .hist-skip {
   margin: 0 0 12px; font-size: 12px; line-height: 1.65; color: var(--p-dark);
-  background: rgba(var(--p-rgb), .06); border-radius: var(--radius-xs, 6px); padding: 7px 10px;
+  background: rgba(var(--p-rgb), .06); border-radius: var(--radius-xs); padding: 7px 10px;
 }
 .history-loading, .history-empty { color: var(--t3); padding: 40px 0; text-align: center; font-size: 13px; }
 /* 列数从 9 增到 10（v319 新增「加单通知」列）⇒ 最小宽度同步放宽，避免操作列被压成两行 */

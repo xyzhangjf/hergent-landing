@@ -2205,7 +2205,7 @@ onMounted(() => {
 
 <style scoped>
 .sync-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0}
-.sync-state{font-size:12px;padding:3px 10px;border-radius:8px;background:var(--bg2);color:var(--t3);white-space:nowrap}
+.sync-state{font-size:12px;padding:3px 10px;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
@@ -2215,15 +2215,15 @@ onMounted(() => {
    🔴 用全局 `.input` 的原高（40px）会把整行顶到 40+，表格瞬间变稀疏；
       这里收到 26px（与 .btn-row-ic 同档），行高由它决定，不再被文本撑。 */
 .hd-sel{height:26px;line-height:24px;padding:0 6px;font-size:12px;min-width:120px}
-.df-tip code{background:var(--bg2);padding:1px 6px;border-radius:6px;font-size:12px}
+.df-tip code{background:var(--bg2);padding:1px 6px;border-radius:var(--radius-xs);font-size:12px}
 /* v312：角色默认端的出处说明 / 内联小按钮 / 「与角色配置不一致」提示条 */
 .df-scope-src{margin:0 0 12px}
 .df-mini-lnk{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:12px;padding:0 2px;text-decoration:underline}
 .df-mini-lnk:hover{color:var(--p-dark)}
 .df-mismatch{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 10px;padding:7px 10px;border-radius:var(--radius-md);background:var(--bg3)}
-.df-mismatch-tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:20px;background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
+.df-mismatch-tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:var(--radius-pill);background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
 .df-mismatch-txt{font-size:12px;color:var(--t2);line-height:1.6;min-width:0;flex:1 1 240px}
-.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:8px;font-size:12px}
+.df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:8px 12px;border-radius:var(--radius-sm);font-size:12px}
 
 .df-ph{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .df-ph-right{display:flex;align-items:center;gap:10px}
@@ -2248,7 +2248,7 @@ onMounted(() => {
 /* v717：9 个角色的**前景色**全部改走 --role-txt-* 令牌（浅/深两套已按各自底实测过）。
    原先写的是 Tailwind 500 系亮色，对各自的 rgba(.14) 浅底只有 1.93~3.75:1，
    主管（靛）3.75、导购（紫）3.33 —— 评审 P0 §1.2 点名项。底色一律不动。 */
-.df-role{display:inline-block;font-size:11px;padding:1px 7px;border-radius:6px;margin-left:6px;background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--role-txt-staff);white-space:nowrap}
+.df-role{display:inline-block;font-size:11px;padding:1px 7px;border-radius:var(--radius-xs);margin-left:6px;background:rgba(var(--teal-rgb,14,165,164),.14);color:var(--role-txt-staff);white-space:nowrap}
 .df-role.r-admin{background:rgba(239,68,68,.14);color:var(--role-txt-admin)}
 .df-role.r-boss{background:rgba(234,88,12,.14);color:var(--role-txt-boss)}
 .df-role.r-accountant{background:rgba(59,130,246,.14);color:var(--role-txt-accountant)}
@@ -2289,7 +2289,7 @@ onMounted(() => {
 
 /* 停用视觉 */
 .tbl tbody tr.stopped td{color:var(--t3);background:var(--bg2)}
-.stopped-tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:8px;background:var(--st-draft-bg);color:var(--st-draft-txt)}
+.stopped-tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:var(--radius-sm);background:var(--st-draft-bg);color:var(--st-draft-txt)}
 .btn.danger{color:var(--dan)}
 .btn-danger{background:var(--dan-solid);color:#fff;border:none}
 .btn-danger:hover{filter:brightness(.95)}
@@ -2319,7 +2319,7 @@ onMounted(() => {
 /* 到期徽标：贴在「合同到期」标签右侧。用**语义色对**（--danger/warn/ok-green 的 -bg 版），
    不自己调 rgba —— 深色模式下这四组是成对定义的，拍数字会在暗色里发灰。 */
 .cf-end-tip{font-style:normal;font-size:11px;font-weight:600;margin-left:6px;
-  padding:1px 6px;border-radius:6px;line-height:1.5;white-space:nowrap}
+  padding:1px 6px;border-radius:var(--radius-xs);line-height:1.5;white-space:nowrap}
 .cf-end-tip.is-expired{color:var(--danger-txt);background:var(--danger-bg)}
 .cf-end-tip.is-soon{color:var(--warn-amber);background:var(--warn-amber-bg)}
 .cf-end-tip.is-ok{color:var(--ok-green);background:var(--ok-green-bg)}
@@ -2371,18 +2371,18 @@ onMounted(() => {
    原先这一段是「各自独立保存」的（卡片以内自己存，卡片以外归底部「保存基本信息」），
    边框用来告诉用户"一个保存单位"到哪儿为止；v382 把三个保存按钮并成一个之后，
    **整窗只有一个保存入口**，边框只剩"这块属于登录账号"的分组含义。 */
-.df-acc-card{border:1px solid var(--border-subtle);border-radius:12px;padding:14px 14px 15px;background:var(--bg2);gap:11px}
+.df-acc-card{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:14px 14px 15px;background:var(--bg2);gap:11px}
 .df-acc-card-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .df-acc-card-t{font-size:12px;font-weight:600;color:var(--t1)}
 /* 文字色跟主题走（浅色=深字 / 深色=浅字），只有底色是黄调 —— 避免深色主题下看不清。 */
-.df-dirty-tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:20px;background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5)}
+.df-dirty-tag{font-size:12px;font-weight:600;padding:1px 8px;border-radius:var(--radius-pill);background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5)}
 .df-acc-card-tip{font-size:12px;color:var(--t3);margin:-4px 0 0;line-height:1.6}
 .df-acc-card-tip b{color:var(--t2)}
 /* v290：操作行 + 紧贴其下的展开区（输入框**不再**长在按钮上方、隔着别的区块）。 */
 .df-acc-ops{padding-top:1px}
 .df-acc-ops .btn.is-on{border-color:var(--teal);color:var(--teal)}
 .df-acc-right{margin-left:auto}
-.df-acc-expand{display:flex;flex-direction:column;gap:10px;padding:10px 11px;border-radius:8px;background:var(--bg);border:1px dashed var(--border-subtle)}
+.df-acc-expand{display:flex;flex-direction:column;gap:10px;padding:10px 11px;border-radius:var(--radius-sm);background:var(--bg);border:1px dashed var(--border-subtle)}
 .df-acc-exp-label{font-size:12px;color:var(--t2);flex-shrink:0;min-width:56px}
 .df-acc-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .df-acc-row .input, .df-acc-row select{flex:1;min-width:0}
@@ -2392,13 +2392,13 @@ onMounted(() => {
 .df-acc-extra{align-items:flex-start;flex-direction:column;gap:7px}
 .df-acc-extra-tip{font-size:12px;color:var(--t3)}
 .df-extra-chips{display:flex;flex-wrap:wrap;gap:6px}
-.df-extra-chips .chip{border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:12px;padding:3px 10px;border-radius:20px;cursor:pointer;font-family:inherit;line-height:1.6}
+.df-extra-chips .chip{border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:12px;padding:3px 10px;border-radius:var(--radius-pill);cursor:pointer;font-family:inherit;line-height:1.6}
 .df-extra-chips .chip:hover{border-color:var(--teal)}
 .df-extra-chips .chip.on{background:rgba(var(--teal-rgb,14,165,164),.14);border-color:var(--teal);color:var(--teal);font-weight:600}
 .df-extra-chips .chip:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
 /* Q29（2026-09-19）忘记密码：一次性重置码的展示区 */
 .rc-tip{font-size:12px;color:var(--t3);line-height:1.5}
-.rc-box{gap:10px;background:var(--bg2);border-radius:8px;padding:8px 12px}
+.rc-box{gap:10px;background:var(--bg2);border-radius:var(--radius-sm);padding:8px 12px}
 .rc-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:20px;letter-spacing:3px;color:var(--teal)}
 .rc-exp{font-size:12px;color:var(--t3);margin-left:auto}
 .btn-block{width:100%}
@@ -2407,7 +2407,7 @@ onMounted(() => {
    而角色 label 是「财务/文员（仅网页端 · 账务 / 报表 / 订货）」这种长句，窄屏被硬切成半截。
    补自绘 chevron（背景 svg + 右侧让位 padding）；关闭态走省略号，全称在 title 里（长按/hover 可见）。
    注意：必须写 `background-color` 而不是 `background` 简写 —— 简写会把 background-image 一起重置掉。 */
-.acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:8px;padding:0 32px 0 11px;font-size:13px;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;color:var(--t1);appearance:none;-webkit-appearance:none;cursor:pointer;text-overflow:ellipsis;white-space:nowrap}
+.acc-role{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 32px 0 11px;font-size:13px;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;color:var(--t1);appearance:none;-webkit-appearance:none;cursor:pointer;text-overflow:ellipsis;white-space:nowrap}
 
 /* ============================================================
    v706 响应式（断点 768px —— 与全站「移动端基础」一致，见 variables.css）

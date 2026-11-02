@@ -1304,20 +1304,20 @@ watch([fromPo], () => { reinit() })
 .ipn-at-list li {
   display: inline-flex; align-items: center; gap: 6px; max-width: 280px;
   padding: 2px 4px 2px 10px; background: var(--bg); border: 1px solid var(--bd);
-  border-radius: 999px; font-size: 12px; color: var(--t1);
+  border-radius: var(--radius-pill); font-size: 12px; color: var(--t1);
 }
 .ipn-at-nm { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .ipn-at-sz { color: var(--t3); font-variant-numeric: tabular-nums; flex: none }
 .ipn-at-x {
   display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px; padding: 0; border: 0; background: transparent;
-  color: var(--t3); cursor: pointer; border-radius: 50%; flex: none;
+  color: var(--t3); cursor: pointer; border-radius: var(--radius-circle); flex: none;
 }
 .ipn-at-x:hover { background: var(--bg2); color: var(--dan) }
 .ipn-at-msg { margin: 0; font-size: 12px; color: var(--dan) }
 /* 页头按钮上的个数角标（对齐详情页附件入口的角标做法） */
 .ipn-at-badge {
-  margin-left: 5px; padding: 0 6px; border-radius: 8px;
+  margin-left: 5px; padding: 0 6px; border-radius: var(--radius-sm);
   background: var(--bg2); color: var(--t2); border: 1px solid var(--bd);
   font-size: 11px; font-variant-numeric: tabular-nums;
 }
@@ -1582,7 +1582,7 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
   font-size: 12px; line-height: 1.5; color: var(--t1);
   background: rgba(var(--war-rgb), .1);
   border: 1px solid rgba(var(--war-rgb), .35);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 .ipn-hist-warn svg { flex: 0 0 auto; margin-top: 2px; color: var(--war) }
 .ipn-hist-dot {
@@ -1609,7 +1609,7 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 .ipn-mi-disabled { color: var(--t3); cursor: default }
 .ipn-mi-tag {
   margin-left: 4px; padding: 0 4px; font-size: 11px; color: var(--t3);
-  border: 1px solid var(--bd); border-radius: 6px;
+  border: 1px solid var(--bd); border-radius: var(--radius-xs);
 }
 .ipn-caret {
   width: 0; height: 0;

@@ -200,7 +200,7 @@ onBeforeUnmount(() => {
 .kbd-chip{
   display:inline-flex;align-items:center;gap:5px;
   height:20px;padding:0 9px;
-  border:1px solid var(--bd);border-radius:999px;
+  border:1px solid var(--bd);border-radius:var(--radius-pill);
   background:var(--bg2);color:var(--t2);
   font-size:12px;line-height:18px;white-space:nowrap;
   cursor:pointer;user-select:none;align-self:center;
@@ -226,7 +226,7 @@ onBeforeUnmount(() => {
 .kp-hd b{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--t1)}
 .kp-hd svg.ico{width:15px;height:15px;vertical-align:-2px}
 .kp-esc{margin-left:auto;font-size:11px;color:var(--t3);display:inline-flex;align-items:center;gap:4px}
-.kp-x{border:0;background:transparent;color:var(--t3);cursor:pointer;padding:2px;display:inline-flex;border-radius:6px}
+.kp-x{border:0;background:transparent;color:var(--t3);cursor:pointer;padding:2px;display:inline-flex;border-radius:var(--radius-xs)}
 .kp-x:hover{background:var(--bg2);color:var(--t1)}
 .kp-x svg.ico{width:14px;height:14px}
 
@@ -241,7 +241,7 @@ onBeforeUnmount(() => {
 .kp-keys{flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;min-width:96px}
 .kp-keys kbd{
   display:inline-block;padding:0 5px;
-  border:1px solid var(--bd);border-bottom-width:2px;border-radius:4px;
+  border:1px solid var(--bd);border-bottom-width:2px;border-radius:var(--radius-2xs);
   background:var(--bg2);font-family:var(--mono,ui-monospace,monospace);
   font-size:11px;line-height:16px;color:var(--t1);white-space:nowrap;
 }

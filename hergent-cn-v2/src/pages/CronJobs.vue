@@ -334,7 +334,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .push-card{grid-column:span 5}
 .exec-card{grid-column:1/-1}
 .sub{font-size:12px;color:var(--t3);margin:2px 0 0}
-.tb-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;border-radius:8px;color:var(--t2);cursor:pointer}
+.tb-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer}
 .tb-btn:hover{background:var(--bg2);color:var(--dan)}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;color:var(--t2);margin-bottom:6px}
@@ -342,7 +342,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .field label.chk-label input{accent-color:var(--p)}
 .field textarea{height:auto;resize:vertical;padding:10px 14px;line-height:1.6}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
-.chip{padding:6px 12px;border:1px solid var(--bd);border-radius:16px;background:var(--bg3);color:var(--t2);font-size:12px;cursor:pointer;transition:all var(--dur-base)}
+.chip{padding:6px 12px;border:1px solid var(--bd);border-radius:var(--radius-lg);background:var(--bg3);color:var(--t2);font-size:12px;cursor:pointer;transition:all var(--dur-base)}
 .chip:hover{border-color:var(--p-dark);color:var(--p-dark)}
 .chip.on{background:var(--p-bg);border-color:var(--p-dark);color:var(--p-dark);font-weight:500}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
@@ -353,7 +353,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .push-ic{font-size:20px}
 .push-row b{font-size:14px;color:var(--t1)}
 .push-row .btn{margin-left:auto;flex-shrink:0}
-.push-help{margin-top:12px;background:var(--bg2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8}
+.push-help{margin-top:12px;background:var(--bg2);border-radius:var(--radius-sm);padding:12px 16px;font-size:12px;color:var(--t2);line-height:1.8}
 .push-help ol{margin:4px 0 0;padding-left:18px}
 .push-set{display:flex;gap:8px;margin-top:12px}
 .push-set .input{flex:1;height:32px;padding:0 12px;font-size:13px}
@@ -365,7 +365,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .exec-empty{margin:10px 0 2px;font-size:12px;color:var(--t3);line-height:1.7}
 .exec-list{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
 .exec-item{display:flex;gap:10px;align-items:flex-start}
-.exec-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--t3);flex-shrink:0}
+.exec-dot{width:8px;height:8px;border-radius:var(--radius-circle);margin-top:6px;background:var(--t3);flex-shrink:0}
 .exec-dot.ok{background:var(--suc)}
 .exec-dot.bad{background:var(--dan)}
 .exec-body{flex:1;min-width:0}

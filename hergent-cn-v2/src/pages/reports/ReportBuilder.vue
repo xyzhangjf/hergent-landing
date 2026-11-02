@@ -637,14 +637,14 @@ onMounted(loadList)
 
 .rb-item {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  width: 100%; padding: 7px 9px; margin-bottom: 2px; border: 0; border-radius: 6px;
+  width: 100%; padding: 7px 9px; margin-bottom: 2px; border: 0; border-radius: var(--radius-xs);
   background: transparent; cursor: pointer; text-align: left;
   font-size: 12px; color: var(--t1);
 }
 .rb-item:hover { background: var(--bg2) }
 .rb-item.on { background: var(--pri-w); color: var(--pri); font-weight: 600 }
 .rb-item-t { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
-.rb-item-s { font-size: 11px; padding: 1px 5px; border-radius: 999px; flex-shrink: 0 }
+.rb-item-s { font-size: 11px; padding: 1px 5px; border-radius: var(--radius-pill); flex-shrink: 0 }
 .s-ok { background: var(--suc-bg); color: var(--suc) }
 .s-warn { background: var(--war-bg); color: var(--war) }
 .s-off { background: var(--bg3); color: var(--t3) }
@@ -658,17 +658,17 @@ onMounted(loadList)
 .rb-sec-note { font-size: 12px; font-weight: 400; color: var(--t3) }
 .rb-sec-note b { color: var(--war) }
 .rb-sec-note code, .rb-hint code, .rb-params-empty code {
-  background: var(--bg2); padding: 1px 4px; border-radius: 3px; font-size: 11px;
+  background: var(--bg2); padding: 1px 4px; border-radius: var(--radius-2xs); font-size: 11px;
 }
 
-.rb-badge { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--bg3); color: var(--t3) }
+.rb-badge { font-size: 11px; padding: 1px 6px; border-radius: var(--radius-pill); background: var(--bg3); color: var(--t3) }
 .rb-badge-manual { background: var(--war-bg); color: var(--war) }
 
 .rb-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px }
 @media (max-width: 760px) { .rb-grid2 { grid-template-columns: 1fr } }
 .rb-fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--t3) }
 .rb-in {
-  padding: 6px 8px; font-size: 12px; border-radius: 6px;
+  padding: 6px 8px; font-size: 12px; border-radius: var(--radius-xs);
   border: 1px solid var(--line); background: var(--bg1); color: var(--t1);
   min-width: 0;
 }
@@ -676,7 +676,7 @@ onMounted(loadList)
 .rb-hint { margin-top: 8px; font-size: 12px; color: var(--t3); line-height: 1.8 }
 
 .rb-sql {
-  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px;
+  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: var(--radius-sm);
   border: 1px solid var(--line); background: var(--bg2); color: var(--t1);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.7;
   resize: vertical;
@@ -696,7 +696,7 @@ onMounted(loadList)
 .rb-col-ops { display: flex; gap: 2px }
 .rb-x {
   width: 22px; height: 22px; line-height: 1; padding: 0; border: 1px solid var(--line);
-  background: var(--bg1); color: var(--t2); border-radius: 4px; cursor: pointer; font-size: 12px;
+  background: var(--bg1); color: var(--t2); border-radius: var(--radius-2xs); cursor: pointer; font-size: 12px;
 }
 .rb-x:disabled { opacity: .35; cursor: default }
 .rb-col input[type="checkbox"] { width: 15px; height: 15px }
@@ -716,13 +716,13 @@ onMounted(loadList)
 .rb-chk input { width: 15px; height: 15px }
 .rb-chart-warn {
   display: flex; align-items: center; gap: 6px; margin: 10px 0 0;
-  font-size: 12px; color: var(--war); background: var(--war-bg); padding: 7px 10px; border-radius: 6px;
+  font-size: 12px; color: var(--war); background: var(--war-bg); padding: 7px 10px; border-radius: var(--radius-xs);
 }
 .rb-fig-prev { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line) }
 .rb-fig-hd { font-size: 12px; color: var(--t3); margin-bottom: 8px }
 
 .rb-note {
-  width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 8px;
+  width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: var(--radius-sm);
   border: 1px solid var(--line); background: var(--bg1); color: var(--t1);
   font-size: 12px; line-height: 1.9; resize: vertical;
 }
@@ -736,5 +736,5 @@ onMounted(loadList)
 .rb-hollow p { font-size: 12px; color: var(--t2); line-height: 1.9 }
 
 .rb-foot { margin: 14px 2px 0; font-size: 12px; line-height: 1.9; color: var(--t3) }
-.rb-foot code { background: var(--bg2); padding: 1px 5px; border-radius: 4px }
+.rb-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs) }
 </style>

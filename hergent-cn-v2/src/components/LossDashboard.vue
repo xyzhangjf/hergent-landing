@@ -540,7 +540,7 @@ html.dark .dsh {
 .dsh-hd { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
 .dsh-hd b { font-size: 15px; font-weight: 600; color: var(--t1); }
 .dsh-sub { font-size: 12px; color: var(--t2); }
-.dsh-note { font-size: 12px; padding: 3px 9px; border-radius: 999px; }
+.dsh-note { font-size: 12px; padding: 3px 9px; border-radius: var(--radius-pill); }
 .dsh-note.war { color: var(--warn-amber); background: var(--warn-amber-bg); }
 
 /* ── 空态 / 「数据不全所以净额偏大」告警（左侧色条替掉整块底色，读起来不刺）── */
@@ -591,8 +591,8 @@ html.dark .dsh {
    左竖条是"分区锚"，替代再加一行分区标题（本页文案不增）。 */
 .lg { display: flex; align-items: center; gap: 14px; margin-left: auto; font-size: 12px; color: var(--t2); font-weight: 400; }
 .lg-wrap { margin-left: 0; margin-top: 10px; flex-wrap: wrap; gap: 8px 16px; }
-.lg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
-.lg i.ln { height: 3px; border-radius: 2px; width: 14px; }
+.lg i { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-2xs); margin-right: 5px; vertical-align: -1px; }
+.lg i.ln { height: 3px; border-radius: var(--radius-hair); width: 14px; }
 .lg span { display: inline-flex; align-items: center; }
 
 .dsh-svg { margin-top: 12px; }
@@ -619,13 +619,13 @@ html.dark .dsh {
   padding: 3px 6px; border-radius: var(--radius-sm); transition: background var(--dur-fast) ease;
 }
 .rk-row:hover { background: var(--bg2); }
-.rk-tag { width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 6px;
+.rk-tag { width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: var(--radius-xs);
   font-size: 11px; background: var(--bg4); color: var(--t2); }
 .rk-tag.k-store { background: var(--p-bg); color: var(--p-deep); }
 .rk-tag.k-operator { background: var(--warn-amber-bg); color: var(--warn-amber); }
 .rk-nm { color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rk-bar { height: 14px; background: var(--bg2); border-radius: 8px; overflow: hidden; }
-.rk-bar i { display: block; height: 100%; border-radius: 8px; min-width: 3px; transition: width var(--dur-slow) ease; }
+.rk-bar { height: 14px; background: var(--bg2); border-radius: var(--radius-sm); overflow: hidden; }
+.rk-bar i { display: block; height: 100%; border-radius: var(--radius-sm); min-width: 3px; transition: width var(--dur-slow) ease; }
 .rk-v { text-align: right; color: var(--t1); font-variant-numeric: tabular-nums; }
 .rk-v.good { color: var(--suc); }
 .rk-r { text-align: right; color: var(--c-rate); font-variant-numeric: tabular-nums; }

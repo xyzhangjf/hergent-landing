@@ -394,9 +394,9 @@ function goWorkbench() {
    + 说明文案 15px，负外边距吃掉 10px ≈ +49px，实测注册卡自然高 620px）。
    若不放宽锁定值，两表单瞬切时登录卡 548 → 注册卡 620 会**跳高 72px**，
    这正是当初把高度锁死要避免的 —— 锁定值必须 ≥ 较高的那一侧。 */
-.login-card{width:360px;max-width:100%;background:var(--bg);border-radius:20px;padding:40px 32px;box-shadow:var(--shadow-lg);border:1px solid var(--border-subtle);min-height:620px;display:flex;flex-direction:column}
+.login-card{width:360px;max-width:100%;background:var(--bg);border-radius:var(--radius-xl);padding:40px 32px;box-shadow:var(--shadow-lg);border:1px solid var(--border-subtle);min-height:620px;display:flex;flex-direction:column}
 .login-logo{display:flex;justify-content:center;margin-bottom:14px}
-.login-logo img{width:48px;height:48px;border-radius:8px;box-shadow:0 4px 12px rgba(13,148,136,.18)}
+.login-logo img{width:48px;height:48px;border-radius:var(--radius-sm);box-shadow:0 4px 12px rgba(13,148,136,.18)}
 h1{font-size:20px;font-weight:600;text-align:center;margin-bottom:4px}
 .login-sub{font-size:13px;color:var(--t3);text-align:center;margin-bottom:24px}
 form{display:flex;flex-direction:column;gap:12px;flex:1}
@@ -419,14 +419,14 @@ form{display:flex;flex-direction:column;gap:12px;flex:1}
 .login-forgot{font-size:12px;color:var(--t3);text-align:right;display:block;margin:-6px 2px 0;cursor:pointer}
 .login-forgot:hover{color:var(--p-dark)}
 .forgot-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000}
-.forgot-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;max-width:calc(100vw - 40px);background:var(--bg);border-radius:14px;box-shadow:var(--shadow-lg);padding:24px;z-index:1001}
+.forgot-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;max-width:calc(100vw - 40px);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:24px;z-index:1001}
 .forgot-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .forgot-hd b{font-size:16px;font-weight:600}
 .forgot-x{background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;line-height:1;padding:0 4px}
 .forgot-x:hover{color:var(--t1)}
 .forgot-tip{font-size:13px;color:var(--t2);margin-bottom:10px}
 .forgot-step{font-size:12px;color:var(--t3);margin-bottom:8px}
-.forgot-mail{font-size:14px;font-weight:600;color:var(--p-dark);text-align:center;padding:10px;background:var(--bg2);border-radius:8px;margin-bottom:14px}
+.forgot-mail{font-size:14px;font-weight:600;color:var(--p-dark);text-align:center;padding:10px;background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:14px}
 .forgot-foot{font-size:11px;color:var(--t3);margin-top:10px;text-align:center}
 /* 首次登录强制改密 */
 .pw-form{display:flex;flex-direction:column;gap:10px;margin:14px 0}
@@ -439,20 +439,20 @@ form{display:flex;flex-direction:column;gap:12px;flex:1}
 .login-agree input{margin-top:2px;accent-color:var(--p);flex:none}
 .login-agree a{color:var(--p-dark);text-decoration:none}
 .login-agree a:hover{text-decoration:underline}
-.lg-tabs{display:flex;gap:8px;margin-bottom:18px;background:var(--bg2);border-radius:8px;padding:4px}
+.lg-tabs{display:flex;gap:8px;margin-bottom:18px;background:var(--bg2);border-radius:var(--radius-sm);padding:4px}
 .demo-btn{color:var(--p-dark);border-color:rgba(6,182,212,.35);margin-top:2px}
-.lg-tab{flex:1;border:none;background:none;padding:8px;border-radius:8px;font-size:13px;color:var(--t3);cursor:pointer;transition:all var(--dur-base)}
+.lg-tab{flex:1;border:none;background:none;padding:8px;border-radius:var(--radius-sm);font-size:13px;color:var(--t3);cursor:pointer;transition:all var(--dur-base)}
 .lg-tab.on{background:var(--bg);color:var(--p-dark);font-weight:500;box-shadow:var(--shadow-sm)}
 /* 激活引导弹窗 */
 .act-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:980}
-.act-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(440px,92vw);background:var(--bg);border-radius:16px;z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.2)}
+.act-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(440px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:990;box-shadow:0 16px 48px rgba(0,0,0,.2)}
 .act-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border-subtle)}
 .act-hd b{font-size:15px}
 .act-x{border:none;background:none;font-size:12px;color:var(--t3);cursor:pointer}
 .act-body{padding:20px}
 .act-step{font-size:14px;font-weight:500;color:var(--t1);margin:0 0 8px}
 .act-tip{font-size:12px;color:var(--t2);line-height:1.7;margin:0 0 14px}
-.act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:12px;padding:26px 16px;font-size:13px;color:var(--p-dark);cursor:pointer;text-align:center;transition:all var(--dur-base)}
+.act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:var(--radius-md);padding:26px 16px;font-size:13px;color:var(--p-dark);cursor:pointer;text-align:center;transition:all var(--dur-base)}
 .act-drop:hover{background:var(--p-bg)}
 .act-drop.busy{opacity:.6}
 .act-done{margin-top:14px;font-size:13px;color:var(--suc);font-weight:500}

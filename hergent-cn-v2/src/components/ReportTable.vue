@@ -283,12 +283,12 @@ function exportCsv() {
 .rpt-filter { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; padding: 10px 12px; }
 .rpt-date { display: flex; align-items: center; gap: 10px; }
 .rpt-date label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--t2); }
-.rpt-date input { padding: 5px 8px; border: 1px solid var(--bd); border-radius: 8px; background: var(--bg); color: var(--t1); font-size: 12px; }
+.rpt-date input { padding: 5px 8px; border: 1px solid var(--bd); border-radius: var(--radius-sm); background: var(--bg); color: var(--t1); font-size: 12px; }
 .rpt-range { font-size: 12px; color: var(--t2); margin-left: auto; }
 .rpt-card { margin-top: 14px; }
 .rpt-sec { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .rpt-foot { margin: 14px 2px 0; font-size: 12px; line-height: 1.9; color: var(--t2); }
-.rpt-foot :deep(code) { background: var(--bg2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+.rpt-foot :deep(code) { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size: 11px; }
 
 /* ===== v701 下探：面包屑 + 单据链接 ===== */
 /* 面包屑：末级是当前位置（不可点），前几级可回跳。刻意不用大字号 —— 它是路径提示，
@@ -296,7 +296,7 @@ function exportCsv() {
 .rpt-crumb { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin-bottom: 8px; font-size: 12px; color: var(--t2) }
 .rpt-crumb-a {
   background: none; border: 0; padding: 2px 4px; font-family: inherit;
-  font-size: 12px; color: var(--p); cursor: pointer; border-radius: 4px;
+  font-size: 12px; color: var(--p); cursor: pointer; border-radius: var(--radius-2xs);
 }
 .rpt-crumb-a:hover { background: var(--p-bg); text-decoration: underline }
 .rpt-crumb-cur { padding: 2px 4px; color: var(--t1); font-weight: 600 }
@@ -312,7 +312,7 @@ function exportCsv() {
   border-bottom: 1px dashed currentColor;
 }
 .rpt-drill:hover { color: var(--p-dark); border-bottom-style: solid }
-.rpt-drill:focus-visible { outline: 2px solid var(--p); outline-offset: 2px; border-radius: 2px }
+.rpt-drill:focus-visible { outline: 2px solid var(--p); outline-offset: 2px; border-radius: var(--radius-hair) }
 
 /* ===== v701 移动端（≤760px） =====
    表格本身保持横向滚动（列多是事实，挤成两行反而更难读），

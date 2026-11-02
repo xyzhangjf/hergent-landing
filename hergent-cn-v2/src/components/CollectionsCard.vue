@@ -294,25 +294,25 @@ onMounted(load)
 .cr-empty{font-size:13px;color:var(--t2);line-height:1.8}
 .cr-empty p{margin:4px 0}
 .cr-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
-.cr-kpi{background:var(--bg2);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+.cr-kpi{background:var(--bg2);border-radius:var(--radius-md);padding:10px 14px;display:flex;flex-direction:column;gap:2px}
 .cr-kpi .num{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
 .cr-kpi .num.ok{color:var(--ok-green)}
 .cr-kpi .num.warn{color:var(--war)}
 .cr-kpi .lbl{font-size:12px;color:var(--t2)}
 .cr-aging{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
-.cr-ab{display:flex;flex-direction:column;gap:2px;padding:7px 12px;border-radius:8px;background:var(--bg2);min-width:110px}
+.cr-ab{display:flex;flex-direction:column;gap:2px;padding:7px 12px;border-radius:var(--radius-sm);background:var(--bg2);min-width:110px}
 .cr-ab-l{font-size:12px;color:var(--t2)}
 .cr-ab-v{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
 .cr-ab.warn .cr-ab-v{color:var(--war)}
 .cr-ab.bad .cr-ab-v{color:var(--err-red)}
-.cr-form{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px;border:1px solid var(--border-subtle);border-radius:12px;background:var(--bg2);margin-bottom:12px}
+.cr-form{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg2);margin-bottom:12px}
 .cr-fld{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--t2)}
 .cr-fld .input{height:32px;font-size:13px}
 .cr-fld .req{color:var(--war);font-style:normal}
 .cr-fld-wide{grid-column:1/-1}
 .cr-form-ft{grid-column:1/-1;display:flex;align-items:center;gap:10px;justify-content:flex-end}
 .cr-form-ft .cr-tip{margin-right:auto;font-size:12px;color:var(--t3)}
-.cr-res{padding:10px 14px;border-radius:8px;font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc);margin-bottom:12px;display:flex;flex-direction:column;gap:3px}
+.cr-res{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;background:rgba(var(--suc-rgb),.1);color:var(--suc);margin-bottom:12px;display:flex;flex-direction:column;gap:3px}
 .cr-res.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
 .cr-res i,.cr-res-i{font-size:12px;color:var(--t2)}
 .cr-res-warn{font-size:12px;color:var(--war)}

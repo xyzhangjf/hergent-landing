@@ -285,7 +285,7 @@ onMounted(load)
   line-height: 2.1; color: var(--t2); background: var(--bg2);
 }
 .dh-chip {
-  display: inline-block; margin: 0 4px; padding: 0 7px; border-radius: 4px;
+  display: inline-block; margin: 0 4px; padding: 0 7px; border-radius: var(--radius-2xs);
   font-size: 11px; font-weight: 600; line-height: 18px;
 }
 .dh-chip.st-pass { color: var(--ok-green); background: var(--ok-green-bg); }
@@ -303,7 +303,7 @@ onMounted(load)
 .dh-card.st-unavailable { border-left-color: var(--bd); border-left-style: dashed; }
 
 .dh-hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.dh-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--t2); flex: none; }
+.dh-dot { width: 8px; height: 8px; border-radius: var(--radius-circle); background: var(--t2); flex: none; }
 .st-pass .dh-dot { background: var(--ok-green); }
 .st-warn .dh-dot { background: var(--warn-amber); }
 .st-fail .dh-dot { background: var(--danger-txt); }
@@ -311,7 +311,7 @@ onMounted(load)
 
 .dh-title { font-size: 14px; font-weight: 600; color: var(--t1); }
 .dh-badge {
-  font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: var(--radius-2xs);
   color: var(--t2); background: var(--bg2);
 }
 .st-pass .dh-badge { color: var(--ok-green); background: var(--ok-green-bg); }
@@ -322,7 +322,7 @@ onMounted(load)
 
 .dh-nums {
   display: flex; flex-wrap: wrap; gap: 6px 22px;
-  margin-top: 10px; padding: 9px 12px; background: var(--bg2); border-radius: 6px;
+  margin-top: 10px; padding: 9px 12px; background: var(--bg2); border-radius: var(--radius-xs);
 }
 .dh-num { display: flex; flex-direction: column; gap: 1px; min-width: 92px; }
 .dh-nk { font-size: 11px; color: var(--t2); }
@@ -339,5 +339,5 @@ onMounted(load)
 .dh-note {
   margin: 16px 2px 0; font-size: 11px; line-height: 1.9; color: var(--t2);
 }
-.dh-note code { background: var(--bg2); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+.dh-note code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size: 11px; }
 </style>

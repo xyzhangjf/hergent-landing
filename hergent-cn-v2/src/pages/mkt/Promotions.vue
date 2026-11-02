@@ -365,7 +365,7 @@ onMounted(() => { load(); loadProducts() })
 .pm-prods { max-width: 220px }
 .pm-muted { color: var(--t3); font-size: 12px }
 .pm-op { white-space: nowrap; text-align: right }
-.pm-badge { display: inline-block; padding: 1px 9px; border-radius: 8px; font-size: 12px; font-weight: 400 }
+.pm-badge { display: inline-block; padding: 1px 9px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 400 }
 .pm-badge.on { background: var(--ok-green-bg); color: var(--ok) }
 .pm-badge.off { background: var(--bg2); color: var(--t3) }
 .pm-empty { padding: 28px 4px }
@@ -378,7 +378,7 @@ onMounted(() => { load(); loadProducts() })
 .pm-lab { font-size: 12px; color: var(--t2) }
 .pm-row { display: flex; gap: 12px }
 .pm-row .pm-fld { flex: 1 }
-.pm-prod-box { border: 1px solid var(--bd); border-radius: 8px; padding: 8px }
+.pm-prod-box { border: 1px solid var(--bd); border-radius: var(--radius-sm); padding: 8px }
 .pm-all { font-size: 12px; color: var(--t2); display: flex; align-items: center; gap: 6px }
 .pm-prod-list { margin-top: 8px; max-height: 180px; overflow: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px }
 .pm-prod-item { font-size: 12px; color: var(--t1); display: flex; align-items: center; gap: 6px }

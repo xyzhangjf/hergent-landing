@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
 .sprint-chip{
   display:inline-flex;align-items:center;gap:5px;
   height:20px;padding:0 9px;
-  border:1px solid var(--bd);border-radius:999px;
+  border:1px solid var(--bd);border-radius:var(--radius-pill);
   background:var(--bg2);color:var(--t2);
   font-size:12px;line-height:18px;white-space:nowrap;
   cursor:pointer;user-select:none;

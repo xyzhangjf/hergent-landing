@@ -151,7 +151,7 @@ onMounted(load)
 .page-hd { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 12px }
 .page-sub { font-size: 12px; color: var(--t3) }
 .fc-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px }
-.fc-tab { padding: 7px 14px; border: 1px solid var(--bd); background: var(--bg); border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--t1) }
+.fc-tab { padding: 7px 14px; border: 1px solid var(--bd); background: var(--bg); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; color: var(--t1) }
 .fc-tab.on { border-color: var(--p); color: var(--p-ink); background: var(--p-bg) }
 .card { padding: 16px }
 .fc-hd { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px }

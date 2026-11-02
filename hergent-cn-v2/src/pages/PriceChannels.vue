@@ -908,20 +908,20 @@ onMounted(async () => {
 .pc-body{display:flex;flex-direction:column;gap:12px}
 .pc-act{display:flex;gap:8px;flex-wrap:wrap}
 .pc-why{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;margin:0 0 14px;padding:10px 14px;
-  border-radius:8px;background:var(--bg2);border:1px solid var(--bd);font-size:12px;line-height:1.65;color:var(--t2)}
+  border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd);font-size:12px;line-height:1.65;color:var(--t2)}
 .pc-why b{color:var(--t1);white-space:nowrap}
 .pc-why>span b{color:var(--t1)}
 .pc-empty{padding:26px;text-align:center;color:var(--t3);font-size:13px}
 
 .pc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:12px;margin-bottom:16px}
-.pc-card{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:8px;background:var(--bg);
+.pc-card{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);
   padding:12px 14px;transition:border-color var(--dur-base),box-shadow var(--dur-base)}
 .pc-card:hover{box-shadow:var(--shadow-sm)}
 .pc-card.is-def{border-color:rgba(var(--p-rgb),.45);background:var(--p-bg)}
 .pc-card.is-off{opacity:.6}
 .pc-card-hd{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .pc-card-hd b{font-size:14px;color:var(--t1)}
-.pc-tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--bd);color:var(--t2)}
+.pc-tag{font-size:11px;padding:1px 6px;border-radius:var(--radius-2xs);border:1px solid var(--bd);color:var(--t2)}
 .pc-tag.def{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .pc-tag.off{background:var(--bg2);color:var(--t3)}
 .pc-card-bd{flex:1;display:flex;flex-direction:column;gap:4px}
@@ -943,7 +943,7 @@ onMounted(async () => {
 .pc-f input:focus,.pc-f select:focus{border-color:var(--p-dark)}
 .pc-tip{font-style:normal;font-size:12px;color:var(--t3);line-height:1.5}
 .pc-try-btn{flex:0 0 auto}
-.pc-res{margin-top:14px;padding:12px 14px;border-radius:8px;background:var(--bg2);border:1px solid var(--bd)}
+.pc-res{margin-top:14px;padding:12px 14px;border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd)}
 .pc-res.bad{background:rgba(var(--war-rgb),.10);border-color:rgba(var(--war-rgb),.4)}
 .pc-res-main{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .pc-res-k{font-size:12px;color:var(--t3)}
@@ -961,7 +961,7 @@ onMounted(async () => {
 .pc-mx-bar input{flex:1 1 220px;height:32px;padding:0 10px;font-size:13px;background:var(--bg);
   color:var(--t1);border:1px solid var(--bd);border-radius:var(--radius-sm)}
 .pc-mx-hint{font-size:12px;color:var(--t3)}
-.pc-mx-note{padding:9px 12px;border-radius:6px;background:var(--bg2);border:1px solid var(--bd);
+.pc-mx-note{padding:9px 12px;border-radius:var(--radius-xs);background:var(--bg2);border:1px solid var(--bd);
   font-size:12px;line-height:1.6;color:var(--t2)}
 .pc-mx-note b{color:var(--t1)}
 .pc-tb{width:100%;border-collapse:collapse;font-size:12px}
@@ -973,7 +973,7 @@ onMounted(async () => {
 .pc-spec{display:block;font-size:12px;color:var(--t3)}
 .pc-mono{font-family:var(--font-mono,monospace);color:var(--t2)}
 .pc-in{width:100%;height:28px;padding:0 8px;font-size:12px;color:var(--t1);background:var(--bg);
-  border:1px solid var(--bd);border-radius:6px;box-sizing:border-box}
+  border:1px solid var(--bd);border-radius:var(--radius-xs);box-sizing:border-box}
 .pc-in:focus{border-color:var(--p-dark)}
 .pc-ok{color:var(--suc);font-size:12px}
 .pc-miss{color:var(--t3);font-size:12px}

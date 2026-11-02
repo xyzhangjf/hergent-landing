@@ -1320,7 +1320,7 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-op{text-align:right;white-space:nowrap}
 .pt-prod{display:flex;align-items:flex-start;gap:6px}
 .pt-exp{border:none;background:none;padding:2px;cursor:pointer;color:var(--t2);line-height:0;
-  border-radius:4px;flex:0 0 auto}
+  border-radius:var(--radius-2xs);flex:0 0 auto}
 .pt-exp svg{transition:transform var(--dur-base)}
 .pt-exp:hover{background:var(--bg4);color:var(--t1)}
 .pt-prod-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
@@ -1420,7 +1420,7 @@ onMounted(() => { load(month.value); loadAudit() })
    差异是"有色/无色"级别，不依赖透明度，深色模式下同样成立。 */
 .pt-picked{display:flex;align-items:center;gap:10px;padding:10px 12px;
   background:var(--p-bg);border:1px solid var(--p);border-radius:var(--radius-sm)}
-.pt-picked-tick{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--p-solid);
+.pt-picked-tick{flex:0 0 auto;width:20px;height:20px;border-radius:var(--radius-circle);background:var(--p-solid);
   color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
 .pt-picked-txt{flex:1 1 auto;min-width:0}
 .pt-picked-nm{font-size:14px;font-weight:600;color:var(--t1);overflow:hidden;
