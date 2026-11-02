@@ -292,7 +292,7 @@ onBeforeUnmount(() => {
 /* 关闭前确认提示：正文与底栏之间的一条琥珀色横条。
    flex-shrink:0 保证正文再长也不会把它挤没（它出现时正是要拦人的时候）。 */
 .ui-modal-guard{padding:9px var(--sp-5);background:var(--warn-amber-bg);color:var(--warn-amber);
-  font-size:var(--fs-sm);line-height:var(--lh-snug);border-top:1px solid var(--border-subtle);flex-shrink:0}
+  font-size:var(--fs-sm);line-height:var(--lh-normal);border-top:1px solid var(--border-subtle);flex-shrink:0}
 .ui-modal-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-5);
   border-top:1px solid var(--border-subtle);flex-shrink:0}
 

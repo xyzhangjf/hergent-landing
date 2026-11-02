@@ -531,7 +531,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 
 /* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画统一由 components/Modal.vue 提供，
    本页只保留弹窗内部排版 —— 这些 class 都挂在 slot 内的元素上） */
-.cas-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin:0 0 var(--sp-3);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
+.cas-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-3);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
 
 .cas-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h14)}
 .cas-form-more{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px dashed var(--border-subtle)}

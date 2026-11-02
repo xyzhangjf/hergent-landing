@@ -1268,7 +1268,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-foot td{background:var(--bg3);font-weight:600;border-top:1px solid var(--bd)}
 .la-foot-lbl{font-size:var(--fs-sm);color:var(--t2);background:var(--bg3);z-index:6;font-weight:500}
 
-.la-footnote{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h10);line-height:var(--lh-relaxed)}
+.la-footnote{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h10);line-height:var(--lh-normal)}
 
 /* ── 趋势：区间筛选条 ── */
 /* 分 tab 后的诚实性提示：仪表盘读的是**已保存**的数据，有草稿时必须说出来 */
@@ -1314,10 +1314,10 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-chip-mini{font-size:var(--fs-xs);padding:var(--sp-h2) 7px}
 
 /* ── 弹窗 ── */
-.la-modal-lead{font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-relaxed);margin:0 0 var(--sp-h10)}
-.la-modal-tip{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed);margin:var(--sp-h10) 0 0}
+.la-modal-lead{font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-normal);margin:0 0 var(--sp-h10)}
+.la-modal-tip{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin:var(--sp-h10) 0 0}
 .la-notice{font-size:var(--fs-base);color:var(--p-dark);background:var(--p-bg);border:1px solid color-mix(in srgb,var(--p) 28%,transparent);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3);margin:0 0 var(--sp-3)}
-.la-list{margin:0 0 var(--sp-1);padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-prose)}
+.la-list{margin:0 0 var(--sp-1);padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose)}
 .la-h4{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin:var(--sp-4) 0 var(--sp-2)}
 .la-h4:first-child{margin-top:0}
 .la-mini{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}

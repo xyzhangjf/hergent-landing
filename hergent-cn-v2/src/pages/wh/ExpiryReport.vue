@@ -190,5 +190,5 @@ defineExpose({ load })
 .wer-days { font-weight: 600 }
 .wer-days.bad { color: var(--dan) }
 .wer-days.warn { color: var(--war) }
-.wer-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-1); line-height: var(--lh-relaxed)}
+.wer-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-1); line-height: var(--lh-normal)}
 </style>

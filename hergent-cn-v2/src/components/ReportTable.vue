@@ -287,7 +287,7 @@ function exportCsv() {
 .rpt-range { font-size:var(--fs-sm); color: var(--t2); margin-left: auto; }
 .rpt-card { margin-top: var(--sp-h14); }
 .rpt-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
-.rpt-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-prose); color: var(--t2); }
+.rpt-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2); }
 .rpt-foot :deep(code) { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs); }
 
 /* ===== v701 下探：面包屑 + 单据链接 ===== */

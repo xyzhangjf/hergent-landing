@@ -394,13 +394,13 @@ onMounted(() => { loadBrands(); load() })
 .rs-cal-rows{display:flex;flex-direction:column;gap:var(--sp-2)}
 .rs-cal-row{display:flex;gap:var(--sp-3);align-items:flex-start;padding:var(--sp-2) var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2)}
 .rs-cal-brand{flex-shrink:0;min-width:96px;font-size:var(--fs-sm);font-weight:600;color:var(--t1)}
-.rs-cal-txt{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed)}
+.rs-cal-txt{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .rs-cal-txt b{color:var(--t1);font-variant-numeric:tabular-nums}
 .rs-cal-txt b.bad,.rs-rest.bad{color:var(--err-red)}
 .rs-rest{margin-left:var(--sp-h2);color:var(--t3);font-size:var(--fs-sm)}
 .rs-sep{margin:0 var(--sp-h6);color:var(--t3)}
 .rs-nodoc{color:var(--t3)}
-.rs-cal-note{margin:var(--sp-h10) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed)}
+.rs-cal-note{margin:var(--sp-h10) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 
 .rs-faded td{opacity:.6}
 .rs-def{display:inline-block;margin-left:var(--sp-h6);padding:0 var(--sp-h6);border-radius:var(--radius-xs);font-size:var(--fs-xs);background:var(--p-bg);color:var(--p-dark)}
@@ -418,8 +418,8 @@ onMounted(() => { loadBrands(); load() })
 .rs-wide{grid-column:1/-1}
 .rs-preview{margin-top:var(--sp-h14);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-sm);background:var(--p-bg);display:flex;flex-direction:column;gap:var(--sp-1)}
 .rs-pv-lbl{font-size:var(--fs-sm);color:var(--t3)}
-.rs-pv-txt{font-size:var(--fs-base);color:var(--p-dark);line-height:var(--lh-relaxed)}
-.rs-form-tip{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-h10) 0 0;line-height:var(--lh-relaxed)}
+.rs-pv-txt{font-size:var(--fs-base);color:var(--p-dark);line-height:var(--lh-normal)}
+.rs-form-tip{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-h10) 0 0;line-height:var(--lh-normal)}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-base) ease}
 .fade-enter-from,.fade-leave-to{opacity:0}
 .pop-enter-active,.pop-leave-active{transition:opacity var(--dur-base) ease,transform var(--dur-base) ease}

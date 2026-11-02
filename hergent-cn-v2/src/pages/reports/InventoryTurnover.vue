@@ -250,7 +250,7 @@ onMounted(load)
 .rpt-card { margin-top: var(--sp-h14); }
 .rpt-warn { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); border-left: 3px solid var(--warn-amber); background: var(--bg2); }
 .rpt-warn-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; color: var(--war); font-size:var(--fs-base); }
-.rpt-warn p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: var(--lh-prose); color: var(--t2); }
+.rpt-warn p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2); }
 .rpt-tot { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); }
 .rpt-tot-row { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2); }
 .rpt-tot-i { display: flex; align-items: baseline; gap: var(--sp-h6); font-size:var(--fs-base); }

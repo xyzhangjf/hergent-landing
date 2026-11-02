@@ -116,5 +116,5 @@ defineExpose({ load })
    仅保留仍被引用的 `.ars-warn` —— 它挂在 ReportTable 的 #footnote 插槽里，
    插槽内容在**本页**作用域编译，故这里的作用域样式照样生效。
    （原文案是「标题行 + 正文」两段，骨架脚注区只能放一段，故合并为一段、保留全部文字。） */
-.ars-warn { border-left: 3px solid var(--war); margin-bottom: var(--sp-h10); font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-relaxed)}
+.ars-warn { border-left: 3px solid var(--war); margin-bottom: var(--sp-h10); font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-normal)}
 </style>

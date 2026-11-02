@@ -28,7 +28,7 @@
 .imp-x:hover{color:var(--p-dark);background:var(--bg2);border-radius:var(--radius-sm)}
 .imp-body{padding:var(--sp-4) var(--sp-h18);overflow-y:auto}
 .imp-actions{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
-.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin-bottom:var(--sp-h14)}
+.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin-bottom:var(--sp-h14)}
 .del-modal{width:min(440px,92vw)}
 .warn-text{color:var(--dan);font-weight:500}
 .del-actions{display:flex;justify-content:flex-end;gap:var(--sp-h10);margin-top:var(--sp-4)}

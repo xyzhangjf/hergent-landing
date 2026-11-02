@@ -678,7 +678,7 @@ onMounted(loadList)
 .rb-sql {
   width: 100%; box-sizing: border-box; padding: var(--sp-h10) var(--sp-3); border-radius: var(--radius-sm);
   border: 1px solid var(--line); background: var(--bg2); color: var(--t1);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:var(--fs-sm); line-height: var(--lh-relaxed);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:var(--fs-sm); line-height: var(--lh-normal);
   resize: vertical;
 }
 
@@ -724,7 +724,7 @@ onMounted(loadList)
 .rb-note {
   width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: var(--radius-sm);
   border: 1px solid var(--line); background: var(--bg1); color: var(--t1);
-  font-size:var(--fs-sm); line-height: var(--lh-prose); resize: vertical;
+  font-size:var(--fs-sm); line-height: var(--lh-loose); resize: vertical;
 }
 
 .rb-err { padding: var(--sp-3) var(--sp-h14); border-left: 3px solid var(--danger); background: var(--bg2) }
@@ -733,8 +733,8 @@ onMounted(loadList)
 
 .rb-hollow { padding: 28px var(--sp-6); text-align: center }
 .rb-hollow h2 { font-size:var(--fs-md); font-weight: 600; margin-bottom: var(--sp-2); color: var(--t1) }
-.rb-hollow p { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-prose)}
+.rb-hollow p { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-loose)}
 
-.rb-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-prose); color: var(--t3) }
+.rb-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t3) }
 .rb-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs) }
 </style>

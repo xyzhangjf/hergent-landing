@@ -580,7 +580,7 @@ defineExpose({ load: loadList })
 }
 .wl-op:hover { text-decoration: underline }
 
-.wl-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
+.wl-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-normal)}
 .wl-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .wl-lock, .wl-void {

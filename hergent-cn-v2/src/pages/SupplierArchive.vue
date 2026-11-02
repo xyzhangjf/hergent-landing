@@ -438,7 +438,7 @@ onBeforeUnmount(() => { clearTimeout(_t) })
 
 /* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画全部由 components/Modal.vue 提供，
    本页只保留「弹窗里长什么样」—— 这些 class 都挂在 slot 内的元素上） */
-.sup-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin:0 0 var(--sp-3);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
+.sup-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-3);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
 .sup-hint{font-size:var(--fs-sm);color:var(--war);margin-right:auto}
 
 .sup-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h14)}

@@ -216,7 +216,7 @@ onMounted(load)
 <style scoped>
 .wh-hd-right{display:flex;align-items:center;gap:var(--sp-h10);flex-shrink:0}
 .df-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
-.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-relaxed)}
+.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-normal)}
 .df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 
 /* 仓号（DB3）：与报单配置里的「本人仓」标识同源，方便对账时口头引用 */

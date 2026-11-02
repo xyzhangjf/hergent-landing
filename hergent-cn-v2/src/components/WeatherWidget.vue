@@ -635,13 +635,13 @@ onBeforeUnmount(() => {
 .wx-trend-dot.up{color:var(--war)}
 .wx-trend-dot.down{color:var(--chart-6)}
 .wx-trend-dot em{position:absolute;left:9px;top:-5px;font-size:var(--fs-xs);font-style:normal;font-weight:600;
-  line-height:var(--lh-mid);padding:0 3px;border-radius:var(--radius-2xs);background:var(--bg2);color:currentColor;
+  line-height:var(--lh-title);padding:0 3px;border-radius:var(--radius-2xs);background:var(--bg2);color:currentColor;
   box-shadow:0 0 0 1px var(--glass-border)}
 .wx-trend-dot.last em{left:auto;right:9px}
 .wx-trend-hit{position:absolute;top:0;bottom:0;cursor:pointer;border-radius:var(--radius-xs)}
 .wx-trend-hit:hover,.wx-trend-hit.on{background:var(--p-bg);opacity:.55}
 .wx-trend-tip{position:absolute;top:0;transform:translateX(-50%);z-index:2;
   padding:var(--sp-h2) 7px;border-radius:var(--radius-xs);background:var(--t1);color:var(--bg);
-  font-size:var(--fs-xs);font-weight:500;line-height:var(--lh-snug);white-space:nowrap;pointer-events:none;
+  font-size:var(--fs-xs);font-weight:500;line-height:var(--lh-normal);white-space:nowrap;pointer-events:none;
   box-shadow:0 4px 12px rgba(0,0,0,.18)}
 </style>

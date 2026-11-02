@@ -73,7 +73,7 @@ const cur = computed(() => TABS.find(t => t.key === tab.value))
 .pr-card { padding: var(--sp-h18) var(--sp-5); max-width: 720px }
 .pr-hd { display: flex; align-items: center; gap: var(--sp-h10); margin-bottom: var(--sp-2) }
 .pr-hd h3 { font-size:var(--fs-h4); font-weight: 600; color: var(--t1) }
-.pr-desc { font-size:var(--fs-base); color: var(--t2); line-height: var(--lh-relaxed); margin-bottom: var(--sp-h14) }
+.pr-desc { font-size:var(--fs-base); color: var(--t2); line-height: var(--lh-normal); margin-bottom: var(--sp-h14) }
 .pr-plan { list-style: none; padding: 0; margin: 0 0 var(--sp-h14); display: grid; gap: var(--sp-2) }
 .pr-plan li { display: flex; align-items: center; gap: var(--sp-2); font-size:var(--fs-base); color: var(--t2) }
 .pr-plan li svg { color: var(--p-dark); flex-shrink: 0 }

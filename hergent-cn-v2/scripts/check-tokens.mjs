@@ -262,6 +262,34 @@ function checkLineHeights () {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   v729 · 行高**阶梯**护栏（不是用法护栏，是"别再扩张档位"）
+   ----------------------------------------------------------------------------
+   由来：v728 建了 11 档（0.1 步长），每个引用都合规，但 1.5/1.6/1.7 三档相邻 ——
+   13px 下相差 1.3px，测不出来也看不出来，却把同类文字分成了三种。
+   v729 把 6 个过渡档按语义并入 5 档，并在这里**锁死档位**。
+   🔴 上一版的教训：只拦「没走令牌」会把令牌本身的数量当成好事。
+      给了 11 档，下一个人的选择成本比没有令牌时更高。 */
+const LH_RAMP = new Map([
+  ['--lh-none', 1],
+  ['--lh-title', 1.2],
+  ['--lh-tight', 1.4],
+  ['--lh-normal', 1.6],
+  ['--lh-loose', 1.8],
+])
+function checkLineHeightRamp () {
+  const css = stripComments(readFileSync(join(ROOT, TOKEN_FILE), 'utf8'))
+  const seen = new Map()
+  for (const m of css.matchAll(/(--lh-[a-z]+)\s*:\s*(\d+(?:\.\d+)?)\s*;/g)) seen.set(m[1], parseFloat(m[2]))
+  const bad = []
+  for (const [k, v] of seen) {
+    if (!LH_RAMP.has(k)) bad.push({ k, v, why: '新增档位' })
+    else if (LH_RAMP.get(k) !== v) bad.push({ k, v, why: `值应保持 ${LH_RAMP.get(k)}` })
+  }
+  for (const k of LH_RAMP.keys()) if (!seen.has(k)) bad.push({ k, v: null, why: '档位被删' })
+  return bad
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    v727 · 间距护栏
    ─────────────────────────────────────────────────────────────────────────────
    由来：`gap/padding/margin` 的间距字面量共 **5037 处 / 43 个值**，其中
@@ -320,6 +348,7 @@ const radiusBad = checkRadius()
 const fsBad = checkFontSizes()
 const spBad = checkSpacing()
 const lhBad = checkLineHeights()
+const lhRampBad = checkLineHeightRamp()
 if (args.has('--update')) {
   const obj = {}
   for (const k of [...current.keys()].sort()) obj[k] = [...current.get(k)].sort()
@@ -358,7 +387,7 @@ for (const [file, vals] of current) {
   if (added.length) violations.push({ file, kind: 'new-color', vals: added })
 }
 
-if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length) {
+if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length && !lhRampBad.length) {
   const files = Object.keys(base).length
   const total = Object.values(base).reduce((a, b) => a + b.length, 0)
   console.log(`✓ 设计令牌护栏通过（存量待清：${files} 个文件 / ${total} 条，见 --list）`)
@@ -367,6 +396,7 @@ if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length 
   console.log(`✓ 字号护栏通过（只许 var(--fs-*) / 0 / em·rem·%）`)
   console.log(`✓ 间距护栏通过（12 档必须走令牌；离群值不许新增）`)
   console.log(`✓ 行高护栏通过（只许 var(--lh-*) / 0 / normal）`)
+  console.log(`✓ 行高阶梯通过（5 档：1 / 1.2 / 1.4 / 1.6 / 1.8）`)
   process.exit(0)
 }
 
@@ -385,12 +415,19 @@ if (lhBad.length) {
   console.error('\n✗ 行高护栏：出现了 var(--lh-*) 之外的 line-height\n')
   for (const b of lhBad.slice(0, 15)) console.error(`  ${b.rel}\n    line-height: ${b.val}`)
   if (lhBad.length > 15) console.error(`  …… 另有 ${lhBad.length - 15} 处`)
-  console.error('\n行高 11 档（variables.css）：')
-  console.error('  1 单行控件 | 1.1 大数字 | 1.2 标题 | 1.3 中间 | 1.4 密排/表格')
-  console.error('  1.5 次要 | 1.6 正文主力 | 1.7 说明文字 | 1.8 长段落 | 1.9 | 2')
+  console.error('\n行高 5 档（variables.css，v729 归一，档位已锁）：')
+  console.error('  1 单行控件 | 1.2 标题·大数字 | 1.4 密排·表格 | 1.6 正文 | 1.8 长段落')
   console.error('\n允许例外：0（消除内联空白符，不是"行高为 1"）、normal（UA 算）、')
   console.error('  var(--fc-cell)/calc()（图表单元格尺寸，不是文字行距）。')
-  console.error('选哪档看这个元素是"单行控件 / 表格密排 / 多行说明"。\n')
+  console.error('选哪档看这个元素是"单行控件 / 表格密排 / 多行正文"。\n')
+}
+
+if (lhRampBad.length) {
+  console.error('\n✗ 行高阶梯：variables.css 的 --lh-* 档位被改动\n')
+  for (const b of lhRampBad) console.error(`  ${b.k}: ${b.v ?? '（已删除）'}  ← ${b.why}`)
+  console.error('\n阶梯锁死为 5 档（v729 决策，理由见 variables.css 该段注释）：')
+  console.error('  --lh-none 1　--lh-title 1.2　--lh-tight 1.4　--lh-normal 1.6　--lh-loose 1.8')
+  console.error('要从 11 档退回来的教训：档位越多，选择越随意，1.3px 的差别只有机器看得出。\n')
 }
 
 if (fsBad.length) {

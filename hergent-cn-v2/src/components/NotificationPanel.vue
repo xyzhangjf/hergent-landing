@@ -307,7 +307,7 @@ watch(() => props.open, v => { if (v) { menuKey.value = ''; load() } })
 .nt-ctl{margin-top:var(--sp-2);padding-top:var(--sp-2);border-top:1px dashed var(--border-subtle);display:flex;flex-direction:column;gap:var(--sp-h6)}
 .nt-ctl-row{display:flex;align-items:center;gap:var(--sp-h6);flex-wrap:wrap}
 .nt-ctl-lb{font-size:var(--fs-xs);color:var(--t3);flex:0 0 auto;min-width:52px}
-.nt-ctl-note{margin:0;font-size:var(--fs-xs);color:var(--t3);line-height:var(--lh-snug)}
+.nt-ctl-note{margin:0;font-size:var(--fs-xs);color:var(--t3);line-height:var(--lh-normal)}
 .nt-chip{height:24px;padding:0 9px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg);color:var(--t2);font-size:var(--fs-xs);cursor:pointer}
 .nt-chip:hover{border-color:var(--p-border);color:var(--p-dark)}
 .nt-chip.is-on{background:var(--p-bg);border-color:var(--p-border);color:var(--p-dark)}

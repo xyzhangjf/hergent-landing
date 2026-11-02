@@ -1275,13 +1275,13 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-body{}
 /* ── 口径说明条 ── */
 .pt-caliber{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin:0 0 var(--sp-3);padding:9px var(--sp-3);
-  border-radius:var(--radius-sm);background:var(--p-bg);color:var(--t2);font-size:var(--fs-sm);line-height:var(--lh-relaxed)}
+  border-radius:var(--radius-sm);background:var(--p-bg);color:var(--t2);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 .pt-caliber b{color:var(--t1)}
 
 /* ── v264c（R9）：报单配置对账告警。复用站内语义色 `--warn-amber*`
       （成例：`ConnectCenter.vue::.cc-pair-lock`），不新造视觉语言。 ── */
 .pt-audit{margin:0 0 var(--sp-3);padding:var(--sp-h10) var(--sp-h14);border-radius:var(--radius-sm);
-  background:var(--warn-amber-bg);color:var(--warn-amber);font-size:var(--fs-sm);line-height:var(--lh-relaxed)}
+  background:var(--warn-amber-bg);color:var(--warn-amber);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 .pt-audit b{color:var(--t1)}
 /* v265：告警条里的「去报单配置修」按钮 —— 继承告警条的琥珀色，不新造一套按钮视觉。
    用 filter 而不是 rgba 覆写背景：本页要同时适配明/暗主题，写死 rgba 会在暗色下变脏。 */
@@ -1300,11 +1300,11 @@ onMounted(() => { load(month.value); loadAudit() })
 /* ── v324：目标月份锚点提示 ──
    正常态用次级文字色（它是**说明**，不是告警）；不一致时才升到站内琥珀告警色。
    两种态用同一套语义色，不新造视觉语言（成例：`.pt-audit` / `.pt-err`）。 */
-.pt-anchor{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-snug)}
+.pt-anchor{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .pt-anchor-warn{color:var(--warn-amber)}
 /* v324：新建弹窗里的「目标建到哪个月」提示。次级文字色 + 收紧上间距 ——
    它是输入框的**旁注**（贴着月份框），不该被读成区段标题。 */
-.pt-md-tip{margin-top:var(--sp-1);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-snug)}
+.pt-md-tip{margin-top:var(--sp-1);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 
 /* ── 列表 ── */
 .pt-card{padding:0;overflow:hidden}
@@ -1402,7 +1402,7 @@ onMounted(() => { load(month.value); loadAudit() })
 .pt-fix-btn:hover{filter:brightness(.97)}
 /* 展开区独立成条（`.pt-pick-item` 是 flex 横排，塞不下这个表单） */
 .pt-fix-box{padding:9px var(--sp-3) 11px;background:var(--bg3);border-bottom:1px solid var(--bd)}
-.pt-fix-hint{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-snug);margin-bottom:var(--sp-2)}
+.pt-fix-hint{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin-bottom:var(--sp-2)}
 .pt-fix-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .pt-fix-eq{font-size:var(--fs-base);color:var(--t2);white-space:nowrap}
 .pt-fix-u{width:62px;text-align:center}
@@ -1411,7 +1411,7 @@ onMounted(() => { load(month.value); loadAudit() })
   background:var(--p-solid);color:#fff;font-size:var(--fs-sm);cursor:pointer;white-space:nowrap}
 .pt-fix-save:hover:not(:disabled){background:var(--p-solid-h)}
 .pt-fix-save:disabled{opacity:.45;cursor:not-allowed}
-.pt-fix-src{margin-top:7px;font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-snug)}
+.pt-fix-src{margin-top:7px;font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .pt-fix-msg{margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--danger-txt)}
 .pt-pick-empty{padding:var(--sp-h10)}
 /* ── v319e（P0-1）已选商品卡片 ──
@@ -1474,8 +1474,8 @@ onMounted(() => { load(month.value); loadAudit() })
   background:var(--danger-bg);color:var(--danger-txt);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 
 /* ── 删除确认 ── */
-.pt-del-q{font-size:var(--fs-base);line-height:var(--lh-relaxed);margin:0 0 var(--sp-2)}
-.pt-del-warn{font-size:var(--fs-sm);color:var(--warn-amber);line-height:var(--lh-relaxed);margin:0}
+.pt-del-q{font-size:var(--fs-base);line-height:var(--lh-normal);margin:0 0 var(--sp-2)}
+.pt-del-warn{font-size:var(--fs-sm);color:var(--warn-amber);line-height:var(--lh-normal);margin:0}
 .btn-danger{background:var(--danger-txt);color:#fff}
 
 /* ── 窄屏：双栏改单栏 ── */

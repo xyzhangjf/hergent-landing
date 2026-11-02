@@ -323,9 +323,9 @@ onMounted(() => {
 
 <style scoped>
 .ba-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
-.ba-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-relaxed)}
+.ba-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-normal)}
 .ba-tip.dim{color:var(--t3);font-size:var(--fs-sm);margin-bottom:0}
-.ba-bullets{margin:0 0 var(--sp-3);padding-left:var(--sp-h18);font-size:var(--fs-sm);line-height:var(--lh-prose);color:var(--t2)}
+.ba-bullets{margin:0 0 var(--sp-3);padding-left:var(--sp-h18);font-size:var(--fs-sm);line-height:var(--lh-loose);color:var(--t2)}
 .ba-bullets li{margin-bottom:var(--sp-h6)}
 .ba-bullets .ok-line{color:var(--t2)}
 .ba-bullets .warn-line{color:var(--war)}

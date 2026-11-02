@@ -179,6 +179,6 @@ defineExpose({ addRow, validItems, validCount })
 .whi-del:hover:not(:disabled) { background: var(--dan-bg, rgba(220, 60, 60, .1)); color: var(--dan) }
 .whi-del:disabled { opacity: .35; cursor: not-allowed }
 .whi-foot {
-  margin-top: var(--sp-2); font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-relaxed);
+  margin-top: var(--sp-2); font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-normal);
 }
 </style>

@@ -272,7 +272,7 @@ onMounted(loadBoard)
   padding: 46px var(--sp-5); color: var(--t3); text-align: center;
 }
 .dbd-empty p { margin: 0 }
-.dbd-empty-hint { font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-relaxed); max-width: 560px }
+.dbd-empty-hint { font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-normal); max-width: 560px }
 
-.dbd-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
+.dbd-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-normal)}
 </style>

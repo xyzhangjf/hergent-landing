@@ -783,16 +783,16 @@ async function refreshProfile() {
 /* 价值账单 */
 .value-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-h10)}
 .value-item{background:var(--bg3);border-radius:var(--radius-sm);padding:var(--sp-h14) var(--sp-h10);text-align:center}
-.value-num{font-size:var(--fs-num-lg);font-weight:600;color:var(--t1);line-height:var(--lh-flat)}
+.value-num{font-size:var(--fs-num-lg);font-weight:600;color:var(--t1);line-height:var(--lh-title)}
 .value-num.good{color:var(--suc)}
 .value-label{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
 
 /* 洞察 / 画像 */
-.insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-h14);font-size:var(--fs-md);line-height:var(--lh-relaxed);color:var(--t1);white-space:pre-wrap}
+.insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-h14);font-size:var(--fs-md);line-height:var(--lh-normal);color:var(--t1);white-space:pre-wrap}
 /* T1-3 缺数据拒答：必须看起来就"不是一条洞察"，否则老板会把说明当结论读 */
 .blocked-box{background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-h14);color:var(--t1)}
 .blocked-box b{display:block;font-size:var(--fs-md);color:var(--warn-amber);margin-bottom:var(--sp-h6)}
-.blocked-txt{font-size:var(--fs-base);line-height:var(--lh-relaxed);white-space:pre-wrap}
+.blocked-txt{font-size:var(--fs-base);line-height:var(--lh-normal);white-space:pre-wrap}
 /* T1-3 指标级溯源表 */
 .prov{margin-top:var(--sp-3);border-top:1px dashed var(--border-subtle);padding-top:11px}
 .prov-hd{font-size:var(--fs-sm);color:var(--t2);margin-bottom:var(--sp-2)}
@@ -806,13 +806,13 @@ async function refreshProfile() {
 .prov-e{font-style:normal;font-size:var(--fs-xs);margin-left:5px;padding:1px var(--sp-h6);border-radius:var(--radius-sm);background:var(--bg3);color:var(--t3)}
 .prov-e.bad{background:var(--dan-bg);color:var(--dan)}
 .prov-warn{margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--warn-amber);line-height:var(--lh-normal)}
-.prov-tip{margin-top:7px;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-snug)}
+.prov-tip{margin-top:7px;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .prof-sec{margin-top:var(--sp-3)}
 .prof-hd{font-size:var(--fs-base);font-weight:600;color:var(--t1);margin-bottom:var(--sp-h6)}
 .prof-item{font-size:var(--fs-base);color:var(--t2);padding:var(--sp-1) 0;border-bottom:1px dashed var(--border-subtle)}
 
 /* 弹窗 */
-.rep-content{flex:1;overflow:auto;padding:0;margin:0;font-size:var(--fs-base);line-height:var(--lh-relaxed);color:var(--t1);white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.rep-content{flex:1;overflow:auto;padding:0;margin:0;font-size:var(--fs-base);line-height:var(--lh-normal);color:var(--t1);white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 
 /* 窄屏：栅格降为 6 列 → 两栏各占 3 列；单列屏全宽堆叠 */
 @media(max-width:1200px){
@@ -833,7 +833,7 @@ async function refreshProfile() {
 .prop-st.st-pending{background:var(--p-bg);color:var(--p-dark)}
 .prop-st.st-accepted{color:var(--suc);background:var(--dan-bg)}
 .prop-st.st-rejected{color:var(--dan);background:var(--dan-bg)}
-.prop-why{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-snug)}
+.prop-why{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .prop-chg{font-size:var(--fs-sm);color:var(--t1);background:var(--bg2);border-radius:var(--radius-sm);padding:5px 9px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
 .prop-meta{font-size:var(--fs-xs);color:var(--t3)}
 .prop-fuel{font-size:var(--fs-xs);color:var(--p-dark)}
@@ -844,5 +844,5 @@ async function refreshProfile() {
 .cal-form{background:var(--bg3);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:var(--sp-3);margin-bottom:var(--sp-3)}
 .cal-row{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center}
 .cal-f1{width:130px}.cal-f2{width:250px}.cal-f3{width:150px}.cal-f4{flex:1;min-width:160px}
-.cal-tip{font-size:var(--fs-sm);color:var(--t3);margin-top:7px;line-height:var(--lh-snug)}
+.cal-tip{font-size:var(--fs-sm);color:var(--t3);margin-top:7px;line-height:var(--lh-normal)}
 </style>

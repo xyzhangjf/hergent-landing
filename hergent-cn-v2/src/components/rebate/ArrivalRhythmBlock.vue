@@ -201,7 +201,7 @@ function wkLabel(iso) {
 .ap-moved{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .ap-moved a{color:var(--p-dark);text-decoration:none;border-bottom:1px dashed var(--p)}
 .ap-derive{margin:var(--sp-h2) 0 0;font-size:var(--fs-sm);color:var(--p-dark);background:rgba(6,182,212,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2)}
-.ap-warn{font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2);margin-bottom:var(--sp-h6);line-height:var(--lh-snug)}
+.ap-warn{font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2);margin-bottom:var(--sp-h6);line-height:var(--lh-normal)}
 .ap-adopt{margin-left:var(--sp-2);border:1px solid var(--p);background:transparent;color:var(--p-dark);border-radius:var(--radius-xs);padding:1px var(--sp-h10);font-size:var(--fs-sm);cursor:pointer}
 .ap-adopt:hover{background:var(--p-solid);color:#fff}
 /* v364：② 本月到货 —— 三个数字 + 一排可点的到货日。
@@ -210,12 +210,12 @@ function wkLabel(iso) {
 .arr-stat{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-h10);margin-bottom:var(--sp-h10)}
 .arr-stat-i{display:flex;align-items:baseline;gap:var(--sp-1);flex-wrap:wrap;background:var(--bg1);border:1px solid var(--bd2);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-h10)}
 .arr-stat-k{font-size:var(--fs-sm);color:var(--t3);flex-basis:100%}
-.arr-stat-i b{font-size:var(--fs-h3);color:var(--t1);font-variant-numeric:tabular-nums;line-height:var(--lh-flat)}
+.arr-stat-i b{font-size:var(--fs-h3);color:var(--t1);font-variant-numeric:tabular-nums;line-height:var(--lh-title)}
 .arr-stat-i b.on{color:var(--p-dark)}
 .arr-stat-i b.cut{color:var(--t2)}
 .arr-stat-u{font-size:var(--fs-sm);color:var(--t3)}
 .arr-days{display:flex;flex-wrap:wrap;gap:var(--sp-h6);margin:var(--sp-h2) 0 var(--sp-2)}
-.arr-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:40px;padding:5px var(--sp-h6);border:1px solid var(--bd2);border-radius:var(--radius-sm);background:var(--bg1);cursor:pointer;line-height:var(--lh-flat)}
+.arr-day{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:40px;padding:5px var(--sp-h6);border:1px solid var(--bd2);border-radius:var(--radius-sm);background:var(--bg1);cursor:pointer;line-height:var(--lh-title)}
 .arr-day:hover{border-color:var(--p)}
 .arr-day-d{font-size:var(--fs-base);color:var(--t1);font-variant-numeric:tabular-nums}
 .arr-day-w{font-size:var(--fs-xs);color:var(--t3)}

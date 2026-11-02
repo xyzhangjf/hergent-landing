@@ -1094,7 +1094,7 @@ async function save() {
 .year-hit svg,.year-hit .icon{color:var(--p-dark)}
 .yh-act{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-2)}
 .cf-tbl{width:100%;margin-bottom:var(--sp-3)}
-.cf-sol{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h10) var(--sp-3);margin:0}
+.cf-sol{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h10) var(--sp-3);margin:0}
 .cf-sol b{color:var(--t1)}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}

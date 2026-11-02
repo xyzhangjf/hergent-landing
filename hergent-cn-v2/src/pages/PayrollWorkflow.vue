@@ -392,7 +392,7 @@ onMounted(async () => {
 /* v726：配方读取失败时的告示。用 --war / --war-bg（浅深同值的安全组合），
    不用 --warning 那类「深色下提亮」的令牌当底色。 */
 .pr-warn{display:flex;gap:var(--sp-2);align-items:flex-start;margin:0 0 var(--sp-4);padding:var(--sp-h10) var(--sp-3);
-  font-size:var(--fs-sm);line-height:var(--lh-relaxed);color:var(--t1);
+  font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t1);
   border:1px solid var(--war);border-radius:var(--radius-sm);background:var(--war-bg)}
 .pr-warn>span b{color:var(--t1)}
 .pr-form{display:flex;flex-direction:column;gap:var(--sp-h18)}

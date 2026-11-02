@@ -175,5 +175,5 @@ defineExpose({ load })
 .wsa-kw { min-width: 220px }
 .wsa-sel { min-width: 160px }
 .wsa-gap { font-weight: 600; color: var(--dan) }
-.wsa-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
+.wsa-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-normal)}
 </style>

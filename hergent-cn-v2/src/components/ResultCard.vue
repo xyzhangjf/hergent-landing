@@ -289,7 +289,7 @@ function capOf(ch) {
 .tone-neutral{color:var(--t1)}
 
 .rc-points{list-style:none;display:flex;flex-direction:column;gap:var(--sp-h6);margin:0;padding:0}
-.rc-points li{display:flex;align-items:flex-start;gap:7px;font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-snug)}
+.rc-points li{display:flex;align-items:flex-start;gap:7px;font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .rc-dot{width:6px;height:6px;border-radius:var(--radius-circle);margin-top:var(--sp-h6);flex-shrink:0;background:var(--t3)}
 .dot-good .rc-dot{background:var(--suc)}
 .dot-warn .rc-dot{background:var(--war)}
@@ -303,7 +303,7 @@ function capOf(ch) {
 .rc-item-hd span:first-child,.rc-item-row span:first-child{flex:1 1 auto;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis}
 .rc-item-row+.rc-item-row{border-top:1px solid var(--border-subtle)}
 .rc-item-name{color:var(--t1)}
-.rc-item-meta{padding:var(--sp-h6) var(--sp-h10);font-size:var(--fs-xs);color:var(--t3);line-height:var(--lh-snug);border-top:1px solid var(--border-subtle);background:var(--bg2)}
+.rc-item-meta{padding:var(--sp-h6) var(--sp-h10);font-size:var(--fs-xs);color:var(--t3);line-height:var(--lh-normal);border-top:1px solid var(--border-subtle);background:var(--bg2)}
 
 .rc-foot{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-top:var(--sp-h2)}
 .rc-status{display:inline-flex;align-items:center;height:20px;padding:0 var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-xs);font-weight:500}
@@ -324,6 +324,6 @@ function capOf(ch) {
 .rc-donut-lg{display:inline-flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-xs);color:var(--t2)}
 .rc-donut-lg i{width:8px;height:8px;border-radius:var(--radius-circle);flex-shrink:0}
 .rc-chart-img{width:100%;border-radius:var(--radius-md);display:block}
-.rc-source{font-size:var(--fs-xs);color:var(--t3);line-height:var(--lh-snug);border-top:1px dashed var(--border-subtle);padding-top:7px;margin-top:var(--sp-h2)}
+.rc-source{font-size:var(--fs-xs);color:var(--t3);line-height:var(--lh-normal);border-top:1px dashed var(--border-subtle);padding-top:7px;margin-top:var(--sp-h2)}
 .rc.compact .rc-source{font-size:var(--fs-xs);padding-top:5px}
 </style>

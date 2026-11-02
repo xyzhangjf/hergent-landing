@@ -244,7 +244,7 @@
              所以这段从「唯一的路」改成「两条路都写出来」，而且**按钮也要放出来**：
              原来 `v-if="canWrite && !isReturn"` 把退货页签的出口藏掉了 —— 那是按旧口径写的。 -->
         <p v-if="isReturn && !hasFilter && !f.status"
-           style="margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-snug)">
+           style="margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)">
           可以直接新建（选供应商和退货仓库，自己挑商品）；<br>
           也可以打开一张<b>已入库</b>的采购单，点「转单为 → 采购退货」（会自动带上可退数量上限）。
         </p>

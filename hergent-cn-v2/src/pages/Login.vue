@@ -415,7 +415,7 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 /* 短信验证码（REGISTER_MODE=sms 分支）：输入框 + 「获取验证码」按钮同行 */
 .code-row{flex:1;min-width:0;display:flex;gap:var(--sp-2)}
 .code-send{flex-shrink:0;font-size:var(--fs-sm);padding:0 var(--sp-h10);white-space:nowrap}
-.login-legal{font-size:var(--fs-xs);color:var(--t3);text-align:center;margin-top:auto;line-height:var(--lh-prose)}
+.login-legal{font-size:var(--fs-xs);color:var(--t3);text-align:center;margin-top:auto;line-height:var(--lh-loose)}
 .login-forgot{font-size:var(--fs-sm);color:var(--t3);text-align:right;display:block;margin:-6px var(--sp-h2) 0;cursor:pointer}
 .login-forgot:hover{color:var(--p-dark)}
 .forgot-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000}
@@ -435,7 +435,7 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 .login-legal a{color:var(--p-dark);text-decoration:none;margin:0 var(--sp-h2)}
 .login-legal a:hover{text-decoration:underline}
 .login-legal a.beian{color:var(--t3)}
-.login-agree{display:flex;align-items:flex-start;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-h2) 0 0;line-height:var(--lh-snug)}
+.login-agree{display:flex;align-items:flex-start;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-h2) 0 0;line-height:var(--lh-normal)}
 .login-agree input{margin-top:var(--sp-h2);accent-color:var(--p);flex:none}
 .login-agree a{color:var(--p-dark);text-decoration:none}
 .login-agree a:hover{text-decoration:underline}
@@ -451,7 +451,7 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 .act-x{border:none;background:none;font-size:var(--fs-sm);color:var(--t3);cursor:pointer}
 .act-body{padding:var(--sp-5)}
 .act-step{font-size:var(--fs-md);font-weight:500;color:var(--t1);margin:0 0 var(--sp-2)}
-.act-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin:0 0 var(--sp-h14)}
+.act-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-h14)}
 .act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:var(--radius-md);padding:26px var(--sp-4);font-size:var(--fs-base);color:var(--p-dark);cursor:pointer;text-align:center;transition:all var(--dur-base)}
 .act-drop:hover{background:var(--p-bg)}
 .act-drop.busy{opacity:.6}

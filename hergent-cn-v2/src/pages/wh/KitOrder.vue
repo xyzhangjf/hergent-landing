@@ -620,7 +620,7 @@ defineExpose({ load: loadList })
 }
 .kt-op:hover { text-decoration: underline }
 
-.kt-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
+.kt-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-normal)}
 .kt-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .kt-tip, .kt-lock {

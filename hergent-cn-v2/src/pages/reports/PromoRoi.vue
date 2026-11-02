@@ -286,8 +286,8 @@ onMounted(load)
   border-radius: var(--radius-sm); background: var(--warn-amber-bg); color: var(--warn);
 }
 .pro-empty { padding: var(--sp-h6) var(--sp-h2) }
-.pro-empty-note { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-prose); margin: 0 }
-.pro-empty-guide { font-size:var(--fs-sm); color: var(--t1); line-height: var(--lh-prose); margin: var(--sp-2) 0 0 }
+.pro-empty-note { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-loose); margin: 0 }
+.pro-empty-guide { font-size:var(--fs-sm); color: var(--t1); line-height: var(--lh-loose); margin: var(--sp-2) 0 0 }
 .pro-note { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-loose); margin: var(--sp-h10) var(--sp-h2) 0 }
 .pro-tot { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14) }
 .pro-tot-row { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2) }

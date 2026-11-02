@@ -14186,7 +14186,7 @@ provide('sprintSummary', sprintSummary)
 .cross-tbl td.fc-name>.ai-hint{padding-left:var(--sp-4)}
 .row-ops{position:absolute;top:1px;right:4px;display:none;gap:var(--sp-h2);z-index:5}
 .cross-tbl tr.data-row:hover .row-ops{display:flex}
-.row-ops .rop{border:none;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;font-size:var(--fs-sm);line-height:var(--lh-snug);padding:0 var(--sp-1);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.row-ops .rop{border:none;background:var(--bg3);border-radius:var(--radius-sm);cursor:pointer;font-size:var(--fs-sm);line-height:var(--lh-normal);padding:0 var(--sp-1);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .row-ops .rop:hover{background:var(--p-bg);color:var(--p-dark)}
 .row-ops .rop.danger:hover{background:var(--dan-bg,rgba(239,68,68,.12));color:var(--dan)}
 .det-row{background:var(--bg2)}
@@ -14209,7 +14209,7 @@ provide('sprintSummary', sprintSummary)
 .tbl-state.denied-state{padding:48px var(--sp-6)}
 .denied-state .denied-hd{display:inline-flex;align-items:center;gap:var(--sp-h6);
   padding:var(--sp-1) var(--sp-3);border-radius:var(--radius-sm);background:var(--warn-amber-bg);color:var(--warn-amber);
-  font-weight:600;font-size:var(--fs-md);line-height:var(--lh-prose)}
+  font-weight:600;font-size:var(--fs-md);line-height:var(--lh-loose)}
 .tbl-skeleton .sk-row{display:flex;gap:var(--sp-h10);padding:7px var(--sp-1);border-bottom:1px solid var(--border-subtle)}
 .tbl-skeleton .sk-bar{flex:1;height:14px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--bg2) 25%,var(--bg3) 37%,var(--bg2) 63%);background-size:400% 100%;animation:sk 1.2s ease-in-out infinite}
 @keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
@@ -14241,7 +14241,7 @@ provide('sprintSummary', sprintSummary)
 .pt-xm.has-done{border-bottom-color:var(--p-dark)}
 :deep(.pt-xmtd){position:relative}
 :deep(.pt-xm-abs){position:absolute;top:0;right:1px;z-index:3;pointer-events:none}
-:deep(.pt-tip){white-space:normal;text-align:left;max-width:430px;min-width:240px;line-height:var(--lh-snug);font-size:var(--fs-xs)}
+:deep(.pt-tip){white-space:normal;text-align:left;max-width:430px;min-width:240px;line-height:var(--lh-normal);font-size:var(--fs-xs)}
 .pt-tip :deep( i){display:block;font-style:normal}
 .pt-tip :deep( i+i){margin-top:var(--sp-h2)}
 /* 编辑格里 tip 挂在 td 上（不在 `.tip-wrap` 内）⇒ 悬停面自己声明；定位沿用 `.tip` 本体 */
@@ -14290,7 +14290,7 @@ provide('sprintSummary', sprintSummary)
 /* v621：「另有 N 个在售商品未显示」从工具行挪到合计行。页脚是 baseline 对齐，胶囊要 align-self:center
    才不会把行高顶歪；尺寸比工具行那版小一号（24 高），因为这里挨着的都是 12px 小字。 */
 .pin .pin-more,.edit-summary .pin-more{align-self:center;display:inline-flex;align-items:center;
-  font-size:var(--fs-sm);line-height:var(--lh-snug);padding:var(--sp-h2) 9px;border-radius:var(--radius-sm);
+  font-size:var(--fs-sm);line-height:var(--lh-normal);padding:var(--sp-h2) 9px;border-radius:var(--radius-sm);
   background:var(--p-bg);color:var(--p-deep);cursor:pointer;white-space:nowrap}
 .pin .pin-more:hover,.edit-summary .pin-more:hover{color:var(--p-dark);text-decoration:underline}
 /* v621：这条计数有两个落点，按视口宽度二选一（见模板里 .row-more 的注释）：
@@ -14414,7 +14414,7 @@ provide('sprintSummary', sprintSummary)
 .batch-item.danger:hover:not(:disabled){background:var(--danger-bg);border-color:var(--danger-txt)}
 /* `.bp-tip` / `.bp-head` 的基础样式只挂在 `.brand-pop` 下（见下方品牌面板那段），
    批量面板是另一个容器 ⇒ 必须自己写全，否则提示文字会没字号/没行距/没边距。 */
-.batch-pop .bp-tip{margin:0;font-size:var(--fs-sm);line-height:var(--lh-snug);color:var(--t3)}
+.batch-pop .bp-tip{margin:0;font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t3)}
 .batch-pop .bp-tip.warn{color:var(--danger-txt)}
 /* v592：输入框已无边框（见 `.cross-tbl .cell-input`）⇒ 焦点视觉交给**单元格自身**
    （`.cross-tbl td.selected{outline:2px solid var(--p)}` + 青底）。这正是 Excel 的表现：
@@ -14441,7 +14441,7 @@ provide('sprintSummary', sprintSummary)
 .col-del:hover{color:var(--dan);background:var(--dan-bg)}
 .col-del:hover{color:var(--dan)}
 :deep(.op-th){text-align:center;min-width:34px}
-.edit-hint{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h10);line-height:var(--lh-relaxed);border-top:1px dashed var(--bd);padding-top:var(--sp-2)}
+.edit-hint{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h10);line-height:var(--lh-normal);border-top:1px dashed var(--bd);padding-top:var(--sp-2)}
 
 /* ---- Excel 式交互视觉（选中/行列高亮/填充柄/右键菜单） ---- */
 .edit-tbl :deep( td){position:relative}
@@ -14529,7 +14529,7 @@ provide('sprintSummary', sprintSummary)
 .ctx-fx-cond{margin-top:var(--sp-1);border-top:1px solid var(--border-subtle);padding-top:var(--sp-h2)}
 .ctx-menu .ctx-fx-cond-hd{width:100%;padding:var(--sp-h6) var(--sp-h10);color:var(--t2);font-size:var(--fs-xs);gap:var(--sp-h6);align-items:center}
 .ctx-fx-cond-hd .ico{margin-left:auto;width:12px;height:12px;color:var(--t3)}
-.ctx-fx-cond-on{margin-left:var(--sp-h6);padding:0 var(--sp-h6);border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-ink);font-size:var(--fs-xs);line-height:var(--lh-snug)}
+.ctx-fx-cond-on{margin-left:var(--sp-h6);padding:0 var(--sp-h6);border-radius:var(--radius-pill);background:var(--p-bg);color:var(--p-ink);font-size:var(--fs-xs);line-height:var(--lh-normal)}
 .ctx-fx-foot{border-top:1px solid var(--border-subtle);padding-top:7px}
 .ctx-ipt-unit{color:var(--t2)}
 /* 条件格式：库存<安全库存 整行高亮 */
@@ -14567,7 +14567,7 @@ provide('sprintSummary', sprintSummary)
 .imp-x:hover{color:var(--p-dark);background:var(--bg2);border-radius:var(--radius-sm)}
 .imp-body{padding:var(--sp-4) var(--sp-h18);overflow-y:auto}
 .imp-actions{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
-.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin-bottom:var(--sp-h14)}
+.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin-bottom:var(--sp-h14)}
 .del-modal{width:min(440px,92vw)}
 .warn-text{color:var(--dan);font-weight:500}
 .del-actions{display:flex;justify-content:flex-end;gap:var(--sp-h10);margin-top:var(--sp-4)}
@@ -14596,7 +14596,7 @@ provide('sprintSummary', sprintSummary)
 .imp-warn{color:var(--war);font-size:var(--fs-sm);margin-bottom:var(--sp-2)}
 /* v179：「建档成功但没有数量」与「真的什么都没有」两个中性结局（信息蓝，不是错误色）。
    旧实现把前者渲染成绿色的「导入成功：0 个客户」，正是用户误判导入成功的直接原因。 */
-.imp-none{color:var(--info-blue);font-size:var(--fs-base);line-height:var(--lh-relaxed);margin-bottom:var(--sp-3)}
+.imp-none{color:var(--info-blue);font-size:var(--fs-base);line-height:var(--lh-normal);margin-bottom:var(--sp-3)}
 .imp-errs{margin:0;padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose)}
 
 /* v157 零档案建档结果块 */
@@ -14607,8 +14607,8 @@ provide('sprintSummary', sprintSummary)
 .imp-arch-tag b{color:var(--t1);font-size:var(--fs-md);margin-left:var(--sp-h2)}
 .imp-arch-tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .imp-arch-tag.ok b{color:var(--suc)}
-.imp-arch-list{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed)}
-.imp-arch-note{margin:var(--sp-h10) 0 0;font-size:var(--fs-sm);line-height:var(--lh-relaxed);color:var(--t2)}
+.imp-arch-list{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
+.imp-arch-note{margin:var(--sp-h10) 0 0;font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2)}
 .imp-arch-note.warn{color:var(--war)}
 .imp-arch-note.bad{color:var(--dan)}
 .imp-arch-note.bad b{color:var(--dan)}
@@ -14676,10 +14676,10 @@ provide('sprintSummary', sprintSummary)
 /* 名称要比日期宽（「9月20日报单9月25日到货」这类名字装得下） */
 .np-fld-name .input{width:210px}
 /* v180 期次软警告（同名 / 窗口重叠）—— 非阻塞提示；硬规则由后端 period_validate 拦截 */
-.np-hint-warn{font-size:var(--fs-sm);color:var(--warn-amber);background:rgba(245,158,11,.1);border-left:3px solid rgba(245,158,11,.5);border-radius:var(--radius-sm);padding:var(--sp-h6) 9px;margin:var(--sp-2) 0 0;line-height:var(--lh-snug)}
-.np-warn{margin:var(--sp-h10) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-sm);line-height:var(--lh-relaxed);color:var(--war)}
+.np-hint-warn{font-size:var(--fs-sm);color:var(--warn-amber);background:rgba(245,158,11,.1);border-left:3px solid rgba(245,158,11,.5);border-radius:var(--radius-sm);padding:var(--sp-h6) 9px;margin:var(--sp-2) 0 0;line-height:var(--lh-normal)}
+.np-warn{margin:var(--sp-h10) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--war)}
 /* v180 导入弹窗「本期归属」行 —— 归属由后端在导入那一刻定死，故必须前置展示 */
-.imp-own{margin:0 0 var(--sp-3);font-size:var(--fs-sm);line-height:var(--lh-relaxed);color:var(--t2)}
+.imp-own{margin:0 0 var(--sp-3);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2)}
 .imp-own b{color:var(--t1)}
 .imp-own.warn{color:var(--war)}
 .imp-own.warn :deep( b){color:var(--war)}
@@ -14692,7 +14692,7 @@ provide('sprintSummary', sprintSummary)
 /* v184 空期次的表内引导行：表头保留（列与列右键可达），只替换表体 */
 .empty-row :deep( td){background:transparent;border-bottom:none;padding:34px var(--sp-4)!important;text-align:center}
 .empty-row .er-t{font-size:var(--fs-md);font-weight:600;color:var(--t1);margin-bottom:var(--sp-h6)}
-.empty-row .er-s{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed);margin-bottom:var(--sp-h14)}
+.empty-row .er-s{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin-bottom:var(--sp-h14)}
 .empty-row .er-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-h14)}
 .empty-row .er-ic svg{width:24px;height:24px}
 .empty-row .er-ops{display:flex;gap:var(--sp-2);justify-content:center;flex-wrap:wrap}
@@ -14901,12 +14901,12 @@ provide('sprintSummary', sprintSummary)
 /* v174：查错结果面板 —— 上排是「按原因分组」的总览（点一下只看该类），
    下面是逐条明细，每条自带「第几行 · 商品 · 列」，点一条跳到那一格。 */
 .err-grps{display:flex;flex-wrap:wrap;gap:var(--sp-h6);margin:var(--sp-h2) 0 var(--sp-2)}
-.err-grp{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:var(--radius-pill);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);line-height:var(--lh-relaxed);cursor:pointer}
+.err-grp{border:1px solid var(--bd);background:var(--bg);color:var(--t2);border-radius:var(--radius-pill);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);line-height:var(--lh-normal);cursor:pointer}
 .err-grp:hover{border-color:var(--p);color:var(--t1)}
 .err-grp.on{border-color:var(--p);background:var(--p-bg);color:var(--p-deep);font-weight:600}
 .err-list-wrap{max-height:240px;overflow:auto}
 .err-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
-.err-list li{display:flex;gap:var(--sp-h10);align-items:baseline;padding:3px var(--sp-2);border-radius:var(--radius-sm);cursor:pointer;line-height:var(--lh-relaxed)}
+.err-list li{display:flex;gap:var(--sp-h10);align-items:baseline;padding:3px var(--sp-2);border-radius:var(--radius-sm);cursor:pointer;line-height:var(--lh-normal)}
 .err-list li:hover{background:color-mix(in srgb,var(--p) 12%,transparent)}
 /* 位置列封顶 + 省略号：客户名/商品名可能很长，不封会把面板撑出横向滚动条 */
 .err-loc{flex:none;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)}
@@ -14918,10 +14918,10 @@ provide('sprintSummary', sprintSummary)
 .fix-mask{position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:var(--z-mask);display:flex;align-items:center;justify-content:center;padding:var(--sp-5)}
 .fix-dlg{width:min(720px,94vw);max-height:86vh;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);overflow:hidden}
 .fix-hd{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h10);padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--bd);font-size:var(--fs-base)}
-.fix-tip{margin:0;padding:var(--sp-h10) var(--sp-4);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);background:var(--bg2)}
+.fix-tip{margin:0;padding:var(--sp-h10) var(--sp-4);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);background:var(--bg2)}
 .fix-list-wrap{flex:1 1 auto;overflow:auto;padding:var(--sp-h6) var(--sp-h10)}
 .fix-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
-.fix-list li{display:flex;gap:var(--sp-h10);align-items:baseline;padding:5px var(--sp-2);border-radius:var(--radius-sm);line-height:var(--lh-relaxed);font-size:var(--fs-sm)}
+.fix-list li{display:flex;gap:var(--sp-h10);align-items:baseline;padding:5px var(--sp-2);border-radius:var(--radius-sm);line-height:var(--lh-normal);font-size:var(--fs-sm)}
 .fix-list li:nth-child(odd){background:var(--bg2)}
 .fix-loc{flex:none;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t2)}
 .fix-chg{flex:none;font-variant-numeric:tabular-nums}
@@ -14932,7 +14932,7 @@ provide('sprintSummary', sprintSummary)
 .fix-rest{flex:1 1 auto;font-size:var(--fs-sm);color:var(--dan)}
 .fix-ft .btn:first-of-type{margin-left:auto}
 /* v219 打磨⑥：数量上限入口与编辑弹窗 */
-.err-rulebtn{margin-left:auto;border:1px dashed var(--bd);background:none;color:var(--t2);border-radius:var(--radius-pill);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);line-height:var(--lh-relaxed);cursor:pointer;white-space:nowrap}
+.err-rulebtn{margin-left:auto;border:1px dashed var(--bd);background:none;color:var(--t2);border-radius:var(--radius-pill);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);line-height:var(--lh-normal);cursor:pointer;white-space:nowrap}
 .err-rulebtn:hover{border-color:var(--p);color:var(--p-deep)}
 .rule-dlg{width:min(420px,94vw)}
 .rule-body{padding:var(--sp-h14) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-2)}
@@ -14954,7 +14954,7 @@ provide('sprintSummary', sprintSummary)
 .audit-log-panel .at-log{max-height:300px;overflow:auto;padding-right:var(--sp-1)}
 /* v166 修改日志：每条是「时间 · 修改人 · 动作 · 明细」，文字长需换行，故不复用 .health-list
    的「单行 flex 且 hover 下划线」范式——那里隐含着"这一条可以点"，而留痕条只是展示。 */
-.at-log li{cursor:default;display:block;line-height:var(--lh-prose)}
+.at-log li{cursor:default;display:block;line-height:var(--lh-loose)}
 .at-log li:hover{text-decoration:none}
 .at-log .sev-dot{margin-right:var(--sp-h6);vertical-align:middle}
 .at-time{color:var(--t3);font-variant-numeric:tabular-nums}
@@ -15077,7 +15077,7 @@ provide('sprintSummary', sprintSummary)
 .brand-pop .bp-item{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);cursor:pointer;padding:var(--sp-h2) var(--sp-h2)}
 .brand-pop .bp-item:hover{background:var(--bg2)}
 .brand-pop .bp-empty{color:var(--t3);font-size:var(--fs-sm);margin:var(--sp-1) 0}
-.brand-pop .bp-tip{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:var(--lh-snug)}
+.brand-pop .bp-tip{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:var(--lh-normal)}
 /* v616：到货周期面板 —— 每档右侧的行数（「+3天 18」才是今天要下多少 SKU，是这个控件的核心信息）；
    未设置档的告警用 danger 色，因为它代表「这批商品不会出现在任何 +N 筛选里」= 漏单风险。 */
 .brand-pop .bp-item .bp-n{margin-left:auto;font-variant-numeric:tabular-nums;font-size:var(--fs-sm);color:var(--t3);padding-left:var(--sp-h10)}
@@ -15093,12 +15093,12 @@ provide('sprintSummary', sprintSummary)
    勾了什么 → 设成几天 → 会改几个。字色只用 t1/t2/t3 三档，不用装饰色。 */
 .cb-lead{margin:0 0 var(--sp-h10);font-size:var(--fs-base);line-height:var(--lh-normal);color:var(--t1)}
 .cb-lead b{color:var(--t1);font-weight:600}
-.cb-note{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);line-height:var(--lh-snug);color:var(--warn-amber)}
+.cb-note{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--warn-amber)}
 .cb-note b{font-weight:600}
 /* 勾选摘要：左标签定宽 62px ⇒ 三行值左边界对齐（不是每行各排各的） */
 .rc-picked{display:flex;flex-direction:column;gap:var(--sp-h6);padding:var(--sp-h10) var(--sp-3);
   border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--border-subtle)}
-.rc-line{display:flex;align-items:flex-start;gap:var(--sp-2);font-size:var(--fs-sm);line-height:var(--lh-snug)}
+.rc-line{display:flex;align-items:flex-start;gap:var(--sp-2);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 .rc-k{flex:none;width:62px;color:var(--t3)}
 .rc-v{flex:1;min-width:0;color:var(--t1)}
 .rc-v b{font-variant-numeric:tabular-nums}
@@ -15153,11 +15153,11 @@ provide('sprintSummary', sprintSummary)
 .addcol-pop .ac-row{display:flex;gap:var(--sp-h6);align-items:center}
 .addcol-pop .ac-input{flex:1;min-width:0;height:32px;padding:0 var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg3);color:var(--t1);font-size:var(--fs-base);font-family:inherit}
 .addcol-pop .ac-input:focus{border-color:var(--p-dark);background:var(--bg)}
-.addcol-pop .ac-tip{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:var(--lh-snug)}
+.addcol-pop .ac-tip{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:var(--lh-normal)}
 .copy-pop{min-width:246px;max-width:320px}
 .copy-pop .cp-title{font-weight:600;color:var(--t1);font-size:var(--fs-base)}
 .copy-pop .cp-title-sub{font-weight:400;color:var(--t3);font-size:var(--fs-sm)}
-.copy-pop .cp-tip{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-h2) 0 0;line-height:var(--lh-snug)}
+.copy-pop .cp-tip{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-h2) 0 0;line-height:var(--lh-normal)}
 .copy-pop .cp-tip.ok{color:var(--t2);margin-top:var(--sp-h6)}
 .copy-pop .cp-tip.ok b{color:var(--p-dark)}
 .copy-pop .cp-unit-btns{display:flex;gap:var(--sp-h6);margin-top:var(--sp-2)}

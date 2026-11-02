@@ -1079,7 +1079,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .lb-toggle{margin-left:auto;color:var(--p-ink);font-size:var(--fs-sm)}
 .legacy-detail{margin-bottom:var(--sp-3);padding:var(--sp-h14) var(--sp-4)}
 .lb-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose);margin:var(--sp-2) 0 0}
-.legacy-detail ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-prose)}
+.legacy-detail ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-loose)}
 /* 每行：员工 → 门店 [已停用] [收回] —— 用 inline-flex + wrap，窄屏时按钮换行不挤压文字 */
 .lb-row{display:inline-flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .lb-arrow{color:var(--t3)}
@@ -1138,12 +1138,12 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .field label{font-size:var(--fs-sm);color:var(--t2)}
 .req{color:var(--dan);font-weight:600;font-style:normal}
 .field input, .field select{width:100%;box-sizing:border-box;height:36px;border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:0 11px;font-size:var(--fs-base);background:var(--bg);color:var(--t1)}
-.field .hint{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-snug)}
+.field .hint{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .seg{display:flex;gap:var(--sp-h6)}
 .seg-btn{flex:1;height:34px;border:1px solid var(--border-subtle);background:var(--bg);border-radius:var(--radius-sm);font-size:var(--fs-base);color:var(--t2);cursor:pointer}
 .seg-btn.on{background:var(--p-solid);border-color:var(--p-solid);color:#fff}
 
-.warn-text{font-size:var(--fs-base);color:var(--war);line-height:var(--lh-relaxed)}
+.warn-text{font-size:var(--fs-base);color:var(--war);line-height:var(--lh-normal)}
 /* v381：`.ro-box` / `.ro-name` / `.ro-tag` / `.ro-warn`（本人仓**只读框**）已随入口迁移删除 ——
    本人仓现在走**仓库下拉**（见模板「对象定义」），不再是只读展示。这四个类是死 CSS，别再加回来。 */
 .combo{position:relative;width:100%}
@@ -1170,7 +1170,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .al-note{font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t3)}
 .lnk-btn{border:none;background:none;color:var(--p-ink);cursor:pointer;font-size:var(--fs-sm);padding:0 var(--sp-h2);font-family:inherit;text-decoration:underline}
 .lnk-btn:hover{color:var(--p-dark)}
-.al-hint{font-size:var(--fs-sm);line-height:var(--lh-snug);padding:var(--sp-h6) 9px;border-radius:var(--radius-sm)}
+.al-hint{font-size:var(--fs-sm);line-height:var(--lh-normal);padding:var(--sp-h6) 9px;border-radius:var(--radius-sm)}
 .al-hint.ok{color:var(--suc);background:rgba(var(--suc-rgb),.10)}
 .al-hint.warn{color:var(--war);background:rgba(var(--war-rgb),.10)}
 .al-hint.err{color:var(--dan);background:rgba(var(--dan-rgb),.10)}
@@ -1182,7 +1182,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h14) var(--sp-h18);font-size:var(--fs-base);color:var(--p-ink);cursor:pointer;text-align:center}
 .imp-result{font-size:var(--fs-base);color:var(--t1);margin-top:var(--sp-h6)}
 .imp-result .suc{color:var(--suc)} .imp-result .dan{color:var(--dan)}
-.imp-result ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);color:var(--t2);font-size:var(--fs-sm);line-height:var(--lh-relaxed)}
+.imp-result ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);color:var(--t2);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-base)}
 .fade-enter-from,.fade-leave-to{opacity:0}

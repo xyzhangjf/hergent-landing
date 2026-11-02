@@ -249,7 +249,7 @@ defineExpose({ load })
 .gpa-tabs-card { margin-top: var(--sp-h14) }
 .gpa-warn { border-left: 3px solid var(--war); margin-top: var(--sp-h14) }
 .gpa-warn-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; color: var(--warn); margin-bottom: var(--sp-h6) }
-.gpa-warn p { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-relaxed); margin: 0 }
+.gpa-warn p { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-normal); margin: 0 }
 .gpa-tot { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14) }
 .gpa-tot-row { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2) }
 .gpa-tot-i { display: flex; align-items: baseline; gap: var(--sp-h6); font-size:var(--fs-base) }

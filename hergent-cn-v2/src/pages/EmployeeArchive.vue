@@ -2219,7 +2219,7 @@ onMounted(() => {
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
 .df-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
-.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-relaxed)}
+.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-normal)}
 /* v686：业务员部门表里的下拉 —— 表格行内控件必须矮。
    🔴 用全局 `.input` 的原高（40px）会把整行顶到 40+，表格瞬间变稀疏；
       这里收到 26px（与 .btn-row-ic 同档），行高由它决定，不再被文本撑。 */
@@ -2328,7 +2328,7 @@ onMounted(() => {
 /* 到期徽标：贴在「合同到期」标签右侧。用**语义色对**（--danger/warn/ok-green 的 -bg 版），
    不自己调 rgba —— 深色模式下这四组是成对定义的，拍数字会在暗色里发灰。 */
 .cf-end-tip{font-style:normal;font-size:var(--fs-xs);font-weight:600;margin-left:var(--sp-h6);
-  padding:1px var(--sp-h6);border-radius:var(--radius-xs);line-height:var(--lh-snug);white-space:nowrap}
+  padding:1px var(--sp-h6);border-radius:var(--radius-xs);line-height:var(--lh-normal);white-space:nowrap}
 .cf-end-tip.is-expired{color:var(--danger-txt);background:var(--danger-bg)}
 .cf-end-tip.is-soon{color:var(--warn-amber);background:var(--warn-amber-bg)}
 .cf-end-tip.is-ok{color:var(--ok-green);background:var(--ok-green-bg)}
@@ -2406,7 +2406,7 @@ onMounted(() => {
 .df-extra-chips .chip.on{background:rgba(var(--teal-rgb,14,165,164),.14);border-color:var(--teal);color:var(--teal);font-weight:600}
 .df-extra-chips .chip:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
 /* Q29（2026-09-19）忘记密码：一次性重置码的展示区 */
-.rc-tip{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-snug)}
+.rc-tip{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .rc-box{gap:var(--sp-h10);background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3)}
 .rc-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-xl);letter-spacing:3px;color:var(--teal)}
 .rc-exp{font-size:var(--fs-sm);color:var(--t3);margin-left:auto}

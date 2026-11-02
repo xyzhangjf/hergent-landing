@@ -647,14 +647,14 @@ onMounted(load)
 .gr-cost { font-size:var(--fs-sm); color: var(--t3) }
 .gr-warn { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); border-left: 3px solid var(--warn-amber); background: var(--bg2) }
 .gr-warn-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; color: var(--war); font-size:var(--fs-base) }
-.gr-warn p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: var(--lh-prose); color: var(--t2) }
-.gr-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-prose); color: var(--t2) }
+.gr-warn p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2) }
+.gr-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2) }
 .gr-foot-dim { color: var(--t3) }
 .gr-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs) }
 .gr-hollow { padding: 28px var(--sp-6); max-width: 720px; text-align: center }
 .gr-hollow-ic { color: var(--t3); margin-bottom: var(--sp-h6) }
 .gr-hollow h2 { font-size:var(--fs-h4); font-weight: 600; color: var(--t1); margin-bottom: var(--sp-h10) }
-.gr-hollow-desc { font-size:var(--fs-base); color: var(--t2); line-height: var(--lh-prose); margin-bottom: var(--sp-h10) }
+.gr-hollow-desc { font-size:var(--fs-base); color: var(--t2); line-height: var(--lh-loose); margin-bottom: var(--sp-h10) }
 .gr-hollow-foot { font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-loose)}
 .gr-hollow code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs) }
 </style>

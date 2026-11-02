@@ -362,7 +362,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 /* ④ cron 执行结果回流 */
 .exec-hd{display:flex;align-items:center;gap:var(--sp-3)}
 .exec-hd .btn{margin-left:auto;flex-shrink:0}
-.exec-empty{margin:var(--sp-h10) 0 var(--sp-h2);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed)}
+.exec-empty{margin:var(--sp-h10) 0 var(--sp-h2);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .exec-list{list-style:none;margin:var(--sp-h10) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--sp-h10)}
 .exec-item{display:flex;gap:var(--sp-h10);align-items:flex-start}
 .exec-dot{width:8px;height:8px;border-radius:var(--radius-circle);margin-top:var(--sp-h6);background:var(--t3);flex-shrink:0}

@@ -1579,7 +1579,7 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 .ipn-hist-warn {
   display: flex; align-items: flex-start; gap: var(--sp-h6);
   margin: 0 0 var(--sp-3); padding: 7px var(--sp-h10); max-width: 900px;
-  font-size:var(--fs-sm); line-height: var(--lh-snug); color: var(--t1);
+  font-size:var(--fs-sm); line-height: var(--lh-normal); color: var(--t1);
   background: rgba(var(--war-rgb), .1);
   border: 1px solid rgba(var(--war-rgb), .35);
   border-radius: var(--radius-xs);

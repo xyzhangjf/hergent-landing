@@ -51,7 +51,7 @@
    两边都画就成了 2px 双线（相邻的 border-bottom + border-top 会叠加）。 */
 .cm-hd-tx { display: flex; flex-direction: column; gap: var(--sp-h2); min-width: 0 }
 .cm-hd-t { font-weight: 600; font-size:var(--fs-base); line-height: var(--lh-title)}
-.col-menu-sub { font-size:var(--fs-xs); font-weight: 400; color: var(--t3); line-height: var(--lh-mid)}
+.col-menu-sub { font-size:var(--fs-xs); font-weight: 400; color: var(--t3); line-height: var(--lh-title)}
 .col-menu-x {
   flex: none; display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border: 0; background: transparent; cursor: pointer;
@@ -71,7 +71,7 @@
 .cm-sec-t, .cm-label {
   display: flex; align-items: center; gap: var(--sp-1);
   font-size:var(--fs-xs); font-weight: 600; color: var(--t3);
-  letter-spacing: .3px; line-height: var(--lh-mid); margin-bottom: var(--sp-2);
+  letter-spacing: .3px; line-height: var(--lh-title); margin-bottom: var(--sp-2);
 }
 /* 键值栅格：label 定宽 ⇒ 两个下拉的**左缘对齐**（此前按文字宽度排，94px 与 82px 错开 12px） */
 .cm-grid { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: var(--sp-h6) var(--sp-2); align-items: center }

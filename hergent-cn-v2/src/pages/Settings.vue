@@ -1545,7 +1545,7 @@ onMounted(() => {
 .set-row>.input{flex:1 1 240px;width:auto;min-width:0}
 .set-row>.set-desc{flex:1 1 260px;min-width:0}
 .set-lb{display:inline-block;min-width:88px;font-size:var(--fs-base);color:var(--t2)}
-.set-desc{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:var(--lh-relaxed)}
+.set-desc{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:var(--lh-normal)}
 .set-result{font-size:var(--fs-sm)}
 .set-result.ok{color:var(--suc)}
 .set-result.bad{color:var(--dan)}
@@ -1587,16 +1587,16 @@ onMounted(() => {
 .plog-tag{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-xs);
           background:var(--bg3);color:var(--t2)}
 .plog-tag.danger{background:var(--dan-bg);color:var(--dan);font-weight:600}
-.plog-detail{min-width:260px;white-space:normal;color:var(--t1);line-height:var(--lh-relaxed);word-break:break-all}
+.plog-detail{min-width:260px;white-space:normal;color:var(--t1);line-height:var(--lh-normal);word-break:break-all}
 .plog-pager{display:flex;gap:var(--sp-h10);align-items:center;margin-top:var(--sp-h10);font-size:var(--fs-sm)}
 .plog-page-info{color:var(--t2)}
-.pm-help{margin:0 0 var(--sp-3);padding:9px var(--sp-3);border-radius:var(--radius-md);background:var(--bg3);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed)}
+.pm-help{margin:0 0 var(--sp-3);padding:9px var(--sp-3);border-radius:var(--radius-md);background:var(--bg3);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .pm-help p{margin:0 0 5px}
 .pm-help p:last-child{margin-bottom:0}
 .pm-mod-col{min-width:120px}
 /* v328：模块名 + 下面一行「勾了会怎样」。
    副文案刻意用小字、次级色 —— 它是**说明**，不能抢了模块名的视觉重量（老板找的是模块名）。 */
-.pm-mod-lb{font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-snug)}
+.pm-mod-lb{font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-normal)}
 /* v333：模块行下面的「对应页面」—— 让老板按页面名找到开关。
    刻意做得比模块名更淡更小（它是**索引**不是正文），且不加背景/边框，
    否则一整列小色块会把表格又切碎（样式纪律见文件头那段）。 */

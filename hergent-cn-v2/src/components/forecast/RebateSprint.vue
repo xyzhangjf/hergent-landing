@@ -610,7 +610,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-card.is-pinned{margin:var(--sp-h14) 0 var(--sp-1);border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
 .sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:var(--sp-h10);margin-bottom:0}
 /* 决策横幅（A2）：一行承载「未达标数 / 总缺口 / 剩余到货机会 / 均单需报」，折叠与展开都常显 */
-.sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-h6);padding:9px var(--sp-4);font-size:var(--fs-sm);line-height:var(--lh-snug);color:var(--t2)}
+.sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-h6);padding:9px var(--sp-4);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2)}
 .sprint-banner b{color:var(--t1);font-variant-numeric:tabular-nums}
 /* 数值状态色复用既有 .val-warn / .val-ok（见本文件 L6799-6800），不另造色类；
    因 .sprint-banner b 优先级更高，需显式压过，故写成 b.val-warn */
@@ -642,7 +642,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-card .sp-pace.pace-even{color:var(--t3)}
 /* 时间语义着色：达成未达时间进度=红，已超前=绿（复用全局 .progress>i 的绿/琥珀范式） */
 .sprint-card .progress.red>i{background:var(--dan)}
-.sprint-sum{margin:0 0 var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-relaxed)}
+.sprint-sum{margin:0 0 var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-normal)}
 .sprint-sum b{color:var(--t1)}
 .sprint-sum .muted{color:var(--t3);font-size:var(--fs-sm)}
 .sprint-suggest{margin-top:var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-loose)}

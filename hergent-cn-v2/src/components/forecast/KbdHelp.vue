@@ -237,13 +237,13 @@ onBeforeUnmount(() => {
   margin:0 0 var(--sp-1);font-size:var(--fs-xs);font-weight:600;letter-spacing:.4px;
   color:var(--t3);text-transform:none;
 }
-.kp-grid p{display:flex;align-items:baseline;gap:var(--sp-2);margin:0;padding:var(--sp-h2) 0;font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-snug)}
+.kp-grid p{display:flex;align-items:baseline;gap:var(--sp-2);margin:0;padding:var(--sp-h2) 0;font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .kp-keys{flex:0 0 auto;display:inline-flex;align-items:center;gap:3px;min-width:96px}
 .kp-keys kbd{
   display:inline-block;padding:0 5px;
   border:1px solid var(--bd);border-bottom-width:2px;border-radius:var(--radius-2xs);
   background:var(--bg2);font-family:var(--mono,ui-monospace,monospace);
-  font-size:var(--fs-xs);line-height:var(--lh-snug);color:var(--t1);white-space:nowrap;
+  font-size:var(--fs-xs);line-height:var(--lh-normal);color:var(--t1);white-space:nowrap;
 }
 .kp-slash{font-style:normal;color:var(--t3);font-size:var(--fs-xs)}
 .kp-desc{color:var(--t2);min-width:0}

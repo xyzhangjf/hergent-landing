@@ -445,7 +445,7 @@ defineExpose({ load })
 .win-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
 .win-pg-size { width: auto; height: 28px; padding: 0 var(--sp-2); font-size:var(--fs-base); border-radius: var(--radius-sm) }
 
-.win-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
+.win-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-normal)}
 
 /* 弹窗内的表单 */
 .win-form { display: flex; flex-direction: column; gap: var(--sp-3) }

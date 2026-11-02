@@ -1771,7 +1771,7 @@ watch([copyId], () => { reinit() })
 .ipn-prod-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 /* v685：档位徽标（同名商品靠它分辨多档 / 仅一档 / 无价）。不换行、不被省略号吃掉。 */
 .ipn-prod-tier {
-  flex: none; font-size:var(--fs-xs); line-height: var(--lh-snug); padding: 0 5px; border-radius: var(--radius-2xs);
+  flex: none; font-size:var(--fs-xs); line-height: var(--lh-normal); padding: 0 5px; border-radius: var(--radius-2xs);
   color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .ipn-prod-tier.is-muted { color: var(--t3) }
@@ -2066,7 +2066,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 .ipn-hist-warn {
   display: flex; align-items: flex-start; gap: var(--sp-h6);
   margin: 0 0 var(--sp-3); padding: 7px var(--sp-h10); max-width: 900px;
-  font-size:var(--fs-sm); line-height: var(--lh-snug); color: var(--t1);
+  font-size:var(--fs-sm); line-height: var(--lh-normal); color: var(--t1);
   background: rgba(var(--war-rgb), .1);
   border: 1px solid rgba(var(--war-rgb), .35);
   border-radius: var(--radius-xs);
@@ -2150,7 +2150,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
   display: inline-block; padding: 1px 5px;
   border: 1px solid var(--border-subtle); border-radius: var(--radius-2xs);
   background: var(--bg2);
-  font-family: inherit; font-size:var(--fs-xs); line-height: var(--lh-snug); color: var(--t2);
+  font-family: inherit; font-size:var(--fs-xs); line-height: var(--lh-normal); color: var(--t2);
 }
 .ipn-kbd-hint em { margin: 0 var(--sp-h6); font-style: normal; color: var(--t3) }
 .ipn-save { position: relative; display: inline-flex; margin-left: auto }
