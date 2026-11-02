@@ -119,7 +119,7 @@
       </p>
       <div v-if="hdLoading" class="state-empty">加载中…</div>
       <div v-else-if="!hdUsers.length" class="state-empty">没有可配置的账号</div>
-      <div v-else class="table-wrap">
+      <div v-else class="table-wrap freeze-list">
         <table class="tbl">
           <thead><tr>
             <th class="seq-th">序号</th><th>业务员</th><th>登录账号</th><th>所属部门</th>

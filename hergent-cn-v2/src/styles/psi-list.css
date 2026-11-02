@@ -342,20 +342,24 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 /* 表体区：受 max-height 约束，自己纵向 + 横向滚动 ⇒ 表头 / 合计行冻结生效。 */
 .table-wrap.freeze-list { max-height: calc(100vh - 240px); overflow: auto }
 /* 表头钉顶（所有 th）：z-index 高于表体（默认 0）。表头底色沿用 variables.css 的
-   `table.tbl th{background:var(--bg2)}`，滚动时不会透出表体内容。 */
-.table-wrap.freeze-list > table.tbl > thead th { position: sticky; top: 0; z-index: 8 }
+   `table.tbl th{background:var(--bg2)}`，滚动时不会透出表体内容。
+   🔴 v720：选择器由 `> table.tbl` 放宽为 `> table` —— 招标雷达用的是自写表格
+   `table.br-tbl`（无 `tbl` 类，自带 12px 内距与 hover）。硬加 `tbl` 类会把全局
+   `table.tbl th/td{padding:10px 14px}` 与 `tbody tr:hover` 一并引进来，靠 scoped
+   特异性压回去属于「靠顺序赢」，构建顺序一变就漂。放宽共享件 = 一处定义、零覆盖战。 */
+.table-wrap.freeze-list > table > thead th { position: sticky; top: 0; z-index: 8 }
 /* 合计行钉底（所有 td，资金页用到）：bottom:0 与横向滚共存。
    底色 var(--bg2) 不透明 ⇒ 滚到底时不会透出表体。 */
-.table-wrap.freeze-list > table.tbl > tfoot td { position: sticky; bottom: 0; z-index: 6;
+.table-wrap.freeze-list > table > tfoot td { position: sticky; bottom: 0; z-index: 6;
   background: var(--bg2); font-weight: 600; color: var(--t1);
   border-top: 1px solid var(--border-subtle); border-bottom: none;
   font-variant-numeric: tabular-nums; }
-.table-wrap.freeze-list > table.tbl > tfoot td.num { text-align: right }
-.table-wrap.freeze-list > table.tbl > tfoot .ft-lb { text-align: left; color: var(--t2) }
+.table-wrap.freeze-list > table > tfoot td.num { text-align: right }
+.table-wrap.freeze-list > table > tfoot .ft-lb { text-align: left; color: var(--t2) }
 
 /* 打印：冻结是屏幕滚动手感，纸上 sticky 会把几列叠在一起 + 截断表体 ⇒ 还原成自然流。 */
 @media print {
   .table-wrap.freeze-list { max-height: none !important; overflow: visible !important }
-  .table-wrap.freeze-list > table.tbl > thead th,
-  .table-wrap.freeze-list > table.tbl > tfoot td { position: static !important }
+  .table-wrap.freeze-list > table > thead th,
+  .table-wrap.freeze-list > table > tfoot td { position: static !important }
 }

@@ -136,7 +136,7 @@
           <p class="ar-empty-guide">这说明当前各项指标都在安全范围内 —— 不用管它，真出问题时这里会立刻出现记录。</p>
         </div>
 
-        <div v-else class="table-wrap">
+        <div v-else class="table-wrap freeze-list">
           <table class="tbl">
             <thead>
               <tr>

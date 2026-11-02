@@ -98,36 +98,38 @@
       <p class="br-empty-t">{{ emptyText }}</p>
       <button v-if="f.region" class="br-btn br-empty-b" type="button" @click="showAllRegions">查看全部地区</button>
     </div>
-    <table v-else class="br-tbl seq-host">
-      <thead>
-        <tr>
-          <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
-          <th class="c-date" v-if="isVisible('date')">发布日</th>
-          <th class="c-type" v-if="isVisible('type')">类型</th>
-          <th class="c-src" v-if="isVisible('src')">来源</th>
-          <th class="c-buyer" v-if="isVisible('buyer')">采购人</th>
-          <th class="c-region" v-if="isVisible('region')">地区</th>
-          <th>标题</th>
-          <th class="c-link" v-if="isVisible('link')">原文</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(it, i) in items" :key="it.url">
-          <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
-          <td class="c-date" v-if="isVisible('date')">{{ it.date }}</td>
-          <td class="c-type" v-if="isVisible('type')"><span class="tag" :class="tagClass(it.type)">{{ it.type }}</span></td>
-          <td class="c-src" v-if="isVisible('src')"><span class="src" :class="sourceTagClass(it.source)">{{ it.source_name }}</span></td>
-          <td class="c-buyer" v-if="isVisible('buyer')">{{ it.buyer || '—' }}</td>
-          <td class="c-region" v-if="isVisible('region')">{{ it.region }}</td>
-          <td class="c-title">
-            <span v-if="isNew(it)" class="br-new" title="近 24 小时或本次打开后新入库">新</span>
-            <span v-if="it.is_capex" class="br-capex" title="制造端 CAPEX，非配送线索">CAPEX</span>
-            {{ it.title }}
-          </td>
-          <td class="c-link" v-if="isVisible('link')"><a :href="it.url" target="_blank" rel="noopener" class="br-link">查看 ↗</a></td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="table-wrap freeze-list">
+      <table class="br-tbl seq-host">
+        <thead>
+          <tr>
+            <th class="seq-th col-gear-th"><button class="col-cfg gear" @click.stop="openColMenu" title="列设置"><Icon name="settings" :size="16" /></button></th>
+            <th class="c-date" v-if="isVisible('date')">发布日</th>
+            <th class="c-type" v-if="isVisible('type')">类型</th>
+            <th class="c-src" v-if="isVisible('src')">来源</th>
+            <th class="c-buyer" v-if="isVisible('buyer')">采购人</th>
+            <th class="c-region" v-if="isVisible('region')">地区</th>
+            <th>标题</th>
+            <th class="c-link" v-if="isVisible('link')">原文</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(it, i) in items" :key="it.url">
+            <td class="seq-cell"><span class="seq-num">{{ i + 1 }}</span></td>
+            <td class="c-date" v-if="isVisible('date')">{{ it.date }}</td>
+            <td class="c-type" v-if="isVisible('type')"><span class="tag" :class="tagClass(it.type)">{{ it.type }}</span></td>
+            <td class="c-src" v-if="isVisible('src')"><span class="src" :class="sourceTagClass(it.source)">{{ it.source_name }}</span></td>
+            <td class="c-buyer" v-if="isVisible('buyer')">{{ it.buyer || '—' }}</td>
+            <td class="c-region" v-if="isVisible('region')">{{ it.region }}</td>
+            <td class="c-title">
+              <span v-if="isNew(it)" class="br-new" title="近 24 小时或本次打开后新入库">新</span>
+              <span v-if="it.is_capex" class="br-capex" title="制造端 CAPEX，非配送线索">CAPEX</span>
+              {{ it.title }}
+            </td>
+            <td class="c-link" v-if="isVisible('link')"><a :href="it.url" target="_blank" rel="noopener" class="br-link">查看 ↗</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
 
     <!-- 分页 -->

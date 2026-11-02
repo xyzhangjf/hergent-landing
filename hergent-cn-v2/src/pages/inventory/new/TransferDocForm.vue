@@ -114,7 +114,7 @@
 
       <div v-if="!items.length" class="state-empty">还没有明细，点击任意行末尾的 + 按钮添加一行。</div>
 
-      <div v-else class="table-wrap">
+      <div v-else class="table-wrap freeze-list">
         <table class="tbl isn-tbl">
           <thead>
             <tr>
@@ -511,6 +511,17 @@ onMounted(() => { resetAll(); loadRefs() })
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  /* v720：明细表头冻结的「舞台」限高。
+     🔴 为什么不靠上游 flex 链：InventoryShell 的 `.page > *{flex:1 1 auto}` 是
+        **刻意**让内容高时整页变高、`.view-wrap` 出滚动条（见 InventoryShell.vue
+        的 v403 注释，写 `flex:1` 会让长页面失去滚动，明令别改）。所以内容超一屏时
+        `.ipn-body` 的 flex:1 解析不出受限高度，`.table-wrap{flex:1;min-height:0}`
+        也就跟着长到内容高（实测 45 行时 1341px = 内容高）⇒ 容器永不纵向滚
+        ⇒ `thead th{sticky}` 没有吸附空间，表头跟着页面滚走。
+     给 body 自己一个上限：内容不足一屏时 flex:1 照常撑满（max-height 不参与），
+     动作条仍贴底；超一屏时 body 被截住，table-wrap 收缩并内部滚动，表头钉住。
+     上限取共享令牌 `--list-pane-max`（定义处有实测取法与按断点收窄的理由）。 */
+  max-height: var(--list-pane-max);
 }
 .isn-body > .isn-bar,
 .isn-body > .isn-tip,
