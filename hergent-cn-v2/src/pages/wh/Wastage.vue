@@ -593,7 +593,7 @@ defineExpose({ load: loadList })
 .wl-void { border-left: 3px solid var(--t3); color: var(--t3) }
 
 .wl-meta {
-  display: flex; flex-wrap: wrap; gap: var(--sp-h18);
+  display: flex; flex-wrap: wrap; gap: var(--sp-5);
   margin-bottom: var(--sp-3); font-size:var(--fs-sm); color: var(--t2);
 }
 .wl-meta b { color: var(--t3); font-weight: 500 }
@@ -622,7 +622,7 @@ defineExpose({ load: loadList })
 /* 显著警示条：报损是一次性生效的库存+账务动作 */
 .wl-warn {
   display: flex; align-items: flex-start; gap: var(--sp-2);
-  margin-bottom: var(--sp-h14); padding: 9px var(--sp-3); font-size:var(--fs-sm); line-height: var(--lh-normal);
+  margin-bottom: var(--sp-4); padding: 9px var(--sp-3); font-size:var(--fs-sm); line-height: var(--lh-normal);
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--dan);
   border-radius: var(--radius-md); background: var(--bg2); color: var(--t2);
 }
@@ -634,7 +634,7 @@ defineExpose({ load: loadList })
 .wl-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 
 .wl-items {
-  margin-top: var(--sp-h14); padding-top: var(--sp-3);
+  margin-top: var(--sp-4); padding-top: var(--sp-3);
   border-top: 1px dashed var(--border-subtle);
 }
 .wl-items-hd {
@@ -646,7 +646,7 @@ defineExpose({ load: loadList })
 
 .wl-new-foot {
   display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
-  margin-top: var(--sp-h14); padding-top: var(--sp-3);
+  margin-top: var(--sp-4); padding-top: var(--sp-3);
   border-top: 1px solid var(--border-subtle);
 }
 .wl-new-note { font-size:var(--fs-sm); color: var(--t3) }

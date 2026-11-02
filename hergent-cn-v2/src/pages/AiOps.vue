@@ -150,7 +150,7 @@
       <div v-if="recipeImportWarn" class="quota-sub" style="color:var(--danger-txt)">{{ recipeImportWarn }}</div>
 
       <!-- 版本历史 / 回滚 -->
-      <div class="recipe-ver" style="margin-top:var(--sp-4);border-top:1px solid var(--border-subtle);padding-top:var(--sp-h14)">
+      <div class="recipe-ver" style="margin-top:var(--sp-4);border-top:1px solid var(--border-subtle);padding-top:var(--sp-4)">
         <div class="prof-hd" style="display:flex;justify-content:space-between;align-items:center">
           <span>配方版本历史 <span class="quota-sub">（每次导入/回滚自动快照，覆盖有解药）</span></span>
           <button class="btn btn-sm btn-ghost" :disabled="verLoading" @click="loadVersions">{{ verLoading ? '加载中…' : '刷新版本' }}</button>
@@ -478,7 +478,7 @@ async function ackFallback() {
 
 <style scoped>
 .aops{display:flex;flex-direction:column;gap:var(--sp-4)}
-.aops-tip{display:flex;align-items:baseline;gap:var(--sp-h10);padding:var(--sp-h10) var(--sp-h14);background:var(--bg2);border:1px dashed var(--border-subtle);border-radius:var(--radius-sm)}
+.aops-tip{display:flex;align-items:baseline;gap:var(--sp-h10);padding:var(--sp-h10) var(--sp-4);background:var(--bg2);border:1px dashed var(--border-subtle);border-radius:var(--radius-sm)}
 .aops-tip b{font-size:var(--fs-md);font-weight:600;color:var(--t1);flex-shrink:0}
 .aops-tip span{font-size:var(--fs-sm);color:var(--t3)}
 
@@ -486,15 +486,15 @@ async function ackFallback() {
 .prof-hd{font-size:var(--fs-base);font-weight:600;color:var(--t1);margin-bottom:var(--sp-h6)}
 
 /* 数据备份 */
-.bk-stat{display:flex;flex-wrap:wrap;gap:var(--sp-h10);margin-bottom:var(--sp-h14)}
-.bk-pill{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-h14);display:flex;flex-direction:column;gap:var(--sp-1);min-width:160px}
+.bk-stat{display:flex;flex-wrap:wrap;gap:var(--sp-h10);margin-bottom:var(--sp-4)}
+.bk-pill{background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-1);min-width:160px}
 .bk-k{font-size:var(--fs-xs);color:var(--t2);text-transform:uppercase;letter-spacing:.04em}
 .bk-v{font-size:var(--fs-lg);font-weight:600;color:var(--t1)}
 .bk-list{display:flex;flex-direction:column;gap:var(--sp-h6);max-height:280px;overflow:auto}
 .bk-item{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-h10) var(--sp-3);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
 .bk-main{display:flex;flex-direction:column;gap:var(--sp-h2)}
 .bk-date{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
-.restore-box{margin-top:var(--sp-h14);padding:var(--sp-3) var(--sp-h14);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
+.restore-box{margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
 .restore-row{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-1) 0}
 .bd-tag{padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-2xs);font-size:var(--fs-xs);font-weight:600;background:var(--bg3);color:var(--t2)}
 .bd-tag.ok{background:var(--ok-green-bg);color:var(--ok-green)}
@@ -502,7 +502,7 @@ async function ackFallback() {
 
 /* 健康看板 */
 .obs-warn{color:var(--danger-txt)}
-.obs-prov,.obs-fail{margin-top:var(--sp-h14);padding:var(--sp-3) var(--sp-h14);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
+.obs-prov,.obs-fail{margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm)}
 .obs-row{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-1) 0;gap:var(--sp-h10)}
 .obs-prov-tag{font-size:var(--fs-base);font-weight:600;color:var(--t1);padding:var(--sp-h2) var(--sp-2);background:var(--info-blue-bg);border-radius:var(--radius-2xs)}
 .obs-fail-tag{font-size:var(--fs-sm);color:var(--danger-txt);background:var(--danger-bg);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-2xs);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}

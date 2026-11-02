@@ -395,7 +395,7 @@ function goWorkbench() {
    若不放宽锁定值，两表单瞬切时登录卡 548 → 注册卡 620 会**跳高 72px**，
    这正是当初把高度锁死要避免的 —— 锁定值必须 ≥ 较高的那一侧。 */
 .login-card{width:360px;max-width:100%;background:var(--bg);border-radius:var(--radius-xl);padding:40px var(--sp-7);box-shadow:var(--shadow-lg);border:1px solid var(--border-subtle);min-height:620px;display:flex;flex-direction:column}
-.login-logo{display:flex;justify-content:center;margin-bottom:var(--sp-h14)}
+.login-logo{display:flex;justify-content:center;margin-bottom:var(--sp-4)}
 .login-logo img{width:48px;height:48px;border-radius:var(--radius-sm);box-shadow:0 4px 12px rgba(13,148,136,.18)}
 h1{font-size:var(--fs-xl);font-weight:600;text-align:center;margin-bottom:var(--sp-1)}
 .login-sub{font-size:var(--fs-base);color:var(--t3);text-align:center;margin-bottom:var(--sp-6)}
@@ -420,16 +420,16 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 .login-forgot:hover{color:var(--p-dark)}
 .forgot-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000}
 .forgot-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;max-width:calc(100vw - 40px);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--sp-6);z-index:1001}
-.forgot-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-h14)}
+.forgot-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-4)}
 .forgot-hd b{font-size:var(--fs-lg);font-weight:600}
 .forgot-x{background:none;border:none;font-size:var(--fs-xl);color:var(--t3);cursor:pointer;line-height:var(--lh-none);padding:0 var(--sp-1)}
 .forgot-x:hover{color:var(--t1)}
 .forgot-tip{font-size:var(--fs-base);color:var(--t2);margin-bottom:var(--sp-h10)}
 .forgot-step{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-2)}
-.forgot-mail{font-size:var(--fs-md);font-weight:600;color:var(--p-dark);text-align:center;padding:var(--sp-h10);background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:var(--sp-h14)}
+.forgot-mail{font-size:var(--fs-md);font-weight:600;color:var(--p-dark);text-align:center;padding:var(--sp-h10);background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:var(--sp-4)}
 .forgot-foot{font-size:var(--fs-xs);color:var(--t3);margin-top:var(--sp-h10);text-align:center}
 /* 首次登录强制改密 */
-.pw-form{display:flex;flex-direction:column;gap:var(--sp-h10);margin:var(--sp-h14) 0}
+.pw-form{display:flex;flex-direction:column;gap:var(--sp-h10);margin:var(--sp-4) 0}
 .pw-actions{display:flex;flex-direction:column;gap:var(--sp-2);margin-top:var(--sp-3)}
 .login-legal .beian{margin-right:var(--sp-h6)}
 .login-legal a{color:var(--p-dark);text-decoration:none;margin:0 var(--sp-h2)}
@@ -439,7 +439,7 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 .login-agree input{margin-top:var(--sp-h2);accent-color:var(--p);flex:none}
 .login-agree a{color:var(--p-dark);text-decoration:none}
 .login-agree a:hover{text-decoration:underline}
-.lg-tabs{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-h18);background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-1)}
+.lg-tabs{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-5);background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-1)}
 .demo-btn{color:var(--p-dark);border-color:rgba(6,182,212,.35);margin-top:var(--sp-h2)}
 .lg-tab{flex:1;border:none;background:none;padding:var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-base);color:var(--t3);cursor:pointer;transition:all var(--dur-base)}
 .lg-tab.on{background:var(--bg);color:var(--p-dark);font-weight:500;box-shadow:var(--shadow-sm)}
@@ -451,10 +451,10 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 .act-x{border:none;background:none;font-size:var(--fs-sm);color:var(--t3);cursor:pointer}
 .act-body{padding:var(--sp-5)}
 .act-step{font-size:var(--fs-md);font-weight:500;color:var(--t1);margin:0 0 var(--sp-2)}
-.act-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-h14)}
+.act-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-4)}
 .act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:var(--radius-md);padding:26px var(--sp-4);font-size:var(--fs-base);color:var(--p-dark);cursor:pointer;text-align:center;transition:all var(--dur-base)}
 .act-drop:hover{background:var(--p-bg)}
 .act-drop.busy{opacity:.6}
-.act-done{margin-top:var(--sp-h14);font-size:var(--fs-base);color:var(--suc);font-weight:500}
-.act-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-5);border-top:1px solid var(--border-subtle)}
+.act-done{margin-top:var(--sp-4);font-size:var(--fs-base);color:var(--suc);font-weight:500}
+.act-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--border-subtle)}
 </style>

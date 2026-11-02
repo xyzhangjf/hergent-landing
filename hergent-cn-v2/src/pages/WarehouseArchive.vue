@@ -55,7 +55,7 @@
       </div>
       <div v-else class="state-empty">还没有仓库档案，先新建一个（如「总仓」「刘小顶仓」）</div>
 
-      <p class="df-tip" style="margin-top:var(--sp-h14)">
+      <p class="df-tip" style="margin-top:var(--sp-4)">
         仓库在这里统一维护，下游三处引用它：
         <b>员工档案 → 个人仓</b>（该员工报「本人仓」调拨单时的目标仓）、
         <b>报单配置 → 源仓 / 目标仓</b>（舟谱调拨单的调出仓与调入仓）、
@@ -215,8 +215,8 @@ onMounted(load)
 
 <style scoped>
 .wh-hd-right{display:flex;align-items:center;gap:var(--sp-h10);flex-shrink:0}
-.df-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
-.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-normal)}
+.df-panel{padding:var(--sp-5);margin-bottom:var(--sp-4)}
+.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-4);line-height:var(--lh-normal)}
 .df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 
 /* 仓号（DB3）：与报单配置里的「本人仓」标识同源，方便对账时口头引用 */

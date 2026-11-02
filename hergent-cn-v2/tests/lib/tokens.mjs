@@ -107,7 +107,7 @@ export function padY (raw, ctx = {}) {
 }
 
 /**
- * 把 `10px 14px` / `var(--sp-h10) var(--sp-h14)` / `0 auto` 这类简写拆成数值数组。
+ * 把 `10px 14px` / `var(--sp-h10) var(--sp-4)` / `0 auto` 这类简写拆成数值数组。
  * 按**括号深度**切分：`var(--x, 4px)` 内部的空格不是分隔符（v720 用 `split(/\s/)`
  * 曾在别处把 `:where(a, b, c)` 拆坏，同一个坑）。
  */

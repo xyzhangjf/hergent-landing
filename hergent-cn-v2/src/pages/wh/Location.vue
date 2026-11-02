@@ -328,7 +328,7 @@ defineExpose({ load })
 
 <style scoped>
 .wl-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
-.wl-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-h14) }
+.wl-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4) }
 .wl-f { display: flex; flex-direction: column; gap: var(--sp-1) }
 .wl-lb { font-size:var(--fs-sm); color: var(--t3) }
 .wl-sel { min-width: 160px }
@@ -337,9 +337,9 @@ defineExpose({ load })
 
 .wl-modal-mask {
   position: fixed; inset: 0; background: rgba(0,0,0,.38);
-  display: flex; align-items: center; justify-content: center; z-index: 60; padding: var(--sp-h18);
+  display: flex; align-items: center; justify-content: center; z-index: 60; padding: var(--sp-5);
 }
-.wl-modal { width: 460px; max-width: 100%; max-height: 88vh; overflow: auto; padding: var(--sp-h18) }
+.wl-modal { width: 460px; max-width: 100%; max-height: 88vh; overflow: auto; padding: var(--sp-5) }
 .wl-modal-lg { width: 720px }
 .wl-modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-3) }
 .wl-modal-hd h3 { font-size:var(--fs-lg) }

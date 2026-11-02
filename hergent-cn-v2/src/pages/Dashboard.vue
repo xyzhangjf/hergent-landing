@@ -450,7 +450,7 @@ watch(repOk, (ok) => {
 </script>
 
 <style scoped>
-.dash{display:flex;flex-direction:column;gap:var(--sp-h14)}
+.dash{display:flex;flex-direction:column;gap:var(--sp-4)}
 .dash-hd h1{font-size:var(--fs-xl);font-weight:600;color:var(--t1)}   /* v719：原 18px 与全站页面标题 20px 不一致（--fs-h2），统一 */
 .dash-sub{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
 
@@ -469,7 +469,7 @@ watch(repOk, (ok) => {
 .kpi-d.up{color:var(--suc)}
 .kpi-d.down{color:var(--dan)}
 
-.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp-h14)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp-4)}
 @media(max-width:900px){.grid2{grid-template-columns:1fr}}
 
 .dash-err{display:flex;flex-direction:column;align-items:flex-start;gap:var(--sp-h6);color:var(--danger-txt)}

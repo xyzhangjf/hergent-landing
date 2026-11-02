@@ -151,10 +151,10 @@ onMounted(load)
 .page-hd { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: var(--sp-3) }
 .page-sub { font-size:var(--fs-sm); color: var(--t3) }
 .fc-tabs { display: flex; gap: var(--sp-h6); flex-wrap: wrap; margin-bottom: var(--sp-3) }
-.fc-tab { padding: 7px var(--sp-h14); border: 1px solid var(--bd); background: var(--bg); border-radius: var(--radius-sm); cursor: pointer; font-size:var(--fs-base); color: var(--t1) }
+.fc-tab { padding: 7px var(--sp-4); border: 1px solid var(--bd); background: var(--bg); border-radius: var(--radius-sm); cursor: pointer; font-size:var(--fs-base); color: var(--t1) }
 .fc-tab.on { border-color: var(--p); color: var(--p-ink); background: var(--p-bg) }
 .card { padding: var(--sp-4) }
-.fc-hd { display: flex; flex-direction: column; gap: var(--sp-1); margin-bottom: var(--sp-h14) }
+.fc-hd { display: flex; flex-direction: column; gap: var(--sp-1); margin-bottom: var(--sp-4) }
 .fc-sub { font-size:var(--fs-sm); color: var(--t3) }
 .fc-nodes { display: flex; flex-direction: column; gap: var(--sp-h10) }
 .fc-node { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap }
@@ -162,5 +162,5 @@ onMounted(load)
 .fc-node .input { flex: 1; min-width: 140px }
 .fc-empty { font-size:var(--fs-base); color: var(--t3) }
 .fc-actions { display: flex; gap: var(--sp-h10); margin-top: var(--sp-4) }
-.fc-note { margin: var(--sp-h14) 0 0; font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-normal)}
+.fc-note { margin: var(--sp-4) 0 0; font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-normal)}
 </style>

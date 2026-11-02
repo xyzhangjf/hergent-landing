@@ -438,7 +438,7 @@ defineExpose({ load })
 
 .wob-pager {
   display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
-  padding: var(--sp-3) var(--sp-h14); border-top: 1px solid var(--border-subtle);
+  padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--border-subtle);
 }
 .wob-pg-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
 .wob-pg-nums { display: inline-flex; align-items: center; gap: var(--sp-1) }

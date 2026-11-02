@@ -988,7 +988,7 @@ onMounted(() => { reset(); loadRefs() })
 
 /* 读数条（舟谱「应付/预付余额」那条的位置）—— 品牌色浅底 + 细边 + 圆角 */
 .isn-strip {
-  display: flex; align-items: center; gap: var(--sp-h18); flex-wrap: wrap;
+  display: flex; align-items: center; gap: var(--sp-5); flex-wrap: wrap;
   margin-bottom: var(--sp-3); padding: 9px var(--sp-4);
   background: var(--p-bg); border: 1px solid var(--p-border);
   border-radius: var(--radius-md); font-size:var(--fs-base); color: var(--t1);

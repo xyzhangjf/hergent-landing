@@ -1828,7 +1828,7 @@ function stopResize() {
 /* 已打开：条目名右侧一个小圆点（不占额外行高，避免改动行节奏）。 */
 .sb-pop-dot{width:5px;height:5px;border-radius:var(--radius-circle);background:var(--p);flex-shrink:0;margin-left:auto}
 
-.md-group-hd{font-size:var(--fs-xs);font-weight:500;color:var(--t3);padding:var(--sp-h14) var(--sp-5) var(--sp-1);letter-spacing:.8px}
+.md-group-hd{font-size:var(--fs-xs);font-weight:500;color:var(--t3);padding:var(--sp-4) var(--sp-5) var(--sp-1);letter-spacing:.8px}
 
 /* v396（2026-10-08）：内容区从「自己滚」改为「**标签栏 + 滚动区**」两层。
    🔴 为什么必须分两层：标签栏要**钉住不滚**（长页面滚动时它得一直在），
@@ -1867,11 +1867,11 @@ function stopResize() {
    右边固定不缩 —— 与桌面 `.sb-pop-row` 同一套版式（名字长短不一时「＋」仍然右对齐）。 */
 .md-row{display:flex;align-items:center}
 .md-row>.md-item{flex:1;min-width:0;width:auto}
-.md-item{display:flex;align-items:center;gap:var(--sp-3);width:100%;padding:var(--sp-h14) var(--sp-5);border:none;background:none;font-size:var(--fs-lg);color:var(--t1);text-align:left}
+.md-item{display:flex;align-items:center;gap:var(--sp-3);width:100%;padding:var(--sp-4) var(--sp-5);border:none;background:none;font-size:var(--fs-lg);color:var(--t1);text-align:left}
 .md-item:active{background:var(--bg4)}
 /* 手机端「＋」（L1 双入口的右半区）：横向紧 ⇒ 纯图标（桌面 `.sb-pop-new` 用「＋ 创建」文字）。
    ⚠️ 命中区靠 36×36 撑住，别缩成 16px 图标本身；`margin-right` 与条目右侧留白对齐。 */
-.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:var(--sp-h14);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);text-decoration:none}
+.md-item-new{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:36px;height:36px;margin-right:var(--sp-4);border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);text-decoration:none}
 .md-item-new:active{background:var(--p-solid);color:#fff}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}
@@ -1891,7 +1891,7 @@ function stopResize() {
 .pf-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:1130;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
 .pf-modal{width:380px;max-width:92vw;background:var(--bg);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
 .pf-hd{padding:var(--sp-4) var(--sp-5);font-size:var(--fs-lg);font-weight:600;color:var(--t1);border-bottom:1px solid var(--border-subtle)}
-.pf-bd{padding:var(--sp-h18) var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-h14)}
+.pf-bd{padding:var(--sp-5) var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-4)}
 .pf-field{display:flex;flex-direction:column;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t2)}
 .pf-field input{height:40px;padding:0 var(--sp-3);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:var(--fs-md);outline:none}
 .pf-field input:focus{border-color:var(--p)}
@@ -1899,8 +1899,8 @@ function stopResize() {
 .pf-msg{font-size:var(--fs-sm)}
 .pf-msg.ok{color:var(--suc)}
 .pf-msg.err{color:var(--dan)}
-.pf-ft{padding:var(--sp-h14) var(--sp-5);display:flex;justify-content:flex-end;gap:var(--sp-h10);border-top:1px solid var(--border-subtle)}
-.pf-btn{height:36px;padding:0 var(--sp-h18);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:var(--fs-base);cursor:pointer;transition:all var(--dur-base)}
+.pf-ft{padding:var(--sp-4) var(--sp-5);display:flex;justify-content:flex-end;gap:var(--sp-h10);border-top:1px solid var(--border-subtle)}
+.pf-btn{height:36px;padding:0 var(--sp-5);border-radius:var(--radius-sm);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);font-size:var(--fs-base);cursor:pointer;transition:all var(--dur-base)}
 .pf-btn:hover{background:var(--bg3)}
 .pf-btn.primary{background:var(--p-solid);border-color:var(--p-solid);color:#fff}
 .pf-btn.primary:hover{opacity:.92}
@@ -1928,7 +1928,7 @@ function stopResize() {
   /* v396：padding 从 `.content` 移到了 `.view-wrap`（标签栏不随页面滚）；
      v417f：标签栏已并入顶栏，这里不再为它预留通栏空间。
      手机端标签栏整条隐藏（Q6 A），所以这里只补底部安全区，视觉与原来一致。 */
-  .view-wrap{padding:var(--sp-h14) var(--sp-3) calc(72px + env(safe-area-inset-bottom))}
+  .view-wrap{padding:var(--sp-4) var(--sp-3) calc(72px + env(safe-area-inset-bottom))}
 }
 /* v708：320px 级机型（iPhone SE 一代等）空间再紧一档 —— 让出品牌文字只留 logo（logo 本身可识别），
    用户名上限再收。375px 用不着这一档，所以单开断点而不是塞进 768。 */

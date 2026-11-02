@@ -1967,7 +1967,7 @@ onMounted(() => {
 .pa-od-hit{margin-left:auto;font-size:var(--fs-sm);color:var(--ok);white-space:nowrap}
 .pa-od-hit.off{color:var(--t3)}
 .pa-od-warn{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--war)}
-.pa-ord-modes{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-h14)}
+.pa-ord-modes{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-4)}
 .ord-mode,.ord-wd{display:inline-flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t1);
   padding:var(--sp-h6) var(--sp-h10);border:1px solid var(--border-subtle);border-radius:var(--radius-md);cursor:pointer}
 .ord-mode:hover,.ord-wd:hover{background:var(--bg2)}
@@ -1975,14 +1975,14 @@ onMounted(() => {
 .pa-ord-sub{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;margin-top:var(--sp-h10)}
 .pa-ord-month{max-width:360px}
 .pa-ord-month.bad{border-color:var(--danger)}
-.pa-ord-preview{margin:var(--sp-h14) 0 var(--sp-1);font-size:var(--fs-base);color:var(--t1)}
+.pa-ord-preview{margin:var(--sp-4) 0 var(--sp-1);font-size:var(--fs-base);color:var(--t1)}
 .pa-ord-preview b{color:var(--p-ink)}
 .pa-ord-hint{font-size:var(--fs-sm);color:var(--t2)}
 /* `.pa-ft-note` 全局是警告橙（既有用法是「N 个字段已改，未保存」= 真提醒）。
    本弹窗里「与当前设置一致，无需修改」是**正常态**，用橙会让人以为哪里错了 ⇒ 压成灰。 */
 .pa-ord .pa-ft-note.calm{color:var(--t2);font-weight:400}
 
-.pa-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
+.pa-panel{padding:var(--sp-5);margin-bottom:var(--sp-4)}
 .pa-filters{display:flex;gap:var(--sp-h10);flex-wrap:nowrap;align-items:center;overflow-x:auto;padding-bottom:var(--sp-h2)}
 .pa-search{position:relative;display:flex;align-items:center;flex:0 1 260px;min-width:170px;max-width:300px}
 .pa-search-ico{position:absolute;left:10px;width:15px;height:15px;color:var(--t3);pointer-events:none}
@@ -2034,9 +2034,9 @@ onMounted(() => {
 .pa-modal-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-subtle)}
 .pa-modal-hd b{font-size:var(--fs-lg);color:var(--t1)}
 .pa-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer}
-.pa-modal-body{padding:var(--sp-h18) var(--sp-5)}
-.pa-modal-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-5);border-top:1px solid var(--border-subtle)}
-.pa-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-h14);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
+.pa-modal-body{padding:var(--sp-5) var(--sp-5)}
+.pa-modal-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--border-subtle)}
+.pa-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-4);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
 
 /* 详情网格 */
 /* ---- v184c 商品编辑弹窗（原 .pa-detail-* 只读样式随弹窗改造一并删除，避免死 CSS）----
@@ -2065,7 +2065,7 @@ onMounted(() => {
 /* 修改记录：时间 / 人 / 字段 / 改前→改后，前三列不换行、末列自适应。 */
 /* v241：10px 在规范圆角档位（8/12/16/22）里**不存在** ⇒ 改 --radius-md(12px)。 */
 .pa-log{border:1px solid var(--border-subtle);border-radius:var(--radius-md);max-height:210px;overflow-y:auto}
-.pa-log-empty{padding:var(--sp-h14);text-align:center;font-size:var(--fs-sm);color:var(--t3)}
+.pa-log-empty{padding:var(--sp-4);text-align:center;font-size:var(--fs-sm);color:var(--t3)}
 .pa-log-row{display:flex;align-items:baseline;gap:var(--sp-h10);padding:7px var(--sp-3);font-size:var(--fs-sm);
   border-bottom:1px solid var(--border-subtle)}
 .pa-log-row:last-child{border-bottom:0}
@@ -2077,7 +2077,7 @@ onMounted(() => {
 .pa-log-v b{font-weight:600}
 
 /* 新增表单 */
-.pa-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h14)}
+.pa-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-4)}
 .pa-f{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-sm);color:var(--t2)}
 .pa-f i{color:var(--dan);font-style:normal}
 /* v241：34px 是全站**独有的第三档**（全局只有 .input=40px 与 .fld=32px 两档）。
@@ -2088,7 +2088,7 @@ onMounted(() => {
 .pa-imp-row{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .pa-file-btn{position:relative;overflow:hidden}
 .pa-fname{font-size:var(--fs-sm);color:var(--t2)}
-.pa-imp-result{margin-top:var(--sp-3);padding:var(--sp-h10) var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-base);background:rgba(var(--suc-rgb),.1);color:var(--suc)}
+.pa-imp-result{margin-top:var(--sp-3);padding:var(--sp-h10) var(--sp-4);border-radius:var(--radius-sm);font-size:var(--fs-base);background:rgba(var(--suc-rgb),.1);color:var(--suc)}
 .pa-imp-result.warn{background:rgba(var(--war-rgb),.12);color:var(--war)}
 .pa-errs{display:flex;flex-direction:column;gap:var(--sp-h2);margin-top:var(--sp-h6)}
 .pa-err{font-size:var(--fs-sm);color:var(--t2)}

@@ -280,14 +280,14 @@ function exportCsv() {
 <style scoped>
 .rpt-acts { display: flex; gap: var(--sp-2); align-items: center; }
 /* v643：日期筛选条（复用进销存 `.psi-quick` 芯片样式，不另造一套 chip）。 */
-.rpt-filter { display: flex; align-items: center; gap: var(--sp-h14); flex-wrap: wrap; margin-bottom: var(--sp-h14); padding: var(--sp-h10) var(--sp-3); }
+.rpt-filter { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; margin-bottom: var(--sp-4); padding: var(--sp-h10) var(--sp-3); }
 .rpt-date { display: flex; align-items: center; gap: var(--sp-h10); }
 .rpt-date label { display: flex; align-items: center; gap: var(--sp-h6); font-size:var(--fs-sm); color: var(--t2); }
 .rpt-date input { padding: 5px var(--sp-2); border: 1px solid var(--bd); border-radius: var(--radius-sm); background: var(--bg); color: var(--t1); font-size:var(--fs-sm); }
 .rpt-range { font-size:var(--fs-sm); color: var(--t2); margin-left: auto; }
-.rpt-card { margin-top: var(--sp-h14); }
+.rpt-card { margin-top: var(--sp-4); }
 .rpt-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
-.rpt-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2); }
+.rpt-foot { margin: var(--sp-4) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2); }
 .rpt-foot :deep(code) { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs); }
 
 /* ===== v701 下探：面包屑 + 单据链接 ===== */

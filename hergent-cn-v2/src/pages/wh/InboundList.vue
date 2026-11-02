@@ -431,7 +431,7 @@ defineExpose({ load })
 
 .win-pager {
   display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
-  padding: var(--sp-3) var(--sp-h14); border-top: 1px solid var(--border-subtle);
+  padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--border-subtle);
 }
 .win-pg-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
 .win-pg-nums { display: inline-flex; align-items: center; gap: var(--sp-1) }
@@ -452,5 +452,5 @@ defineExpose({ load })
 .win-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
 .win-fld { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1; min-width: 220px }
 .win-req { color: var(--dan) }
-.win-items { margin-top: var(--sp-h14) }
+.win-items { margin-top: var(--sp-4) }
 </style>

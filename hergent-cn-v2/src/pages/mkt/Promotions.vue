@@ -361,7 +361,7 @@ onMounted(() => { load(); loadProducts() })
    .seq-cell/.state-empty/.state-error/.btn/.btn-sm/.btn-primary/.btn-ghost/.btn-row-ic/.input）
    一律复用，不重定义。 */
 .pm-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
-.pm-card { margin-top: var(--sp-h14) }
+.pm-card { margin-top: var(--sp-4) }
 .pm-prods { max-width: 220px }
 .pm-muted { color: var(--t3); font-size:var(--fs-sm) }
 .pm-op { white-space: nowrap; text-align: right }

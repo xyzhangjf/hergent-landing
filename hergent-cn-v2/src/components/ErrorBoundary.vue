@@ -35,6 +35,6 @@ onErrorCaptured((err) => {
 .err-card{padding:28px var(--sp-7);border-radius:var(--radius-lg);background:var(--bg2);box-shadow:var(--shadow-lg);max-width:420px;text-align:center}
 .err-title{font-size:var(--fs-lg);font-weight:600;color:var(--t1);margin-bottom:var(--sp-2)}
 .err-msg{font-size:var(--fs-base);color:var(--t2);margin-bottom:var(--sp-4);word-break:break-word;line-height:var(--lh-normal)}
-.err-btn{padding:var(--sp-2) var(--sp-h18);border:none;border-radius:var(--radius-sm);background:var(--p-solid);color:#fff;font-size:var(--fs-base);cursor:pointer}
+.err-btn{padding:var(--sp-2) var(--sp-5);border:none;border-radius:var(--radius-sm);background:var(--p-solid);color:#fff;font-size:var(--fs-base);cursor:pointer}
 .err-btn:hover{opacity:.9}
 </style>

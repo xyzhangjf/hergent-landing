@@ -207,10 +207,10 @@ defineExpose({ load })
 
 <style scoped>
 /* 仅保留仍被引用的私有类（口径说明卡挂在 #extra 插槽，插槽内容在本页作用域编译）。 */
-.sos-charts { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--sp-h14); margin-top: var(--sp-h14) }
+.sos-charts { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--sp-4); margin-top: var(--sp-4) }
 @media (max-width: 1100px) { .sos-charts { grid-template-columns: minmax(0, 1fr) } }
-.sos-card { margin-top: var(--sp-h14) }
-.sos-note { margin: 0; padding-left: var(--sp-h18); font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-loose)}
+.sos-card { margin-top: var(--sp-4) }
+.sos-note { margin: 0; padding-left: var(--sp-5); font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-loose)}
 .sos-note code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs) }
 /* v650：业务员筛选条（与 CustomerRank 同一版式语言）。 */
 .sos-filter { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap }

@@ -260,7 +260,7 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 .psi-bres-sum .dan { color: var(--danger-txt) }
 /* 失败清单可能几十行 ⇒ 限高自滚，不把列表顶出屏幕 */
 .psi-bres-list {
-  margin: 0; padding-left: var(--sp-h18); max-height: 160px; overflow: auto;
+  margin: 0; padding-left: var(--sp-5); max-height: 160px; overflow: auto;
   font-size:var(--fs-sm); line-height: var(--lh-normal); color: var(--t2);
 }
 .psi-bres-close {
@@ -277,7 +277,7 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
         共 N 条记录 + 页码窗 + 每页条数 + 跳至） ---- */
 .psi-pager {
   display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
-  padding: var(--sp-h10) var(--sp-h14); border-top: 1px solid var(--border-subtle);
+  padding: var(--sp-h10) var(--sp-4); border-top: 1px solid var(--border-subtle);
 }
 .psi-pg-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
 .psi-pg-nums { display: inline-flex; align-items: center; gap: var(--sp-1) }

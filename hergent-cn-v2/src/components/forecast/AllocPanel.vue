@@ -1057,7 +1057,7 @@ onMounted(() => { loadAllocSetup() })
 /* v336：占比「只读」态 —— 来源是本期报单量推导（客观事实），不是可配置的档案比例。
    视觉上必须一眼看出"这格改不了"，否则用户会反复点进去以为输入框坏了。 */
 .alloc-mini.alloc-ro{background:var(--bg2);color:var(--t2);cursor:not-allowed;border-style:dashed}
-.alloc-empty{text-align:center;color:var(--t3);padding:var(--sp-h14) 0}
+.alloc-empty{text-align:center;color:var(--t3);padding:var(--sp-4) 0}
 .alloc-neg{color:var(--danger-txt);font-weight:600}
 .alloc-sum{display:flex;gap:var(--sp-4);flex-wrap:wrap;margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t2)}
 .alloc-sum .ok{color:var(--p-dark);font-weight:600}

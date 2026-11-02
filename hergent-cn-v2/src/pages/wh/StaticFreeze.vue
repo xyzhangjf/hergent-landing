@@ -493,7 +493,7 @@ defineExpose({ load: loadList })
 .sfz-lock { border-left: 3px solid var(--ok); color: var(--ok) }
 
 .sfz-meta {
-  display: flex; flex-wrap: wrap; gap: var(--sp-h18);
+  display: flex; flex-wrap: wrap; gap: var(--sp-5);
   margin-bottom: var(--sp-3); font-size:var(--fs-sm); color: var(--t2);
 }
 .sfz-meta b { color: var(--t3); font-weight: 500 }
@@ -514,7 +514,7 @@ defineExpose({ load: loadList })
 .sfz-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 
 .sfz-pick {
-  margin-top: var(--sp-h14); padding-top: var(--sp-3);
+  margin-top: var(--sp-4); padding-top: var(--sp-3);
   border-top: 1px dashed var(--border-subtle);
 }
 .sfz-pick-hd {
@@ -539,7 +539,7 @@ defineExpose({ load: loadList })
 
 .sfz-new-foot {
   display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
-  margin-top: var(--sp-h14); padding-top: var(--sp-3);
+  margin-top: var(--sp-4); padding-top: var(--sp-3);
   border-top: 1px solid var(--border-subtle);
 }
 .sfz-new-note { font-size:var(--fs-sm); color: var(--t3) }

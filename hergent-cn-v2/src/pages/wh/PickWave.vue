@@ -315,7 +315,7 @@ defineExpose({ load })
 
 <style scoped>
 .pw-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
-.pw-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-h14) }
+.pw-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4) }
 .pw-f { display: flex; flex-direction: column; gap: var(--sp-1) }
 .pw-lb { font-size:var(--fs-sm); color: var(--t3) }
 .pw-sel { min-width: 160px }
@@ -325,9 +325,9 @@ defineExpose({ load })
 
 .pw-modal-mask {
   position: fixed; inset: 0; background: rgba(0,0,0,.38);
-  display: flex; align-items: center; justify-content: center; z-index: 60; padding: var(--sp-h18);
+  display: flex; align-items: center; justify-content: center; z-index: 60; padding: var(--sp-5);
 }
-.pw-modal { width: 460px; max-width: 100%; max-height: 88vh; overflow: auto; padding: var(--sp-h18) }
+.pw-modal { width: 460px; max-width: 100%; max-height: 88vh; overflow: auto; padding: var(--sp-5) }
 .pw-modal-lg { width: 760px }
 .pw-modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-3) }
 .pw-modal-hd h3 { font-size:var(--fs-lg); display: flex; align-items: center; gap: var(--sp-2) }
@@ -346,5 +346,5 @@ defineExpose({ load })
 .btn.danger { color: var(--danger) }
 .badge-gray { background: var(--bg-2); color: var(--t2) }
 .req { color: var(--danger) }
-.state-empty.small { padding: var(--sp-h18) 0 }
+.state-empty.small { padding: var(--sp-5) 0 }
 </style>

@@ -753,7 +753,7 @@ async function refreshProfile() {
 .ops-hint{display:flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);margin-top:-8px}
 .ops-hint a{color:var(--p-ink);text-decoration:none;font-weight:500}
 .ops-hint a:hover{text-decoration:underline}
-.card{background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--sp-4) var(--sp-h18)}
+.card{background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--sp-4) var(--sp-5)}
 /* KPI 条要覆盖上面这条 scoped .card 的内距 —— 两者特异性同为 0,2,0（scoped 会被加上
    [data-v-x] 属性选择器），全局层的 .kpi-strip 特异性只有 0,1,0 盖不住，只能靠源顺序在这里补一条。 */
 .kpi-strip{padding:var(--sp-h6) 0}
@@ -782,15 +782,15 @@ async function refreshProfile() {
 
 /* 价值账单 */
 .value-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-h10)}
-.value-item{background:var(--bg3);border-radius:var(--radius-sm);padding:var(--sp-h14) var(--sp-h10);text-align:center}
+.value-item{background:var(--bg3);border-radius:var(--radius-sm);padding:var(--sp-4) var(--sp-h10);text-align:center}
 .value-num{font-size:var(--fs-num-lg);font-weight:600;color:var(--t1);line-height:var(--lh-title)}
 .value-num.good{color:var(--suc)}
 .value-label{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
 
 /* 洞察 / 画像 */
-.insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-h14);font-size:var(--fs-md);line-height:var(--lh-normal);color:var(--t1);white-space:pre-wrap}
+.insight-box{background:var(--p-bg);border:1px solid var(--p-border);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-md);line-height:var(--lh-normal);color:var(--t1);white-space:pre-wrap}
 /* T1-3 缺数据拒答：必须看起来就"不是一条洞察"，否则老板会把说明当结论读 */
-.blocked-box{background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-h14);color:var(--t1)}
+.blocked-box{background:var(--warn-amber-bg);border:1px solid var(--warn-amber);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-4);color:var(--t1)}
 .blocked-box b{display:block;font-size:var(--fs-md);color:var(--warn-amber);margin-bottom:var(--sp-h6)}
 .blocked-txt{font-size:var(--fs-base);line-height:var(--lh-normal);white-space:pre-wrap}
 /* T1-3 指标级溯源表 */

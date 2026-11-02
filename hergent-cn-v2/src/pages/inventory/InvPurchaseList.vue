@@ -1741,13 +1741,13 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* v451（L3）：待审核退货草稿条 —— 与筛选卡同族观感（`.card`），但用**警示色**左边框
    提醒"这里有没生效的单"，不与正常数据混同（深色/浅色主题下都靠 --war 一色成立）。
    margin 与 `.ipl-filter` 对齐（都是 12px 下距）。 */
-.ipl-draft { margin-bottom: var(--sp-3); padding: var(--sp-3) var(--sp-h18); border-left: 3px solid var(--war) }
+.ipl-draft { margin-bottom: var(--sp-3); padding: var(--sp-3) var(--sp-5); border-left: 3px solid var(--war) }
 .ipl-draft-hd { display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap; margin-bottom: var(--sp-2) }
 .ipl-draft-n { color: var(--war); font-weight: 600; font-variant-numeric: tabular-nums }
 .ipl-draft-tip { font-size:var(--fs-sm); color: var(--t3) }
 .ipl-draft-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-h6) }
 .ipl-draft-list li {
-  display: flex; align-items: center; gap: var(--sp-h14); flex-wrap: wrap;
+  display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap;
   padding: var(--sp-h6) var(--sp-h10); border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm); font-size:var(--fs-base); color: var(--t1);
 }
@@ -1804,14 +1804,14 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* 批量结果条 */
 .ipl-result {
   display: flex; align-items: flex-start; gap: var(--sp-h10); flex-wrap: wrap;
-  margin: 0 0 var(--sp-3); padding: var(--sp-h10) var(--sp-h14);
+  margin: 0 0 var(--sp-3); padding: var(--sp-h10) var(--sp-4);
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--suc);
   border-radius: var(--radius-md); background: var(--bg2); font-size:var(--fs-base);
 }
 .ipl-result.warn { border-left-color: var(--war) }
 .ipl-rsum b { font-variant-numeric: tabular-nums }
 .ipl-rsum .dan, .ipl-rlist { color: var(--danger-txt) }
-.ipl-rlist { margin: 0; padding-left: var(--sp-h18); width: 100% }
+.ipl-rlist { margin: 0; padding-left: var(--sp-5); width: 100% }
 .ipl-result .ipl-link { margin-left: auto }
 
 /* 表格
@@ -1858,7 +1858,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipl-mark { display: inline-flex; margin-left: var(--sp-1); color: var(--war); vertical-align: middle }
 
 .ipl-tbl tfoot td {
-  padding: var(--sp-h10) var(--sp-h14); background: var(--bg2); font-weight: 600;
+  padding: var(--sp-h10) var(--sp-4); background: var(--bg2); font-weight: 600;
   border-top: 1px solid var(--bd); font-variant-numeric: tabular-nums;
 }
 .ipl-ft-lb { text-align: center; color: var(--t1) }
@@ -1902,10 +1902,10 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
   display: flex; align-items: center; justify-content: center;
   background: rgba(0, 0, 0, .35);
 }
-.ipl-dlg { width: min(400px, 92vw); padding: var(--sp-h18) }
+.ipl-dlg { width: min(400px, 92vw); padding: var(--sp-5) }
 .ipl-dlg-hd { font-size: var(--fs-lg); font-weight: 600; margin-bottom: var(--sp-h10) }
 .ipl-dlg-msg { font-size:var(--fs-base); color: var(--t2); margin-bottom: var(--sp-3) }
-.ipl-dlg .input { margin-bottom: var(--sp-h14) }
+.ipl-dlg .input { margin-bottom: var(--sp-4) }
 .ipl-dlg-ft { display: flex; justify-content: flex-end; gap: var(--sp-2) }
 
 /* 打印：只留数据表；单张打印时只留那一行。合计行在打印稿里略去（复选框/操作列被隐藏，

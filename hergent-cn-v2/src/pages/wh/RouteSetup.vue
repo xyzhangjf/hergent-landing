@@ -478,7 +478,7 @@ onMounted(loadAll)
 .rts-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 .rts-date { width: 150px }
 
-.rts-new { padding: var(--sp-h14); margin-bottom: var(--sp-3) }
+.rts-new { padding: var(--sp-4); margin-bottom: var(--sp-3) }
 .rts-new-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; margin-bottom: var(--sp-h10) }
 .rts-new-sub { font-size:var(--fs-sm); color: var(--t3); font-weight: 400 }
 .rts-new-row { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: flex-end }
@@ -516,7 +516,7 @@ onMounted(loadAll)
   padding: var(--sp-h10) var(--sp-3); border-bottom: 1px solid var(--bd); flex-wrap: wrap;
 }
 .rts-route-name { font-weight: 600; margin-right: var(--sp-2) }
-.rts-route-meta { display: flex; align-items: center; gap: var(--sp-h14); font-size:var(--fs-sm); color: var(--t2) }
+.rts-route-meta { display: flex; align-items: center; gap: var(--sp-4); font-size:var(--fs-sm); color: var(--t2) }
 
 .rts-tbl { table-layout: fixed }
 .rts-mono { font-variant-numeric: tabular-nums }

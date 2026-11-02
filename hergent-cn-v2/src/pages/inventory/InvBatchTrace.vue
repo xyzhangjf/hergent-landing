@@ -280,7 +280,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.ibt-search { display: flex; gap: var(--sp-h10); align-items: center; margin-bottom: var(--sp-3); padding: var(--sp-h14) var(--sp-4) }
+.ibt-search { display: flex; gap: var(--sp-h10); align-items: center; margin-bottom: var(--sp-3); padding: var(--sp-4) var(--sp-4) }
 .ibt-input { max-width: 340px }
 .ibt-card { margin-bottom: var(--sp-3) }
 .ibt-empty { text-align: center; color: var(--t2) }

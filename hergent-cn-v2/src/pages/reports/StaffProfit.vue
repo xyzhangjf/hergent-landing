@@ -136,5 +136,5 @@ defineExpose({ load })
 .spf-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-h10); flex-wrap: wrap; }
 .spf-tabs { display: flex; gap: var(--sp-h6) }
 .spf-tabs .spf-on { background: var(--bg2); color: var(--t1); font-weight: 600 }
-.spf-tabs-card { margin-top: var(--sp-h14) }
+.spf-tabs-card { margin-top: var(--sp-4) }
 </style>

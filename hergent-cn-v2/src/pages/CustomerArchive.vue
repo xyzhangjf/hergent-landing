@@ -512,7 +512,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
-.cas-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
+.cas-panel{padding:var(--sp-5);margin-bottom:var(--sp-4)}
 .cas-filters{display:flex;gap:var(--sp-h10);flex-wrap:wrap;align-items:center;margin-bottom:var(--sp-3)}
 .cas-search{position:relative;display:flex;align-items:center;flex:0 1 280px;min-width:180px}
 .cas-search-ico{position:absolute;left:10px;width:15px;height:15px;color:var(--t3);pointer-events:none}
@@ -525,7 +525,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 .cas-ar{color:var(--dan);font-weight:600}
 .cas-ops{text-align:right;white-space:nowrap}
 
-.cas-pager{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-h14);flex-wrap:wrap}
+.cas-pager{display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-4);flex-wrap:wrap}
 .cas-pageinfo{font-size:var(--fs-sm);color:var(--t2)}
 .cas-size{height:30px;width:auto}
 
@@ -533,7 +533,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
    本页只保留弹窗内部排版 —— 这些 class 都挂在 slot 内的元素上） */
 .cas-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-3);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
 
-.cas-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h14)}
+.cas-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-4)}
 .cas-form-more{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px dashed var(--border-subtle)}
 .cas-f{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-sm);color:var(--t2)}
 .cas-f>span{display:flex;align-items:baseline;gap:var(--sp-h6)}

@@ -1072,7 +1072,7 @@ async function save() {
 
 <style scoped>
 /* v691：弹窗骨架统一由 components/Modal.vue 提供；本页只保留弹窗内排版 */
-.cf-body{display:flex;flex-direction:column;gap:var(--sp-h14)}
+.cf-body{display:flex;flex-direction:column;gap:var(--sp-4)}
 .form-row{display:flex;flex-direction:column;gap:var(--sp-h6)}
 .form-row label{font-size:var(--fs-sm);font-weight:500;color:var(--t2)}
 .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}

@@ -419,16 +419,33 @@
 
      🔴 `-h` 系列是**过渡档**，不是设计目标。P1 归一（如 10→8）时只改这里一行，
         全站跟着动，再用视觉回归确认 —— 这正是「令牌被使用」换来的能力。
-        归一完成后删掉对应行。 */
-  --sp-h2:2px;   /* 过渡：细分隔 */
+        归一完成后删掉对应行。
+
+     ── v734 归一：收掉 14 / 18 两档（12 → 10 档）────────────────────
+     为什么先收这两档、而不是收 6 或 10？因为**间距的 2px 差别不是处处等价**：
+
+       小间距（2/4/6/8/10/12）的 2px 差在密集区**看得见** —— 表格每行、每列、
+       每个图标都重复同一个间隙，同时收窄/放宽会把整张表压紧或撑松。
+       6 → 8（637 处）里 gap 占 255 处，改了就是全站多列容器重排，那是改设计。
+
+       大间距（14/16/18/20）的 2px 差在块与块之间**看不出来** —— 它出现在卡片内距、
+       段落间距上，隔着一整块内容比较，没有并置参照。而且有**直接证据**：
+       `--sp-h14` 与 `--sp-4`(16) 在**同一条规则块里共现 31 处**，
+       `--sp-h18` 与 `--sp-5`(20) 共现 5 处 —— 作者自己在同一个容器里
+       用两个名字写了两个只差 2px 的值，说明他也分不出层次。
+
+     🔴 方向一律**往上取整**（14→16、18→20），不往下：
+        变小会挤压内容 ⇒ 换行、裁切、横向溢出；变大只是页面变长，可接受。
+
+     保留 2/6/10 三档：它们是密集区的真实需求（10px 有 240 处 gap），
+     归它们属于"改设计"，得单独决策，不在机械归一范围。 */
+  --sp-h2:2px;   /* 过渡：细分隔（1px 边线两侧的呼吸感，不能再大） */
   --sp-1:4px;
-  --sp-h6:6px;   /* 过渡 */
+  --sp-h6:6px;   /* 过渡：图标与文字的贴合间距 */
   --sp-2:8px;
-  --sp-h10:10px; /* 过渡：出现最多（758 处） */
+  --sp-h10:10px; /* 过渡：元素间隙主力（240 处 gap），密集区真实需求 */
   --sp-3:12px;
-  --sp-h14:14px; /* 过渡 */
   --sp-4:16px;
-  --sp-h18:18px; /* 过渡 */
   --sp-5:20px;
   --sp-6:24px;
   --sp-7:32px;
@@ -924,7 +941,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    内联式 <h2>标题</h2><span class="page-sub">…</span>  → 同一基线行；
    堆叠式 <div><h2>标题</h2><span class="page-sub">…</span></div> → 标题在上、副标题在下。
    两种结构兼容同一套规则；带右侧操作区加 .split；下边距交由父容器 gap 控制时加 .flush。 */
-.page-hd{display:flex;align-items:baseline;gap:var(--sp-h10);margin-bottom:var(--sp-h18)}
+.page-hd{display:flex;align-items:baseline;gap:var(--sp-h10);margin-bottom:var(--sp-5)}
 /* v719 P2：页面标题改用 `<h1>`（每页唯一），同时保留 h2 兼容 —— 137 个页面里 62 处已改，
    剩下的少数（弹窗式页面、登录页、导入页）仍是 h2；两代写法必须同观感，否则改一个漏一个就漂。
    `margin:0` 是必须的：h1 的 UA 默认 margin 是 0.67em，会撑开页头且与 h2 不齐。 */
@@ -939,7 +956,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    （项目铁律「第二份拷贝＝静默漂移」）。改这里的数值 = 同时改所有分 tab 的页面。
    用法：<div class="main-tabs"><button class="main-tab" :class="{on: …}">…</button>…</div> */
 .main-tabs{display:flex;gap:var(--sp-h6);margin-bottom:var(--sp-4);border-bottom:1px solid var(--border-subtle)}
-.main-tab{padding:var(--sp-h10) var(--sp-h18);border:none;background:none;font-size:var(--fs-md);color:var(--t2);cursor:pointer;position:relative;font-weight:500}
+.main-tab{padding:var(--sp-h10) var(--sp-5);border:none;background:none;font-size:var(--fs-md);color:var(--t2);cursor:pointer;position:relative;font-weight:500}
 .main-tab:hover{color:var(--t1)}
 .main-tab.on{color:var(--p-dark)}
 .main-tab.on::after{content:'';position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--p-dark);border-radius:var(--radius-hair)}
@@ -952,7 +969,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    特异性 0,2,0）高于本规则（0,1,0），因此已自带内距的卡片全部保持原值，不受影响；
    本规则只作为兜底，保证任何裸用 .card 的元素都有内距。 */
 .card{
-  padding:var(--sp-h18);
+  padding:var(--sp-5);
   background:var(--bg);
   border:1px solid var(--border-subtle);
   border-radius:var(--radius-lg);
@@ -974,7 +991,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
 .card.ipl-filter, .card.isl-filter, .card.is-filter,
 .card.fc-filter, .card.ff-filter, .card.fd-filter, .card.fbk-filter, .card.fs-filter,
 .card.wob-filter, .card.woi-filter, .card.wsa-filter, .card.win-filter, .card.wvs-filter{
-  padding:var(--sp-h10) var(--sp-h14);
+  padding:var(--sp-h10) var(--sp-4);
 }
 
 /* ============================================================
@@ -991,14 +1008,14 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    ============================================================ */
 
 /* 12 列自适应网格。grid-auto-flow:dense 允许后方小模块回填前方空洞，减少留白。 */
-.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--sp-h14);grid-auto-flow:dense}
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--sp-4);grid-auto-flow:dense}
 
 /* 顶部 KPI 概览条：整行铺开，默认 5 项；项数不同用 .cols-N 覆盖。 */
 .kpi-strip{grid-column:1/-1;display:grid;grid-template-columns:repeat(var(--kpi-cols,5),1fr);padding:var(--sp-h6) 0}
 .kpi-strip.cols-3{--kpi-cols:3}
 .kpi-strip.cols-4{--kpi-cols:4}
 .kpi-strip.cols-6{--kpi-cols:6}
-.kpi-strip .kpi{padding:var(--sp-2) var(--sp-h18);border-right:1px solid var(--border-subtle);transition:background var(--dur-base)}
+.kpi-strip .kpi{padding:var(--sp-2) var(--sp-5);border-right:1px solid var(--border-subtle);transition:background var(--dur-base)}
 .kpi-strip .kpi:first-child{padding-left:var(--sp-5)}
 .kpi-strip .kpi:last-child{border-right:none}
 .kpi-strip .kpi:hover{background:var(--bg2)}
@@ -1051,7 +1068,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
 
 /* 输入 */
 .input{
-  width:100%;height:40px;padding:0 var(--sp-h14);
+  width:100%;height:40px;padding:0 var(--sp-4);
   border:1px solid var(--bd);border-radius:var(--radius-md);
   background:var(--bg3);transition:border-color var(--dur-slow),box-shadow var(--dur-slow);
   /* v717：删掉这里的 outline:none —— 它曾把全局 2px 焦点环压掉（同特异性、后加载者胜），
@@ -1105,16 +1122,16 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    新写空态请直接用 components/EmptyState.vue，别在页面里再写一遍 .state-empty。 */
 .state-empty,.state-error{padding:48px var(--sp-5);text-align:center;color:var(--t3);font-size:var(--fs-base)}
 .state-empty.sm,.state-error.sm{padding:var(--sp-3) var(--sp-1);font-size:var(--fs-sm)}
-.state-empty .se-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-h14)}
+.state-empty .se-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)}
 
 /* 表格 */
 .table-wrap{overflow-x:auto;border-radius:var(--radius-md);border:1px solid var(--border-subtle)}
 table.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-base)}
 table.tbl th{
-  text-align:left;padding:var(--sp-h10) var(--sp-h14);font-weight:500;color:var(--t3);
+  text-align:left;padding:var(--sp-h10) var(--sp-4);font-weight:500;color:var(--t3);
   background:var(--bg2);border-bottom:1px solid var(--border-subtle);white-space:nowrap;
 }
-table.tbl td{padding:var(--sp-h10) var(--sp-h14);border-bottom:1px solid var(--border-subtle);color:var(--t1)}
+table.tbl td{padding:var(--sp-h10) var(--sp-4);border-bottom:1px solid var(--border-subtle);color:var(--t1)}
 table.tbl tr:last-child td{border-bottom:none}
 table.tbl tbody tr:hover{background:var(--bg2)}
 table.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
@@ -1198,7 +1215,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 /* 多行骨架：替代「列表还没到就先说没有」的空态块（v725）。
    放在 .state-empty 原本的位置，纵向间距对齐列表行距，避免数据到达时跳版。
    统一一处定义，页面里不再各写副本。 */
-.sk-block{display:grid;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-h2)}
+.sk-block{display:grid;gap:var(--sp-h10);padding:var(--sp-4) var(--sp-h2)}
 .sk-block .skel-line{width:100%}
 
 /* ============================================================

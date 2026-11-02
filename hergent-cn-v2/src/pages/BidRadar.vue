@@ -380,11 +380,11 @@ onMounted(load)
 .br-fresh{display:block;margin-top:var(--sp-1);font-size:var(--fs-xs);color:var(--t3)}
 
 .br-presets{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);flex-wrap:wrap}
-.br-chip{height:32px;padding:0 var(--sp-h14);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);border-radius:var(--radius-pill);font-size:var(--fs-sm);cursor:pointer;transition:all var(--dur-base)}
+.br-chip{height:32px;padding:0 var(--sp-4);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);border-radius:var(--radius-pill);font-size:var(--fs-sm);cursor:pointer;transition:all var(--dur-base)}
 .br-chip:hover{border-color:var(--p)}
 .br-chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
 
-.br-filters{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-h14)}
+.br-filters{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-4)}
 /* 「默认地区」chip：只在当前区域 == 已记住的区域时出现，点击取消记住（弱化样式，不与主按钮抢视线） */
 .br-def{display:inline-flex;align-items:center;gap:var(--sp-h6);height:38px;padding:0 var(--sp-h10);border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:var(--radius-sm);font-size:var(--fs-sm);cursor:pointer;white-space:nowrap}
 .br-def:hover{filter:brightness(.97)}
@@ -397,13 +397,13 @@ onMounted(load)
 .br-filters input[type=date]{width:150px}
 .br-tilde{color:var(--t3)}
 .br-chk{display:flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t2);cursor:pointer;user-select:none}
-.br-btn{height:38px;padding:0 var(--sp-h18);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);border-radius:var(--radius-sm);font-size:var(--fs-base);cursor:pointer;transition:all var(--dur-base)}
+.br-btn{height:38px;padding:0 var(--sp-5);border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t1);border-radius:var(--radius-sm);font-size:var(--fs-base);cursor:pointer;transition:all var(--dur-base)}
 .br-btn:hover:not(:disabled){border-color:var(--p);color:var(--p-dark)}
 .br-btn:disabled{opacity:.5;cursor:default}
 
 .br-state{padding:48px;text-align:center;color:var(--t3);font-size:var(--fs-md)}
 .br-empty{color:var(--t2)}
-.br-empty-t{margin:0 0 var(--sp-h14);line-height:var(--lh-normal)}
+.br-empty-t{margin:0 0 var(--sp-4);line-height:var(--lh-normal)}
 
 /* 表格已置于 .card 内（卡片自带边框与圆角），故去掉自身的边框/圆角，避免双层描边 */
 .br-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-base)}
@@ -433,7 +433,7 @@ onMounted(load)
 .tag-done{color:var(--suc);background:rgba(34,197,94,.13)}
 .tag-muted{color:var(--t3);background:var(--bg3)}
 
-.br-pager{display:flex;align-items:center;justify-content:center;gap:var(--sp-h14);margin:var(--sp-4) 0}
+.br-pager{display:flex;align-items:center;justify-content:center;gap:var(--sp-4);margin:var(--sp-4) 0}
 .br-pg-info{font-size:var(--fs-base);color:var(--t2)}
-.br-foot{margin-top:var(--sp-h14);font-size:var(--fs-xs);color:var(--t3);text-align:center}
+.br-foot{margin-top:var(--sp-4);font-size:var(--fs-xs);color:var(--t3);text-align:center}
 </style>

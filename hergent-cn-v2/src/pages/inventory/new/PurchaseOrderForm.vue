@@ -1790,7 +1790,7 @@ watch([copyId], () => { reinit() })
 
 /* 供应商信息条（舟谱「应付/预付余额」的位置） */
 .ipn-strip {
-  display: flex; align-items: center; gap: var(--sp-h18); flex-wrap: wrap;
+  display: flex; align-items: center; gap: var(--sp-5); flex-wrap: wrap;
   margin-bottom: var(--sp-3); padding: 9px var(--sp-4);
   background: var(--p-bg); border: 1px solid var(--p-border);
   border-radius: var(--radius-md); font-size:var(--fs-base); color: var(--t1);
@@ -1821,7 +1821,7 @@ watch([copyId], () => { reinit() })
 /* 🔴 P0-7：复制原单失败时的明确错误态横幅 */
 .ipn-copy-err {
   display: flex; gap: var(--sp-3); align-items: flex-start;
-  margin-bottom: var(--sp-h14); padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4); padding: var(--sp-3) var(--sp-4);
   background: color-mix(in srgb, var(--danger) 10%, var(--bg));
   border: 1px solid var(--danger); border-radius: var(--radius-md);
 }

@@ -379,14 +379,14 @@ onMounted(() => { loadBrands(); load() })
 </script>
 
 <style scoped>
-.rs{display:flex;flex-direction:column;gap:var(--sp-h14)}
-.rs-bar{display:flex;align-items:flex-start;gap:var(--sp-h14)}
+.rs{display:flex;flex-direction:column;gap:var(--sp-4)}
+.rs-bar{display:flex;align-items:flex-start;gap:var(--sp-4)}
 .rs-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose);margin:0;flex:1}
 .rs-bar-acts{display:flex;gap:var(--sp-2);flex-shrink:0}
 .rs-skel{padding:var(--sp-2) 0}
 .rs-empty-sub{font-size:var(--fs-sm);color:var(--t3);max-width:600px;margin:var(--sp-h6) auto 0;line-height:var(--lh-loose)}
 
-.rs-cal{padding:var(--sp-h14) var(--sp-4)}
+.rs-cal{padding:var(--sp-4) var(--sp-4)}
 .rs-cal-off{background:var(--bg2)}
 .rs-cal-hd{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:var(--sp-h10)}
 .rs-cal-hd b{font-size:var(--fs-md)}
@@ -416,7 +416,7 @@ onMounted(() => { loadBrands(); load() })
 .rs-fld{display:flex;flex-direction:column;gap:5px;font-size:var(--fs-sm);color:var(--t2)}
 .rs-fld .input{height:32px;font-size:var(--fs-base)}
 .rs-wide{grid-column:1/-1}
-.rs-preview{margin-top:var(--sp-h14);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-sm);background:var(--p-bg);display:flex;flex-direction:column;gap:var(--sp-1)}
+.rs-preview{margin-top:var(--sp-4);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-sm);background:var(--p-bg);display:flex;flex-direction:column;gap:var(--sp-1)}
 .rs-pv-lbl{font-size:var(--fs-sm);color:var(--t3)}
 .rs-pv-txt{font-size:var(--fs-base);color:var(--p-dark);line-height:var(--lh-normal)}
 .rs-form-tip{font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-h10) 0 0;line-height:var(--lh-normal)}

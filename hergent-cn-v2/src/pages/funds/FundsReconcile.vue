@@ -546,7 +546,7 @@ function exportCsv() {
 .frc-step { font-size:var(--fs-base); font-weight: 600; color: var(--t2); margin: var(--sp-4) var(--sp-h2) var(--sp-2) }
 .frc-sides { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3) }
 @media (max-width: 900px) { .frc-sides { grid-template-columns: 1fr } }
-.frc-side { padding: var(--sp-h14) var(--sp-4) }
+.frc-side { padding: var(--sp-4) var(--sp-4) }
 .frc-side-hd { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-h10) }
 .frc-side-tag { font-size:var(--fs-sm); font-weight: 600; padding: var(--sp-h2) var(--sp-2); border-radius: var(--radius-xs) }
 .frc-tag-a { background: rgba(47,107,255,.12); color: var(--brand) }
@@ -575,13 +575,13 @@ function exportCsv() {
 .frc-hp-radio { width: 28px; text-align: center }
 .frc-radio { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--bd); border-radius: var(--radius-circle) }
 .frc-radio.on { border-color: var(--brand); background: var(--brand) }
-.frc-spec { padding: var(--sp-h14) var(--sp-4) }
-.frc-run { display: flex; gap: var(--sp-3); align-items: center; margin: var(--sp-h14) var(--sp-h2) }
+.frc-spec { padding: var(--sp-4) var(--sp-4) }
+.frc-run { display: flex; gap: var(--sp-3); align-items: center; margin: var(--sp-4) var(--sp-h2) }
 .frc-run-hint { font-size:var(--fs-sm); color: var(--bad) }
 .frc-warn { display: flex; gap: var(--sp-2); align-items: flex-start; background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.35); color: var(--war); border-radius: var(--radius-sm); padding: var(--sp-h10) var(--sp-3); font-size:var(--fs-base); margin-bottom: var(--sp-3) }
 .frc-note { font-size:var(--fs-sm); color: var(--t2); background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3) }
 .frc-card { padding: 0; overflow: hidden }
-.frc-filter { padding: var(--sp-3) var(--sp-h14) 0 }
+.frc-filter { padding: var(--sp-3) var(--sp-4) 0 }
 .frc-note-cell { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 .frc-detail td { background: var(--bg1) }
 .frc-detail-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3) }

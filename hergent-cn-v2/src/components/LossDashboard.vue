@@ -549,7 +549,7 @@ html.dark .dsh {
   color: var(--t2); font-size:var(--fs-base); line-height: var(--lh-normal); text-align: center; background: var(--bg2);
 }
 .dsh-warn {
-  margin: var(--sp-3) 0 0; padding: var(--sp-h10) var(--sp-h14);
+  margin: var(--sp-3) 0 0; padding: var(--sp-h10) var(--sp-4);
   border-left: 3px solid var(--warn-amber); border-radius: var(--radius-sm);
   font-size:var(--fs-sm); line-height: var(--lh-normal);
   color: var(--warn-amber); background: var(--warn-amber-bg);
@@ -560,7 +560,7 @@ html.dark .dsh {
    已有内距，故清零，避免双份留白。 */
 .dsh-kpibox { padding: var(--sp-h6) var(--sp-2); }
 .dsh-kpibox .kpi-strip { padding: 0; }
-.dsh-kpibox .kpi { padding: var(--sp-h10) var(--sp-h18); display: flex; flex-direction: column; gap: 5px; }
+.dsh-kpibox .kpi { padding: var(--sp-h10) var(--sp-5); display: flex; flex-direction: column; gap: 5px; }
 .dsh-kpibox .kpi-val { font-size:var(--fs-num-lg); margin-bottom: 0; }
 .dsh-kpibox .kpi-val u {
   font-size:var(--fs-sm); font-weight: 400; color: var(--t2); text-decoration: none; margin-left: var(--sp-1);
@@ -581,7 +581,7 @@ html.dark .dsh {
 .dsh-card {
   background: var(--bg); border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
-  padding: var(--sp-4) var(--sp-h18) var(--sp-h14); margin-top: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5) var(--sp-4); margin-top: var(--sp-4);
 }
 .dsh-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
 @media (max-width: 1200px) { .dsh-grid { grid-template-columns: 1fr; } }
@@ -589,7 +589,7 @@ html.dark .dsh {
 /* 卡片标题用**全局** `.sec-hd` / `.sec-sub`（styles/variables.css）——
    本页与「按月一览」明细卡共用同一份，别再在这里写第二份。
    左竖条是"分区锚"，替代再加一行分区标题（本页文案不增）。 */
-.lg { display: flex; align-items: center; gap: var(--sp-h14); margin-left: auto; font-size:var(--fs-sm); color: var(--t2); font-weight: 400; }
+.lg { display: flex; align-items: center; gap: var(--sp-4); margin-left: auto; font-size:var(--fs-sm); color: var(--t2); font-weight: 400; }
 .lg-wrap { margin-left: 0; margin-top: var(--sp-h10); flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); }
 .lg i { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-2xs); margin-right: 5px; vertical-align: -1px; }
 .lg i.ln { height: 3px; border-radius: var(--radius-hair); width: 14px; }

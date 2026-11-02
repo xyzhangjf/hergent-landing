@@ -6,7 +6,7 @@
  *   状态页签 `.main-tab` 40px 高、横向 18px 内距，与下方紧凑表格明显脱节。
  *
  * 本契约钉死三件事，防止"改一处漂移两处"：
- *   ① 13 个列表页筛选卡（`.card.xx-filter`）内距必须 ≤ 12px 纵向，且 < `.card` 基线 18px；
+ *   ① 13 个列表页筛选卡（`.card.xx-filter`）内距必须 ≤ 12px 纵向，且 < `.card` 基线（v734 起 20px）；
  *   ② 状态页签 `.psi-tabbar .main-tab` 纵向内距 ≤ 8px、字号 ≤ 13px；
  *   ③ 筛选行 `.psi-frow` 间距 ≤ 10px。
  * 并对每条断言做"已知坏样本"判别力自证（prove）。
@@ -78,21 +78,27 @@ console.log('\n── v679 页头控制区密度契约 ──')
 /* ---------- ① 筛选卡内距 ---------- */
 const filterBody = bodyAfter(vars, '.card.ipl-filter')
 const filterPadV = padV(filterBody)
+/* v734：`.card` 基线 18 → 20（--sp-h18 并入 --sp-5）。
+   这里写 20 而不是留 18 —— 判据是「筛选卡明显比同类卡片紧」，比的是**当下基线**，
+   基线变了判据要跟着变，否则它会拿一个已不存在的值当参照。 */
+const CARD_BASE = 20
 const filterDetector = (css) => {
   const b = bodyAfter(css, '.card.ipl-filter')
   const v = padV(b)
-  return v !== null && v <= 12 && v < 18
+  return v !== null && v <= 12 && v < CARD_BASE
 }
 ok('筛选卡内距规则存在', filterBody !== null)
-ok('筛选卡纵向内距 ≤12px 且 <18px 基线', filterPadV !== null && filterPadV <= 12 && filterPadV < 18, `实测 ${filterPadV}`)
+ok('筛选卡纵向内距 ≤12px 且 <' + CARD_BASE + 'px 基线', filterPadV !== null && filterPadV <= 12 && filterPadV < CARD_BASE, `实测 ${filterPadV}`)
 ok('筛选卡横向内距 ≤16px', (() => { const p = tokenNums(declRaw(filterBody, 'padding')); return p.length > 0 && (p[1] ?? p[0]) <= 16 })())
 ok('覆盖全部 ' + FILTER_CLASSES.length + ' 个列表页筛选卡类名', FILTER_CLASSES.every((c) => vars.includes('.' + c)))
-ok('`.card` 基线仍是 18px（说明覆盖有意义）', (numDecl(bodyAfter(vars, '.card{'), 'padding') ?? 18) === 18, '基线被改')
-/* v727：坏样本要按**当前写法**去改（筛选卡现在是 `padding:var(--sp-h10) var(--sp-h14)`），
-   否则 replace 打空、bad === good，自证会报「假阴性」。 */
+ok('`.card` 基线仍是 ' + CARD_BASE + 'px（说明覆盖有意义）', (numDecl(bodyAfter(vars, '.card{'), 'padding') ?? CARD_BASE) === CARD_BASE, '基线被改')
+/* v727：坏样本要按**当前写法**去改（筛选卡现在是 `padding:var(--sp-h10) var(--sp-4)`），
+   否则 replace 打空、bad === good，自证会报「假阴性」。
+   v734：放宽目标从裸 18px 改成 `var(--sp-5)`（= 现基线 20px）——
+   1px 之差判据看不出来，必须退回到基线才是"真坏样本"。 */
 prove('筛选卡内距', filterDetector,
   vars,
-  vars.replace(/(\.card\.ipl-filter[\s\S]{0,400}?\{[^}]*?)padding\s*:[^;}]+/, '$1padding:18px'))
+  vars.replace(/(\.card\.ipl-filter[\s\S]{0,400}?\{[^}]*?)padding\s*:[^;}]+/, '$1padding:var(--sp-5)'))
 
 /* ---------- ② 状态页签条 ---------- */
 const tabBody = bodyAfter(psi, '.psi-tabbar .main-tab')

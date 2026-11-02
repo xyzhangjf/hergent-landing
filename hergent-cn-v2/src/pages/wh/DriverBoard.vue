@@ -228,7 +228,7 @@ onMounted(loadBoard)
 .dbd-acts { display: flex; align-items: center; gap: var(--sp-2) }
 .dbd-date { width: 160px }
 
-.dbd-board { display: flex; gap: var(--sp-h14); overflow-x: auto; padding-bottom: var(--sp-2) }
+.dbd-board { display: flex; gap: var(--sp-4); overflow-x: auto; padding-bottom: var(--sp-2) }
 .dbd-col {
   min-width: 290px; max-width: 310px; flex: 0 0 auto;
   background: var(--bg2); border: 1px solid var(--bd); border-radius: var(--radius-md); padding: var(--sp-3);

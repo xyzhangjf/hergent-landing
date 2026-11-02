@@ -185,7 +185,7 @@ defineExpose({ load })
 /* 页面私有类一律 `wer-` 前缀（仓配·效期）；全局件（.page/.page-hd/.card/.kpi-strip/
    .table-wrap/.tbl/.num/.sec-hd/.state-empty/.state-error）一律复用，不重定义。 */
 .wer-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
-.wer-card { margin-bottom: var(--sp-h14) }
+.wer-card { margin-bottom: var(--sp-4) }
 /* `table.tbl` 已给序号列全局样式；这里只补「剩余天数」的语义色 */
 .wer-days { font-weight: 600 }
 .wer-days.bad { color: var(--dan) }

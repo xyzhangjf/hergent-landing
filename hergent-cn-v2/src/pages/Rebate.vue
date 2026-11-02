@@ -684,7 +684,7 @@
                   </div>
                   <div v-if="accrueResult[c.id]" class="dt-note" style="margin-top:var(--sp-h10)">
                     <b>{{ accrueResult[c.id].month }} 计提完成：</b>达成 ¥{{ fmt(accrueResult[c.id].achieved) }} → 返利 ¥{{ fmt(accrueResult[c.id].rebate) }}
-                    <ul style="margin:var(--sp-h6) 0 0 var(--sp-h18);padding:0">
+                    <ul style="margin:var(--sp-h6) 0 0 var(--sp-5);padding:0">
                       <li v-for="(dd, di) in (accrueResult[c.id].details || [])" :key="di" :style="{color: dd.triggered ? 'var(--suc)' : 'var(--t3)'}">
                         {{ dd.scope }}：达成 ¥{{ fmt(dd.achieved) }} → ¥{{ fmt(dd.rebate) }}（{{ dd.detail }}）<span v-if="dd.tier_version_id" class="tag info" style="margin-left:var(--sp-h6)">按 v{{ dd.tier_version_id }} 算</span>
                       </li>
@@ -1205,7 +1205,7 @@
                 </tr>
               </tbody>
             </table>
-            <div class="cf-mo-toolbar" style="margin-top:var(--sp-h14)"><b>新增版本（快照当前阶梯）</b></div>
+            <div class="cf-mo-toolbar" style="margin-top:var(--sp-4)"><b>新增版本（快照当前阶梯）</b></div>
             <div class="form-row" style="margin-top:var(--sp-2)">
               <label>生效起</label>
               <input v-model="versionForm.effective_start" class="input" placeholder="2026-01-01" />
@@ -3402,7 +3402,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 </script>
 
 <style scoped>
-.toolbar{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-h14) var(--sp-4);margin-bottom:var(--sp-h14);flex-wrap:wrap;gap:var(--sp-h10)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-4);margin-bottom:var(--sp-4);flex-wrap:wrap;gap:var(--sp-h10)}
 .tb-left,.tb-right{display:flex;align-items:center;gap:var(--sp-2)}
 .sel-filter{width:160px}
 .list-card{padding:var(--sp-4)}
@@ -3427,7 +3427,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .achv-card .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .achv-card .table-wrap .tbl{min-width:920px}
 .achv-year{margin-top:var(--sp-4);padding:var(--sp-4)}
-.achv-bar{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-h14)}
+.achv-bar{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-4)}
 .achv-lb{font-size:var(--fs-sm);color:var(--t2)}
 .achv-month{width:150px}
 .achv-hint{font-size:var(--fs-sm);color:var(--t3)}
@@ -3447,10 +3447,10 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 /* v112 R27：达成填报主标题与仪表盘 .dash-hd b 统一 16px */
 .panel-hd b{font-size:var(--fs-lg)}
 /* v118 (L2细化)：到货排程引擎面板 */
-.arrival-block{border:1px solid var(--bd2);border-radius:var(--radius-sm);padding:var(--sp-h14);margin-bottom:var(--sp-h6);background:var(--bg2)}
+.arrival-block{border:1px solid var(--bd2);border-radius:var(--radius-sm);padding:var(--sp-4);margin-bottom:var(--sp-h6);background:var(--bg2)}
 .arrival-block .form-row{margin-bottom:var(--sp-2)}
 .seg{display:inline-flex;border:1px solid var(--bd2);border-radius:var(--radius-sm);overflow:hidden}
-.seg-btn{padding:var(--sp-h6) var(--sp-h14);border:0;background:transparent;cursor:pointer;font-size:var(--fs-base);color:var(--t2)}
+.seg-btn{padding:var(--sp-h6) var(--sp-4);border:0;background:transparent;cursor:pointer;font-size:var(--fs-base);color:var(--t2)}
 .seg-btn.on{background:var(--p-solid);color:#fff}
 .wk-chips{display:flex;gap:var(--sp-h6);flex-wrap:wrap}
 .wk-chip{padding:var(--sp-h6) var(--sp-3);border:1px solid var(--bd2);border-radius:var(--radius-pill);background:var(--bg1);cursor:pointer;font-size:var(--fs-base);color:var(--t2)}
@@ -3475,8 +3475,8 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .modal-hd b{display:inline-flex;align-items:center;gap:var(--sp-h6)}
 .modal-hd b{font-size:var(--fs-lg)}
 .btn-close{border:none;background:none;font-size:var(--fs-stat);color:var(--t3);cursor:pointer}
-.modal-body{padding:var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-h14)}
-.modal-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-5);border-top:1px solid var(--border-subtle);position:sticky;bottom:0;background:var(--bg);z-index:2}
+.modal-body{padding:var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-4)}
+.modal-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-4) var(--sp-5);border-top:1px solid var(--border-subtle);position:sticky;bottom:0;background:var(--bg);z-index:2}
 /* v171：达成填报「修改日志」弹窗 —— 7 列（时间/人/动作/对象/字段/前后值），
    通用 .modal-card 的 580px 放不下，故加宽；表格区独立滚动 + 表头吸附，
    长日志下滚时列名不会消失（否则读到一半就分不清哪列是"修改前"）。 */
@@ -3516,7 +3516,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .ap-sec-note{font-weight:400;font-size:var(--fs-sm);color:var(--t3)}
 .ap-derive{margin:var(--sp-h2) 0 0;font-size:var(--fs-sm);color:var(--p-dark);background:rgba(6,182,212,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2)}
 .ap-preview{margin-top:var(--sp-h10);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h10);background:var(--bg2)}
-.ap-head{display:flex;gap:var(--sp-h14);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-2)}
+.ap-head{display:flex;gap:var(--sp-4);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-2)}
 .ap-warn{font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2);margin-bottom:var(--sp-h6);line-height:var(--lh-normal)}
 .ap-warn-tip{color:var(--p-dark)}
 .ap-adopt{margin-left:var(--sp-2);border:1px solid var(--p);background:transparent;color:var(--p-dark);border-radius:var(--radius-xs);padding:1px var(--sp-h10);font-size:var(--fs-sm);cursor:pointer}
@@ -3527,7 +3527,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .ap-dim{color:var(--t3);font-size:var(--fs-xs)}
 .ap-brand{display:inline-block;background:rgba(6,182,212,.12);color:var(--p-dark);border-radius:var(--radius-2xs);padding:1px var(--sp-h6);margin:1px var(--sp-1) 1px 0;font-size:var(--fs-xs)}
 .ap-brand i{font-style:normal;opacity:.7;margin-left:var(--sp-h2)}
-.sim-result{background:var(--bg2);border-radius:var(--radius-md);padding:var(--sp-h14);margin-top:var(--sp-h6)}
+.sim-result{background:var(--bg2);border-radius:var(--radius-md);padding:var(--sp-4);margin-top:var(--sp-h6)}
 .sr-row{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-1) 0}
 .sr-val{font-size:var(--fs-stat);color:var(--p-dark)}
 .sr-note{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-2);padding-top:var(--sp-2);border-top:1px solid var(--border-subtle)}
@@ -3537,8 +3537,8 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .modal-enter-from,.modal-leave-to{opacity:0;transform:translate(-50%,-46%)}
 
 /* P0-1 维度入口卡片 */
-.entry-row{display:flex;gap:var(--sp-h14);margin-bottom:var(--sp-h14);flex-wrap:wrap}
-.entry-card{flex:1;min-width:260px;display:flex;flex-direction:column;gap:var(--sp-h10);padding:var(--sp-4) var(--sp-h18)}
+.entry-row{display:flex;gap:var(--sp-4);margin-bottom:var(--sp-4);flex-wrap:wrap}
+.entry-card{flex:1;min-width:260px;display:flex;flex-direction:column;gap:var(--sp-h10);padding:var(--sp-4) var(--sp-5)}
 .entry-card h3{font-size:var(--fs-lg);font-weight:600;margin:0}
 .entry-card p{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin:0;flex:1}
 .entry-card .btn{margin-top:var(--sp-1);align-self:flex-start}
@@ -3547,11 +3547,11 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 /* P0-4 详情弹层 */
 .dt-head{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-h6)}
 .dt-name{font-size:var(--fs-lg);font-weight:600;color:var(--t1)}
-.dt-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-h10) var(--sp-h18)}
+.dt-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-h10) var(--sp-5)}
 .dt-item{display:flex;flex-direction:column;gap:3px}
 .dt-l{font-size:var(--fs-xs);color:var(--t3)}
 .dt-v{font-size:var(--fs-md);color:var(--t1);font-weight:500}
-.dt-sec{margin-top:var(--sp-h14);padding-top:var(--sp-3);border-top:1px solid var(--border-subtle)}
+.dt-sec{margin-top:var(--sp-4);padding-top:var(--sp-3);border-top:1px solid var(--border-subtle)}
 .dt-sec h4{margin:0 0 var(--sp-2);font-size:var(--fs-base);font-weight:600;color:var(--t2)}
 .dt-tier{width:100%;border-collapse:collapse;margin-top:var(--sp-2);font-size:var(--fs-sm)}
 .dt-tier th,.dt-tier td{border:1px solid var(--border-subtle);padding:var(--sp-h6) var(--sp-2);text-align:left}
@@ -3560,17 +3560,17 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 
 /* 仪表盘 Tab（方案 A：KPI 置顶 + 条形达成列表） */
 .dash-card{}
-.dash-hd{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-h14)}
+.dash-hd{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-4)}
 .dash-hd b{font-size:var(--fs-lg)}
 /* v154 P2-A：页头右侧控件组（品牌筛选 + 统计月份）—— 品牌筛选原在图表卡内部，现与月份并排、统管全页 */
 .dash-ctl{margin-left:auto;display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .dash-month{display:flex;align-items:center;gap:var(--sp-h6)}
 
 /* KPI */
-.dash-kpi{display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-h14)}
-.kpi-hero{flex:1.4;min-width:170px;background:linear-gradient(135deg,rgba(6,182,212,.12),rgba(6,182,212,.04));border:1px solid rgba(6,182,212,.35);border-radius:var(--radius-lg);padding:var(--sp-h14) var(--sp-h18);display:flex;flex-direction:column;gap:var(--sp-1)}
+.dash-kpi{display:flex;gap:var(--sp-3);flex-wrap:wrap;margin-bottom:var(--sp-4)}
+.kpi-hero{flex:1.4;min-width:170px;background:linear-gradient(135deg,rgba(6,182,212,.12),rgba(6,182,212,.04));border:1px solid rgba(6,182,212,.35);border-radius:var(--radius-lg);padding:var(--sp-4) var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-1)}
 .kpi-hero.risk{background:linear-gradient(135deg,rgba(var(--dan-rgb),.16),rgba(var(--dan-rgb),.05));border-color:rgba(var(--dan-rgb),.45)}
-.kpi-sm{flex:1;min-width:130px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--sp-h14) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-1);justify-content:center}
+.kpi-sm{flex:1;min-width:130px;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--sp-4) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-1);justify-content:center}
 .kpi-num{font-size:var(--fs-num-lg);font-weight:700;color:var(--t1);line-height:var(--lh-title)}
 .kpi-hero.money .kpi-num{color:var(--p-dark)}
 .kpi-hero.risk .kpi-num{color:var(--dan)}
@@ -3595,7 +3595,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 
 /* 条形达成列表 */
 .dash-rank{display:flex;flex-direction:column;gap:var(--sp-3)}
-.rank-row{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-h14);background:var(--bg)}
+.rank-row{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-4);background:var(--bg)}
 .rank-row.risk{border-color:rgba(var(--dan-rgb),.45);background:rgba(var(--dan-rgb),.05)}
 .rank-row.done{border-color:rgba(var(--suc-rgb),.4)}
 /* v132：原 .dash-nodata 长文案已删除（重复且无操作）
@@ -3627,7 +3627,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
    同排两个数字且已达标行两者不等（110% vs 100%），用户必然追问"哪个对"；条形长度本身已表达比例 */
 
 /* #356：异常预警区 */
-.dash-anom{margin-bottom:var(--sp-h14);border:1px solid rgba(var(--dan-rgb),.35);background:rgba(var(--dan-rgb),.06);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-h14)}
+.dash-anom{margin-bottom:var(--sp-4);border:1px solid rgba(var(--dan-rgb),.35);background:rgba(var(--dan-rgb),.06);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-4)}
 .da-hd{font-size:var(--fs-base);font-weight:600;color:var(--dan);margin-bottom:var(--sp-2);display:flex;align-items:center}
 .da-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
 .da-item{display:flex;align-items:flex-start;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-normal)}
@@ -3643,7 +3643,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 
 /* #354：算式链 Modal */
 .calc-card{width:620px}
-.calc-sum{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-h10);margin-bottom:var(--sp-h14)}
+.calc-sum{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-h10);margin-bottom:var(--sp-4)}
 .cs-cell{background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-2) var(--sp-3);display:flex;flex-direction:column;gap:3px}
 .cs-cell span{font-size:var(--fs-xs);color:var(--t3)}
 .cs-cell b{font-size:var(--fs-md);color:var(--t1);font-weight:600}
@@ -3683,7 +3683,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 
 /* 年度合同返利（并入目标与返利） */
 .contract-list{display:flex;flex-direction:column;gap:var(--sp-3)}
-.contract-card{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h14) var(--sp-4);background:var(--bg)}
+.contract-card{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-4) var(--sp-4);background:var(--bg)}
 .cc-top{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-h10);flex-wrap:wrap}
 .cc-actions{margin-left:auto;display:flex;gap:var(--sp-h6)}
 .btn-xs{padding:3px var(--sp-h10);font-size:var(--fs-sm);line-height:var(--lh-normal);border-radius:var(--radius-sm)}
@@ -3692,7 +3692,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .cb-line{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t2);cursor:pointer;font-weight:400}
 .cb-line input{width:auto;margin:0}
 .cc-name{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
-.cc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--sp-h10) var(--sp-h18)}
+.cc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--sp-h10) var(--sp-5)}
 .cc-item{display:flex;flex-direction:column;gap:3px}
 .cc-l{font-size:var(--fs-xs);color:var(--t3)}
 .cc-v{font-size:var(--fs-md);color:var(--t1);font-weight:500}
@@ -3718,7 +3718,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .cc-mo-split{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .cc-mo-split-l{font-size:var(--fs-sm);color:var(--t2);font-weight:600}
 .cc-mo-select{width:auto;padding:3px var(--sp-2);font-size:var(--fs-sm);min-height:28px}
-.cc-mo-valid{display:flex;align-items:center;gap:var(--sp-h14);flex-wrap:wrap;font-size:var(--fs-sm);padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);border:1px solid var(--border-subtle)}
+.cc-mo-valid{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;font-size:var(--fs-sm);padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);border:1px solid var(--border-subtle)}
 .cc-mo-valid.ok{background:rgba(var(--suc-rgb),.12);border-color:var(--suc)}
 .cc-mo-valid.warn{background:var(--danger-bg);border-color:var(--danger-txt)}
 .cc-mo-valid b{font-weight:700}
@@ -3760,7 +3760,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .achv-saving{font-size:var(--fs-sm);color:var(--t3);margin-left:var(--sp-h6)}
 .achv-fail{font-size:var(--fs-sm);color:var(--dan);margin-left:var(--sp-h6);cursor:pointer;text-decoration:underline}
 .cf-mo-cell label{display:block;font-size:var(--fs-sm);color:var(--t2);margin-bottom:3px}
-.cf-mo-sum{display:flex;justify-content:space-between;align-items:center;margin-top:var(--sp-3);padding:var(--sp-h10) var(--sp-h14);background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.18);border-radius:var(--radius-sm)}
+.cf-mo-sum{display:flex;justify-content:space-between;align-items:center;margin-top:var(--sp-3);padding:var(--sp-h10) var(--sp-4);background:rgba(6,182,212,.08);border:1px solid rgba(6,182,212,.18);border-radius:var(--radius-sm)}
 .cf-mo-sum span{font-size:var(--fs-base);color:var(--p-dark)}
 .cf-mo-sum b{font-size:var(--fs-stat);color:var(--p-ink);font-weight:600}
 .cf-tip b{color:var(--t1)}
@@ -3774,7 +3774,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .cf-jump:focus-visible{outline:2px solid var(--p-dark);outline-offset:2px;border-radius:var(--radius-hair)}
 /* §1.1 向导步骤条 + 引用按钮 + 预览 */
 .cf-wizard-actions{display:flex;gap:var(--sp-h6);margin-left:auto}
-.cf-steps{display:flex;gap:var(--sp-h6);padding:var(--sp-3) var(--sp-h18) 0;border-bottom:1px solid var(--border-subtle)}
+.cf-steps{display:flex;gap:var(--sp-h6);padding:var(--sp-3) var(--sp-5) 0;border-bottom:1px solid var(--border-subtle)}
 .cf-step{display:flex;align-items:center;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);flex:1;justify-content:center}
 .cf-step span{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:var(--radius-circle);background:var(--bg2);color:var(--t2);font-size:var(--fs-sm);font-weight:700}
 .cf-step.active{color:var(--t1);font-weight:600;background:rgba(6,182,212,.1)}
@@ -3787,7 +3787,7 @@ onMounted(() => { loadRules(); loadBrandOptions(); loadProductRefs(); loadSuppli
 .cf-mo-avg{display:flex;align-items:center;gap:var(--sp-h6)}
 .cf-mo-avg .input-sm{width:170px}
 .cf-review{display:flex;flex-direction:column;gap:var(--sp-h2)}
-.cf-r-row{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-h10) var(--sp-h14);border-bottom:1px solid var(--border-subtle);font-size:var(--fs-md)}
+.cf-r-row{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-h10) var(--sp-4);border-bottom:1px solid var(--border-subtle);font-size:var(--fs-md)}
 .cf-r-row:last-child{border-bottom:none}
 .cf-r-row span{color:var(--t3)}
 .cf-r-row b{color:var(--t1);font-weight:600}

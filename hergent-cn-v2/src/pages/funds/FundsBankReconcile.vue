@@ -106,11 +106,11 @@ onMounted(load)
 
 <style scoped>
 .fbk-acts { display: flex; gap: var(--sp-2) }
-.fbk-filter { margin: var(--sp-h14) 0 }
+.fbk-filter { margin: var(--sp-4) 0 }
 .fbk-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
 .fbk-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
-.fbk-accts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-h10); margin-bottom: var(--sp-h14) }
-.fbk-acct { background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--radius-md); padding: var(--sp-3) var(--sp-h14); cursor: pointer; transition: border-color var(--dur-base), box-shadow var(--dur-base) }
+.fbk-accts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--sp-h10); margin-bottom: var(--sp-4) }
+.fbk-acct { background: var(--bg1); border: 1px solid var(--bd); border-radius: var(--radius-md); padding: var(--sp-3) var(--sp-4); cursor: pointer; transition: border-color var(--dur-base), box-shadow var(--dur-base) }
 .fbk-acct:hover { border-color: var(--brand) }
 .fbk-on { border-color: var(--brand); box-shadow: 0 0 0 2px rgba(47,107,255,.12) }
 .fbk-acct-n { font-size:var(--fs-md); font-weight: 600; color: var(--t1) }

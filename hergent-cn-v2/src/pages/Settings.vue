@@ -548,7 +548,7 @@
         </div>
       </div>
 
-      <div class="card" style="margin-top:var(--sp-h14)">
+      <div class="card" style="margin-top:var(--sp-4)">
         <div class="panel-hd" style="justify-content:space-between">
           <b>AI 记忆</b>
           <button class="btn btn-sm btn-ghost" @click="loadMemory">刷新</button>
@@ -1526,7 +1526,7 @@ onMounted(() => {
    本页不再重复定义；下方 .toolbar 的 14px 16px 为工具栏专用紧凑间距，特异性更高、保持覆盖。 */
 
 /* 顶部筛选 / 搜索栏：沿用 Forecast 的 toolbar + tb-search */
-.toolbar{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-h14) var(--sp-4);margin-bottom:var(--sp-h14);flex-wrap:wrap;gap:var(--sp-3)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-4);margin-bottom:var(--sp-4);flex-wrap:wrap;gap:var(--sp-3)}
 .tb-title{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .tb-right{margin-left:auto}
 /* 胶囊 + 内层无边框 input：焦点反馈挂胶囊整体，避免全局 .fld:focus 光晕悬空浮在胶囊内（同 Forecast） */
@@ -1665,7 +1665,7 @@ onMounted(() => {
       「把整个界面分成上下两块，非常不美观」。
    ⚠️ 仍用 `td` 而不是 `th`（它在 tbody 里，随内容滚动）；仍要与普通行明确区分，
       否则老板会把「登录端」读成又一个功能模块。 */
-.pm-sec td{background:transparent;border-top:1px solid var(--bd);color:var(--t1);font-size:var(--fs-sm);font-weight:600;padding:var(--sp-h14) var(--sp-h10) 5px}
+.pm-sec td{background:transparent;border-top:1px solid var(--bd);color:var(--t1);font-size:var(--fs-sm);font-weight:600;padding:var(--sp-4) var(--sp-h10) 5px}
 .pm-sec:first-child td{border-top:0;padding-top:var(--sp-h2)}
 .pm-col-sub{font-size:var(--fs-xs);color:var(--t3);margin-bottom:var(--sp-h2)}
 /* v328 G4：自定义角色的标记要能被看见（它是"为什么勾了没反应"的答案所在）。 */
@@ -1693,9 +1693,9 @@ onMounted(() => {
       （主标签换的是整页内容，这里只换一张卡里的一张表）。长得一样会让老板以为"点一下整页都换了"。
    ⚠️ 「更多」**不折叠**（老板 2026-10-01 拍板）：页签已经解决了"11 行淹掉 10 个功能"的问题，
       再叠一层展开/收起就是多余的两次点击。 */
-.domtabs{display:flex;gap:var(--sp-h6);flex-wrap:wrap;margin:0 0 var(--sp-h14)}
+.domtabs{display:flex;gap:var(--sp-h6);flex-wrap:wrap;margin:0 0 var(--sp-4)}
 .domtabs button{border:1px solid var(--bd);background:var(--bg);color:var(--t2);
-  border-radius:var(--radius-pill);padding:5px var(--sp-h14);font-size:var(--fs-base);cursor:pointer;transition:all var(--dur-base)}
+  border-radius:var(--radius-pill);padding:5px var(--sp-4);font-size:var(--fs-base);cursor:pointer;transition:all var(--dur-base)}
 .domtabs button:hover{border-color:var(--p);color:var(--p-dark)}
 .domtabs button.on{background:var(--p-bg);border-color:var(--p);color:var(--p-dark);font-weight:600}
 /* 页签上的数字：没搜索时 = 该域有几行；搜索时 = 命中几个。
@@ -1709,7 +1709,7 @@ onMounted(() => {
 .cmp-mask{position:fixed;inset:0;background:rgba(0,0,0,.42);z-index:900;
           display:flex;align-items:center;justify-content:center;padding:var(--sp-6)}
 .cmp-dlg{background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-lg);
-         width:min(1080px,96vw);max-height:86vh;overflow:auto;padding:var(--sp-h18);
+         width:min(1080px,96vw);max-height:86vh;overflow:auto;padding:var(--sp-5);
          box-shadow:0 18px 48px rgba(0,0,0,.28)}
 .cmp-wrap{overflow:auto;max-height:calc(86vh - 150px)}
 .cmp-table{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--fs-sm)}
@@ -1727,7 +1727,7 @@ onMounted(() => {
 .pager-info{color:var(--t2);margin-right:auto}
 
 /* AI 记忆 */
-.mem-block{margin:var(--sp-h14) 0}
+.mem-block{margin:var(--sp-4) 0}
 .mem-hd{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-2)}
 .mem-tag{font-size:var(--fs-sm);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm)}
 .mem-tag.user{background:var(--p-bg);color:var(--p-dark)}

@@ -923,7 +923,7 @@ onMounted(async () => {
 /* v691：弹窗骨架统一由 components/Modal.vue 提供，本页只保留弹窗内排版 */
 .pc-body{display:flex;flex-direction:column;gap:var(--sp-3)}
 .pc-act{display:flex;gap:var(--sp-2);flex-wrap:wrap}
-.pc-why{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:baseline;margin:0 0 var(--sp-h14);padding:var(--sp-h10) var(--sp-h14);
+.pc-why{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:baseline;margin:0 0 var(--sp-4);padding:var(--sp-h10) var(--sp-4);
   border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2)}
 .pc-why b{color:var(--t1);white-space:nowrap}
 .pc-why>span b{color:var(--t1)}
@@ -931,7 +931,7 @@ onMounted(async () => {
 
 .pc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:var(--sp-3);margin-bottom:var(--sp-4)}
 .pc-card{display:flex;flex-direction:column;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);
-  padding:var(--sp-3) var(--sp-h14);transition:border-color var(--dur-base),box-shadow var(--dur-base)}
+  padding:var(--sp-3) var(--sp-4);transition:border-color var(--dur-base),box-shadow var(--dur-base)}
 .pc-card:hover{box-shadow:var(--shadow-sm)}
 .pc-card.is-def{border-color:rgba(var(--p-rgb),.45);background:var(--p-bg)}
 .pc-card.is-off{opacity:.6}
@@ -959,7 +959,7 @@ onMounted(async () => {
 .pc-f input:focus,.pc-f select:focus{border-color:var(--p-dark)}
 .pc-tip{font-style:normal;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .pc-try-btn{flex:0 0 auto}
-.pc-res{margin-top:var(--sp-h14);padding:var(--sp-3) var(--sp-h14);border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd)}
+.pc-res{margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd)}
 .pc-res.bad{background:rgba(var(--war-rgb),.10);border-color:rgba(var(--war-rgb),.4)}
 .pc-res-main{display:flex;align-items:baseline;gap:var(--sp-h10);flex-wrap:wrap}
 .pc-res-k{font-size:var(--fs-sm);color:var(--t3)}
@@ -997,7 +997,7 @@ onMounted(async () => {
 .pc-pager .btn{margin:0}
 
 /* v228 客户专属价：与「渠道价」互补的独立区块 */
-.pc-cust{padding:var(--sp-h18);margin-top:var(--sp-h14)}
+.pc-cust{padding:var(--sp-5);margin-top:var(--sp-4)}
 .pc-cust .pc-tb{margin-top:var(--sp-h2)}
 .pc-cust-sum{margin:var(--sp-h10) 0 var(--sp-h6);line-height:var(--lh-loose)}
 .pc-cust-sum b{color:var(--t1);font-weight:600}

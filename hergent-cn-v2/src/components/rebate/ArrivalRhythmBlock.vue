@@ -178,14 +178,14 @@ function wkLabel(iso) {
 </script>
 
 <style scoped>
-.arrival-block{border:1px solid var(--bd2);border-radius:var(--radius-sm);padding:var(--sp-h14);margin-bottom:var(--sp-h6);background:var(--bg2)}
+.arrival-block{border:1px solid var(--bd2);border-radius:var(--radius-sm);padding:var(--sp-4);margin-bottom:var(--sp-h6);background:var(--bg2)}
 .arrival-block .form-row{margin-bottom:var(--sp-2)}
 .form-row{display:flex;flex-direction:column;gap:var(--sp-h6)}
 .form-row label{font-size:var(--fs-sm);font-weight:500;color:var(--t2)}
 .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
 .form-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-3)}
 .seg{display:inline-flex;border:1px solid var(--bd2);border-radius:var(--radius-sm);overflow:hidden}
-.seg-btn{padding:var(--sp-h6) var(--sp-h14);border:0;background:transparent;cursor:pointer;font-size:var(--fs-base);color:var(--t2)}
+.seg-btn{padding:var(--sp-h6) var(--sp-4);border:0;background:transparent;cursor:pointer;font-size:var(--fs-base);color:var(--t2)}
 .seg-btn.on{background:var(--p-solid);color:#fff}
 .wk-chips{display:flex;gap:var(--sp-h6);flex-wrap:wrap}
 .wk-chip{padding:var(--sp-h6) var(--sp-3);border:1px solid var(--bd2);border-radius:var(--radius-pill);background:var(--bg1);cursor:pointer;font-size:var(--fs-base);color:var(--t2)}

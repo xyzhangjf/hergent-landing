@@ -192,7 +192,7 @@ onMounted(loadAudit)
 .audit-fresh-ok{background:var(--bg3);border:1px solid var(--bd);border-left:3px solid var(--p);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3)}
 .audit-fresh-ok .ico{color:var(--p-ink);opacity:.8}
 .legacy-note{font-size:var(--fs-sm);color:var(--t3);margin:0 0 var(--sp-h10);line-height:var(--lh-normal)}
-.audit-erp-note{background:var(--bg3);border:1px solid var(--bd);border-left:3px solid var(--dan);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3);margin-bottom:var(--sp-h14);line-height:var(--lh-normal)}
+.audit-erp-note{background:var(--bg3);border:1px solid var(--bd);border-left:3px solid var(--dan);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3);margin-bottom:var(--sp-4);line-height:var(--lh-normal)}
 .audit-erp-note .link-btn{background:none;border:none;color:var(--p-ink);font:inherit;font-weight:600;padding:0 var(--sp-h2);cursor:pointer;text-decoration:underline}
 .audit-sum{display:flex;gap:var(--sp-4);align-items:baseline;flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t2);padding:var(--sp-2) 0 var(--sp-3)}
 .audit-sum b{color:var(--t1)}

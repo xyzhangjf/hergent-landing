@@ -253,15 +253,15 @@ onMounted(load)
 </script>
 
 <style scoped>
-.vc{display:flex;flex-direction:column;gap:var(--sp-h14)}
+.vc{display:flex;flex-direction:column;gap:var(--sp-4)}
 .vc-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-h10)}
-.vc-kpi{background:var(--bg2);border-radius:var(--radius-md);padding:var(--sp-h10) var(--sp-h14);display:flex;flex-direction:column;gap:var(--sp-h2)}
+.vc-kpi{background:var(--bg2);border-radius:var(--radius-md);padding:var(--sp-h10) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-h2)}
 .vc-kpi .num{font-size:var(--fs-xl);font-weight:600;font-variant-numeric:tabular-nums}
 .vc-kpi .num.ok{color:var(--ok-green)}
 .vc-kpi .num.warn{color:var(--war)}
 .vc-kpi .num.bad{color:var(--err-red)}
 .vc-kpi .lbl{font-size:var(--fs-sm);color:var(--t2)}
-.vc-bar{display:flex;align-items:flex-start;gap:var(--sp-h14)}
+.vc-bar{display:flex;align-items:flex-start;gap:var(--sp-4)}
 .vc-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:0;flex:1}
 .vc-bar-acts{display:flex;gap:var(--sp-2);flex-shrink:0}
 .vc-skel{padding:var(--sp-2) 0}

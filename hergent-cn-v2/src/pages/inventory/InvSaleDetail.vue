@@ -357,6 +357,6 @@ onMounted(load)
 }
 
 @media (max-width: 640px) {
-  .isd-hd { gap: var(--sp-h14) }
+  .isd-hd { gap: var(--sp-4) }
 }
 </style>

@@ -239,7 +239,7 @@ function confLabel(r) {
 /* v346 危险列提示条 —— 用最重的颜色，因为这类列原本"看起来一切正常" */
 .im-risk{font-size:var(--fs-sm);color:var(--danger-txt);background:var(--danger-bg);border-radius:var(--radius-sm);padding:7px var(--sp-h10);display:flex;flex-direction:column;gap:3px;border:1px solid var(--danger-txt)}
 .im-risk-h{display:flex;align-items:center;gap:5px;font-weight:600}
-.im-risk-l{margin:0;padding-left:var(--sp-h18);display:flex;flex-direction:column;gap:var(--sp-h2)}
+.im-risk-l{margin:0;padding-left:var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-h2)}
 .im-risk-l li{line-height:var(--lh-normal)}
 /* v346 收起态：一行把话说清，按钮永远在 */
 .im-fold{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--ok-green);background:var(--ok-green-bg);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-h10);flex-wrap:wrap}

@@ -281,7 +281,7 @@ onMounted(load)
 .dh-stamp { font-size:var(--fs-sm); color: var(--t2); }
 
 .dh-legend {
-  margin-top: var(--sp-h14); padding: var(--sp-h10) var(--sp-h14); font-size:var(--fs-sm);
+  margin-top: var(--sp-4); padding: var(--sp-h10) var(--sp-4); font-size:var(--fs-sm);
   line-height: var(--lh-loose); color: var(--t2); background: var(--bg2);
 }
 .dh-chip {
@@ -294,7 +294,7 @@ onMounted(load)
 .dh-chip.st-unavailable { color: var(--t2); background: var(--bg2); border: 1px dashed var(--bd); }
 
 .dh-card {
-  margin-top: var(--sp-h14); padding: var(--sp-h14) var(--sp-4) var(--sp-3);
+  margin-top: var(--sp-4); padding: var(--sp-4) var(--sp-4) var(--sp-3);
   border-left: 3px solid var(--bd);
 }
 .dh-card.st-pass { border-left-color: var(--ok-green); }

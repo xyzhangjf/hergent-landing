@@ -241,16 +241,16 @@ defineExpose({ load })
 <style scoped>
 /* 仅保留仍被引用的私有类（页签 / 警示卡 / 合计卡挂在 #extra，插槽内容在本页作用域编译）。 */
 /* v648 图表位：结构（环形）+ 排行（横向条）并排，窄屏堆叠。 */
-.gpa-charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-h14); margin-top: var(--sp-h14) }
+.gpa-charts { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-4); margin-top: var(--sp-4) }
 @media (max-width: 1100px) { .gpa-charts { grid-template-columns: minmax(0, 1fr) } }
 .gpa-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-h10); flex-wrap: wrap }
 .gpa-tabs { display: flex; gap: var(--sp-h6) }
 .gpa-tabs .gpa-on { background: var(--bg2); color: var(--t1); font-weight: 600 }
-.gpa-tabs-card { margin-top: var(--sp-h14) }
-.gpa-warn { border-left: 3px solid var(--war); margin-top: var(--sp-h14) }
+.gpa-tabs-card { margin-top: var(--sp-4) }
+.gpa-warn { border-left: 3px solid var(--war); margin-top: var(--sp-4) }
 .gpa-warn-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; color: var(--warn); margin-bottom: var(--sp-h6) }
 .gpa-warn p { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-normal); margin: 0 }
-.gpa-tot { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14) }
+.gpa-tot { margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4) }
 .gpa-tot-row { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2) }
 .gpa-tot-i { display: flex; align-items: baseline; gap: var(--sp-h6); font-size:var(--fs-base) }
 .gpa-tot-i i { font-style: normal; color: var(--t2) }

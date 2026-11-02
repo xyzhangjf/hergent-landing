@@ -353,7 +353,7 @@ onMounted(load)
 .fd-body { display: flex; flex-direction: column; gap: var(--sp-3) }
 /* 私有类一律 fd- 前缀；全局件（.page/.page-hd/.card/.kpi-strip/.tbl/.tag/.state-*）不重定义。 */
 .fd-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
-.fd-filter { margin: var(--sp-h14) 0 }
+.fd-filter { margin: var(--sp-4) 0 }
 .fd-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
 .fd-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
 .fd-grow { flex: 1; min-width: 160px }
@@ -368,7 +368,7 @@ onMounted(load)
 .fd-err { color: var(--danger-txt); font-size:var(--fs-sm); margin-top: var(--sp-2) }
 
 /* 弹窗（页面私有 UI，fd- 前缀，不造全局第二份） */
-.fd-dl { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-h10) var(--sp-h18) }
+.fd-dl { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-h10) var(--sp-5) }
 .fd-dl > div { display: flex; gap: var(--sp-2); font-size:var(--fs-base); color: var(--t1); align-items: center }
 .fd-dl span { color: var(--t2); min-width: 48px }
 </style>

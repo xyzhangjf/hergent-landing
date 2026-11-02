@@ -633,7 +633,7 @@ defineExpose({ load: loadList })
 .kt-lock { border-left: 3px solid var(--ok); color: var(--ok) }
 
 .kt-meta {
-  display: flex; flex-wrap: wrap; gap: var(--sp-h18);
+  display: flex; flex-wrap: wrap; gap: var(--sp-5);
   margin-bottom: var(--sp-3); font-size:var(--fs-sm); color: var(--t2);
 }
 .kt-meta b { color: var(--t3); font-weight: 500 }
@@ -665,7 +665,7 @@ defineExpose({ load: loadList })
 .kt-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap }
 
 .kt-items {
-  margin-top: var(--sp-h14); padding-top: var(--sp-3);
+  margin-top: var(--sp-4); padding-top: var(--sp-3);
   border-top: 1px dashed var(--border-subtle);
 }
 .kt-items-hd {
@@ -677,7 +677,7 @@ defineExpose({ load: loadList })
 
 .kt-new-foot {
   display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
-  margin-top: var(--sp-h14); padding-top: var(--sp-3);
+  margin-top: var(--sp-4); padding-top: var(--sp-3);
   border-top: 1px solid var(--border-subtle);
 }
 .kt-new-note { font-size:var(--fs-sm); color: var(--t3) }

@@ -35,7 +35,7 @@ const area = computed(() => (route.meta && route.meta.area) || '规划中')
 
 <style scoped>
 /* 只补本页特有两处排版，容器/页头/卡片一律用全局件（UI-SPEC §6.2：同一视觉语言不写第二份）。 */
-.ph-card { padding: var(--sp-h18) var(--sp-5); max-width: 720px }
+.ph-card { padding: var(--sp-5) var(--sp-5); max-width: 720px }
 .ph-hd { display: flex; align-items: center; gap: var(--sp-h10); margin-bottom: var(--sp-2) }
 .ph-hd h3 { font-size:var(--fs-lg); font-weight: 600; color: var(--t1) }
 .ph-desc { font-size:var(--fs-base); color: var(--t2); line-height: var(--lh-normal); margin-bottom: var(--sp-3) }

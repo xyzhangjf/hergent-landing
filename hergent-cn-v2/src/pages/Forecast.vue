@@ -2394,7 +2394,7 @@
          + purchase_orders（目标额 / 已采额 / 达成率），是**合同采购进度**，不是「达成填报」里
          人工或 Hermes 回写的实际返利金额 —— 叫「实际返利」会指鹿为马，故只去掉与全站重名的
          「达成」二字，「达成率」列按指标名保留。 -->
-    <div class="card rebate-section" style="margin-top:var(--sp-h14)" v-if="rebateSummary.length">
+    <div class="card rebate-section" style="margin-top:var(--sp-4)" v-if="rebateSummary.length">
       <div class="panel-hd"><b><Icon name="coins"/> 厂家返利</b><span class="tag info">{{ rebateSummary.length }} 个合同</span></div>
       <div class="table-wrap">
         <table class="tbl">
@@ -13614,7 +13614,7 @@ provide('sprintSummary', sprintSummary)
    「按月设总量 · 分解到人 · 期次自动认领」：那句是业务口径，页签上看不出来。 */
 .target-panel :deep(.page){padding:0;margin:0}
 .target-panel :deep(.page-hd :is(h1,h2)){display:none}
-.toolbar{display:flex;align-items:center;justify-content:flex-start;padding:var(--sp-h14) var(--sp-4);margin-bottom:var(--sp-h14);flex-wrap:wrap;gap:var(--sp-2)}
+.toolbar{display:flex;align-items:center;justify-content:flex-start;padding:var(--sp-4) var(--sp-4);margin-bottom:var(--sp-4);flex-wrap:wrap;gap:var(--sp-2)}
 .tb-left,.tb-right,.toolbar>.tb-group{display:flex;align-items:center;gap:var(--sp-2);flex:0 0 auto}
 .tb-left .btn,.tb-right .btn,.toolbar>.tb-group .btn{flex:0 0 auto;white-space:nowrap}
 /* 工具栏单行布局（2026-09-12）：分三段，段间以 .tb-sep 分隔、段内 gap 8
@@ -13753,8 +13753,8 @@ provide('sprintSummary', sprintSummary)
 /* P0-1 工具栏语义分隔条（筛选/数据/编辑/AI/设置 五簇） */
 .tb-sep{display:inline-block;width:1px;height:20px;background:var(--bd);margin:0 5px;flex:0 0 auto;opacity:.65;align-self:center}
 /* P0-2 状态徽标曾独立成行（.tb-status-row 已废弃：现直接挂在 .tb-ctx 段内，紧随期次选择器） */
-.cross-area{margin-bottom:var(--sp-h14)}
-.cross-card{padding:0 var(--sp-h14) var(--sp-h14);overflow:hidden}
+.cross-area{margin-bottom:var(--sp-4)}
+.cross-card{padding:0 var(--sp-4) var(--sp-4);overflow:hidden}
 .cross-tbl{min-width:100%;font-size:var(--fs-sm)}
 /* 🔴 v579：表头与合计行走**同一条高度链** —— 都取 --fc-cell（=20px 内容盒）。
    原实现 th 是 `padding:8px 7px` + 继承 body 的 line-height(1.6×12=19.2) ⇒ 38px，
@@ -13885,7 +13885,7 @@ provide('sprintSummary', sprintSummary)
    `left:var(--sidebar-w)` 让开左侧栏（该变量由 Shell 写在 documentElement 上，
    且侧栏可拖拽调宽 ⇒ 跟随自动生效）。
    `z-index:40` > 粘性列的 6；又远低于各类浮层（ctx-menu 1091 / modal 1130），不抢层级。 */
-.sel-stat{display:flex;align-items:center;gap:var(--sp-4);padding:7px var(--sp-h14);background:var(--bg3);border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--t2);position:fixed;left:var(--sidebar-w,248px);right:0;bottom:0;z-index:40;box-shadow:0 -2px 8px rgba(0,0,0,.07)}
+.sel-stat{display:flex;align-items:center;gap:var(--sp-4);padding:7px var(--sp-4);background:var(--bg3);border-top:1px solid var(--bd);font-size:var(--fs-sm);color:var(--t2);position:fixed;left:var(--sidebar-w,248px);right:0;bottom:0;z-index:40;box-shadow:0 -2px 8px rgba(0,0,0,.07)}
 /* 全屏层 `.grid-area.is-fs` 是 `position:fixed;inset:0`，把整个视口（含侧栏位）都占了
    ⇒ 那里必须让统计条铺满全宽，否则左边缘会凭空缺一块。 */
 .grid-area.is-fs .sel-stat{left:0}
@@ -13895,7 +13895,7 @@ provide('sprintSummary', sprintSummary)
 .sel-stat-x:hover{background:var(--dan-bg);color:var(--dan)}
 /* v212（P2-3）：选区统计条上的「批量填入」可见入口。放在 `margin-left:auto` 的关闭按钮
    **之前** ⇒ 它留在左侧统计数字那一簇里，跟「计数/求和/平均」同一组心智（都作用于选区）。 */
-.sel-fill{display:inline-flex;align-items:center;gap:var(--sp-h6);padding-left:var(--sp-h14);border-left:1px solid var(--bd)}
+.sel-fill{display:inline-flex;align-items:center;gap:var(--sp-h6);padding-left:var(--sp-4);border-left:1px solid var(--bd)}
 .sel-fill-label{color:var(--t2)}
 .sel-fill-ipt{width:88px;padding:3px 7px;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-sm);outline:none}
 .sel-fill-ipt:focus{border-color:var(--p)}
@@ -14561,13 +14561,13 @@ provide('sprintSummary', sprintSummary)
    不要再改回 < 1121，也不要为此抬高 .tb-pop（会破坏「弹层开着直接点别的触发按钮」）。 */
 .imp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-page-modal-overlay)}
 .imp-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(560px,94vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-page-modal);box-shadow:var(--shadow-lg);max-height:86vh;display:flex;flex-direction:column}
-.imp-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-h14) var(--sp-h18);border-bottom:1px solid var(--border-subtle)}
+.imp-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-subtle)}
 .imp-hd b{font-size:var(--fs-md)}
 .imp-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .imp-x:hover{color:var(--p-dark);background:var(--bg2);border-radius:var(--radius-sm)}
-.imp-body{padding:var(--sp-4) var(--sp-h18);overflow-y:auto}
+.imp-body{padding:var(--sp-4) var(--sp-5);overflow-y:auto}
 .imp-actions{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
-.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin-bottom:var(--sp-h14)}
+.imp-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin-bottom:var(--sp-4)}
 .del-modal{width:min(440px,92vw)}
 .warn-text{color:var(--dan);font-weight:500}
 .del-actions{display:flex;justify-content:flex-end;gap:var(--sp-h10);margin-top:var(--sp-4)}
@@ -14597,17 +14597,17 @@ provide('sprintSummary', sprintSummary)
 /* v179：「建档成功但没有数量」与「真的什么都没有」两个中性结局（信息蓝，不是错误色）。
    旧实现把前者渲染成绿色的「导入成功：0 个客户」，正是用户误判导入成功的直接原因。 */
 .imp-none{color:var(--info-blue);font-size:var(--fs-base);line-height:var(--lh-normal);margin-bottom:var(--sp-3)}
-.imp-errs{margin:0;padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose)}
+.imp-errs{margin:0;padding-left:var(--sp-5);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose)}
 
 /* v157 零档案建档结果块 */
-.imp-arch{margin-top:var(--sp-3);padding:var(--sp-3) var(--sp-h14);border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
+.imp-arch{margin-top:var(--sp-3);padding:var(--sp-3) var(--sp-4);border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
 .imp-arch-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin-bottom:var(--sp-2)}
 .imp-arch-line{display:flex;gap:var(--sp-h10);flex-wrap:wrap}
 .imp-arch-tag{font-size:var(--fs-sm);color:var(--t2);padding:3px var(--sp-h10);border-radius:var(--radius-pill);background:var(--bg3)}
 .imp-arch-tag b{color:var(--t1);font-size:var(--fs-md);margin-left:var(--sp-h2)}
 .imp-arch-tag.ok{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .imp-arch-tag.ok b{color:var(--suc)}
-.imp-arch-list{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
+.imp-arch-list{margin:var(--sp-2) 0 0;padding-left:var(--sp-5);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .imp-arch-note{margin:var(--sp-h10) 0 0;font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2)}
 .imp-arch-note.warn{color:var(--war)}
 .imp-arch-note.bad{color:var(--dan)}
@@ -14649,12 +14649,12 @@ provide('sprintSummary', sprintSummary)
    不用 danger —— 这是「还差一步」而不是「出错了」。
    ⚠️ 布局影响：期次就绪时整条**不在 DOM 里**（v-if），故对既有用户零位移；
    出现时是页面纵向流的第一个块，不挤压工具栏那一行（不参与 .tb-group 的宽度竞争）。 */
-.gate-bar{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-3);padding:var(--sp-h10) var(--sp-h14);
+.gate-bar{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-3);padding:var(--sp-h10) var(--sp-4);
   border-radius:var(--radius-md);font-size:var(--fs-sm);line-height:var(--lh-normal);
   background:var(--warn-amber-bg);color:var(--warn-amber)}
 .gate-bar .gate-txt{flex:1}
 .gate-bar b{font-weight:600}
-.new-period{margin-bottom:var(--sp-h14)}
+.new-period{margin-bottom:var(--sp-4)}
 /* v242h（用户定）：**行内标签**（label 在输入框左侧）+ 输入框本地降到 32px + 收窄宽度。
    为什么 32px：与 .btn-sm / 本页工具栏（期次选择器 32 + 新建期次按钮 32）齐平，整行一个高度。
    为什么要收窄：原 `.np-fld{flex:1}` 把 4 个字段各拉到卡片 1/4，日期框被撑到 200px+ ——
@@ -14677,7 +14677,7 @@ provide('sprintSummary', sprintSummary)
 .np-fld-name .input{width:210px}
 /* v180 期次软警告（同名 / 窗口重叠）—— 非阻塞提示；硬规则由后端 period_validate 拦截 */
 .np-hint-warn{font-size:var(--fs-sm);color:var(--warn-amber);background:rgba(245,158,11,.1);border-left:3px solid rgba(245,158,11,.5);border-radius:var(--radius-sm);padding:var(--sp-h6) 9px;margin:var(--sp-2) 0 0;line-height:var(--lh-normal)}
-.np-warn{margin:var(--sp-h10) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--war)}
+.np-warn{margin:var(--sp-h10) 0 0;padding-left:var(--sp-5);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--war)}
 /* v180 导入弹窗「本期归属」行 —— 归属由后端在导入那一刻定死，故必须前置展示 */
 .imp-own{margin:0 0 var(--sp-3);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2)}
 .imp-own b{color:var(--t1)}
@@ -14692,8 +14692,8 @@ provide('sprintSummary', sprintSummary)
 /* v184 空期次的表内引导行：表头保留（列与列右键可达），只替换表体 */
 .empty-row :deep( td){background:transparent;border-bottom:none;padding:34px var(--sp-4)!important;text-align:center}
 .empty-row .er-t{font-size:var(--fs-md);font-weight:600;color:var(--t1);margin-bottom:var(--sp-h6)}
-.empty-row .er-s{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin-bottom:var(--sp-h14)}
-.empty-row .er-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-h14)}
+.empty-row .er-s{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin-bottom:var(--sp-4)}
+.empty-row .er-ic{width:48px;height:48px;border-radius:var(--radius-lg);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-4)}
 .empty-row .er-ic svg{width:24px;height:24px}
 .empty-row .er-ops{display:flex;gap:var(--sp-2);justify-content:center;flex-wrap:wrap}
 .pe-grid{display:grid;grid-template-columns:76px 1fr;gap:var(--sp-h10) var(--sp-3);align-items:center}
@@ -14701,7 +14701,7 @@ provide('sprintSummary', sprintSummary)
 .draft-section{}
 .search-row{display:flex;gap:var(--sp-2);position:relative}
 .search-dropdown{position:absolute;top:42px;left:0;right:60px;background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-md);max-height:280px;overflow-y:auto;z-index:100}
-.sd-item{padding:var(--sp-h10) var(--sp-h14);cursor:pointer;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:var(--sp-h10)}
+.sd-item{padding:var(--sp-h10) var(--sp-4);cursor:pointer;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;gap:var(--sp-h10)}
 .sd-item:hover{background:var(--bg2)}
 .sd-main{flex:1;min-width:0}
 .sd-alias{flex-shrink:0}
@@ -14709,15 +14709,15 @@ provide('sprintSummary', sprintSummary)
    → 一并提到 1125/1130，否则商品别名弹窗同样会被工具栏 .tb-pop（v678 起 1101，此前 1120）遮挡。 */
 .al-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:var(--z-page-modal-overlay)}
 .al-modal{position:fixed;left:50%;top:45%;transform:translate(-50%,-50%);width:min(400px,92vw);background:var(--bg);border-radius:var(--radius-lg);z-index:var(--z-page-modal);box-shadow:var(--shadow-lg)}
-.al-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-h14) var(--sp-h18);border-bottom:1px solid var(--border-subtle)}
+.al-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--border-subtle)}
 .al-hd b{font-size:var(--fs-md)}
 .al-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .al-x:hover{color:var(--p-dark);background:var(--bg2);border-radius:var(--radius-sm)}
-.al-body{padding:var(--sp-4) var(--sp-h18);display:flex;flex-direction:column;gap:var(--sp-h10)}
+.al-body{padding:var(--sp-4) var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-h10)}
 .al-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .al-input{width:100%;padding:var(--sp-h10);font-size:var(--fs-base)}
 .al-current{font-size:var(--fs-sm);color:var(--t3)}
-.al-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-3) var(--sp-h18);border-top:1px solid var(--border-subtle)}
+.al-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-3) var(--sp-5);border-top:1px solid var(--border-subtle)}
 .sd-name{font-size:var(--fs-base);font-weight:500}
 .sd-spec{font-size:var(--fs-sm);color:var(--t3);margin-left:var(--sp-h6)}
 .sd-meta{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
@@ -14935,13 +14935,13 @@ provide('sprintSummary', sprintSummary)
 .err-rulebtn{margin-left:auto;border:1px dashed var(--bd);background:none;color:var(--t2);border-radius:var(--radius-pill);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);line-height:var(--lh-normal);cursor:pointer;white-space:nowrap}
 .err-rulebtn:hover{border-color:var(--p);color:var(--p-deep)}
 .rule-dlg{width:min(420px,94vw)}
-.rule-body{padding:var(--sp-h14) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-2)}
+.rule-body{padding:var(--sp-4) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-2)}
 .rule-label{font-size:var(--fs-sm);color:var(--t2)}
 .rule-input{border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);padding:var(--sp-h6) var(--sp-h10);font-size:var(--fs-base);font-variant-numeric:tabular-nums;outline:none}
 .rule-input:focus{border-color:var(--p)}
 .rule-hint{font-size:var(--fs-sm);color:var(--t2)}
 .err-empty{color:var(--t2)}
-.push-list,.health-list{margin:0;padding-left:var(--sp-h18);line-height:var(--lh-loose)}
+.push-list,.health-list{margin:0;padding-left:var(--sp-5);line-height:var(--lh-loose)}
 .health-list li{cursor:pointer;display:flex;align-items:center;gap:var(--sp-h6)}
 .health-list li:hover{text-decoration:underline}
 .sev-risk{color:var(--sev-risk)}.sev-warn{color:var(--sev-warn)}.sev-info{color:var(--sev-info)}
@@ -14949,7 +14949,7 @@ provide('sprintSummary', sprintSummary)
 .sev-risk .sev-dot{background:var(--sev-risk)}.sev-warn .sev-dot{background:var(--sev-warn)}.sev-info .sev-dot{background:var(--sev-info)}
 /* v166 修改日志面板：已从编辑态网格区搬到工具栏正下方，成为 .page 的直属元素（不再是卡片内
    的次级面板），故按 .card 的外观给（白底 / 同半径 / 同边框），免得与其它卡片割裂。 */
-.audit-log-panel{margin:0 0 var(--sp-h14);padding:var(--sp-h14) var(--sp-4);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-lg)}
+.audit-log-panel{margin:0 0 var(--sp-4);padding:var(--sp-4) var(--sp-4);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-lg)}
 /* 后端每期最多留 200 条 → 列表内部滚动，别把汇总表整张顶出屏幕 */
 .audit-log-panel .at-log{max-height:300px;overflow:auto;padding-right:var(--sp-1)}
 /* v166 修改日志：每条是「时间 · 修改人 · 动作 · 明细」，文字长需换行，故不复用 .health-list
@@ -15108,7 +15108,7 @@ provide('sprintSummary', sprintSummary)
   background:var(--bg3);color:var(--t2);font-size:var(--fs-sm);font-variant-numeric:tabular-nums;white-space:nowrap}
 .cb-chip.unset{background:var(--warn-amber-bg);color:var(--warn-amber)}
 /* 设置行：标签 + 输入 + 说明同基线；窄屏说明自然折到下一行 */
-.rc-set{display:flex;align-items:center;gap:var(--sp-h10);margin-top:var(--sp-h14);flex-wrap:wrap}
+.rc-set{display:flex;align-items:center;gap:var(--sp-h10);margin-top:var(--sp-4);flex-wrap:wrap}
 .rc-lb{font-size:var(--fs-base);color:var(--t2)}
 .rc-hint{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-tight)}
 .rc-hint b{color:var(--t2);font-weight:600}

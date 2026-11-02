@@ -322,10 +322,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.ba-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
-.ba-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-normal)}
+.ba-panel{padding:var(--sp-5);margin-bottom:var(--sp-4)}
+.ba-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-4);line-height:var(--lh-normal)}
 .ba-tip.dim{color:var(--t3);font-size:var(--fs-sm);margin-bottom:0}
-.ba-bullets{margin:0 0 var(--sp-3);padding-left:var(--sp-h18);font-size:var(--fs-sm);line-height:var(--lh-loose);color:var(--t2)}
+.ba-bullets{margin:0 0 var(--sp-3);padding-left:var(--sp-5);font-size:var(--fs-sm);line-height:var(--lh-loose);color:var(--t2)}
 .ba-bullets li{margin-bottom:var(--sp-h6)}
 .ba-bullets .ok-line{color:var(--t2)}
 .ba-bullets .warn-line{color:var(--war)}
@@ -333,7 +333,7 @@ onMounted(() => {
 .ba-notbrand{color:var(--t3)}
 .tag{font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3);white-space:nowrap}
 
-.ba-add-row{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-h14);flex-wrap:wrap}
+.ba-add-row{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-4);flex-wrap:wrap}
 .ba-ops{white-space:nowrap}
 .ba-ops .btn{margin-left:var(--sp-h6)}
 
@@ -345,11 +345,11 @@ onMounted(() => {
 
 /* 待审 */
 .ba-pending-list{display:flex;flex-direction:column;gap:var(--sp-h10)}
-.ba-pending-item{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h14);padding:var(--sp-3) var(--sp-h14);border:1px solid var(--bd);border-radius:var(--radius-md);flex-wrap:wrap}
+.ba-pending-item{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);padding:var(--sp-3) var(--sp-4);border:1px solid var(--bd);border-radius:var(--radius-md);flex-wrap:wrap}
 .ba-pending-info{min-width:0}
 .ba-pending-name{font-size:var(--fs-md);font-weight:600;color:var(--t1);display:flex;align-items:center;gap:var(--sp-2)}
 .ba-ref{font-size:var(--fs-xs);font-weight:400;color:var(--war);background:rgba(var(--war-rgb),.1);padding:1px 7px;border-radius:var(--radius-sm)}
-.ba-pending-meta{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-1);display:flex;gap:var(--sp-h14);flex-wrap:wrap}
+.ba-pending-meta{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-1);display:flex;gap:var(--sp-4);flex-wrap:wrap}
 .ba-pending-actions{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .ba-canonical{height:30px}
 .ba-merge{height:30px}

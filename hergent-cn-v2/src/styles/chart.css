@@ -16,7 +16,7 @@
 .ch-fig-ctl{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 
 /* —— 图例 —— */
-.ch-legend{display:flex;align-items:center;gap:var(--sp-h14);flex-wrap:wrap}
+.ch-legend{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap}
 .ch-lg-item{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--t2);cursor:default}
 /* 可点击显隐的图例（L2）：视觉上比静态图例多一个"可点"的暗示 —— 悬停加深、关闭态变灰划线 */
 .ch-lg-item.is-hit{cursor:pointer;user-select:none}

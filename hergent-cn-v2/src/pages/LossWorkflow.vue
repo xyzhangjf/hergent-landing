@@ -178,12 +178,12 @@
       </div>
 
       <!-- AI 留痕记录 -->
-      <div class="card lf-panel" style="margin-top:var(--sp-h14)">
+      <div class="card lf-panel" style="margin-top:var(--sp-4)">
         <button class="lf-adv-toggle" @click="showAdvice = !showAdvice">
           <span><Icon name="receipt"/> AI 留痕记录</span>
           <span class="tag" :class="advicePending ? 'warn' : 'info'">{{ advicePending ? advicePending + ' 待确认' : '查看历史' }}</span>
         </button>
-        <div v-if="showAdvice" style="margin-top:var(--sp-h14)">
+        <div v-if="showAdvice" style="margin-top:var(--sp-4)">
           <AdvicePanel :key="adviceKey" @confirmed="refreshAdviceBadge" />
         </div>
       </div>
@@ -331,14 +331,14 @@ onMounted(async () => {
 
 <style scoped>
 .lf-steps{display:flex;align-items:center;gap:var(--sp-h10);margin-bottom:var(--sp-4)}
-.lf-step{font-size:var(--fs-base);color:var(--t3);padding:var(--sp-h6) var(--sp-h14);border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
+.lf-step{font-size:var(--fs-base);color:var(--t3);padding:var(--sp-h6) var(--sp-4);border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border-subtle)}
 .lf-step.on{background:var(--p-bg);color:var(--p-dark);border-color:var(--p);font-weight:500}
 .lf-arrow{color:var(--t3);font-size:var(--fs-sm)}
 .lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:var(--fs-md);font-weight:500;color:var(--t1);padding:0}
 
 .lf-panel{}
 .lf-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-4);line-height:var(--lh-normal)}
-.lf-form{display:flex;flex-direction:column;gap:var(--sp-h18)}
+.lf-form{display:flex;flex-direction:column;gap:var(--sp-5)}
 
 .lf-field{display:flex;flex-direction:column;gap:var(--sp-2)}
 .lf-label{font-size:var(--fs-base);font-weight:500;color:var(--t1)}
@@ -346,7 +346,7 @@ onMounted(async () => {
 
 .lf-radios{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
 .lf-radios.inline{gap:var(--sp-3)}
-.lf-radio{display:flex;align-items:center;gap:var(--sp-h6);padding:7px var(--sp-h14);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:var(--fs-base);color:var(--t2);cursor:pointer;transition:all var(--dur-base);background:var(--bg)}
+.lf-radio{display:flex;align-items:center;gap:var(--sp-h6);padding:7px var(--sp-4);border:1px solid var(--bd);border-radius:var(--radius-sm);font-size:var(--fs-base);color:var(--t2);cursor:pointer;transition:all var(--dur-base);background:var(--bg)}
 .lf-radio input{display:none}
 .lf-radio.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark);font-weight:500}
 
@@ -357,8 +357,8 @@ onMounted(async () => {
 
 .lf-actions{display:flex;gap:var(--sp-h10);justify-content:flex-end;margin-top:22px}
 
-.lf-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-h14);margin-bottom:var(--sp-h14)}
-.lf-kpi{padding:var(--sp-4) var(--sp-h18)}
+.lf-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-4);margin-bottom:var(--sp-4)}
+.lf-kpi{padding:var(--sp-4) var(--sp-5)}
 .lf-kpi-total{border-color:var(--p);background:linear-gradient(180deg,var(--p-bg),transparent 130%)}
 .lf-kpi-label{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-h6)}
 .lf-kpi-val{font-size:var(--fs-num);font-weight:600;margin-bottom:var(--sp-1);font-variant-numeric:tabular-nums;letter-spacing:-.3px}

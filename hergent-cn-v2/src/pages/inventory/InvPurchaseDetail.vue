@@ -2365,7 +2365,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 /* ══ v415（P2-7）补充信息（自定义字段）在信息卡里的展示 ═══════════════════════
    一组 `标签 值` 小胶囊横排、可换行；字段多时不会把卡片撑成一长条。
    「未填写」用弱色 —— 它是状态说明，不是数据。 */
-.ipd-cf-list { display: flex; flex-wrap: wrap; gap: var(--sp-h6) var(--sp-h14) }
+.ipd-cf-list { display: flex; flex-wrap: wrap; gap: var(--sp-h6) var(--sp-4) }
 .ipd-cf-i { font-size:var(--fs-base); color: var(--t1); white-space: nowrap }
 .ipd-cf-i i { font-style: normal; color: var(--t3); font-size:var(--fs-sm); margin-right: 5px }
 .ipd-cf-none { font-size:var(--fs-base); color: var(--t3) }
@@ -2416,7 +2416,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipd-total-bar {
   position: sticky; bottom: 0; z-index: 6;
   display: flex; align-items: baseline; gap: var(--sp-h10);
-  margin-bottom: var(--sp-3); padding: 9px var(--sp-h14);
+  margin-bottom: var(--sp-3); padding: 9px var(--sp-4);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
   background: var(--bg2);
 }
@@ -2481,7 +2481,7 @@ tfoot td { font-weight: 600 }
 .ipd-overpaid { margin-top: var(--sp-h6) }
 /* v697：入库单页的操作条。左说明 / 右按钮，与详情页顶部动作区同一范式，
    但它是**页面内的卡片**而非工具条 ⇒ 用 card 自带底 + 内边距，不另画一条分隔线。 */
-.ipd-inb-act { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-h14); padding: 11px var(--sp-h14); margin-bottom: var(--sp-h10); flex-wrap: wrap }
+.ipd-inb-act { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-4); padding: 11px var(--sp-4); margin-bottom: var(--sp-h10); flex-wrap: wrap }
 .ipd-inb-act-t { display: flex; flex-direction: column; gap: 3px; min-width: 0 }
 .ipd-inb-act-t b { font-size:var(--fs-sm); font-weight: 600; color: var(--t1) }
 .ipd-inb-act-t .ipd-note { margin: 0 }
@@ -2501,9 +2501,9 @@ tfoot td { font-weight: 600 }
   display: flex; align-items: center; justify-content: center; padding: var(--sp-5);
   z-index: var(--z-page-modal-overlay);
 }
-.ipd-dlg { width: min(420px, 92vw); padding: var(--sp-h18); position: relative; z-index: var(--z-page-modal) }
+.ipd-dlg { width: min(420px, 92vw); padding: var(--sp-5); position: relative; z-index: var(--z-page-modal) }
 .ipd-dlg-hd { font-size: var(--fs-lg); font-weight: 600; margin-bottom: var(--sp-2) }
-.ipd-dlg-msg { font-size:var(--fs-sm); color: var(--t3); margin-bottom: var(--sp-h14) }
+.ipd-dlg-msg { font-size:var(--fs-sm); color: var(--t3); margin-bottom: var(--sp-4) }
 .ipd-fl { display: block; margin-bottom: var(--sp-3) }
 .ipd-fl .ipd-lb { display: block; margin-bottom: var(--sp-h6) }
 .ipd-fl .input { width: 100% }
@@ -2561,9 +2561,9 @@ tfoot td { font-weight: 600 }
 }
 
 @media (max-width: 640px) {
-  .ipd-hd { gap: var(--sp-h14) }
-  .ipd-barhd { gap: var(--sp-h6) var(--sp-h14) }
-  .ipd-bmoney { margin-left: 0; gap: var(--sp-h18) }
+  .ipd-hd { gap: var(--sp-4) }
+  .ipd-barhd { gap: var(--sp-h6) var(--sp-4) }
+  .ipd-bmoney { margin-left: 0; gap: var(--sp-5) }
   .ipd-recv-ft .ipd-note { width: 100%; margin-right: 0 }
 }
 </style>

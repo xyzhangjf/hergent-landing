@@ -255,8 +255,8 @@ onMounted(load)
 </script>
 
 <style scoped>
-.history-card { padding: var(--sp-4) var(--sp-h18); }
-.history-hd { display: flex; align-items: baseline; gap: var(--sp-h10); margin-bottom: var(--sp-h14); }
+.history-card { padding: var(--sp-4) var(--sp-5); }
+.history-hd { display: flex; align-items: baseline; gap: var(--sp-h10); margin-bottom: var(--sp-4); }
 .history-hd h3 { font-size:var(--fs-lg); font-weight: 600; margin: 0; }
 .history-hd .hint { font-size:var(--fs-sm); color: var(--t3); }
 /* v368④：「本期少了 N 期」说明条 —— 颜色全走既有令牌（零硬编码色，深色自动跟随）。

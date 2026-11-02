@@ -1280,7 +1280,7 @@ onMounted(() => { load(month.value); loadAudit() })
 
 /* ── v264c（R9）：报单配置对账告警。复用站内语义色 `--warn-amber*`
       （成例：`ConnectCenter.vue::.cc-pair-lock`），不新造视觉语言。 ── */
-.pt-audit{margin:0 0 var(--sp-3);padding:var(--sp-h10) var(--sp-h14);border-radius:var(--radius-sm);
+.pt-audit{margin:0 0 var(--sp-3);padding:var(--sp-h10) var(--sp-4);border-radius:var(--radius-sm);
   background:var(--warn-amber-bg);color:var(--warn-amber);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 .pt-audit b{color:var(--t1)}
 /* v265：告警条里的「去报单配置修」按钮 —— 继承告警条的琥珀色，不新造一套按钮视觉。
@@ -1334,7 +1334,7 @@ onMounted(() => { load(month.value); loadAudit() })
 
 /* ── 分解明细 ── */
 .pt-detail-row td{background:var(--bg2);padding:0}
-.pt-detail{padding:var(--sp-3) var(--sp-h14)}
+.pt-detail{padding:var(--sp-3) var(--sp-4)}
 .pt-detail-hd{display:flex;align-items:baseline;gap:var(--sp-h10);margin-bottom:var(--sp-2);font-size:var(--fs-base)}
 .pt-sub{width:100%;max-width:520px;border-collapse:collapse;font-size:var(--fs-sm)}
 .pt-sub th{background:transparent;border-bottom:1px solid var(--bd);color:var(--t2);padding:5px var(--sp-2);

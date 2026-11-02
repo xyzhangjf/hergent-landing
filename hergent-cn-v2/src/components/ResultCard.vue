@@ -258,7 +258,7 @@ function capOf(ch) {
   border:1px solid var(--border-subtle);
   border-radius:var(--radius-lg);
   box-shadow:var(--shadow-sm);
-  padding:var(--sp-3) var(--sp-h14);
+  padding:var(--sp-3) var(--sp-4);
   display:flex;flex-direction:column;gap:var(--sp-h10);
   transition:box-shadow var(--dur-base) ease,border-color var(--dur-base) ease;
 }

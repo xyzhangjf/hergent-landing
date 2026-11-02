@@ -622,7 +622,7 @@ onMounted(loadList)
 .rb-save { background: var(--pri); color: #fff; border: 1px solid var(--pri) }
 .rb-save:disabled { opacity: .45 }
 
-.rb-layout { display: grid; grid-template-columns: 268px minmax(0, 1fr); gap: var(--sp-h14); align-items: start }
+.rb-layout { display: grid; grid-template-columns: 268px minmax(0, 1fr); gap: var(--sp-4); align-items: start }
 @media (max-width: 1080px) { .rb-layout { grid-template-columns: 1fr } }
 
 .rb-list { position: sticky; top: 12px; max-height: calc(100vh - 150px); display: flex; flex-direction: column }
@@ -633,7 +633,7 @@ onMounted(loadList)
 }
 .rb-list-cnt { font-size:var(--fs-sm); font-weight: 400; color: var(--t3) }
 .rb-list-body { overflow-y: auto; padding: var(--sp-h6) }
-.rb-list-empty { padding: var(--sp-h14); font-size:var(--fs-sm); color: var(--t3) }
+.rb-list-empty { padding: var(--sp-4); font-size:var(--fs-sm); color: var(--t3) }
 
 .rb-item {
   display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2);
@@ -650,7 +650,7 @@ onMounted(loadList)
 .s-off { background: var(--bg3); color: var(--t3) }
 
 .rb-edit { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0 }
-.rb-sec { padding: var(--sp-h14) var(--sp-4) }
+.rb-sec { padding: var(--sp-4) var(--sp-4) }
 .rb-sec-hd {
   display: flex; justify-content: space-between; align-items: center; gap: var(--sp-h10);
   font-size:var(--fs-base); font-weight: 600; color: var(--t1); margin-bottom: var(--sp-h10); flex-wrap: wrap;
@@ -718,7 +718,7 @@ onMounted(loadList)
   display: flex; align-items: center; gap: var(--sp-h6); margin: var(--sp-h10) 0 0;
   font-size:var(--fs-sm); color: var(--war); background: var(--war-bg); padding: 7px var(--sp-h10); border-radius: var(--radius-xs);
 }
-.rb-fig-prev { margin-top: var(--sp-h14); padding-top: var(--sp-3); border-top: 1px dashed var(--line) }
+.rb-fig-prev { margin-top: var(--sp-4); padding-top: var(--sp-3); border-top: 1px dashed var(--line) }
 .rb-fig-hd { font-size:var(--fs-sm); color: var(--t3); margin-bottom: var(--sp-2) }
 
 .rb-note {
@@ -727,7 +727,7 @@ onMounted(loadList)
   font-size:var(--fs-sm); line-height: var(--lh-loose); resize: vertical;
 }
 
-.rb-err { padding: var(--sp-3) var(--sp-h14); border-left: 3px solid var(--danger); background: var(--bg2) }
+.rb-err { padding: var(--sp-3) var(--sp-4); border-left: 3px solid var(--danger); background: var(--bg2) }
 .rb-err-hd { display: flex; align-items: center; gap: var(--sp-h6); font-size:var(--fs-sm); font-weight: 600; color: var(--danger) }
 .rb-err p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2); word-break: break-all }
 
@@ -735,6 +735,6 @@ onMounted(loadList)
 .rb-hollow h2 { font-size:var(--fs-md); font-weight: 600; margin-bottom: var(--sp-2); color: var(--t1) }
 .rb-hollow p { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-loose)}
 
-.rb-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t3) }
+.rb-foot { margin: var(--sp-4) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t3) }
 .rb-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs) }
 </style>

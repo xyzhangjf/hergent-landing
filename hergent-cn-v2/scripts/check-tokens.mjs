@@ -373,6 +373,58 @@ function checkFontRamp () {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   v734 · 间距阶梯锁（10 档）+ `-hN` 名字即值
+   ─────────────────────────────────────────────────────────────────────────────
+   从 12 档收到 10 档：删 `--sp-h14`(14) / `--sp-h18`(18)，分别并入 `--sp-4`(16) / `--sp-5`(20)。
+
+   🔴 为什么收大间距、留小间距（这是本档最重要的判据，别反着来）：
+      间距的 2px 差别**不是处处等价**。
+      · 小间距（2/4/6/8/10/12）的 2px 差在密集区**看得见** —— 表格每行每列、
+        每个图标都重复同一个间隙，整片一起收窄/放宽会把表压紧或撑松。
+        6→8（637 处）里 gap 就占 255 处，改了等于全站多列容器重排，那是改设计。
+      · 大间距（14/16/18/20）的 2px 差在块与块之间**看不出来** —— 隔着整块内容
+        比较，没有并置参照。直接证据：`--sp-h14` 与 `--sp-4` 在同一条规则块里
+        共现 31 处、`--sp-h18` 与 `--sp-5` 共现 5 处 —— 作者自己在同一个容器里
+        用两个名字写了两个只差 2px 的值，说明他也分不出层次。
+
+   🔴 方向一律往上取整（14→16、18→20），不往下：
+      变小会挤压内容 ⇒ 换行、裁切、横向溢出；变大只是页面变长，可接受。
+
+   另锁一条命名约定：`--sp-hN` 的名字必须等于值（`--sp-h6` 就是 6px）。
+   主档 `--sp-N` 的 N 是**序号不是值**（`--sp-1`=4px），两套名字规则混用正是
+   当年 `--sp-4:14` / `--sp-5:18` 把自己弄坏的原因 —— 名字骗人，用法就随手写。
+   ───────────────────────────────────────────────────────────────────────────── */
+const SPACE_RAMP = new Map([
+  ['--sp-h2', 2],
+  ['--sp-1', 4],
+  ['--sp-h6', 6],
+  ['--sp-2', 8],
+  ['--sp-h10', 10],
+  ['--sp-3', 12],
+  ['--sp-4', 16],
+  ['--sp-5', 20],
+  ['--sp-6', 24],
+  ['--sp-7', 32],
+])
+function checkSpacingRamp () {
+  const css = stripComments(readFileSync(join(ROOT, TOKEN_FILE), 'utf8'))
+  const seen = new Map()
+  for (const m of css.matchAll(/(--sp-[a-z0-9-]+)\s*:\s*(\d+(?:\.\d+)?)px\s*;/g)) seen.set(m[1], parseFloat(m[2]))
+  const bad = []
+  for (const [k, v] of seen) {
+    if (!SPACE_RAMP.has(k)) bad.push({ k, v, why: '新增档位' })
+    else if (SPACE_RAMP.get(k) !== v) bad.push({ k, v, why: `值应保持 ${SPACE_RAMP.get(k)}px` })
+    const hn = /^--sp-h(\d+)$/.exec(k)
+    if (hn && parseFloat(hn[1]) !== v) bad.push({ k, v, why: `名字说 ${hn[1]}px 但值是 ${v}px —— -hN 系列必须名字即值` })
+  }
+  for (const k of SPACE_RAMP.keys()) if (!seen.has(k)) bad.push({ k, v: null, why: '档位被删' })
+  const byVal = new Map()
+  for (const [k, v] of seen) byVal.set(v, [...(byVal.get(v) || []), k])
+  for (const [v, ks] of byVal) if (ks.length > 1) bad.push({ k: ks.join(' ≡ '), v, why: `同值 ${v}px，同一件事两个名字` })
+  return bad
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    v732 · `--fs-body-m` 只能用在移动端 body 上
    ─────────────────────────────────────────────────────────────────────────────
    由来：`--fs-h4` 15px 之所以是债，不是"多了个档"，而是**一个名字两个语义**
@@ -418,6 +470,9 @@ const SP_PROPS = [
 ]
 const SP_DECL = new RegExp('(?<![\\w-])(' + SP_PROPS.join('|') + ')\\s*:\\s*([^;{}\"\'<>]+)', 'g')
 const SP_12 = new Set([2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 24, 32])
+/* 上表 = 「本该写令牌的值」集合。v734 删了 14/18 两个档位，但**两个数仍留在表里** ——
+   裸写 14px/18px 现在属于"绕过归并"（应写 var(--sp-4)/var(--sp-5)），必须继续拦。
+   这正是护栏该有的方向：删档位之后，旧值从"合法裸值"变成"必须走令牌"。 */
 /* 1px = 细边线（柔化 1px 的边不是间距档）；3/5/7/9/11/13 = 微调；15+ = 页面级留白。
    这份集合是**技术债清单**（P1 归一时只删不增），也是"不许发明 17px"的红线。 */
 const OFFGRID_ALLOWED = new Set([
@@ -457,6 +512,7 @@ const spBad = checkSpacing()
 const lhBad = checkLineHeights()
 const lhRampBad = checkLineHeightRamp()
 const fontRampBad = checkFontRamp()
+const spaceRampBad = checkSpacingRamp()
 const mobileBodyBad = checkMobileBodyOnly()
 if (args.has('--update')) {
   const obj = {}
@@ -496,17 +552,18 @@ for (const [file, vals] of current) {
   if (added.length) violations.push({ file, kind: 'new-color', vals: added })
 }
 
-if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length && !lhRampBad.length && !fontRampBad.length && !mobileBodyBad.length) {
+if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length && !lhRampBad.length && !fontRampBad.length && !spaceRampBad.length && !mobileBodyBad.length) {
   const files = Object.keys(base).length
   const total = Object.values(base).reduce((a, b) => a + b.length, 0)
   console.log(`✓ 设计令牌护栏通过（存量待清：${files} 个文件 / ${total} 条，见 --list）`)
   console.log(`✓ 图标尺寸护栏通过（允许 ${[...ICON_SIZES].join(' / ')} 四档）`)
   console.log(`✓ 圆角护栏通过（只许 --radius-* / 0 / inherit）`)
   console.log(`✓ 字号护栏通过（只许 var(--fs-*) / 0 / em·rem·%）`)
-  console.log(`✓ 间距护栏通过（12 档必须走令牌；离群值不许新增）`)
+  console.log(`✓ 间距护栏通过（10 档必须走令牌；离群值不许新增）`)
   console.log(`✓ 行高护栏通过（只许 var(--lh-*) / 0 / normal）`)
   console.log(`✓ 行高阶梯通过（5 档：1 / 1.2 / 1.4 / 1.6 / 1.8）`)
   console.log(`✓ 字号阶梯通过（11 档：11 / 12 / 13 / 14 / 15 / 16 / 18 / 20 / 22 / 24 / 26，无同值重名）`)
+  console.log(`✓ 间距阶梯通过（10 档：2 / 4 / 6 / 8 / 10 / 12 / 16 / 20 / 24 / 32，-hN 名字即值）`)
   console.log(`✓ 移动端正文隔离通过（--fs-body-m 只出现在 @media 的 body 规则里）`)
   process.exit(0)
 }
@@ -560,6 +617,20 @@ if (mobileBodyBad.length) {
   console.error('这条守的是 v732 把 --fs-h4 拆开的成果 —— 一旦 body-m 回到 UI 规则里，「一个名字两个语义」就复活了。\n')
 }
 
+if (spaceRampBad.length) {
+  console.error('\n✗ 间距阶梯：variables.css 的 --sp-* 档位被改动\n')
+  for (const b of spaceRampBad) console.error(`  ${b.k}: ${b.v ?? '（已删除）'}  ← ${b.why}`)
+  console.error('\n阶梯锁死为 10 档（v734 决策，理由见 variables.css 该段注释）：')
+  console.error('  2 h2(细分隔) / 4 sp-1 / 6 h6 / 8 sp-2 / 10 h10 / 12 sp-3')
+  console.error('  16 sp-4 / 20 sp-5 / 24 sp-6 / 32 sp-7')
+  console.error('🔴 收大间距、留小间距，别反着来：')
+  console.error('   小间距 2/4/6/8/10/12 的 2px 差在密集区**看得见**（表格每行每列重复同一个间隙），')
+  console.error('   整片一起改会把表压紧或撑松 —— 6→8 里 gap 占 255 处，那是改设计不是归一。')
+  console.error('   大间距 14/16/18/20 的 2px 差隔着整块内容比较，看不出来（v734 已收掉 14/18）。')
+  console.error('🔴 方向一律往上取整：变小会挤压内容 ⇒ 换行/裁切/横向溢出；变大只是页面变长。')
+  console.error('🔴 -hN 系列名字必须等于值（--sp-h6 就是 6px）；--sp-N 的 N 是序号不是值。\n')
+}
+
 if (fsBad.length) {
   console.error('\n✗ 字号护栏：出现了 var(--fs-*) 之外的 font-size\n')
   for (const b of fsBad) console.error(`  ${b.rel}\n    font-size: ${b.val}`)
@@ -585,10 +656,11 @@ if (spBad.length) {
     for (const b of spNew.slice(0, 12)) console.error(`    ${b.rel}  ${b.prop}:${b.v}px`)
     if (spNew.length > 12) console.error(`    …… 另有 ${spNew.length - 12} 处`)
   }
-  console.error('\n间距 12 档（variables.css）：')
-  console.error('  2  4  6  8  10  12  14  16  18  20  24  32')
-  console.error('  其中 -h 后缀（2/6/10/14/18）是**过渡档**，P1 归一时删。')
+  console.error('\n间距 10 档（variables.css）：')
+  console.error('  2  4  6  8  10  12  16  20  24  32')
+  console.error('  -h 后缀（2/6/10）是**过渡档**，P2 归一目标；14/18 已在 v734 并入 16/20。')
   console.error('\n取值请用 var(--sp-1) … var(--sp-7) 或 var(--sp-hN)。')
+  console.error('🔴 14px / 18px 不再是档位 —— 裸写这两个值也算违规（应写 var(--sp-4) / var(--sp-5)）。')
   console.error('确实需要新档位 ⇒ 先在 variables.css 定义，再改这里允许集合（只增一次，写清理由）。\n')
 }
 

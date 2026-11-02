@@ -3951,7 +3951,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-divider::before{content:'';position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);background:var(--bd);transition:background var(--dur-base),width var(--dur-base)}
 .cp-divider:hover::before,.cp-divider.dragging::before{background:var(--p);width:3px}
 .cp-divider::after{content:'';position:absolute;top:0;bottom:0;left:-5px;right:-5px}
-.cp-art-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-3) var(--sp-h14);border-bottom:1px solid var(--border-subtle);flex-shrink:0}
+.cp-art-hd{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-3) var(--sp-4);border-bottom:1px solid var(--border-subtle);flex-shrink:0}
 /* v486 P1-⑤：产物 / 待办 双分页 */
 .cp-art-tabs{display:inline-flex;gap:var(--sp-h2);padding:var(--sp-h2);background:var(--bg2);border-radius:var(--radius-sm)}
 .cp-art-tab{display:inline-flex;align-items:center;gap:var(--sp-h6);padding:5px var(--sp-h10);border:none;background:transparent;border-radius:var(--radius-xs);font:inherit;font-size:var(--fs-sm);color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
@@ -3967,7 +3967,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-art-ops{display:flex;align-items:center;gap:var(--sp-1)}
 .cp-art-ops .cp-icon-btn{width:28px;height:28px;padding:0}
 .cp-art-ops .cp-icon-btn:hover{background:rgba(127,127,127,.16);color:var(--t1)}
-.cp-art-body{flex:1;overflow-y:auto;padding:var(--sp-3) var(--sp-h14);display:flex;flex-direction:column;gap:var(--sp-3)}
+.cp-art-body{flex:1;overflow-y:auto;padding:var(--sp-3) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3)}
 .cp-art-item{cursor:pointer;transition:transform var(--dur-fast) ease}
 .cp-art-item:hover{transform:translateY(-1px)}
 .cp-art-item .rc{border-color:var(--bd)}
@@ -4020,19 +4020,19 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 
 /* ===== P1-3 经营一页纸 ===== */
 .cp-pager{flex:1;overflow:auto;padding:var(--sp-4);background:var(--bg1)}
-.cp-pager-hd{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-h14)}
+.cp-pager-hd{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-4)}
 .cp-pager-hd b{font-size:var(--fs-lg);color:var(--t1)}
 .cp-pager-sub{font-size:var(--fs-sm);color:var(--t3)}
 .cp-pager-back{margin-left:auto;border:1px solid var(--bd1);background:var(--bg2);color:var(--t2);border-radius:var(--radius-sm);padding:var(--sp-1) var(--sp-h10);font-size:var(--fs-sm);cursor:pointer}
 .cp-pager-back:hover{background:var(--bg3)}
 .cp-pager-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-3)}
-.cp-pg-card{background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--radius-md);padding:var(--sp-h14);cursor:pointer;transition:transform var(--dur-fast),border-color var(--dur-fast);display:flex;flex-direction:column;gap:var(--sp-h6)}
+.cp-pg-card{background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--radius-md);padding:var(--sp-4);cursor:pointer;transition:transform var(--dur-fast),border-color var(--dur-fast);display:flex;flex-direction:column;gap:var(--sp-h6)}
 .cp-pg-card:hover{transform:translateY(-2px);border-color:var(--p)}
 .cp-pg-ic{width:34px;height:34px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center}
 .cp-pg-t{font-size:var(--fs-base);color:var(--t2);font-weight:600}
 .cp-pg-v{font-size:var(--fs-h1);font-weight:700;color:var(--t1);line-height:var(--lh-title)}
 .cp-pg-s{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-tight)}
-.cp-pager-anom{margin-top:var(--sp-h14);background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-h14)}
+.cp-pager-anom{margin-top:var(--sp-4);background:var(--bg2);border:1px solid var(--bd1);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-4)}
 .cp-anom-hd{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-2)}
 .cp-anom-list{display:flex;flex-direction:column}
 .cp-anom-row{display:flex;justify-content:space-between;align-items:center;padding:var(--sp-2) var(--sp-1);border-bottom:1px solid var(--bd1);cursor:pointer;font-size:var(--fs-base);color:var(--t2)}
@@ -4043,7 +4043,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 @media (max-width:560px){.cp-pager-grid{grid-template-columns:1fr}}
 .cp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.28);z-index:940}
 
-.cp-head{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-h14) var(--sp-4);border-bottom:1px solid var(--border-subtle);flex-shrink:0}
+.cp-head{display:flex;align-items:center;justify-content:space-between;padding:var(--sp-4) var(--sp-4);border-bottom:1px solid var(--border-subtle);flex-shrink:0}
 .cp-brand{display:flex;align-items:center;gap:var(--sp-h10)}
 /* v319b：顶栏头像容器与「消息头像」(`.msg-avatar`) 同一套视觉 —— 圆形底 + 居中 emoji/PNG，
    差别只在尺寸（32 / 26）。改这里时请一并看 `.msg-avatar` 与 `.cp-role-av`，三处必须同源。 */
@@ -4144,13 +4144,13 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
    手写 class 会被擦掉（实测一次都抓不到）；data 属性 Vue 不接管，重渲染不会掉。 */
 .msg[data-hit]{box-shadow:0 0 0 2px var(--p), 0 0 0 6px var(--p-bg);border-radius:var(--radius-sm);transition:box-shadow var(--dur-slow) ease-out}
 .cp-welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:var(--sp-5)}
-.cp-w-ic{width:56px;height:56px;border-radius:var(--radius-xl);background:var(--p-bg);display:flex;align-items:center;justify-content:center;margin-bottom:var(--sp-h14)}
+.cp-w-ic{width:56px;height:56px;border-radius:var(--radius-xl);background:var(--p-bg);display:flex;align-items:center;justify-content:center;margin-bottom:var(--sp-4)}
 .cp-w-title{font-size:var(--fs-lg);font-weight:500;color:var(--t1);margin:0 0 var(--sp-1)}
 .cp-w-sub{font-size:var(--fs-sm);color:var(--t3);margin:0 0 var(--sp-4)}
 .cp-w-chips{display:flex;flex-wrap:wrap;gap:var(--sp-2);justify-content:center}
 .cp-chip{padding:7px var(--sp-3);border:1px solid var(--bd);border-radius:var(--radius-lg);background:var(--bg);font-size:var(--fs-sm);color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
 .cp-chip:hover{border-color:var(--p-dark);color:var(--p-dark);background:var(--p-bg)}
-.cp-demo{margin-top:var(--sp-h14);padding:var(--sp-2) var(--sp-h18);border:1px solid var(--p-border);border-radius:var(--radius-pill);background:var(--p-bg);font-size:var(--fs-sm);color:var(--p-dark);cursor:pointer;transition:all var(--dur-base)}
+.cp-demo{margin-top:var(--sp-4);padding:var(--sp-2) var(--sp-5);border:1px solid var(--p-border);border-radius:var(--radius-pill);background:var(--p-bg);font-size:var(--fs-sm);color:var(--p-dark);cursor:pointer;transition:all var(--dur-base)}
 .cp-demo:hover{background:rgba(6,182,212,.12);border-color:var(--p-dark)}
 
 .msg{display:flex;gap:var(--sp-2)}
@@ -4174,7 +4174,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 }
 /* v495b：每条消息的沟通时间（次级灰字，随气泡左/右对齐） */
 .msg-time{font-size:var(--fs-xs);color:var(--t3);line-height:var(--lh-tight);padding:1px var(--sp-1);user-select:none;font-variant-numeric:tabular-nums}
-.msg-bubble{max-width:100%;padding:var(--sp-h10) var(--sp-h14);border-radius:var(--radius-lg);font-size:var(--fs-base);line-height:var(--lh-normal);white-space:pre-wrap;word-break:break-word}
+.msg-bubble{max-width:100%;padding:var(--sp-h10) var(--sp-4);border-radius:var(--radius-lg);font-size:var(--fs-base);line-height:var(--lh-normal);white-space:pre-wrap;word-break:break-word}
 .msg.user .msg-bubble{background:var(--p-solid);color:#fff;border-bottom-right-radius:4px}
 .msg.assistant .msg-bubble{background:var(--bg2);border-bottom-left-radius:4px;color:var(--t1)}
 /* v634：用户消息里的「已收到附件」条（替代原先那段给模型看的英文上下文注）。
@@ -4423,7 +4423,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-prop-change{font-size:var(--fs-xs);color:var(--t2);background:var(--bg);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:var(--sp-h2) var(--sp-2)}
 .cp-prop-rationale{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin-bottom:9px}
 .cp-prop-ops{display:flex;gap:var(--sp-2);justify-content:flex-end}
-.cp-prop-btn{font-size:var(--fs-sm);padding:var(--sp-h6) var(--sp-h14);border-radius:var(--radius-sm);cursor:pointer;transition:all var(--dur-base);border:1px solid transparent}
+.cp-prop-btn{font-size:var(--fs-sm);padding:var(--sp-h6) var(--sp-4);border-radius:var(--radius-sm);cursor:pointer;transition:all var(--dur-base);border:1px solid transparent}
 .cp-prop-btn:disabled{opacity:.5;cursor:default}
 .cp-prop-btn.ghost{background:var(--bg);border-color:var(--border-subtle);color:var(--t2)}
 .cp-prop-btn.ghost:hover:not(:disabled){border-color:var(--t3);color:var(--t1)}
@@ -4486,19 +4486,19 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-snap svg{width:14px;height:14px}
 
 /* v465 截图区域框选遮罩（微信式拖拽框选） */
-.cp-snap-mask{position:fixed;inset:0;z-index:980;background:rgba(0,0,0,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-h14);user-select:none;outline:none}
+.cp-snap-mask{position:fixed;inset:0;z-index:980;background:rgba(0,0,0,.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-4);user-select:none;outline:none}
 .cp-snap-stage{position:relative;box-shadow:0 8px 30px rgba(0,0,0,.45);cursor:crosshair;overflow:hidden;background:var(--t1)}
 .cp-snap-img{display:block;pointer-events:none;-webkit-user-drag:none;user-select:none}
 .cp-snap-sel{position:absolute;left:0;top:0;width:0;height:0;border:1.5px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.5);box-sizing:border-box;pointer-events:none}
 .cp-snap-hint{color:#fff;font-size:var(--fs-sm);background:rgba(0,0,0,.45);padding:var(--sp-1) var(--sp-h10);border-radius:var(--radius-xs);pointer-events:none}
 .cp-snap-bar{display:flex;gap:var(--sp-h10)}
-.cp-snap-btn{height:34px;padding:0 var(--sp-h18);border-radius:var(--radius-sm);border:none;background:var(--p-solid);color:#fff;font-size:var(--fs-base);cursor:pointer;font-family:inherit}
+.cp-snap-btn{height:34px;padding:0 var(--sp-5);border-radius:var(--radius-sm);border:none;background:var(--p-solid);color:#fff;font-size:var(--fs-base);cursor:pointer;font-family:inherit}
 .cp-snap-btn.ghost{background:rgba(255,255,255,.18)}
 .cp-snap-btn:hover{filter:brightness(1.08)}
 
 /* M5 转发面板 */
 .cp-fwd-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:960;display:flex;align-items:center;justify-content:center;padding:var(--sp-5)}
-.cp-fwd{width:min(360px,92vw);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--sp-4) var(--sp-h18);display:flex;flex-direction:column;gap:var(--sp-h10)}
+.cp-fwd{width:min(360px,92vw);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--sp-4) var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-h10)}
 .cp-fwd-hd{display:flex;align-items:center;justify-content:space-between}
 .cp-fwd-hd b{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .cp-fwd-sub{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:var(--lh-normal)}
@@ -4576,7 +4576,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .md :deep(.md-toc__title){font-size:var(--fs-sm);font-weight:700;color:var(--t2);cursor:pointer;user-select:none}
 .md :deep(.md-toc-list){margin:var(--sp-h6) 0 0;padding-left:0;list-style:none}
 .md :deep(.md-toc-li){margin:var(--sp-h2) 0;line-height:var(--lh-normal)}
-.md :deep(.md-toc-li.lv3){padding-left:var(--sp-h14)}
+.md :deep(.md-toc-li.lv3){padding-left:var(--sp-4)}
 .md :deep(.md-toc-link){color:var(--p);cursor:pointer;font-size:var(--fs-base)}
 .md :deep(.md-toc-link:hover){text-decoration:underline}
 /* —— P2-a / P3-a 引用块：区分 AI 结论 / 引用资料 / 关键结论卡片 —— */
@@ -4639,7 +4639,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
 .cp-qr{position:absolute;bottom:36px;left:0;z-index:31;display:flex;flex-direction:column;align-items:center;gap:var(--sp-2);width:188px;padding:var(--sp-3);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:0 8px 28px rgba(15,23,42,.18)}
 .cp-qr img{width:168px;height:168px;display:block;border-radius:var(--radius-xs)}
 .cp-qr p{margin:0;font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t3);text-align:center}
-.cp-qr-close{padding:var(--sp-h6) var(--sp-h14);border:none;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:var(--fs-base);cursor:pointer}
+.cp-qr-close{padding:var(--sp-h6) var(--sp-4);border:none;border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);font-size:var(--fs-base);cursor:pointer}
 .cp-qr-close:hover{background:var(--bd)}
 
 /* v426 P0-3：结构化纠错面板（取代浏览器原生输入弹窗）
@@ -4648,7 +4648,7 @@ button.cp-plus:hover{background:var(--bg2);color:var(--t1)}
    🔴 token 全部取 variables.css 里真实存在的（--p-dark/--p-bg/--p-border/--t2/--t3/--bd），
       且选中态沿用本文件既有 `.cp-chip:hover` 的配色口径，不另造一套。 */
 .cp-corr-mask{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:960;display:flex;align-items:center;justify-content:center;padding:var(--sp-5)}
-.cp-corr{width:min(380px,92vw);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--sp-4) var(--sp-h18);display:flex;flex-direction:column;gap:var(--sp-h10)}
+.cp-corr{width:min(380px,92vw);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--sp-4) var(--sp-5);display:flex;flex-direction:column;gap:var(--sp-h10)}
 .cp-corr-hd{display:flex;align-items:center;justify-content:space-between}
 .cp-corr-hd b{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .cp-corr-sub{margin:0;font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t3)}

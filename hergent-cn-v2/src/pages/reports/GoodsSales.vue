@@ -152,8 +152,8 @@ onMounted(load)
 .rpt-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
 .rpt-tabs { display: flex; gap: var(--sp-h6); }
 .rpt-on { background: var(--bg2); color: var(--t1); font-weight: 600; }
-.rpt-tabs-card { margin-top: var(--sp-h14); }
-.rpt-tot { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); }
+.rpt-tabs-card { margin-top: var(--sp-4); }
+.rpt-tot { margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4); }
 .rpt-tot-row { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2); }
 .rpt-tot-i { display: flex; align-items: baseline; gap: var(--sp-h6); font-size:var(--fs-base); }
 .rpt-tot-i i { font-style: normal; color: var(--t2); }

@@ -479,7 +479,7 @@ onMounted(loadAll)
    .tbl/.seq-th/.seq-cell/.seq-num/.btn-row-ic/.input/.num/.state-error/.se-ic/.btn/.btn-sm/
    .btn-primary/.btn-ghost）一律复用，不重定义。 */
 .ar-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
-.ar-card { margin-top: var(--sp-h14) }
+.ar-card { margin-top: var(--sp-4) }
 .ar-op { white-space: nowrap; text-align: right }
 .ar-name { max-width: 240px }
 /* 🔴 flex 行里可能超长的文本必须 min-width:0，否则长规则名会把整列撑爆（v629 纪律） */
@@ -499,7 +499,7 @@ onMounted(loadAll)
 
 /* 弹窗内表单 */
 .ar-form-err { padding: var(--sp-2) var(--sp-h10); margin-bottom: var(--sp-3) }
-.ar-fld { display: flex; flex-direction: column; gap: 5px; margin-bottom: var(--sp-h14) }
+.ar-fld { display: flex; flex-direction: column; gap: 5px; margin-bottom: var(--sp-4) }
 .ar-lab { font-size:var(--fs-sm); color: var(--t2) }
 .isn-req { color: var(--dan-ink); margin-left: var(--sp-h2) }
 .ar-hint { font-size:var(--fs-sm); color: var(--t3) }

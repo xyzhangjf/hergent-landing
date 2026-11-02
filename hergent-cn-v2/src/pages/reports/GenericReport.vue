@@ -639,16 +639,16 @@ onMounted(load)
 }
 .gr-tilde { color: var(--t3); font-size:var(--fs-sm) }
 .gr-c { text-align: center }
-.gr-card { margin-top: var(--sp-h14) }
+.gr-card { margin-top: var(--sp-4) }
 /* 图表外壳自带卡片样式，这里只补与明细表之间的间距 */
-.gr-fig { margin-top: var(--sp-h14) }
+.gr-fig { margin-top: var(--sp-4) }
 .gr-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3) }
 .gr-cnt { margin-left: var(--sp-h10); font-size:var(--fs-sm); font-weight: 400; color: var(--t3) }
 .gr-cost { font-size:var(--fs-sm); color: var(--t3) }
-.gr-warn { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); border-left: 3px solid var(--warn-amber); background: var(--bg2) }
+.gr-warn { margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4); border-left: 3px solid var(--warn-amber); background: var(--bg2) }
 .gr-warn-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; color: var(--war); font-size:var(--fs-base) }
 .gr-warn p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2) }
-.gr-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2) }
+.gr-foot { margin: var(--sp-4) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2) }
 .gr-foot-dim { color: var(--t3) }
 .gr-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs) }
 .gr-hollow { padding: 28px var(--sp-6); max-width: 720px; text-align: center }

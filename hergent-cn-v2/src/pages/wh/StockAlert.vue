@@ -169,7 +169,7 @@ defineExpose({ load })
 <style scoped>
 /* 页面私有类一律 `wsa-` 前缀（仓配·库存预警）。 */
 .wsa-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
-.wsa-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-h14) }
+.wsa-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4) }
 .wsa-f { display: flex; align-items: center; gap: var(--sp-2) }
 .wsa-lb { font-size:var(--fs-base); color: var(--t2) }
 .wsa-kw { min-width: 220px }

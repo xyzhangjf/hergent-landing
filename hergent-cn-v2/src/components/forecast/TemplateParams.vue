@@ -126,9 +126,9 @@ onMounted(loadProfile)
 /* v160 模板参数卡片（外层已统一为 ConfigCard，这里只保留内部样式） */
 .tp-warn{font-size:var(--fs-sm);color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px var(--sp-2);border-radius:var(--radius-sm)}
 /* tp-body 包在 ConfigCard 内层：去掉自身内距与分隔线，避免与 cfg-body 重复叠加 */
-.tp-body{padding:0 var(--sp-4) var(--sp-h14);border-top:1px solid var(--border-subtle)}
+.tp-body{padding:0 var(--sp-4) var(--sp-4);border-top:1px solid var(--border-subtle)}
 .tp-body-flat{padding:0;border:none}
-.tp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-3);padding:var(--sp-h14) 0}
+.tp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-3);padding:var(--sp-4) 0}
 .tp-wide{grid-column:1/-1}
 .tp-body .field{display:flex;flex-direction:column;gap:5px}
 .tp-body .field label{font-size:var(--fs-sm);color:var(--t2)}

@@ -391,7 +391,7 @@ defineExpose({ load: loadList })
 .std-lock { border-left: 3px solid var(--ok); color: var(--ok) }
 
 .std-meta {
-  display: flex; flex-wrap: wrap; gap: var(--sp-h18);
+  display: flex; flex-wrap: wrap; gap: var(--sp-5);
   margin-bottom: var(--sp-3); font-size:var(--fs-sm); color: var(--t2);
 }
 .std-meta b { color: var(--t3); font-weight: 500 }

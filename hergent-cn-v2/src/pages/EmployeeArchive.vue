@@ -2218,8 +2218,8 @@ onMounted(() => {
 .sync-state.linked{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
-.df-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
-.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-normal)}
+.df-panel{padding:var(--sp-5);margin-bottom:var(--sp-4)}
+.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-4);line-height:var(--lh-normal)}
 /* v686：业务员部门表里的下拉 —— 表格行内控件必须矮。
    🔴 用全局 `.input` 的原高（40px）会把整行顶到 40+，表格瞬间变稀疏；
       这里收到 26px（与 .btn-row-ic 同档），行高由它决定，不再被文本撑。 */
@@ -2292,7 +2292,7 @@ onMounted(() => {
    `.req` 的 color 也写了两遍 ⇒ 改其中一处，另一处静默接管，是「改了没反应」的温床。
    `.df-body` 的块间距 12px → --sp-5(18px)：它与 .df-edit-body 的 20px 本就是同一个语义
    （弹窗内「块与块之间」），却有两个值，现统一。 */
-.df-body{display:flex;flex-direction:column;gap:var(--sp-h18)}
+.df-body{display:flex;flex-direction:column;gap:var(--sp-5)}
 /* .df-store-list / .df-store-item 于 2026-09-19 随「分配门店」弹窗一并移除
    （门店配置收敛到「预报订单管理 → 报单配置」）。 */
 
@@ -2312,10 +2312,10 @@ onMounted(() => {
      栅格（字段 ↔ 字段）  行 --sp-3 = 12px / 列 --sp-5 = 18px
      字段内（标签 ↔ 控件） --sp-2 = 8px
    ⚠️ 分区内(14) 必须 < 弹窗块间(18)：否则「分区」这一层在视觉上就不复存在，又回到一锅粥。 */
-.df-edit-body{display:flex;flex-direction:column;gap:var(--sp-h18)}
-.df-sec{display:flex;flex-direction:column;gap:var(--sp-h14)}
+.df-edit-body{display:flex;flex-direction:column;gap:var(--sp-5)}
+.df-sec{display:flex;flex-direction:column;gap:var(--sp-4)}
 .df-sec-title{font-size:var(--fs-base);font-weight:600;color:var(--t1);padding-left:11px;border-left:3px solid var(--p);line-height:var(--lh-title)}
-.df-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h18)}
+.df-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-5)}
 /* 独占整行：给「身份证号（18 位）/ 客户名称 / 允许登录」这类**明显更长**或**本区唯一**的字段。
    v706 引入 —— 它同时消掉了「奇数个字段 ⇒ 末行留半格空白」的老问题
    （原「薪酬与账户」7 项就是这样，旧注释自己都记着「会挤出半行留白」）。
@@ -2380,7 +2380,7 @@ onMounted(() => {
    原先这一段是「各自独立保存」的（卡片以内自己存，卡片以外归底部「保存基本信息」），
    边框用来告诉用户"一个保存单位"到哪儿为止；v382 把三个保存按钮并成一个之后，
    **整窗只有一个保存入口**，边框只剩"这块属于登录账号"的分组含义。 */
-.df-acc-card{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h14) var(--sp-h14) 15px;background:var(--bg2);gap:11px}
+.df-acc-card{border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-4) var(--sp-4) 15px;background:var(--bg2);gap:11px}
 .df-acc-card-hd{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .df-acc-card-t{font-size:var(--fs-sm);font-weight:600;color:var(--t1)}
 /* 文字色跟主题走（浅色=深字 / 深色=浅字），只有底色是黄调 —— 避免深色主题下看不清。 */

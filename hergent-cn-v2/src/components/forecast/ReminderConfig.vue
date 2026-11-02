@@ -88,7 +88,7 @@
         <p class="set-desc">例如 22:00 ~ 08:00 之间不推企业微信，避免深夜打扰；站内信仍可正常查看。</p>
       </div>
 
-      <div class="set-row" style="margin-top:var(--sp-h14)">
+      <div class="set-row" style="margin-top:var(--sp-4)">
         <!-- v335 按钮级门禁：PUT /api/forecast/reminder-config ⇒ 模块 data / 动作 update -->
         <button v-if="canDo('data', 'update')" class="btn btn-primary" :disabled="remindSaving" @click="saveReminder">{{ remindSaving ? '保存中…' : '保存设置' }}</button>
         <span class="set-desc">保存后立即对后续所有期次生效；已发出的提醒不会撤回。</span>
@@ -171,7 +171,7 @@ loadReminder()
 <style scoped>
 /* 以下为提醒面板专有样式（其余布局类 .card/.btn/.input/.page-sub/.panel-hd/.state-empty/.skel-line 为全局，无需重复） */
 .remind-master{align-items:center}
-.set-block{margin-top:var(--sp-4);padding-top:var(--sp-h14);border-top:1px solid var(--bd)}
+.set-block{margin-top:var(--sp-4);padding-top:var(--sp-4);border-top:1px solid var(--bd)}
 .set-block-hd{font-size:var(--fs-base);font-weight:600;color:var(--t1);margin-bottom:var(--sp-h10)}
 .chk{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);padding:5px 0;cursor:pointer}
 .chk input{width:16px;height:16px;accent-color:var(--p)}

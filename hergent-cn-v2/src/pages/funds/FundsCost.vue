@@ -102,7 +102,7 @@ onMounted(load)
 
 <style scoped>
 .fc-acts { display: flex; gap: var(--sp-2) }
-.fc-filter { margin: var(--sp-h14) 0 }
+.fc-filter { margin: var(--sp-4) 0 }
 .fc-frow { display: flex; gap: var(--sp-3); align-items: flex-end }
 .fc-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
 .fc-grow { flex: 1 }

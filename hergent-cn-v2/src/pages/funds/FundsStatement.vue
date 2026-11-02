@@ -110,9 +110,9 @@ onMounted(load)
 
 <style scoped>
 .fs-acts { display: flex; gap: var(--sp-2) }
-.fs-filter { margin: var(--sp-h14) 0 }
+.fs-filter { margin: var(--sp-4) 0 }
 .fs-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
 .fs-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
 .fs-card { padding: 0; overflow: hidden }
-.fs-detail td { background: var(--bg2); padding: var(--sp-h10) var(--sp-h14) }
+.fs-detail td { background: var(--bg2); padding: var(--sp-h10) var(--sp-4) }
 </style>

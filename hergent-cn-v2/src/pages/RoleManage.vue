@@ -491,7 +491,7 @@ onMounted(() => { load(); loadCatalog() })
 .rm-empty{background:var(--bg2);border-radius:var(--radius-md)}
 
 .rm-list{display:flex;flex-direction:column;gap:var(--sp-3)}
-.rm-card{display:flex;gap:var(--sp-h14);padding:var(--sp-4);border:1px solid var(--bd);border-radius:var(--radius-lg);background:var(--bg);transition:opacity var(--dur-base)}
+.rm-card{display:flex;gap:var(--sp-4);padding:var(--sp-4);border:1px solid var(--bd);border-radius:var(--radius-lg);background:var(--bg);transition:opacity var(--dur-base)}
 .rm-card.off{opacity:.5}
 
 .rm-av-wrap{position:relative;flex-shrink:0}
@@ -524,11 +524,11 @@ onMounted(() => { load(); loadCatalog() })
 .rm-ch-add{font-size:var(--fs-sm);color:var(--t2);background:var(--bg2);border:1px dashed var(--bd);border-radius:var(--radius-sm);padding:3px var(--sp-h10);cursor:pointer}
 .rm-ch-add:hover{border-color:var(--p-dark);color:var(--p-dark)}
 
-.rm-bind-tip{font-size:var(--fs-sm);color:var(--t3);margin:0 0 var(--sp-h14);line-height:var(--lh-normal)}
+.rm-bind-tip{font-size:var(--fs-sm);color:var(--t3);margin:0 0 var(--sp-4);line-height:var(--lh-normal)}
 .rm-bind-row{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-3) 0;border-bottom:1px solid var(--border-subtle)}
 .rm-bind-row:last-of-type{border-bottom:none}
 .rm-bind-name{font-size:var(--fs-md);font-weight:500;color:var(--t1);flex:1}
-.rm-bind-scope{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-h14) 0 var(--sp-1)}
+.rm-bind-scope{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-4) 0 var(--sp-1)}
 .rm-sel{font-size:var(--fs-base);padding:7px var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t1);cursor:pointer;flex:1}
 
 /* 开关（本页 scoped，自包含） */
@@ -544,7 +544,7 @@ onMounted(() => { load(); loadCatalog() })
 .rm-av-rm2{font-size:var(--fs-sm);color:var(--dan);background:none;border:none;cursor:pointer;text-decoration:underline}
 
 /* 弹窗 */
-.rm-fld{display:flex;flex-direction:column;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t2);margin-bottom:var(--sp-h14)}
+.rm-fld{display:flex;flex-direction:column;gap:var(--sp-h6);font-size:var(--fs-base);color:var(--t2);margin-bottom:var(--sp-4)}
 
 /* v319（L2）角色能力：列表上的能力摘要 + 能力配置弹窗 */
 .rm-caps{display:flex;flex-wrap:wrap;gap:var(--sp-h6);margin:var(--sp-h6) 0 var(--sp-h2)}

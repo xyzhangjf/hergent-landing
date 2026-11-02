@@ -161,7 +161,7 @@ defineExpose({ load })
 <style scoped>
 /* 页面私有类一律 `wvs-` 前缀（仓配·车辆库存）。 */
 .wvs-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
-.wvs-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-h14) }
+.wvs-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4) }
 .wvs-f { display: flex; align-items: center; gap: var(--sp-2) }
 .wvs-lb { font-size:var(--fs-base); color: var(--t2) }
 .wvs-sel { min-width: 240px }

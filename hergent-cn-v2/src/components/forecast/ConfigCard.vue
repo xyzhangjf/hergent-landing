@@ -56,7 +56,7 @@ function toggle() { emit('update:modelValue', !isOpen.value) }
 }
 .cfg-toggle{color:var(--p-ink);display:inline-flex;align-items:center}
 .cfg-toggle :deep(svg){width:16px;height:16px}
-.cfg-body{padding:0 var(--sp-4) var(--sp-h14);border-top:1px solid var(--border-subtle)}
+.cfg-body{padding:0 var(--sp-4) var(--sp-4);border-top:1px solid var(--border-subtle)}
 
 /* ⚠️ chip / summary 由父组件经 slot 传入，其元素带父组件 scope，必须用 :deep 穿透样式化 */
 /* 状态芯片：on=绿（已开启/自动），off=灰（已关闭/手动），warn=琥珀（异常提示） */

@@ -1062,24 +1062,24 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
    「运行参数 / 报单对象」两个分区眉标随四页拆分消失，模板参数整卡搬到
    `components/forecast/TemplateParams.vue`。留在这里就是**死 CSS**（本项目纪律：
    死 CSS 与死代码同罪，会被后人当成"还在用"）。 */
-.health-bar{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);background:rgba(var(--war-rgb),.06);border:1px solid var(--border-subtle);border-left:3px solid var(--war);padding:9px var(--sp-h14);border-radius:var(--radius-md);margin-bottom:var(--sp-h14);cursor:pointer}
+.health-bar{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);background:rgba(var(--war-rgb),.06);border:1px solid var(--border-subtle);border-left:3px solid var(--war);padding:9px var(--sp-4);border-radius:var(--radius-md);margin-bottom:var(--sp-4);cursor:pointer}
 .health-bar.ok{background:rgba(var(--suc-rgb),.10);border-color:rgba(var(--suc-rgb),.35)}
 .hb-dot{width:8px;height:8px;border-radius:var(--radius-circle);background:var(--war);flex-shrink:0}
 .health-bar.ok .hb-dot{background:var(--suc)}
 .hb-toggle{margin-left:auto;color:var(--p-ink);font-size:var(--fs-sm)}
-.health-detail{margin-bottom:var(--sp-3);padding:var(--sp-h14) var(--sp-4)}
+.health-detail{margin-bottom:var(--sp-3);padding:var(--sp-4) var(--sp-4)}
 .hd-sec{margin-bottom:var(--sp-3)}
 .hd-sec:last-child{margin-bottom:0}
 .hd-t{font-size:var(--fs-base);color:var(--t1)}
 .hd-t.war{color:var(--war)}
 .chip-row{display:flex;flex-wrap:wrap;gap:var(--sp-h6);margin-top:var(--sp-2)}
 /* 历史门店授权提示条：与「配置体检」同构但用中性色 —— 它是「待收敛」不是「有错」。 */
-.legacy-bar{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);background:var(--bg2);border:1px solid var(--border-subtle);border-left:3px solid var(--t3);padding:9px var(--sp-h14);border-radius:var(--radius-md);margin-bottom:var(--sp-h14);cursor:pointer}
+.legacy-bar{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-base);color:var(--t1);background:var(--bg2);border:1px solid var(--border-subtle);border-left:3px solid var(--t3);padding:9px var(--sp-4);border-radius:var(--radius-md);margin-bottom:var(--sp-4);cursor:pointer}
 .lb-dot{width:8px;height:8px;border-radius:var(--radius-circle);background:var(--t3);flex-shrink:0}
 .lb-toggle{margin-left:auto;color:var(--p-ink);font-size:var(--fs-sm)}
-.legacy-detail{margin-bottom:var(--sp-3);padding:var(--sp-h14) var(--sp-4)}
+.legacy-detail{margin-bottom:var(--sp-3);padding:var(--sp-4) var(--sp-4)}
 .lb-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose);margin:var(--sp-2) 0 0}
-.legacy-detail ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-loose)}
+.legacy-detail ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-5);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-loose)}
 /* 每行：员工 → 门店 [已停用] [收回] —— 用 inline-flex + wrap，窄屏时按钮换行不挤压文字 */
 .lb-row{display:inline-flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .lb-arrow{color:var(--t3)}
@@ -1132,7 +1132,7 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 
 /* v691：弹窗骨架统一由 components/Modal.vue 提供（定位/层级/圆角/遮罩/三段结构/滚动），
    本页只保留弹窗内排版 —— 这些 class 挂在 slot 内元素上，才带得到本页 scope id。 */
-.df-body{display:flex;flex-direction:column;gap:var(--sp-h14)}
+.df-body{display:flex;flex-direction:column;gap:var(--sp-4)}
 
 .field{display:flex;flex-direction:column;gap:var(--sp-h6);margin-bottom:var(--sp-h2)}
 .field label{font-size:var(--fs-sm);color:var(--t2)}
@@ -1179,10 +1179,10 @@ onMounted(() => { loadRefs(); loadAll(); loadChannels(); loadAliasPool() })
 .al-near-btn{border:1px solid var(--p);background:var(--p-bg);color:var(--p-dark);border-radius:var(--radius-sm);padding:var(--sp-h2) 9px;font-size:var(--fs-sm);cursor:pointer}
 .al-near-btn:hover{background:var(--p-solid);color:#fff}
 .al-near-tip{color:var(--t3)}
-.upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h14) var(--sp-h18);font-size:var(--fs-base);color:var(--p-ink);cursor:pointer;text-align:center}
+.upload-btn{display:inline-block;border:1px dashed var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-4) var(--sp-5);font-size:var(--fs-base);color:var(--p-ink);cursor:pointer;text-align:center}
 .imp-result{font-size:var(--fs-base);color:var(--t1);margin-top:var(--sp-h6)}
 .imp-result .suc{color:var(--suc)} .imp-result .dan{color:var(--dan)}
-.imp-result ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-h18);color:var(--t2);font-size:var(--fs-sm);line-height:var(--lh-normal)}
+.imp-result ul{margin:var(--sp-2) 0 0;padding-left:var(--sp-5);color:var(--t2);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-base)}
 .fade-enter-from,.fade-leave-to{opacity:0}

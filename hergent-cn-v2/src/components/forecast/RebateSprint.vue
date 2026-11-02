@@ -607,7 +607,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-card .panel-hd .sprint-toggle :deep(svg.ico){width:18px;height:18px;vertical-align:middle}
 
 .sprint-card{}
-.sprint-card.is-pinned{margin:var(--sp-h14) 0 var(--sp-1);border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
+.sprint-card.is-pinned{margin:var(--sp-4) 0 var(--sp-1);border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
 .sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:var(--sp-h10);margin-bottom:0}
 /* 决策横幅（A2）：一行承载「未达标数 / 总缺口 / 剩余到货机会 / 均单需报」，折叠与展开都常显 */
 .sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-h6);padding:9px var(--sp-4);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2)}
@@ -646,7 +646,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-sum b{color:var(--t1)}
 .sprint-sum .muted{color:var(--t3);font-size:var(--fs-sm)}
 .sprint-suggest{margin-top:var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-loose)}
-.sprint-suggest ul{margin:var(--sp-h6) 0 0;padding-left:var(--sp-h18)}
+.sprint-suggest ul{margin:var(--sp-h6) 0 0;padding-left:var(--sp-5)}
 .sprint-suggest li{margin:var(--sp-1) 0}
 .sprint-prod{display:inline-block;margin:0 var(--sp-2) 0 var(--sp-1);padding:1px var(--sp-2);background:var(--bg3);border-radius:var(--radius-md);font-size:var(--fs-sm);color:var(--t2)}
 .sprint-prod-empty{margin-left:var(--sp-1);padding:1px var(--sp-2);font-size:var(--fs-sm);color:var(--warn-amber);background:color-mix(in srgb,var(--warn-amber) 10%,transparent);border-radius:var(--radius-md)}

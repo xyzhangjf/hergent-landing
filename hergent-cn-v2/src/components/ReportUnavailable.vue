@@ -32,7 +32,7 @@ defineProps({
 </script>
 
 <style scoped>
-.rpt-card { margin-top: var(--sp-h14); }
+.rpt-card { margin-top: var(--sp-4); }
 .unavail {
   padding: 40px var(--sp-6); text-align: center; color: var(--t2);
   display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);

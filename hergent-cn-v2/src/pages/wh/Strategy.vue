@@ -458,7 +458,7 @@ defineExpose({ load: reloadAll })
 /* 同上（见 `WhItems.vue` 同段注释）：`ProductCombo` 未选中时是空 span ⇒ 本页是**手动触发**的
    面板，一个看不见的点击区尤其致命（用户不知道要先去哪儿选商品）。做成输入框外观 + 占位文案。 */
 .wsp-p :deep(.ipn-v) {
-  min-height: 38px; line-height: 36px; padding: 0 var(--sp-h14);
+  min-height: 38px; line-height: 36px; padding: 0 var(--sp-4);
   border: 1px solid var(--bd); border-radius: var(--radius-md);
   background: var(--bg3); font-size:var(--fs-base);
 }
@@ -466,7 +466,7 @@ defineExpose({ load: reloadAll })
 
 .wsp-result {
   border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
-  background: var(--bg2); padding: var(--sp-3) var(--sp-h14);
+  background: var(--bg2); padding: var(--sp-3) var(--sp-4);
 }
 .wsp-r-row { display: flex; align-items: baseline; gap: var(--sp-3); padding: 3px 0; font-size:var(--fs-base) }
 .wsp-r-lb { width: 76px; flex: none; color: var(--t3); font-size:var(--fs-sm) }
@@ -479,8 +479,8 @@ defineExpose({ load: reloadAll })
 
 .wsp-idle {
   display: flex; align-items: center; gap: var(--sp-2);
-  padding: var(--sp-h18) var(--sp-3); font-size:var(--fs-sm); color: var(--t3);
+  padding: var(--sp-5) var(--sp-3); font-size:var(--fs-sm); color: var(--t3);
 }
 
-.wsp-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-h14); line-height: var(--lh-normal)}
+.wsp-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-4); line-height: var(--lh-normal)}
 </style>

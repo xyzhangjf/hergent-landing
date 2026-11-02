@@ -288,11 +288,11 @@ loadContacts()
 </script>
 
 <style scoped>
-.pr-toolbar { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-h14); flex-wrap: wrap; }
+.pr-toolbar { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); flex-wrap: wrap; }
 .pr-seg { display: inline-flex; border: 1px solid var(--bd); border-radius: var(--radius-sm); overflow: hidden; }
 /* v723：`background:#fff` → `var(--bg)`。写死白底在深色下是白底 + 白字（--t1）= **1:1**，
    整个按钮的文字直接消失。同类坑 CopilotDrawer.vue 的注释里早已记过，这里又犯一次。 */
-.pr-seg-btn { padding: var(--sp-h6) var(--sp-h14); border: 0; background: var(--bg); cursor: pointer; font-size:var(--fs-base); }
+.pr-seg-btn { padding: var(--sp-h6) var(--sp-4); border: 0; background: var(--bg); cursor: pointer; font-size:var(--fs-base); }
 /* v723：`--c-primary` 别名到 `--chart-1`（**图表调色板色**），深色下是亮蓝 ⇒ 白字 1.81。
    品牌实心底一律用 `--p-solid`（5.36）。 */
 .pr-seg-btn.on { background: var(--p-solid); color: #fff; }
@@ -304,14 +304,14 @@ loadContacts()
 .pr-tabs { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-3); }
 .pr-tab { padding: var(--sp-h6) var(--sp-4); border: 1px solid var(--bd); background: var(--bg); border-radius: var(--radius-sm); cursor: pointer; font-size:var(--fs-base); }
 .pr-tab.on { background: var(--p-bg); border-color: var(--c-primary); color: var(--c-primary); }
-.pr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-h14); }
+.pr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
 .pr-col-full { margin-top: var(--sp-3); }
 .pr-col-hd { font-weight: 600; margin-bottom: var(--sp-2); font-size:var(--fs-base); color: var(--t2); }
 .pr-amt { width: 110px; }
-.pr-nodata { color: var(--t3); text-align: center; padding: var(--sp-h18); }
-.pr-submit { margin: var(--sp-h14) 0; display: flex; align-items: center; gap: var(--sp-3); }
+.pr-nodata { color: var(--t3); text-align: center; padding: var(--sp-5); }
+.pr-submit { margin: var(--sp-4) 0; display: flex; align-items: center; gap: var(--sp-3); }
 .pr-diff { color: var(--dan); font-size:var(--fs-base); }
-.pr-ledger { margin-top: var(--sp-h14); }
+.pr-ledger { margin-top: var(--sp-4); }
 .num { text-align: right; }
 .neg { color: var(--dan); }
 </style>

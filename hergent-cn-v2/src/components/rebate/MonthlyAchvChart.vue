@@ -618,7 +618,7 @@ function onHover(mo, i, key) {
 /* v154 P2-A：品牌筛选控件（原 .ctl-pop / .bp-* 一套）与作用域徽标（.mac-scope）已随控件上移至页面级
    （`BrandFilter.vue`，与「统计月份」并排）→ 这里的相关样式整体移除，不留死 CSS */
 
-.mac-legend { display: flex; align-items: center; gap: var(--sp-h14); flex-wrap: wrap; }
+.mac-legend { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
 .lg-item { display: inline-flex; align-items: center; gap: 5px; font-size:var(--fs-sm); color: var(--t2); }
 .lg-item i { width: 10px; height: 10px; border-radius: var(--radius-hair); border: 1px solid transparent; display: inline-block; }
 .lg-gap { margin-left: var(--sp-h2); }
@@ -692,5 +692,5 @@ function onHover(mo, i, key) {
 .tp-ex { display: flex; gap: var(--sp-2); line-height: var(--lh-loose); border-top: 1px solid var(--border-subtle); margin-top: var(--sp-1); padding-top: var(--sp-1); }
 .tp-ex .tp-v { color: var(--t2); }
 
-.mac-ft { display: flex; flex-wrap: wrap; gap: var(--sp-h14); font-size:var(--fs-sm); color: var(--t3); }
+.mac-ft { display: flex; flex-wrap: wrap; gap: var(--sp-4); font-size:var(--fs-sm); color: var(--t3); }
 </style>

@@ -1191,7 +1191,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-badge{display:inline-flex;align-items:center;justify-content:center;margin-left:5px;min-width:15px;height:15px;line-height:var(--lh-none);padding:0 var(--sp-1);border-radius:var(--radius-sm);background:var(--war-solid);color:#fff;font-size:var(--fs-xs)}
 
 /* ── 编辑态提示条 ── */
-.la-editbar{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;padding:9px var(--sp-h14);margin-bottom:var(--sp-3);border-radius:var(--radius-sm);border:1px solid color-mix(in srgb,var(--p) 30%,transparent);background:var(--p-bg)}
+.la-editbar{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;padding:9px var(--sp-4);margin-bottom:var(--sp-3);border-radius:var(--radius-sm);border:1px solid color-mix(in srgb,var(--p) 30%,transparent);background:var(--p-bg)}
 .la-editbar-txt{font-size:var(--fs-sm);color:var(--t1)}
 .la-dirty{font-size:var(--fs-sm);color:var(--p-dark)}
 .la-quiet{color:var(--t3);font-size:var(--fs-sm)}
@@ -1199,13 +1199,13 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-editbar .btn + .btn{margin-left:0}
 
 /* ── 公司卡片 ── */
-.la-co{margin-bottom:var(--sp-h14)}
+.la-co{margin-bottom:var(--sp-4)}
 .la-co-hd{display:flex;align-items:baseline;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-3)}
 .la-co-hd b{font-size:var(--fs-md)}
 .la-co-formula{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .la-link{margin-left:auto;background:none;border:none;padding:0;color:var(--p-dark);font-size:var(--fs-sm);cursor:pointer}
 .la-co-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3)}
-.la-kpi{padding:var(--sp-3) var(--sp-h14);border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--border-subtle)}
+.la-kpi{padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--border-subtle)}
 .la-kpi-main{border-color:color-mix(in srgb,var(--p) 40%,transparent);background:linear-gradient(180deg,var(--p-bg),transparent 140%)}
 .la-kpi i{display:block;font-style:normal;font-size:var(--fs-sm);color:var(--t3);margin-bottom:5px}
 .la-kpi b{display:inline-block;font-size:var(--fs-xl);font-weight:600;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
@@ -1215,7 +1215,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-bd-row{display:flex;justify-content:space-between;gap:var(--sp-3);font-size:var(--fs-sm);padding:3px 0;color:var(--t2)}
 .la-bd-row b{font-variant-numeric:tabular-nums;color:var(--t1)}
 .la-bd-sub{font-weight:500;color:var(--t1);border-top:1px solid var(--border-subtle);margin-top:var(--sp-1);padding-top:var(--sp-h6)}
-.la-bd-indent span{padding-left:var(--sp-h14);color:var(--t3)}
+.la-bd-indent span{padding-left:var(--sp-4);color:var(--t3)}
 .la-bd-note{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .la-warn-inline{text-decoration:none;font-size:var(--fs-xs);color:var(--war);margin-left:var(--sp-h6)}
 .la-q{margin-top:var(--sp-3);display:flex;flex-wrap:wrap;gap:var(--sp-h6)}
@@ -1257,7 +1257,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 /* 环比为正 = 货损变大 = 坏（红）；为负 = 变小 = 好（绿）。
    与详情表里的「负净额 = 好事」同一套符号约定，两处不能各定一套。 */
 .la-bad{color:var(--danger-txt)}
-.la-row-blank td,.la-blank{color:var(--t3);font-size:var(--fs-sm);text-align:center;padding:var(--sp-h14)}
+.la-row-blank td,.la-blank{color:var(--t3);font-size:var(--fs-sm);text-align:center;padding:var(--sp-4)}
 .la-unit{margin-left:var(--sp-1);font-size:var(--fs-xs);color:var(--t3)}
 .la-input{width:calc(100% - 34px);padding:var(--sp-1) var(--sp-h6);border:1px solid var(--bd);border-radius:var(--radius-xs);background:var(--bg);color:var(--t1);font-size:var(--fs-sm);text-align:right;font-variant-numeric:tabular-nums}
 .la-input:focus{border-color:var(--p-dark)}
@@ -1287,7 +1287,7 @@ onMounted(async () => { await load(''); await loadTrend() })
    表头给浅底（不再只是一条下边框）、正文 12.5px、行高给足但不加粗。
    ⚠️ 不要复用公司卡的 `.la-co-formula` —— 那是"公司卡口径说明"的专用类，
    复用到这儿会让 `querySelector('.la-co-formula')` 抓到月列表（真机探针就这么翻过车）。 */
-.la-ml{padding:var(--sp-4) var(--sp-h18) var(--sp-3);margin-top:var(--sp-4)}
+.la-ml{padding:var(--sp-4) var(--sp-5) var(--sp-3);margin-top:var(--sp-4)}
 .la-ml-wrap{overflow-x:auto;margin-top:var(--sp-3)}
 .la-ml-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
 .la-ml-tbl th{font-weight:500;color:var(--t2);text-align:left;padding:var(--sp-2) var(--sp-h10);
@@ -1317,7 +1317,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-modal-lead{font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-normal);margin:0 0 var(--sp-h10)}
 .la-modal-tip{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin:var(--sp-h10) 0 0}
 .la-notice{font-size:var(--fs-base);color:var(--p-dark);background:var(--p-bg);border:1px solid color-mix(in srgb,var(--p) 28%,transparent);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3);margin:0 0 var(--sp-3)}
-.la-list{margin:0 0 var(--sp-1);padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose)}
+.la-list{margin:0 0 var(--sp-1);padding-left:var(--sp-5);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose)}
 .la-h4{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin:var(--sp-4) 0 var(--sp-2)}
 .la-h4:first-child{margin-top:0}
 .la-mini{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}

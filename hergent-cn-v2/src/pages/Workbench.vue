@@ -745,14 +745,14 @@ onMounted(loadData)
 /* 经营研判（判层 · P1-2b）—— 内容现居 G 区「今日研判」tab 内（v496 P0-3），类名未动 */
 .judge-anchor{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
 .judge-list{display:flex;flex-direction:column;gap:var(--sp-h10);margin-top:var(--sp-h10)}
-.judge-row{border:1px solid var(--bd);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-h14);background:var(--bg2)}
+.judge-row{border:1px solid var(--bd);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-4);background:var(--bg2)}
 .judge-row-hd{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap}
 .j-name{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .j-drop{font-size:var(--fs-sm);color:var(--dan);font-weight:500}
 .j-grounded{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
 .j-diag{font-size:var(--fs-base);color:var(--t2);margin-top:var(--sp-2);line-height:var(--lh-normal)}
 .j-diag-warn{color:var(--war)}
-.judge-tradeoff{margin-top:var(--sp-4);border-top:1px dashed var(--bd);padding-top:var(--sp-h14)}
+.judge-tradeoff{margin-top:var(--sp-4);border-top:1px dashed var(--bd);padding-top:var(--sp-4)}
 .j-tradeoff-hd{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;font-size:var(--fs-md);font-weight:500;color:var(--t1)}
 .j-pick{display:flex;align-items:center;gap:var(--sp-2)}
 .j-select{max-width:200px;padding:var(--sp-h6) var(--sp-2);border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg);color:var(--t1);font-size:var(--fs-base)}
@@ -760,7 +760,7 @@ onMounted(loadData)
 .j-tradeoff-body .tbl{margin-bottom:var(--sp-2)}
 
 /* A · 定位栏（v496 P0-1）：问候 + 日期 + 今日状态一句话 */
-.wb-head{grid-column:1/-1;display:flex;align-items:baseline;gap:var(--sp-3);padding:var(--sp-h14) var(--sp-h18);flex-wrap:wrap}
+.wb-head{grid-column:1/-1;display:flex;align-items:baseline;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);flex-wrap:wrap}
 .wb-hi{font-size:var(--fs-xl);font-weight:700;color:var(--t1);letter-spacing:-.3px}
 .wb-date{font-size:var(--fs-base);color:var(--t3)}
 .wb-status{margin-left:auto;font-size:var(--fs-base);color:var(--t2);font-variant-numeric:tabular-nums}
@@ -772,9 +772,9 @@ onMounted(loadData)
 /* C · 今日要务（v496 P0-2）：原「今日待办 + 经营要务」两套行样式合并为一套。
    紧急度用左侧色条表达（red=马上处理 / amber=今天处理 / blue=仅知悉），
    与卡头徽标（taskBadgeCls）同语义 —— 视觉层级：数字(B) > 要务行(C) > 明细(D)。 */
-.wb-tasks{grid-column:span 8;grid-row:span 2;padding:var(--sp-h18);min-height:280px}
+.wb-tasks{grid-column:span 8;grid-row:span 2;padding:var(--sp-5);min-height:280px}
 .task-list{display:flex;flex-direction:column;gap:var(--sp-h10)}
-.task-row{position:relative;display:flex;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-h14) var(--sp-4) var(--sp-h14) var(--sp-h18);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);transition:transform var(--dur-base) ease,box-shadow var(--dur-base) ease,border-color var(--dur-base) ease}
+.task-row{position:relative;display:flex;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-4) var(--sp-4) var(--sp-4) var(--sp-5);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg);transition:transform var(--dur-base) ease,box-shadow var(--dur-base) ease,border-color var(--dur-base) ease}
 .task-row:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--bd)}
 .task-row::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 var(--radius-hair) var(--radius-hair) 0}
 .task-row.prio-red::before{background:var(--dan)}
@@ -792,7 +792,7 @@ onMounted(loadData)
 /* G · AI 洞察 tab 区（v496 P0-3）：三张整行卡收敛为一卡三页签 */
 .ai-insight{grid-column:1/-1}
 .ai-tabs{display:flex;gap:var(--sp-1);background:var(--bg2);border-radius:var(--radius-sm);padding:3px}
-.ai-tab{height:28px;padding:0 var(--sp-h14);border:none;border-radius:var(--radius-xs);background:transparent;color:var(--t2);font-size:var(--fs-base);font-weight:500;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);font-family:inherit}
+.ai-tab{height:28px;padding:0 var(--sp-4);border:none;border-radius:var(--radius-xs);background:transparent;color:var(--t2);font-size:var(--fs-base);font-weight:500;cursor:pointer;transition:background var(--dur-base),color var(--dur-base);font-family:inherit}
 .ai-tab:hover:not(.active){color:var(--t1)}
 .ai-tab.active{background:var(--bg);color:var(--t1);box-shadow:var(--shadow-sm)}
 .ai-pane{margin-top:var(--sp-h2)}
@@ -800,7 +800,7 @@ onMounted(loadData)
 /* Bento 模块布局（v496）
    C 要务 span 8 × 2 行 + D 效期 span 4 × 2 行 拼满第 1 行；C 恒有内容
    （待办流至少一行「问问 AI」），D 空时显示空态卡 ⇒ 无需 v190 的 span-all 补丁。 */
-.wb-tasks{grid-column:span 8;grid-row:span 2;padding:var(--sp-h18);min-height:280px}
+.wb-tasks{grid-column:span 8;grid-row:span 2;padding:var(--sp-5);min-height:280px}
 .expiry-card{grid-column:span 4;grid-row:span 2}
 /* v259：本周建议订购清单 —— 占整行，不扰动要务/效期 8/4 栅格 */
 .repl-panel{grid-column:1/-1}
@@ -810,7 +810,7 @@ onMounted(loadData)
 .repl-reason{color:var(--t3);font-size:var(--fs-sm);max-width:340px}
 .repl-foot{margin-top:var(--sp-h10);font-size:var(--fs-sm);color:var(--t3)}
 /* 经验闭环（内容现居 G 区「经验闭环」tab 内，v496 P0-3） */
-.loop-kpis{display:flex;gap:var(--sp-h18);flex-wrap:wrap;margin-top:var(--sp-h10)}
+.loop-kpis{display:flex;gap:var(--sp-5);flex-wrap:wrap;margin-top:var(--sp-h10)}
 .loop-kpi{display:flex;flex-direction:column;align-items:center;min-width:74px;padding:var(--sp-2) var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg)}
 .loop-kpi .num{font-size:var(--fs-xl);font-weight:700;color:var(--t1);line-height:var(--lh-title)}
 .loop-kpi .num.ok{color:var(--suc)}
@@ -822,7 +822,7 @@ onMounted(loadData)
 .loop-note{margin-top:var(--sp-h10);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 
 /* 空账套导入引导 —— 占整行，横向三段：图标 / 文案 / 操作 */
-.import-guide{grid-column:1/-1;display:flex;align-items:center;gap:var(--sp-h14);flex-wrap:wrap;border:1px dashed var(--bd)}
+.import-guide{grid-column:1/-1;display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;border:1px dashed var(--bd)}
 .ig-ic{width:40px;height:40px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .ig-txt{flex:1;min-width:220px}
 .ig-title{font-size:var(--fs-md);font-weight:500;color:var(--t1)}

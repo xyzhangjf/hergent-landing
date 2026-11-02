@@ -277,7 +277,7 @@ watch(() => props.open, v => { if (v) { menuKey.value = ''; load() } })
 <style scoped>
 .nt-mask{position:fixed;inset:0;z-index:40}
 .nt-panel{position:absolute;top:44px;right:18px;width:440px;max-width:calc(100vw - 32px);max-height:min(72vh,660px);display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--glass-border);border-radius:var(--radius-md);box-shadow:var(--shadow-md);z-index:50;overflow:hidden}
-.nt-hd{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-3) var(--sp-3) var(--sp-h10) var(--sp-h14);border-bottom:1px solid var(--border-subtle)}
+.nt-hd{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-3) var(--sp-3) var(--sp-h10) var(--sp-4);border-bottom:1px solid var(--border-subtle)}
 .nt-hd b{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .nt-hd-n{font-size:var(--fs-sm);color:var(--dan)}
 .nt-hd-n.is-clear{color:var(--t3)}
@@ -286,11 +286,11 @@ watch(() => props.open, v => { if (v) { menuKey.value = ''; load() } })
 .nt-btn:disabled{opacity:.6;cursor:default}
 .nt-x{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border:none;background:none;border-radius:var(--radius-sm);color:var(--t3);cursor:pointer}
 .nt-x:hover{background:var(--bg2);color:var(--t1)}
-.nt-body{padding:var(--sp-h10) var(--sp-h14) var(--sp-h14);overflow-y:auto}
+.nt-body{padding:var(--sp-h10) var(--sp-4) var(--sp-4);overflow-y:auto}
 .nt-sec{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--t3);margin:var(--sp-h10) 0 var(--sp-2)}
 .nt-sec:first-child{margin-top:var(--sp-h2)}
 .nt-sec-n{color:var(--t3)}
-.nt-empty{padding:var(--sp-h14) 0;font-size:var(--fs-base);color:var(--t3);text-align:center}
+.nt-empty{padding:var(--sp-4) 0;font-size:var(--fs-base);color:var(--t3);text-align:center}
 .nt-g{border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3);margin-bottom:var(--sp-2)}
 .nt-g-top{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .nt-tag{font-size:var(--fs-xs);padding:var(--sp-h2) 7px;border-radius:var(--radius-xs);flex:0 0 auto}

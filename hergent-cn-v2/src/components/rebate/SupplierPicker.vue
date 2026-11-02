@@ -216,7 +216,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 .sp-code { flex: none; font-size:var(--fs-sm); color: var(--t3); }
 .sp-catb { flex: none; font-size:var(--fs-xs); color: var(--t3); padding: 1px var(--sp-h6);
   border-radius: var(--radius-sm); background: var(--bg2); border: 1px solid var(--bd); }
-.sp-empty { padding: var(--sp-h14) var(--sp-h10); font-size:var(--fs-sm); color: var(--t3); text-align: center; line-height: var(--lh-normal); }
+.sp-empty { padding: var(--sp-4) var(--sp-h10); font-size:var(--fs-sm); color: var(--t3); text-align: center; line-height: var(--lh-normal); }
 
 .sp-ft { display: flex; align-items: center; gap: var(--sp-2); }
 .sp-cnt { flex: 1; font-size:var(--fs-sm); color: var(--t2); white-space: nowrap; }

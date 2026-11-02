@@ -381,11 +381,11 @@ onMounted(load)
 .dl-btn:hover{border-color:var(--p-dark);color:var(--p-dark)}
 .dl-btn.primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .dl-foot{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin:var(--sp-h10) 0 0}
-.dl-err{display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-3) var(--sp-h14);border-radius:var(--radius-md);
+.dl-err{display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);border-radius:var(--radius-md);
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);
   font-size:var(--fs-sm);color:var(--war);line-height:var(--lh-normal)}
 
-.dl-risk{display:flex;align-items:flex-start;gap:var(--sp-2);margin:0 0 var(--sp-h14);padding:11px 13px;border-radius:var(--radius-sm);
+.dl-risk{display:flex;align-items:flex-start;gap:var(--sp-2);margin:0 0 var(--sp-4);padding:11px 13px;border-radius:var(--radius-sm);
   background:rgba(245,158,11,.12);color:var(--war);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 .dl-risk svg{flex:0 0 15px;margin-top:3px}
 .dl-pick{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap;margin-top:var(--sp-h10)}

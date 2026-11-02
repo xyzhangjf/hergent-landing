@@ -135,7 +135,7 @@ async function doUndo() {
 </script>
 
 <style scoped>
-.ir{margin-top:var(--sp-3);padding:var(--sp-h10) var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-base);
+.ir{margin-top:var(--sp-3);padding:var(--sp-h10) var(--sp-4);border-radius:var(--radius-sm);font-size:var(--fs-base);
     background:rgba(var(--suc-rgb),.1);color:var(--suc);display:flex;flex-direction:column;gap:var(--sp-h6)}
 .ir.bad{background:rgba(var(--war-rgb),.12);color:var(--war)}
 .ir-line b{font-size:var(--fs-md)}

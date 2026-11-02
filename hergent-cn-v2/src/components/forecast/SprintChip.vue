@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
   left:50%;transform:translateX(-50%);
   width:min(1080px,calc(100vw - 24px));
   overflow:auto;overscroll-behavior:contain;
-  padding:var(--sp-3) var(--sp-h14);
+  padding:var(--sp-3) var(--sp-4);
   background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius);
   box-shadow:0 12px 32px rgba(15,23,42,.16);
 }

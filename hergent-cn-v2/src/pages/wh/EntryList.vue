@@ -475,7 +475,7 @@ defineExpose({ load })
 
 .woi-pager {
   display: flex; align-items: center; gap: var(--sp-h10); flex-wrap: wrap;
-  padding: var(--sp-3) var(--sp-h14); border-top: 1px solid var(--border-subtle);
+  padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--border-subtle);
 }
 .woi-pg-cnt { font-size:var(--fs-sm); color: var(--t3); margin-right: auto }
 .woi-pg-nums { display: inline-flex; align-items: center; gap: var(--sp-1) }

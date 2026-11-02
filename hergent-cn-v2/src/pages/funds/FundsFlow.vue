@@ -78,7 +78,7 @@ onMounted(load)
 
 <style scoped>
 .ff-acts { display: flex; gap: var(--sp-2) }
-.ff-filter { margin: var(--sp-h14) 0 }
+.ff-filter { margin: var(--sp-4) 0 }
 .ff-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }
 .ff-frow > label { display: flex; flex-direction: column; gap: var(--sp-1); font-size:var(--fs-sm); color: var(--t2) }
 .ff-card { padding: 0; overflow: hidden }

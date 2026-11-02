@@ -95,7 +95,7 @@ console.log('\n【1】唯一源：勾选列左右内边距归零（缺陷修复�
      值从源码读，不写死 —— 哪天列宽或基础 padding 变了，这条会提醒重算成因链。 */
   const base = cssRules(stripCss(read(path.join(SRC, 'styles/variables.css'))))
     .find((r) => /^table\.tbltd$/.test(r.sel.replace(/\s+/g, '')))
-  /* 🔴 v727：基础内距已令牌化（`padding:var(--sp-h10) var(--sp-h14)`），
+  /* 🔴 v727：基础内距已令牌化（`padding:var(--sp-h10) var(--sp-4)`，v734 前是 --sp-h14），
      裸 px 正则匹配不到 ⇒ 用共享解析器取第二值（横向）。令牌改了值这儿跟着变。 */
   const padH = base ? (() => {
     const m = /padding\s*:\s*([^;}]+)/.exec(base.body)
