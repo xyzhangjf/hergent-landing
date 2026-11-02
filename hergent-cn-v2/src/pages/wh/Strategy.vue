@@ -420,7 +420,7 @@ defineExpose({ load: reloadAll })
   font-variant-numeric: tabular-nums;
 }
 .wsp-p-badge.bad { color: var(--dan) }
-.wsp-p-foot { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h10); line-height: 1.7 }
+.wsp-p-foot { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h10); line-height: var(--lh-relaxed)}
 
 .wsp-tw { max-height: 380px; overflow: auto }
 .wsp-dim { color: var(--t3); font-size:var(--fs-sm) }
@@ -474,7 +474,7 @@ defineExpose({ load: reloadAll })
 .wsp-r-hi { font-weight: 600; color: var(--p-ink); font-variant-numeric: tabular-nums }
 .wsp-reason {
   margin-top: var(--sp-2); padding-top: var(--sp-2); border-top: 1px dashed var(--border-subtle);
-  font-size:var(--fs-sm); color: var(--t2); line-height: 1.7;
+  font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-relaxed);
 }
 
 .wsp-idle {
@@ -482,5 +482,5 @@ defineExpose({ load: reloadAll })
   padding: var(--sp-h18) var(--sp-3); font-size:var(--fs-sm); color: var(--t3);
 }
 
-.wsp-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-h14); line-height: 1.7 }
+.wsp-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-h14); line-height: var(--lh-relaxed)}
 </style>

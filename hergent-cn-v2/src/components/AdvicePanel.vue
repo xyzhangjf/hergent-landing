@@ -94,7 +94,7 @@ defineExpose({ load })
 .adv-status.confirmed,.adv-status.approved,.adv-status.executed{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .adv-status.rejected,.adv-status.undone{background:rgba(var(--dan-rgb),.1);color:var(--dan)}
 .adv-time{font-size:var(--fs-xs);color:var(--t3);margin-left:auto}
-.adv-text{font-size:var(--fs-base);color:var(--t1);line-height:1.6}
+.adv-text{font-size:var(--fs-base);color:var(--t1);line-height:var(--lh-normal)}
 .adv-meta{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-1)}
 .adv-ops{display:flex;gap:var(--sp-2);margin-top:var(--sp-h10)}
 </style>

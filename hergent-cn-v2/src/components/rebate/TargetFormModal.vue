@@ -1076,15 +1076,15 @@ async function save() {
 .form-row{display:flex;flex-direction:column;gap:var(--sp-h6)}
 .form-row label{font-size:var(--fs-sm);font-weight:500;color:var(--t2)}
 .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
-.cf-tip{font-size:var(--fs-base);color:var(--t2);line-height:1.6;margin:0 0 var(--sp-3)}
+.cf-tip{font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-3)}
 /* v702：作用对象说明 —— 选中范围与生效规则（"多选=几条独立目标，不是合计"）就靠这块说清 */
-.sp-note{font-size:var(--fs-sm);line-height:1.65;color:var(--t2);padding:var(--sp-h6) var(--sp-2);border-radius:var(--radius-sm);
+.sp-note{font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2);padding:var(--sp-h6) var(--sp-2);border-radius:var(--radius-sm);
   background:var(--bg2);border:1px solid var(--bd)}
 .sp-note-link{color:var(--war);background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.4)}
 .yh-scope{color:var(--t3);font-size:var(--fs-sm);margin-left:var(--sp-h2)}
 /* v125：重复目标预检提示（黄底，与红色硬错误区分：只是提醒，保存仍由后端裁决） */
 .dup-warn{display:flex;gap:var(--sp-2);align-items:flex-start;margin:var(--sp-h2) 0 var(--sp-2);padding:var(--sp-2) var(--sp-h10);border-radius:var(--radius-sm);
-  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);font-size:var(--fs-sm);color:var(--t2);line-height:1.6}
+  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.4);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
 .dup-warn svg,.dup-warn .icon{width:15px;height:15px;flex:none;margin-top:var(--sp-h2);color:var(--war)}
 .dup-warn b{color:var(--t1)}
 .dup-warn p{margin:var(--sp-h2) 0}
@@ -1094,7 +1094,7 @@ async function save() {
 .year-hit svg,.year-hit .icon{color:var(--p-dark)}
 .yh-act{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-2)}
 .cf-tbl{width:100%;margin-bottom:var(--sp-3)}
-.cf-sol{font-size:var(--fs-sm);color:var(--t3);line-height:1.7;background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h10) var(--sp-3);margin:0}
+.cf-sol{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed);background:var(--bg2);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h10) var(--sp-3);margin:0}
 .cf-sol b{color:var(--t1)}
 .fade-enter-active,.fade-leave-active{transition:opacity var(--dur-slow)}
 .fade-enter-from,.fade-leave-to{opacity:0}

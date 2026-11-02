@@ -495,7 +495,7 @@ onMounted(loadAll)
 .ar-badge.info { background: var(--bg2); color: var(--t2) }
 .ar-empty { padding: 28px var(--sp-1) }
 .ar-empty-note { font-size:var(--fs-base); color: var(--t2); margin: 0 }
-.ar-empty-guide { font-size:var(--fs-sm); color: var(--t1); margin: var(--sp-2) 0 0; line-height: 1.8 }
+.ar-empty-guide { font-size:var(--fs-sm); color: var(--t1); margin: var(--sp-2) 0 0; line-height: var(--lh-loose)}
 
 /* 弹窗内表单 */
 .ar-form-err { padding: var(--sp-2) var(--sp-h10); margin-bottom: var(--sp-3) }

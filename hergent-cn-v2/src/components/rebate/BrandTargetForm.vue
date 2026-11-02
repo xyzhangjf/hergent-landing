@@ -85,7 +85,7 @@ defineEmits([
 </script>
 
 <style scoped>
-.monthly-block .page-sub{font-size:var(--fs-sm);color:var(--t3);line-height:1.5}
-.ap-warn{font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2);margin-bottom:var(--sp-h6);line-height:1.5}
+.monthly-block .page-sub{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-snug)}
+.ap-warn{font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) var(--sp-2);margin-bottom:var(--sp-h6);line-height:var(--lh-snug)}
 .mg-default{margin-top:var(--sp-h10);border-top:1px dashed var(--bd);padding-top:var(--sp-h6)}
 </style>

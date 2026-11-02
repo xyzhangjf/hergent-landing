@@ -262,10 +262,10 @@ onMounted(load)
 .vc-kpi .num.bad{color:var(--err-red)}
 .vc-kpi .lbl{font-size:var(--fs-sm);color:var(--t2)}
 .vc-bar{display:flex;align-items:flex-start;gap:var(--sp-h14)}
-.vc-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.75;margin:0;flex:1}
+.vc-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin:0;flex:1}
 .vc-bar-acts{display:flex;gap:var(--sp-2);flex-shrink:0}
 .vc-skel{padding:var(--sp-2) 0}
-.vc-empty-sub{font-size:var(--fs-sm);color:var(--t3);max-width:560px;margin:var(--sp-h6) auto 0;line-height:1.7}
+.vc-empty-sub{font-size:var(--fs-sm);color:var(--t3);max-width:560px;margin:var(--sp-h6) auto 0;line-height:var(--lh-relaxed)}
 .vc-st{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-sm);white-space:nowrap;background:var(--bg2);color:var(--t2)}
 .vc-st-overdue{background:var(--warn-amber-bg);color:var(--warn-amber)}
 .vc-st-done{background:var(--ok-green-bg);color:var(--ok-green)}

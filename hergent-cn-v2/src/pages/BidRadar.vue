@@ -403,7 +403,7 @@ onMounted(load)
 
 .br-state{padding:48px;text-align:center;color:var(--t3);font-size:var(--fs-md)}
 .br-empty{color:var(--t2)}
-.br-empty-t{margin:0 0 var(--sp-h14);line-height:1.7}
+.br-empty-t{margin:0 0 var(--sp-h14);line-height:var(--lh-relaxed)}
 
 /* 表格已置于 .card 内（卡片自带边框与圆角），故去掉自身的边框/圆角，避免双层描边 */
 .br-tbl{width:100%;border-collapse:collapse;font-size:var(--fs-base)}

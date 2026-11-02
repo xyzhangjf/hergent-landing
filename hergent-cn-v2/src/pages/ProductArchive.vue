@@ -1891,7 +1891,7 @@ onMounted(() => {
 /* v157 「补进价」入口：仅当有商品未录进价时出现，补完自动消失（不是常驻按钮） */
 .pa-fp-btn{color:var(--war);border-color:rgba(var(--war-rgb),.35);gap:5px}
 .pa-fp-btn:hover{background:rgba(var(--war-rgb),.1);color:var(--war)}
-.pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:var(--radius-pill);background:rgba(var(--war-rgb),.16);font-size:var(--fs-sm);font-weight:600;line-height:16px;text-align:center}
+.pa-fp-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:var(--radius-pill);background:rgba(var(--war-rgb),.16);font-size:var(--fs-sm);font-weight:600;line-height:var(--lh-mid);text-align:center}
 
 /* v157 进价列（行内可编） */
 .pa-fp-cell{white-space:nowrap}
@@ -1910,7 +1910,7 @@ onMounted(() => {
    还没发生提交失败；红框会让人以为已经存坏了。 */
 .pa-warn{margin:var(--sp-h6) 0 0;padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);
   background:var(--warn-bg);color:var(--warn);
-  font-size:var(--fs-sm);line-height:1.5}
+  font-size:var(--fs-sm);line-height:var(--lh-snug)}
 
 /* v184b 到货周期列：行内可编，沿用进价列的视觉语言（虚线下划 + hover 变品牌色），
    但**不用**警示色 —— 见下面 .pa-cyc-none 的注释。 */
@@ -2036,7 +2036,7 @@ onMounted(() => {
 .pa-x{border:none;background:none;font-size:var(--fs-md);color:var(--t3);cursor:pointer}
 .pa-modal-body{padding:var(--sp-h18) var(--sp-5)}
 .pa-modal-ft{display:flex;justify-content:flex-end;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-5);border-top:1px solid var(--border-subtle)}
-.pa-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin:0 0 var(--sp-h14);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
+.pa-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin:0 0 var(--sp-h14);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
 
 /* 详情网格 */
 /* ---- v184c 商品编辑弹窗（原 .pa-detail-* 只读样式随弹窗改造一并删除，避免死 CSS）----
@@ -2053,7 +2053,7 @@ onMounted(() => {
 .pa-sec-click:hover{color:var(--p-ink)}
 .pa-caret{margin-left:auto;font-size:var(--fs-sm);color:var(--p-ink);font-weight:400}
 .pa-f-full{grid-column:1 / -1}
-.pa-ta{height:auto;min-height:66px;padding:var(--sp-2) var(--sp-h10);line-height:1.6;resize:vertical;font-family:inherit}
+.pa-ta{height:auto;min-height:66px;padding:var(--sp-2) var(--sp-h10);line-height:var(--lh-normal);resize:vertical;font-family:inherit}
 /* 状态行：徽标 + 说明 + 按钮排一行；说明占满剩余宽度，长句不撑破弹窗。 */
 .pa-active{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .pa-active .pa-hint{margin-left:0;flex:1 1 220px;min-width:0}
@@ -2112,7 +2112,7 @@ tr.pa-row-off td{opacity:.5}
 .pa-fp-count{font-size:var(--fs-sm);color:var(--t2);margin-right:auto}
 .pa-fp-count b{color:var(--t1)}
 /* v158 进价闸门开关：默认（未开启）走中性底色，开启后转成功色 —— 开关状态一眼可辨 */
-.pa-fp-gate{display:flex;align-items:flex-start;gap:var(--sp-3);flex-wrap:wrap;margin:0 0 var(--sp-3);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd);font-size:var(--fs-sm);line-height:1.6}
+.pa-fp-gate{display:flex;align-items:flex-start;gap:var(--sp-3);flex-wrap:wrap;margin:0 0 var(--sp-3);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 .pa-fp-gate.on{background:rgba(var(--suc-rgb),.08);border-color:rgba(var(--suc-rgb),.35)}
 .pa-fp-switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;color:var(--t1);white-space:nowrap;user-select:none}
 .pa-fp-switch input{width:15px;height:15px;margin:0;cursor:pointer;accent-color:var(--suc)}

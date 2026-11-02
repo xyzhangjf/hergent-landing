@@ -186,7 +186,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
   padding: 3px var(--sp-1) 3px 9px; border-radius: var(--radius-lg); font-size:var(--fs-sm);
   background: rgba(0, 122, 255, .1); border: 1px solid rgba(0, 122, 255, .28); color: var(--t1); }
 .sp-chip-nm { max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sp-chip-x { flex: none; width: 17px; height: 17px; line-height: 1; border: 0; border-radius: var(--radius-circle);
+.sp-chip-x { flex: none; width: 17px; height: 17px; line-height: var(--lh-none); border: 0; border-radius: var(--radius-circle);
   background: transparent; color: var(--t2); cursor: pointer; font-size:var(--fs-md); }
 .sp-chip-x:hover { background: rgba(0, 0, 0, .08); color: var(--dan); }
 .sp-clear { border: 0; background: transparent; color: var(--t3); font-size:var(--fs-sm); cursor: pointer; padding: var(--sp-h2) var(--sp-1); }
@@ -216,7 +216,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onDocDown, true)
 .sp-code { flex: none; font-size:var(--fs-sm); color: var(--t3); }
 .sp-catb { flex: none; font-size:var(--fs-xs); color: var(--t3); padding: 1px var(--sp-h6);
   border-radius: var(--radius-sm); background: var(--bg2); border: 1px solid var(--bd); }
-.sp-empty { padding: var(--sp-h14) var(--sp-h10); font-size:var(--fs-sm); color: var(--t3); text-align: center; line-height: 1.6; }
+.sp-empty { padding: var(--sp-h14) var(--sp-h10); font-size:var(--fs-sm); color: var(--t3); text-align: center; line-height: var(--lh-normal); }
 
 .sp-ft { display: flex; align-items: center; gap: var(--sp-2); }
 .sp-cnt { flex: 1; font-size:var(--fs-sm); color: var(--t2); white-space: nowrap; }

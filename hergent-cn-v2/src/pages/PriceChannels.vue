@@ -924,7 +924,7 @@ onMounted(async () => {
 .pc-body{display:flex;flex-direction:column;gap:var(--sp-3)}
 .pc-act{display:flex;gap:var(--sp-2);flex-wrap:wrap}
 .pc-why{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:baseline;margin:0 0 var(--sp-h14);padding:var(--sp-h10) var(--sp-h14);
-  border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd);font-size:var(--fs-sm);line-height:1.65;color:var(--t2)}
+  border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2)}
 .pc-why b{color:var(--t1);white-space:nowrap}
 .pc-why>span b{color:var(--t1)}
 .pc-empty{padding:26px;text-align:center;color:var(--t3);font-size:var(--fs-base)}
@@ -941,11 +941,11 @@ onMounted(async () => {
 .pc-tag.def{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
 .pc-tag.off{background:var(--bg2);color:var(--t3)}
 .pc-card-bd{flex:1;display:flex;flex-direction:column;gap:var(--sp-1)}
-.pc-ln{display:flex;justify-content:space-between;gap:var(--sp-h10);font-size:var(--fs-sm);line-height:1.6}
+.pc-ln{display:flex;justify-content:space-between;gap:var(--sp-h10);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 .pc-ln span{color:var(--t3);white-space:nowrap}
 .pc-ln em{font-style:normal;color:var(--t1);text-align:right}
 .pc-ln em.warn{color:var(--war)}
-.pc-note{margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);line-height:1.55}
+.pc-note{margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-snug)}
 .pc-card-ft{display:flex;gap:var(--sp-h6);flex-wrap:wrap;margin-top:var(--sp-h10);padding-top:var(--sp-h10);border-top:1px solid var(--bd)}
 .pc-danger{color:var(--dan)}
 .pc-danger:hover{background:var(--dan-bg);color:var(--dan)}
@@ -957,7 +957,7 @@ onMounted(async () => {
 .pc-f input,.pc-f select{height:32px;padding:0 var(--sp-h10);font-size:var(--fs-base);color:var(--t1);background:var(--bg);
   border:1px solid var(--bd);border-radius:var(--radius-sm)}
 .pc-f input:focus,.pc-f select:focus{border-color:var(--p-dark)}
-.pc-tip{font-style:normal;font-size:var(--fs-sm);color:var(--t3);line-height:1.5}
+.pc-tip{font-style:normal;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-snug)}
 .pc-try-btn{flex:0 0 auto}
 .pc-res{margin-top:var(--sp-h14);padding:var(--sp-3) var(--sp-h14);border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--bd)}
 .pc-res.bad{background:rgba(var(--war-rgb),.10);border-color:rgba(var(--war-rgb),.4)}
@@ -967,18 +967,18 @@ onMounted(async () => {
 .pc-res.bad .pc-res-main b{font-size:var(--fs-md);color:var(--war)}
 .pc-res-from{font-size:var(--fs-sm);color:var(--t2)}
 .pc-res-sub{margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t2)}
-.pc-res-warn{margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--war);line-height:1.6}
+.pc-res-warn{margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--war);line-height:var(--lh-normal)}
 .pc-res-hint{margin-top:var(--sp-3);font-size:var(--fs-sm);color:var(--t3)}
 
 .pc-dirty{margin-right:auto;font-size:var(--fs-sm);color:var(--t2)}
-.pc-err{font-size:var(--fs-sm);color:var(--dan);line-height:1.6}
+.pc-err{font-size:var(--fs-sm);color:var(--dan);line-height:var(--lh-normal)}
 
 .pc-mx-bar{display:flex;gap:var(--sp-2);align-items:center;flex-wrap:wrap}
 .pc-mx-bar input{flex:1 1 220px;height:32px;padding:0 var(--sp-h10);font-size:var(--fs-base);background:var(--bg);
   color:var(--t1);border:1px solid var(--bd);border-radius:var(--radius-sm)}
 .pc-mx-hint{font-size:var(--fs-sm);color:var(--t3)}
 .pc-mx-note{padding:9px var(--sp-3);border-radius:var(--radius-xs);background:var(--bg2);border:1px solid var(--bd);
-  font-size:var(--fs-sm);line-height:1.6;color:var(--t2)}
+  font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2)}
 .pc-mx-note b{color:var(--t1)}
 .pc-tb{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
 .pc-tb th{text-align:left;font-weight:500;color:var(--t3);padding:7px var(--sp-2);border-bottom:1px solid var(--bd);white-space:nowrap}
@@ -999,7 +999,7 @@ onMounted(async () => {
 /* v228 客户专属价：与「渠道价」互补的独立区块 */
 .pc-cust{padding:var(--sp-h18);margin-top:var(--sp-h14)}
 .pc-cust .pc-tb{margin-top:var(--sp-h2)}
-.pc-cust-sum{margin:var(--sp-h10) 0 var(--sp-h6);line-height:1.9}
+.pc-cust-sum{margin:var(--sp-h10) 0 var(--sp-h6);line-height:var(--lh-prose)}
 .pc-cust-sum b{color:var(--t1);font-weight:600}
 .pc-cust-sum b.warn{color:var(--war)}
 .pc-ck{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-sm);color:var(--t2);
@@ -1007,13 +1007,13 @@ onMounted(async () => {
 /* 🔴 必须覆盖上面 `.pc-mx-bar input` 的 `flex:1 1 220px; height:32px`
    —— 否则「只看有价的」复选框会被拉成 220px 宽 32px 高（后代选择器会命中它）。 */
 .pc-ck input{flex:0 0 auto;width:14px;height:14px;padding:0;margin:0;border:none;background:none}
-.pc-empty-sub{margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);line-height:1.7}
+.pc-empty-sub{margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed)}
 
 /* v229：三档价联动 —— 每个价格格 = 输入框 + 单位名 + 「自动 / 手工」标记。
    中/大两档的输入框 placeholder 直接显示按换算比算出来的价，用户一眼看到「不用填」。 */
 .pc-cust .pc-px{min-width:104px}
 .pc-cust .pc-px-u{display:block;margin-top:var(--sp-h2);font-size:var(--fs-xs);color:var(--t3);
-  line-height:1.45;white-space:nowrap}
+  line-height:var(--lh-tight);white-space:nowrap}
 .pc-cust .pc-flag{margin-left:var(--sp-1);font-size:var(--fs-xs)}
 .pc-cust .pc-flag.hand{color:var(--war);font-weight:600}
 .pc-cust .pc-flag.auto{color:var(--t3);font-weight:400}

@@ -1244,7 +1244,7 @@ onUnmounted(stopStatusPoll)
 .panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-3)}
 .panel-hd b{font-size:var(--fs-md);font-weight:500}
 
-.cc-expert-intro{font-size:var(--fs-base);color:var(--t2);line-height:1.6;margin:0 0 var(--sp-h18)}
+.cc-expert-intro{font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-normal);margin:0 0 var(--sp-h18)}
 .cc-expert-intro b{color:var(--p-dark)}
 
 .cc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-h14)}
@@ -1271,7 +1271,7 @@ onUnmounted(stopStatusPoll)
 .cc-op{height:28px;padding:0 var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-sm);border:1px solid var(--bd);background:var(--bg);color:var(--t2);cursor:pointer;transition:all var(--dur-base)}
 .cc-op:hover:not(:disabled){border-color:var(--p-dark);color:var(--p-dark)}
 .cc-op:disabled{opacity:.5;cursor:default}
-.cc-health{font-size:var(--fs-xs);color:var(--t3);margin-bottom:var(--sp-3);line-height:1.5}
+.cc-health{font-size:var(--fs-xs);color:var(--t3);margin-bottom:var(--sp-3);line-height:var(--lh-snug)}
 .cc-name{font-size:var(--fs-h4);font-weight:500;color:var(--t1);margin-bottom:var(--sp-1)}
 .cc-desc{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-h14);min-height:18px}
 .cc-action{display:inline-block;height:32px;padding:0 var(--sp-h14);border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:32px;text-align:center}
@@ -1283,13 +1283,15 @@ onUnmounted(stopStatusPoll)
 .cc-roles{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:var(--sp-3)}
 .cc-role-tag{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:var(--radius-circle);background:var(--bg2);overflow:hidden}
 .cc-role-av{width:100%;height:100%;object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:var(--fs-base)}
-.cc-role-av-em{line-height:24px}
+/* v728：原先 `.cc-role-av-em{line-height:24px}` 靠行高把首字撑到 24px 高。
+   父级 `.cc-role-av` 本来就是 flex + align-items:center（见上一条），这层行高是冗余的；
+   写死 24px 还会在字号档变化时不同步 ⇒ 删掉，走继承。 */
 .cc-roles-pick{margin:0 0 var(--sp-4);padding:var(--sp-3);border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--bg2)}
 .cc-roles-pick-hd{font-size:var(--fs-base);font-weight:500;color:var(--t1);margin-bottom:var(--sp-h10)}
 .cc-roles-pick-sub{font-weight:400;color:var(--t2);font-size:var(--fs-sm);margin-left:var(--sp-1)}
 .cc-chips{display:flex;flex-wrap:wrap;gap:var(--sp-2)}
-.cc-roles-warn{margin:var(--sp-h10) 0 0;font-size:var(--fs-sm);color:var(--war);line-height:1.5}
-.cc-chip{display:inline-flex;align-items:center;gap:var(--sp-h6);padding:5px var(--sp-h10) 5px var(--sp-h6);border-radius:var(--radius-pill);border:1px solid var(--border-subtle);background:var(--bg);color:var(--t1);cursor:pointer;font-size:var(--fs-sm);transition:var(--dur-base);line-height:1}
+.cc-roles-warn{margin:var(--sp-h10) 0 0;font-size:var(--fs-sm);color:var(--war);line-height:var(--lh-snug)}
+.cc-chip{display:inline-flex;align-items:center;gap:var(--sp-h6);padding:5px var(--sp-h10) 5px var(--sp-h6);border-radius:var(--radius-pill);border:1px solid var(--border-subtle);background:var(--bg);color:var(--t1);cursor:pointer;font-size:var(--fs-sm);transition:var(--dur-base);line-height:var(--lh-none)}
 .cc-chip:hover{border-color:var(--p)}
 .cc-chip.on{border-color:var(--p);background:var(--p-bg);color:var(--p-dark)}
 .cc-chip-av{width:20px;height:20px;border-radius:var(--radius-circle);object-fit:cover;display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs)}
@@ -1305,7 +1307,7 @@ onUnmounted(stopStatusPoll)
 .cc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px var(--sp-5)}
 .cc-empty-ic{width:72px;height:72px;border-radius:var(--radius-xl);background:var(--p-bg);display:flex;align-items:center;justify-content:center;margin-bottom:var(--sp-5)}
 .cc-empty-title{font-size:var(--fs-lg);font-weight:500;color:var(--t1);margin-bottom:var(--sp-h10)}
-.cc-empty-desc{font-size:var(--fs-base);color:var(--t3);line-height:1.8}
+.cc-empty-desc{font-size:var(--fs-base);color:var(--t3);line-height:var(--lh-loose)}
 
 /* 工作流卡片 */
 .wf-intro{font-size:var(--fs-base);color:var(--t2);margin-bottom:var(--sp-4);display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h10)}
@@ -1322,7 +1324,7 @@ onUnmounted(stopStatusPoll)
 .sk-card.internal{opacity:.68}
 .sk-card.gen{border-style:dashed}
 .sk-top{display:flex;align-items:flex-start;gap:var(--sp-3)}
-.sk-ic{font-size:var(--fs-num);line-height:1;flex-shrink:0;margin-top:1px}
+.sk-ic{font-size:var(--fs-num);line-height:var(--lh-none);flex-shrink:0;margin-top:1px}
 .sk-id{flex:1;min-width:0}
 .sk-title{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .sk-name{font-size:var(--fs-xs);color:var(--t3);font-family:var(--font-mono,monospace);margin-top:var(--sp-h2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1330,8 +1332,8 @@ onUnmounted(stopStatusPoll)
 .sk-card.infra{border-left:3px solid var(--chart-6)}
 .sk-card.infra .sk-ic{color:var(--chart-6)}
 .sk-badge.on{background:rgba(var(--suc-rgb),.14);color:var(--suc)}
-.sk-what{font-size:var(--fs-sm);color:var(--t2);line-height:1.65}
-.sk-when{font-size:var(--fs-sm);color:var(--p-dark);background:var(--p-bg);padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);line-height:1.5}
+.sk-what{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal)}
+.sk-when{font-size:var(--fs-sm);color:var(--p-dark);background:var(--p-bg);padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);line-height:var(--lh-snug)}
 @media(max-width:768px){.sk-grid{grid-template-columns:1fr}}
 
 /* 管理工作流弹窗 */
@@ -1353,7 +1355,7 @@ onUnmounted(stopStatusPoll)
 .wf-name{font-size:var(--fs-h4);font-weight:500;color:var(--t1);margin-bottom:var(--sp-h2)}
 .wf-state{font-size:var(--fs-xs);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3)}
 .wf-state.on{background:rgba(var(--suc-rgb),.12);color:var(--suc)}
-.wf-desc{font-size:var(--fs-sm);color:var(--t3);line-height:1.6}
+.wf-desc{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .wf-steps{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1);font-size:var(--fs-sm);color:var(--t2)}
 .wf-step{padding:3px 9px;border-radius:var(--radius-sm);background:var(--bg2);white-space:nowrap}
 .wf-arrow{color:var(--t3);font-size:var(--fs-xs)}
@@ -1364,7 +1366,7 @@ onUnmounted(stopStatusPoll)
 
 /* 弹窗 */
 /* v691：弹窗骨架统一由 components/Modal.vue 提供 */
-.cc-modal-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin:0 0 var(--sp-4);background:var(--p-bg);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-sm)}
+.cc-modal-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin:0 0 var(--sp-4);background:var(--p-bg);padding:var(--sp-h10) var(--sp-3);border-radius:var(--radius-sm)}
 .cc-modal-tip a{color:var(--p-dark)}
 .cc-field{display:block;margin-bottom:var(--sp-h14)}
 .cc-field span{display:block;font-size:var(--fs-sm);color:var(--t2);margin-bottom:var(--sp-h6)}
@@ -1393,13 +1395,13 @@ onUnmounted(stopStatusPoll)
 .ev-run{border:1px solid var(--bd);border-radius:var(--radius-md);padding:var(--sp-3) var(--sp-h14)}
 .ev-run-hd{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .ev-run-hd b{font-size:var(--fs-base);color:var(--t1)}
-.ev-run-body{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin-top:var(--sp-2);white-space:pre-wrap;background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3)}
+.ev-run-body{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin-top:var(--sp-2);white-space:pre-wrap;background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3)}
 .ev-run-empty{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-2)}
 /* ===== 对齐桌面「连接手机」页面 ===== */
 /* 顶部提示条 */
 .cc-tip-banner{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-3) var(--sp-h14);margin-bottom:var(--sp-4);background:var(--p-bg);border:1px solid transparent;border-radius:var(--radius-md);font-size:var(--fs-base);color:var(--p-dark)}
 .ctb-icon{flex-shrink:0;font-size:var(--fs-h4)}
-.ctb-txt{flex:1;line-height:1.5}
+.ctb-txt{flex:1;line-height:var(--lh-snug)}
 .ctb-close{flex-shrink:0;border:none;background:var(--bg4);color:var(--p-ink);font-size:var(--fs-sm);padding:var(--sp-1) var(--sp-h10);border-radius:var(--radius-sm);cursor:pointer}
 .ctb-close:hover{background:var(--bg4)}
 
@@ -1411,7 +1413,7 @@ onUnmounted(stopStatusPoll)
 
 /* 推荐角标（飞书） */
 .cc-card{position:relative}
-.cc-rec{position:absolute;top:-9px;right:-10px;z-index:2;font-size:var(--fs-xs);font-weight:700;padding:var(--sp-h2) 7px;border-radius:var(--radius-xs);background:var(--p-solid);color:#fff;line-height:1.5;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.cc-rec{position:absolute;top:-9px;right:-10px;z-index:2;font-size:var(--fs-xs);font-weight:700;padding:var(--sp-h2) 7px;border-radius:var(--radius-xs);background:var(--p-solid);color:#fff;line-height:var(--lh-snug);box-shadow:0 2px 6px rgba(0,0,0,.15)}
 
 /* 底部连接状态栏（对齐桌面 channel-gateway） */
 .cc-gateway{display:flex;align-items:center;gap:var(--sp-h10);padding:var(--sp-h14) var(--sp-h18);margin-top:var(--sp-4);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);font-size:var(--fs-base)}
@@ -1430,7 +1432,7 @@ onUnmounted(stopStatusPoll)
 
 .cc-unsupported{display:flex;align-items:flex-start;gap:var(--sp-2);padding:var(--sp-3) var(--sp-h14);margin-bottom:var(--sp-h14);
   background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius-md);
-  font-size:var(--fs-sm);color:var(--war);line-height:1.6}
+  font-size:var(--fs-sm);color:var(--war);line-height:var(--lh-normal)}
 
 .cc-field-hint{font-style:normal;color:var(--t3);font-size:var(--fs-xs);margin-left:var(--sp-h2)}
 .cc-modal-tip.warn{background:rgba(245,158,11,.12);color:var(--war)}
@@ -1443,9 +1445,9 @@ onUnmounted(stopStatusPoll)
 .cc-guide-toggle span:nth-child(2){flex:1}
 .cc-guide-arrow{font-size:var(--fs-xs);color:var(--t3)}
 .cc-guide-body{padding:0 var(--sp-h14) var(--sp-h14);border-top:1px solid var(--border-subtle)}
-.cc-guide-intro{font-size:var(--fs-sm);color:var(--t1);line-height:1.75;padding:var(--sp-3) 0 var(--sp-h6);font-weight:500}
+.cc-guide-intro{font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-relaxed);padding:var(--sp-3) 0 var(--sp-h6);font-weight:500}
 .cc-guide-list{margin:0;padding-left:var(--sp-5);display:flex;flex-direction:column;gap:9px}
-.cc-guide-list li{font-size:var(--fs-sm);color:var(--t2);line-height:1.75}
+.cc-guide-list li{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed)}
 
 /* 配对审批 */
 .cc-pair{margin-top:var(--sp-4);border:1px solid var(--bd);border-radius:var(--radius-md);overflow:hidden}
@@ -1458,7 +1460,7 @@ onUnmounted(stopStatusPoll)
 .cc-pair-codein{flex:0 0 176px;width:176px;text-transform:uppercase;font-family:var(--font-mono,monospace);letter-spacing:1px;text-align:center}
 .cc-pair-age{flex:0 0 auto;color:var(--t3);font-size:var(--fs-sm);white-space:nowrap}
 .cc-pair-age.warn{color:var(--danger-txt)}
-.cc-pair-lock{display:flex;align-items:flex-start;gap:var(--sp-2);padding:11px var(--sp-h18);border-top:1px solid var(--border-subtle);background:var(--warn-amber-bg);color:var(--warn-amber);font-size:var(--fs-sm);line-height:1.65}
+.cc-pair-lock{display:flex;align-items:flex-start;gap:var(--sp-2);padding:11px var(--sp-h18);border-top:1px solid var(--border-subtle);background:var(--warn-amber-bg);color:var(--warn-amber);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 .cc-pair-lock svg{flex:0 0 15px;margin-top:var(--sp-h2)}
 .cc-pair-user{flex:1;color:var(--t2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cc-pair-empty{padding:var(--sp-h14) var(--sp-h18);font-size:var(--fs-sm);color:var(--t3);border-top:1px solid var(--border-subtle)}

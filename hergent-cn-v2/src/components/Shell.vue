@@ -1717,7 +1717,7 @@ function stopResize() {
 .sb-nav{flex:1;overflow-y:auto;padding:var(--sp-3) var(--sp-h10)}
 /* v623：侧栏底部备案号（阿里云 2026-10 备案核查；说明见模板内 .sb-beian 处）。
    flex-shrink:0 ⇒ 侧栏内容再长也不把它压没；折叠/手机端不渲染 ⇒ 无需媒体查询。 */
-.sb-beian{flex-shrink:0;padding:var(--sp-h10) var(--sp-2) var(--sp-3);text-align:center;font-size:var(--fs-xs);line-height:1.5;color:var(--t2);opacity:.55}
+.sb-beian{flex-shrink:0;padding:var(--sp-h10) var(--sp-2) var(--sp-3);text-align:center;font-size:var(--fs-xs);line-height:var(--lh-snug);color:var(--t2);opacity:.55}
 .sb-beian a{color:inherit;text-decoration:none}
 .sb-beian a:hover{opacity:1;text-decoration:underline}
 /* v677：侧栏条目高度**恢复到 v676 之前**（老板看 34px 觉得太挤，要退回原样）。
@@ -1732,7 +1732,7 @@ function stopResize() {
    🔴 高度**不写死**：加 `height:38px` 会在字号/行高一变时把文字挤出去
       （`.psi-tbl` 就踩过"内容盒 8px < 复选框 13px"的同类坑）。
    🔴 纵向 padding 下限 5px：再小 16px 图标会贴上下边、圆角 10px 会吃到图标。 */
-.sb-item{display:flex;align-items:center;gap:var(--sp-h10);width:100%;padding:9px var(--sp-h10);border-radius:var(--radius-sm);color:var(--t2);text-decoration:none;font-size:var(--fs-base);line-height:1.6;transition:all var(--dur-base)}
+.sb-item{display:flex;align-items:center;gap:var(--sp-h10);width:100%;padding:9px var(--sp-h10);border-radius:var(--radius-sm);color:var(--t2);text-decoration:none;font-size:var(--fs-base);line-height:var(--lh-normal);transition:all var(--dur-base)}
 .sb-item:hover{background:var(--bg);color:var(--t1)}
 .sb-item.router-link-active{background:var(--p-bg);color:var(--p-dark);font-weight:500}
 /* ⚠️ v390（2026-10-07）：原 `.sb-grp`（分组标题：经营 / 核算 / 配置）**已随分组一起删除**
@@ -1810,10 +1810,10 @@ function stopResize() {
 /* v640（2026-10-22）：借鉴舟谱弹窗内「明细」次级入口 + 状态标签。
    两者都 `flex-shrink:0` 右对齐（行内 `.sb-pop-item` 是 `flex:1` 吃掉剩余宽度）；
    与 `.sb-pop-new`（L1 双入口右半区）同一套版式语言。 */
-.sb-pop-drill{font-size:var(--fs-xs);line-height:1;padding:3px 7px;border-radius:var(--radius-xs);
+.sb-pop-drill{font-size:var(--fs-xs);line-height:var(--lh-none);padding:3px 7px;border-radius:var(--radius-xs);
   background:var(--p-bg);color:var(--p-dark);text-decoration:none;flex-shrink:0;white-space:nowrap;transition:all var(--dur-base)}
 .sb-pop-drill:hover{background:var(--p-solid);color:#fff}
-.sb-pop-badge{font-size:var(--fs-xs);line-height:1;padding:var(--sp-h2) var(--sp-h6);border-radius:var(--radius-xs);white-space:nowrap;flex-shrink:0}
+.sb-pop-badge{font-size:var(--fs-xs);line-height:var(--lh-none);padding:var(--sp-h2) var(--sp-h6);border-radius:var(--radius-xs);white-space:nowrap;flex-shrink:0}
 .sb-pop-badge.tone-warn{background:var(--war-bg);color:var(--war)}
 .sb-pop-badge.tone-danger{background:var(--dan-bg);color:var(--dan)}
 .sb-pop-badge.tone-info{background:var(--p-bg);color:var(--p-dark)}

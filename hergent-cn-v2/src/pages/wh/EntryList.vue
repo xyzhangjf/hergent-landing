@@ -489,7 +489,7 @@ defineExpose({ load })
 .woi-pg.on { background: var(--p-solid); border-color: var(--p-dark); color: #fff }
 .woi-pg-size { width: auto; height: 28px; padding: 0 var(--sp-2); font-size:var(--fs-base); border-radius: var(--radius-sm) }
 
-.woi-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.woi-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
 
 .woi-form { display: flex; flex-direction: column; gap: var(--sp-3) }
 .woi-frow { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: flex-end }

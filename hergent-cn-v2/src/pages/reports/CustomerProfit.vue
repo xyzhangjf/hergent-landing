@@ -114,7 +114,7 @@ defineExpose({ load })
 /* 仅保留仍被引用的私有类（警示卡 / 合计卡挂在 #extra 插槽，插槽内容在本页作用域编译）。 */
 .cpf-warn { border-left: 3px solid var(--war); margin-top: var(--sp-h14); }
 .cpf-warn-hd { display: flex; align-items: center; gap: var(--sp-h6); font-weight: 600; color: var(--warn); margin-bottom: var(--sp-h6); }
-.cpf-warn p { font-size:var(--fs-sm); color: var(--t2); line-height: 1.7; margin: 0; }
+.cpf-warn p { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-relaxed); margin: 0; }
 .rpt-tot { margin-top: var(--sp-h14); padding: var(--sp-3) var(--sp-h14); }
 .rpt-tot-row { display: flex; flex-wrap: wrap; gap: var(--sp-5); margin-top: var(--sp-2); }
 .rpt-tot-i { display: flex; align-items: baseline; gap: var(--sp-h6); font-size:var(--fs-base); }

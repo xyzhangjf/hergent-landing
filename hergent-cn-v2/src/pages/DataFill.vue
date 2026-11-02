@@ -178,7 +178,7 @@ onMounted(() => {
 
 <style scoped>
 .df-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
-.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:1.7}
+.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-relaxed)}
 .df-tip code{background:var(--bg2);padding:1px var(--sp-h6);border-radius:var(--radius-xs);font-size:var(--fs-sm)}
 .df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 

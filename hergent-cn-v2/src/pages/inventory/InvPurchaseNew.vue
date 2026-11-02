@@ -1705,7 +1705,7 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
    每个必填格省下 2 个字的宽度，一行更容易并下全部字段。
    `.ipn-opt`（原「选填」弱色标记）已随本轮**整体撤除**（舟谱那边选填不打标），
    故那条规则一并删掉，不留死 CSS。 */
-.ipn-req { color: var(--dan-ink); font-size:var(--fs-base); line-height: 1; margin-right: var(--sp-h2) }
+.ipn-req { color: var(--dan-ink); font-size:var(--fs-base); line-height: var(--lh-none); margin-right: var(--sp-h2) }
 
 /* ══ v439（复刻舟谱·字段框）════════════════════════════════════════════════
    舟谱建单头那排是「**一个描边框**里左边标签、右边值」（`*供应商: 🔍`｜`*经办人: 请选择 ▾`），
@@ -1751,7 +1751,7 @@ watch([kind, fromPoQ, copyId], () => { reinit() })
    留在框里会把那一格撑到 78px 高、四个框永远不等高；移出后表单头 = 四个 32px 等高的框。
    `max-width` 由 340 放到 900：它现在占整行，不必再挤在 380px 的格里反复换行。
    `-6px` 上边距用来抵掉表单头那 12px 的下外边距，让说明贴着它说明的那个头。 */
-.ipn-hint { font-size:var(--fs-xs); color: var(--t3); line-height: 1.4; max-width: 900px; margin: -6px 0 var(--sp-3) }
+.ipn-hint { font-size:var(--fs-xs); color: var(--t3); line-height: var(--lh-tight); max-width: 900px; margin: -6px 0 var(--sp-3) }
 .ipn-hint b { color: var(--t2) }
 /* 只读值（退货模式的供应商 / 退货仓库 / 原单状态）：由原单带出，**改不了**
    （刻意不用 disabled input —— 那会让人以为点开能改）。
@@ -2098,7 +2098,7 @@ table.ipn-tbl tr:hover .ipn-v { box-shadow: inset 0 0 0 1px var(--bd) }
 }
 .ipn-bp-row { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-h6) }
 .ipn-bp-lb { flex: none; width: 52px; font-size:var(--fs-sm); color: var(--t3) }
-.ipn-bp-tip { margin: 0 0 var(--sp-h6); font-size:var(--fs-xs); line-height: 1.4; color: var(--t3) }
+.ipn-bp-tip { margin: 0 0 var(--sp-h6); font-size:var(--fs-xs); line-height: var(--lh-tight); color: var(--t3) }
 .ipn-bp-done {
   width: 100%; height: 26px; border: 1px solid var(--bd); border-radius: var(--radius-sm);
   background: var(--bg2); cursor: pointer; font-size:var(--fs-sm); color: var(--t1);

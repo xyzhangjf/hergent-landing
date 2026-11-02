@@ -411,18 +411,18 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 .field .input{padding-right:42px}
 /* 邀请码下方的一行说明：与输入框左边界对齐（52px 标签 + 10px gap），
    用负外边距吃掉 form 的 12px gap，避免注册表单被多撑高一行。 */
-.field-hint{font-size:var(--fs-xs);color:var(--t3);margin:-7px 0 -3px 62px;line-height:1.4}
+.field-hint{font-size:var(--fs-xs);color:var(--t3);margin:-7px 0 -3px 62px;line-height:var(--lh-tight)}
 /* 短信验证码（REGISTER_MODE=sms 分支）：输入框 + 「获取验证码」按钮同行 */
 .code-row{flex:1;min-width:0;display:flex;gap:var(--sp-2)}
 .code-send{flex-shrink:0;font-size:var(--fs-sm);padding:0 var(--sp-h10);white-space:nowrap}
-.login-legal{font-size:var(--fs-xs);color:var(--t3);text-align:center;margin-top:auto;line-height:1.9}
+.login-legal{font-size:var(--fs-xs);color:var(--t3);text-align:center;margin-top:auto;line-height:var(--lh-prose)}
 .login-forgot{font-size:var(--fs-sm);color:var(--t3);text-align:right;display:block;margin:-6px var(--sp-h2) 0;cursor:pointer}
 .login-forgot:hover{color:var(--p-dark)}
 .forgot-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1000}
 .forgot-modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;max-width:calc(100vw - 40px);background:var(--bg);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);padding:var(--sp-6);z-index:1001}
 .forgot-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-h14)}
 .forgot-hd b{font-size:var(--fs-lg);font-weight:600}
-.forgot-x{background:none;border:none;font-size:var(--fs-xl);color:var(--t3);cursor:pointer;line-height:1;padding:0 var(--sp-1)}
+.forgot-x{background:none;border:none;font-size:var(--fs-xl);color:var(--t3);cursor:pointer;line-height:var(--lh-none);padding:0 var(--sp-1)}
 .forgot-x:hover{color:var(--t1)}
 .forgot-tip{font-size:var(--fs-base);color:var(--t2);margin-bottom:var(--sp-h10)}
 .forgot-step{font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-2)}
@@ -435,7 +435,7 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 .login-legal a{color:var(--p-dark);text-decoration:none;margin:0 var(--sp-h2)}
 .login-legal a:hover{text-decoration:underline}
 .login-legal a.beian{color:var(--t3)}
-.login-agree{display:flex;align-items:flex-start;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-h2) 0 0;line-height:1.5}
+.login-agree{display:flex;align-items:flex-start;gap:var(--sp-h6);font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-h2) 0 0;line-height:var(--lh-snug)}
 .login-agree input{margin-top:var(--sp-h2);accent-color:var(--p);flex:none}
 .login-agree a{color:var(--p-dark);text-decoration:none}
 .login-agree a:hover{text-decoration:underline}
@@ -451,7 +451,7 @@ form{display:flex;flex-direction:column;gap:var(--sp-3);flex:1}
 .act-x{border:none;background:none;font-size:var(--fs-sm);color:var(--t3);cursor:pointer}
 .act-body{padding:var(--sp-5)}
 .act-step{font-size:var(--fs-md);font-weight:500;color:var(--t1);margin:0 0 var(--sp-2)}
-.act-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin:0 0 var(--sp-h14)}
+.act-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin:0 0 var(--sp-h14)}
 .act-drop{display:flex;align-items:center;justify-content:center;border:2px dashed var(--p-dark);border-radius:var(--radius-md);padding:26px var(--sp-4);font-size:var(--fs-base);color:var(--p-dark);cursor:pointer;text-align:center;transition:all var(--dur-base)}
 .act-drop:hover{background:var(--p-bg)}
 .act-drop.busy{opacity:.6}

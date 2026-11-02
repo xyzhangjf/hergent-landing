@@ -229,7 +229,7 @@ onMounted(load)
 .ap-meta{font-size:var(--fs-sm);color:var(--t2)}
 .ap-strong{font-size:var(--fs-sm);color:var(--p-dark);font-weight:500}
 .ap-warnchip{font-size:var(--fs-sm);color:var(--war);background:rgba(var(--war-rgb),.12);border:1px solid rgba(var(--war-rgb),.35);padding:1px var(--sp-2);border-radius:var(--radius-sm)}
-.ap-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.65;margin:var(--sp-3) 0}
+.ap-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);margin:var(--sp-3) 0}
 .ap-grid{display:grid;grid-template-columns:max-content minmax(180px,1fr) repeat(3,140px);gap:var(--sp-3);padding:var(--sp-h2) 0 var(--sp-h6)}
 .ap-grid .field{display:flex;flex-direction:column;gap:5px}
 .ap-grid .field label{font-size:var(--fs-sm);color:var(--t2)}
@@ -241,14 +241,14 @@ onMounted(load)
 .seg-btn{padding:var(--sp-h6) var(--sp-h14);border:0;background:transparent;cursor:pointer;font-size:var(--fs-base);color:var(--t2);font-family:inherit}
 .seg-btn.on{background:var(--p-solid);color:#fff}
 .seg-btn:disabled{opacity:.6;cursor:not-allowed}
-.ap-mirror{margin:var(--sp-h6) 0;font-size:var(--fs-sm);color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:1.55}
+.ap-mirror{margin:var(--sp-h6) 0;font-size:var(--fs-sm);color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-snug)}
 .ap-mirror-warn{color:var(--war);background:rgba(var(--war-rgb),.08)}
 .ap-edit{margin-left:var(--sp-2);color:var(--p-dark);text-decoration:none;border-bottom:1px dashed var(--p);font-size:var(--fs-sm);white-space:nowrap}
-.ap-warn{margin:var(--sp-h6) 0;font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:1.55}
+.ap-warn{margin:var(--sp-h6) 0;font-size:var(--fs-sm);color:var(--danger);background:rgba(192,57,43,.08);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-snug)}
 .ap-prev{margin-top:var(--sp-h10);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:var(--sp-h10);background:var(--bg2)}
 .ap-prev-hd{display:flex;gap:var(--sp-h14);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t3);margin-bottom:var(--sp-2)}
 /* v365：被「不到货」排除的期次 —— 说明条 + 行内标记。颜色全走既有令牌，零硬编码色 */
-.ap-excl{margin:0 0 var(--sp-2);font-size:var(--fs-sm);color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:1.6}
+.ap-excl{margin:0 0 var(--sp-2);font-size:var(--fs-sm);color:var(--p-dark);background:rgba(var(--p-rgb),.06);border-radius:var(--radius-xs);padding:var(--sp-h6) 9px;line-height:var(--lh-normal)}
 .ap-row-off td{color:var(--t3);text-decoration:line-through}
 .ap-row-off .ap-offchip{text-decoration:none}
 .ap-offchip{display:inline-block;margin-left:var(--sp-h6);font-size:var(--fs-xs);padding:1px var(--sp-h6);border-radius:var(--radius-xs);background:rgba(var(--war-rgb),.14);color:var(--war);text-decoration:none}

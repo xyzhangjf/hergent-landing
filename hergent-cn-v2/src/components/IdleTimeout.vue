@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
 .ito-card{width:100%;max-width:392px;background:var(--bg);color:var(--t1);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--sp-6) var(--sp-6) var(--sp-h18);box-shadow:var(--shadow-lg);text-align:center}
 .ito-ic{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:var(--radius-circle);background:rgba(var(--war-rgb),.14);color:var(--war);margin-bottom:var(--sp-3)}
 .ito-title{font-size:var(--fs-lg);font-weight:600;margin-bottom:var(--sp-2)}
-.ito-desc{font-size:var(--fs-base);line-height:1.75;color:var(--t2)}
+.ito-desc{font-size:var(--fs-base);line-height:var(--lh-relaxed);color:var(--t2)}
 .ito-desc b{color:var(--t1);font-weight:600}
 .ito-sec{display:inline-block;min-width:1.6em;font-variant-numeric:tabular-nums;color:var(--war)}
 .ito-actions{display:flex;gap:var(--sp-h10);margin-top:var(--sp-5)}

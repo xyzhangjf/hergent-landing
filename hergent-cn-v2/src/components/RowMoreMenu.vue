@@ -125,7 +125,7 @@ onBeforeUnmount(() => {
 .row-more-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 18px; height: 18px; padding: 0; border: none; background: none;
-  border-radius: var(--radius-2xs); color: var(--t3); cursor: pointer; line-height: 1;
+  border-radius: var(--radius-2xs); color: var(--t3); cursor: pointer; line-height: var(--lh-none);
 }
 .row-more-btn:hover { color: var(--p-dark); background: var(--bg3) }
 .row-more-btn.on { color: var(--p-dark); background: var(--bg3) }
@@ -148,7 +148,7 @@ onBeforeUnmount(() => {
 .row-more-mi {
   display: block; width: 100%; padding: var(--sp-h6) var(--sp-h10); border: none; background: none;
   text-align: left; white-space: nowrap; color: var(--t1); cursor: pointer;
-  border-radius: var(--radius-xs); font-size:var(--fs-base); line-height: 18px;
+  border-radius: var(--radius-xs); font-size:var(--fs-base); line-height: var(--lh-tight);
 }
 .row-more-mi:hover { background: var(--bg3) }
 .row-more-mi.danger { color: var(--danger-txt) }

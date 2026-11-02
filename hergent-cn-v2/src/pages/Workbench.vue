@@ -750,7 +750,7 @@ onMounted(loadData)
 .j-name{font-size:var(--fs-md);font-weight:600;color:var(--t1)}
 .j-drop{font-size:var(--fs-sm);color:var(--dan);font-weight:500}
 .j-grounded{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h6)}
-.j-diag{font-size:var(--fs-base);color:var(--t2);margin-top:var(--sp-2);line-height:1.6}
+.j-diag{font-size:var(--fs-base);color:var(--t2);margin-top:var(--sp-2);line-height:var(--lh-normal)}
 .j-diag-warn{color:var(--war)}
 .judge-tradeoff{margin-top:var(--sp-4);border-top:1px dashed var(--bd);padding-top:var(--sp-h14)}
 .j-tradeoff-hd{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);flex-wrap:wrap;font-size:var(--fs-md);font-weight:500;color:var(--t1)}
@@ -784,7 +784,7 @@ onMounted(loadData)
 .task-ic{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:var(--fs-h4);font-weight:500;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .task-main{flex:1;min-width:0}
 .task-title{font-size:var(--fs-md);font-weight:500;color:var(--t1);margin-bottom:3px;letter-spacing:.1px}
-.task-sub{font-size:var(--fs-sm);color:var(--t2);line-height:1.55}
+.task-sub{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-snug)}
 .task-acts{flex-shrink:0;display:flex;gap:var(--sp-h6);align-items:center}
 .task-acts .btn{height:28px;padding:0 var(--sp-3);font-size:var(--fs-sm);border-radius:var(--radius-sm)}
 .task-go{font-size:var(--fs-sm);color:var(--p-dark);cursor:pointer;white-space:nowrap}
@@ -812,28 +812,28 @@ onMounted(loadData)
 /* 经验闭环（内容现居 G 区「经验闭环」tab 内，v496 P0-3） */
 .loop-kpis{display:flex;gap:var(--sp-h18);flex-wrap:wrap;margin-top:var(--sp-h10)}
 .loop-kpi{display:flex;flex-direction:column;align-items:center;min-width:74px;padding:var(--sp-2) var(--sp-h10);border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg)}
-.loop-kpi .num{font-size:var(--fs-xl);font-weight:700;color:var(--t1);line-height:1.2}
+.loop-kpi .num{font-size:var(--fs-xl);font-weight:700;color:var(--t1);line-height:var(--lh-title)}
 .loop-kpi .num.ok{color:var(--suc)}
 .loop-kpi .num.warn{color:var(--war)}
 .loop-kpi .lbl{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
 .loop-accept{display:flex;gap:22px;flex-wrap:wrap;margin-top:var(--sp-3);font-size:var(--fs-base);color:var(--t2)}
 .loop-accept .la-row{display:flex;gap:var(--sp-h6);align-items:center}
 .loop-accept .la-row b{color:var(--t1);font-size:var(--fs-md)}
-.loop-note{margin-top:var(--sp-h10);font-size:var(--fs-sm);color:var(--t3);line-height:1.6}
+.loop-note{margin-top:var(--sp-h10);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 
 /* 空账套导入引导 —— 占整行，横向三段：图标 / 文案 / 操作 */
 .import-guide{grid-column:1/-1;display:flex;align-items:center;gap:var(--sp-h14);flex-wrap:wrap;border:1px dashed var(--bd)}
 .ig-ic{width:40px;height:40px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;background:var(--bg2);color:var(--p-dark);flex-shrink:0}
 .ig-txt{flex:1;min-width:220px}
 .ig-title{font-size:var(--fs-md);font-weight:500;color:var(--t1)}
-.ig-sub{font-size:var(--fs-sm);color:var(--t3);margin-top:3px;line-height:1.55}
+.ig-sub{font-size:var(--fs-sm);color:var(--t3);margin-top:3px;line-height:var(--lh-snug)}
 .ig-acts{display:flex;align-items:center;gap:var(--sp-h10);flex-shrink:0;flex-wrap:wrap}
 .ig-pick{display:inline-flex;align-items:center;cursor:pointer}
 .ig-pick.busy{opacity:.7;cursor:default}
 .ig-msg{font-size:var(--fs-sm);color:var(--dan)}
 .ig-msg.ok{color:var(--p-dark)}
 
-.ai-report{font-size:var(--fs-base);color:var(--t1);line-height:1.8;max-height:none;overflow-y:auto}
+.ai-report{font-size:var(--fs-base);color:var(--t1);line-height:var(--lh-loose);max-height:none;overflow-y:auto}
 .ai-loading{padding:var(--sp-3) 0}
 
 @media(max-width:1200px){

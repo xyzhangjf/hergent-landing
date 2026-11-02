@@ -179,7 +179,7 @@ loadReminder()
 .set-row>.input{flex:1 1 240px;width:auto;min-width:0}
 .set-row>.set-desc{flex:1 1 260px;min-width:0}
 .set-lb{display:inline-block;min-width:88px;font-size:var(--fs-base);color:var(--t2)}
-.set-desc{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:1.7}
+.set-desc{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:var(--lh-relaxed)}
 /* iOS 风格开关（沿用主题色变量） */
 .switch{position:relative;display:inline-block;width:42px;height:24px;flex:none}
 .switch input{opacity:0;width:0;height:0}

@@ -50,7 +50,7 @@ function toggle() { emit('update:modelValue', !isOpen.value) }
 }
 .cfg-titles{display:flex;flex-direction:column;gap:var(--sp-h2);min-width:0}
 .cfg-title{font-size:var(--fs-base);font-weight:600;color:var(--t1)}
-.cfg-sub{font-size:var(--fs-sm);color:var(--t3);line-height:1.4}
+.cfg-sub{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-tight)}
 .cfg-side{
   display:flex;align-items:center;gap:var(--sp-2);margin-left:auto;flex-wrap:wrap;justify-content:flex-end;
 }
@@ -64,5 +64,5 @@ function toggle() { emit('update:modelValue', !isOpen.value) }
 .cfg-side :deep(.cfg-chip.on){background:rgba(var(--suc-rgb),.12);color:var(--suc)}
 .cfg-side :deep(.cfg-chip.off){background:var(--bg2);color:var(--t3)}
 .cfg-side :deep(.cfg-chip.warn){background:rgba(var(--war-rgb),.12);color:var(--war);border:1px solid rgba(var(--war-rgb),.35)}
-.cfg-side :deep(.cfg-summary){font-size:var(--fs-sm);color:var(--t2);line-height:1.4}
+.cfg-side :deep(.cfg-summary){font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-tight)}
 </style>

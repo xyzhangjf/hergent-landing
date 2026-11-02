@@ -340,7 +340,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .field label{display:block;font-size:var(--fs-sm);color:var(--t2);margin-bottom:var(--sp-h6)}
 .field label.chk-label{display:flex;align-items:center;gap:var(--sp-2);cursor:pointer;font-size:var(--fs-sm);color:var(--t1)}
 .field label.chk-label input{accent-color:var(--p)}
-.field textarea{height:auto;resize:vertical;padding:var(--sp-h10) var(--sp-h14);line-height:1.6}
+.field textarea{height:auto;resize:vertical;padding:var(--sp-h10) var(--sp-h14);line-height:var(--lh-normal)}
 .chips{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-bottom:var(--sp-h6)}
 .chip{padding:var(--sp-h6) var(--sp-3);border:1px solid var(--bd);border-radius:var(--radius-lg);background:var(--bg3);color:var(--t2);font-size:var(--fs-sm);cursor:pointer;transition:all var(--dur-base)}
 .chip:hover{border-color:var(--p-dark);color:var(--p-dark)}
@@ -353,7 +353,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .push-ic{font-size:var(--fs-xl)}
 .push-row b{font-size:var(--fs-md);color:var(--t1)}
 .push-row .btn{margin-left:auto;flex-shrink:0}
-.push-help{margin-top:var(--sp-3);background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);color:var(--t2);line-height:1.8}
+.push-help{margin-top:var(--sp-3);background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-3) var(--sp-4);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-loose)}
 .push-help ol{margin:var(--sp-1) 0 0;padding-left:var(--sp-h18)}
 .push-set{display:flex;gap:var(--sp-2);margin-top:var(--sp-3)}
 .push-set .input{flex:1;height:32px;padding:0 var(--sp-3);font-size:var(--fs-base)}
@@ -362,7 +362,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 /* ④ cron 执行结果回流 */
 .exec-hd{display:flex;align-items:center;gap:var(--sp-3)}
 .exec-hd .btn{margin-left:auto;flex-shrink:0}
-.exec-empty{margin:var(--sp-h10) 0 var(--sp-h2);font-size:var(--fs-sm);color:var(--t3);line-height:1.7}
+.exec-empty{margin:var(--sp-h10) 0 var(--sp-h2);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed)}
 .exec-list{list-style:none;margin:var(--sp-h10) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--sp-h10)}
 .exec-item{display:flex;gap:var(--sp-h10);align-items:flex-start}
 .exec-dot{width:8px;height:8px;border-radius:var(--radius-circle);margin-top:var(--sp-h6);background:var(--t3);flex-shrink:0}
@@ -372,7 +372,7 @@ onMounted(() => { load(); loadPush(); loadExecutions() })
 .exec-top{display:flex;align-items:baseline;gap:var(--sp-h10)}
 .exec-name{font-size:var(--fs-base);color:var(--t1)}
 .exec-time{font-size:var(--fs-sm);color:var(--t3);margin-left:auto;flex-shrink:0}
-.exec-result{margin:3px 0 0;font-size:var(--fs-sm);color:var(--t2);line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.exec-result{margin:3px 0 0;font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);white-space:pre-wrap;word-break:break-word}
 
 /* 窄屏：栅格降为 6 列 → 两栏各占整行；单列屏全部堆叠 */
 @media(max-width:1200px){

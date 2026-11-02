@@ -291,7 +291,7 @@ onMounted(load)
 .cr-panel{grid-column:1/-1}
 .cr-hd-acts{margin-left:auto;display:flex;gap:var(--sp-2)}
 .cr-skel{padding:var(--sp-2) 0}
-.cr-empty{font-size:var(--fs-base);color:var(--t2);line-height:1.8}
+.cr-empty{font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-loose)}
 .cr-empty p{margin:var(--sp-1) 0}
 .cr-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-h10);margin-bottom:var(--sp-3)}
 .cr-kpi{background:var(--bg2);border-radius:var(--radius-md);padding:var(--sp-h10) var(--sp-h14);display:flex;flex-direction:column;gap:var(--sp-h2)}

@@ -124,7 +124,7 @@ const ariaText = computed(() => (props.text || '加载中').replace(/…+$/, '')
 .td-tx {
   font-style: normal;
   font-size: var(--td-fs, 12px);
-  line-height: 1;
+  line-height: var(--lh-none);
   color: var(--td-color, var(--t3));
 }
 

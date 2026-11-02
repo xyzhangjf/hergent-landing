@@ -536,7 +536,7 @@ onMounted(loadAll)
   padding: 46px var(--sp-5); color: var(--t3); text-align: center;
 }
 .rts-empty p { margin: 0 }
-.rts-empty-hint { font-size:var(--fs-sm); color: var(--t3); line-height: 1.7; max-width: 560px }
+.rts-empty-hint { font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-relaxed); max-width: 560px }
 
-.rts-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.rts-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
 </style>

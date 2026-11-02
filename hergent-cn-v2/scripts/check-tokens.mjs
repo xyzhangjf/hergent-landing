@@ -205,6 +205,63 @@ function checkFontSizes () {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   v728 · 行高护栏
+   ─────────────────────────────────────────────────────────────────────────────
+   由来：全站原本 **0 个行高令牌**，475 处声明散在 21 种取值里。真正的病不是"值太多"
+   （倍数只有 12 种），而是**同一字号配了太多种行高** —— 12px 提示文字用过 23 种，
+   折算出来从 12px 到 25px 都有。同一张卡片里两行说明文字，一行松一行紧。
+
+   判据：只许 `var(--lh-*)`，另放行三类**不是行高**的写法 ——
+     · `0`      消除内联元素空白符 / 图标对齐的技巧（不是"行高为 1"，归一会错位）
+     · `normal` 让浏览器算（UA ≈1.2），只出现在 `<button>` 复位类规则里
+     · `var(--fc-cell…)` / `calc(…)`  图表单元格尺寸，是布局量不是文字行高
+
+   ⚠️ 这条护栏只能拦住"新增裸值"，不能替你判断"这个位置该用哪档" ——
+      后者要看它是单行控件（none）、表格密排（tight）、还是多行说明（normal/relaxed）。 */
+const LH_DECL = /(?<![\w-])line-height\s*:\s*([^;{}"'<>]+)/g
+const LH_TOKEN = /var\(\s*--lh-[A-Za-z0-9-]*\s*\)/g
+
+function checkLineHeights () {
+  const bad = []
+  let asHeight = 0
+  for (const abs of walk(SRC)) {
+    if (!/\.(vue|css)$/.test(abs)) continue
+    const rel = relative(ROOT, abs).split('\\').join('/')
+    const src = stripComments(readFileSync(abs, 'utf8'))
+    /* 逐**规则块**扫，而不是逐声明 —— 判"用行高当高度"必须同块看 height。 */
+    for (const blk of src.matchAll(/\{([^{}]*)\}/g)) {
+      const body = blk[1]
+      const m = /(?:^|;|\s)line-height\s*:\s*([^;}]+)/.exec(body)
+      if (!m) continue
+      const val = m[1].trim()
+
+      const rest = val
+        .replace(LH_TOKEN, '')
+        .replace(/var\(\s*--fc-cell[^()]*(?:\([^()]*\)[^()]*)*\)/g, '')
+        .replace(/calc\([^()]*(?:\([^()]*\)[^()]*)*\)/g, '')
+        .replace(/!\s*important/gi, '')
+        .replace(/^-?0(?:\.0+)?(?:px)?$/g, '')
+        .replace(/^(normal|inherit|initial|unset)$/gi, '')
+        .trim()
+      if (!rest) continue
+
+      /* 「用行高当高度」是一种**技术债**，但它不是文字行距：
+         `height:32px;line-height:32px` / `min-height:16px;line-height:16px` /
+         `min-height:38px;line-height:36px`（差 2px 是上下边框）——
+         这类靠 line-height 把单行文字撑到容器高，硬套成倍数会立刻错位。
+         常见于输入框、圆形图标、紧凑密度档单元格。放行并计数，P1 应改成 flex 居中。 */
+      const hn = /(?:^|;|\s)(?:min-)?height\s*:\s*(\d+(?:\.\d+)?)px/.exec(body)
+      const ln = /^(\d+(?:\.\d+)?)px$/.exec(val.replace(/!\s*important/i, '').trim())
+      if (hn && ln && Math.abs(parseFloat(hn[1]) - parseFloat(ln[1])) <= 2) { asHeight++; continue }
+
+      bad.push({ rel, val })
+    }
+  }
+  if (asHeight) console.log(`  · 行高护栏放行 ${asHeight} 处「用 line-height 当高度」（输入框/圆形图标/紧凑档单元格，P1 应改 flex 居中）`)
+  return bad
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    v727 · 间距护栏
    ─────────────────────────────────────────────────────────────────────────────
    由来：`gap/padding/margin` 的间距字面量共 **5037 处 / 43 个值**，其中
@@ -262,6 +319,7 @@ const iconBad = checkIconSizes()
 const radiusBad = checkRadius()
 const fsBad = checkFontSizes()
 const spBad = checkSpacing()
+const lhBad = checkLineHeights()
 if (args.has('--update')) {
   const obj = {}
   for (const k of [...current.keys()].sort()) obj[k] = [...current.get(k)].sort()
@@ -300,7 +358,7 @@ for (const [file, vals] of current) {
   if (added.length) violations.push({ file, kind: 'new-color', vals: added })
 }
 
-if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length) {
+if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length) {
   const files = Object.keys(base).length
   const total = Object.values(base).reduce((a, b) => a + b.length, 0)
   console.log(`✓ 设计令牌护栏通过（存量待清：${files} 个文件 / ${total} 条，见 --list）`)
@@ -308,6 +366,7 @@ if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length 
   console.log(`✓ 圆角护栏通过（只许 --radius-* / 0 / inherit）`)
   console.log(`✓ 字号护栏通过（只许 var(--fs-*) / 0 / em·rem·%）`)
   console.log(`✓ 间距护栏通过（12 档必须走令牌；离群值不许新增）`)
+  console.log(`✓ 行高护栏通过（只许 var(--lh-*) / 0 / normal）`)
   process.exit(0)
 }
 
@@ -320,6 +379,18 @@ if (radiusBad.length) {
   console.error('  md 12px 卡片　lg 16px 大卡片/面板　xl 22px 弹窗')
   console.error('  pill 999px 胶囊（不管多高都半圆）　circle 50% 正圆')
   console.error('\n不要在局部写死 px —— 元素高度一变，写死的半高就不再是胶囊了。\n')
+}
+
+if (lhBad.length) {
+  console.error('\n✗ 行高护栏：出现了 var(--lh-*) 之外的 line-height\n')
+  for (const b of lhBad.slice(0, 15)) console.error(`  ${b.rel}\n    line-height: ${b.val}`)
+  if (lhBad.length > 15) console.error(`  …… 另有 ${lhBad.length - 15} 处`)
+  console.error('\n行高 11 档（variables.css）：')
+  console.error('  1 单行控件 | 1.1 大数字 | 1.2 标题 | 1.3 中间 | 1.4 密排/表格')
+  console.error('  1.5 次要 | 1.6 正文主力 | 1.7 说明文字 | 1.8 长段落 | 1.9 | 2')
+  console.error('\n允许例外：0（消除内联空白符，不是"行高为 1"）、normal（UA 算）、')
+  console.error('  var(--fc-cell)/calc()（图表单元格尺寸，不是文字行距）。')
+  console.error('选哪档看这个元素是"单行控件 / 表格密排 / 多行说明"。\n')
 }
 
 if (fsBad.length) {

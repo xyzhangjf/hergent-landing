@@ -156,7 +156,7 @@ defineExpose({ addRow, validItems, validCount })
 .whi-num { text-align: right; font-variant-numeric: tabular-nums }
 .whi-unit {
   display: inline-block; margin-top: var(--sp-h2);
-  font-size:var(--fs-xs); color: var(--t3); line-height: 1.2;
+  font-size:var(--fs-xs); color: var(--t3); line-height: var(--lh-title);
 }
 /* 🔴 `ProductCombo` 在「未选中」时渲染的是一个**空 `<span class="ipn-v">`**（它没有 placeholder
    prop，只有 `Supplier`/`Customer` 那两个组合框有）⇒ 在本表里看着就是一个**空白单元格**，
@@ -179,6 +179,6 @@ defineExpose({ addRow, validItems, validCount })
 .whi-del:hover:not(:disabled) { background: var(--dan-bg, rgba(220, 60, 60, .1)); color: var(--dan) }
 .whi-del:disabled { opacity: .35; cursor: not-allowed }
 .whi-foot {
-  margin-top: var(--sp-2); font-size:var(--fs-sm); color: var(--t3); line-height: 1.7;
+  margin-top: var(--sp-2); font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-relaxed);
 }
 </style>

@@ -531,7 +531,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 
 /* 弹窗（v691：定位/层级/圆角/遮罩/三段结构与动画统一由 components/Modal.vue 提供，
    本页只保留弹窗内部排版 —— 这些 class 都挂在 slot 内的元素上） */
-.cas-tip{font-size:var(--fs-sm);color:var(--t2);line-height:1.7;margin:0 0 var(--sp-3);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
+.cas-tip{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed);margin:0 0 var(--sp-3);background:var(--bg2);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm)}
 
 .cas-form{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h14)}
 .cas-form-more{margin-top:var(--sp-3);padding-top:var(--sp-3);border-top:1px dashed var(--border-subtle)}
@@ -541,7 +541,7 @@ onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 .cas-f em{font-size:var(--fs-xs);color:var(--t3);font-style:normal}
 .cas-f .input{height:32px;padding:0 var(--sp-h10)}
 .cas-f-full{grid-column:1 / -1}
-.cas-ta{height:auto;min-height:60px;padding:var(--sp-2) var(--sp-h10);line-height:1.6;resize:vertical;font-family:inherit}
+.cas-ta{height:auto;min-height:60px;padding:var(--sp-2) var(--sp-h10);line-height:var(--lh-normal);resize:vertical;font-family:inherit}
 .cas-more{width:100%;margin-top:var(--sp-3);padding:var(--sp-2);border:1px dashed var(--border-subtle);border-radius:var(--radius-sm);
   background:none;color:var(--t2);font-size:var(--fs-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:var(--sp-h6)}
 .cas-more:hover{color:var(--p-ink);border-color:var(--p)}

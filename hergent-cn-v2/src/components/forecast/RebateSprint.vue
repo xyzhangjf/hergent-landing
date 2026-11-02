@@ -610,7 +610,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-card.is-pinned{margin:var(--sp-h14) 0 var(--sp-1);border:1px solid var(--p);box-shadow:0 2px 12px rgba(6,182,212,.14);background:linear-gradient(180deg,color-mix(in srgb,var(--p) 6%,var(--bg2)) 0%,var(--bg2) 60px)}
 .sprint-card.is-pinned .panel-hd{border-bottom:1px dashed var(--border-subtle);padding-bottom:var(--sp-h10);margin-bottom:0}
 /* 决策横幅（A2）：一行承载「未达标数 / 总缺口 / 剩余到货机会 / 均单需报」，折叠与展开都常显 */
-.sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-h6);padding:9px var(--sp-4);font-size:var(--fs-sm);line-height:1.5;color:var(--t2)}
+.sprint-banner{display:flex;align-items:center;flex-wrap:wrap;gap:var(--sp-h6);padding:9px var(--sp-4);font-size:var(--fs-sm);line-height:var(--lh-snug);color:var(--t2)}
 .sprint-banner b{color:var(--t1);font-variant-numeric:tabular-nums}
 /* 数值状态色复用既有 .val-warn / .val-ok（见本文件 L6799-6800），不另造色类；
    因 .sprint-banner b 优先级更高，需显式压过，故写成 b.val-warn */
@@ -634,7 +634,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
    ⚠️ table-layout:auto 会把该列宽度**下限**顶在 max(td 自带 min-width:110px, 文案 min-content) 上，
    给 td 设 max-width 是无效的（实测设 64px、列宽仍为 102.8px）⇒ 要复现「放不下」只能约束本元素自身宽度。
    放不下时用 visibility:hidden（不是 display:none）保留占位 —— 行高不跳动、显隐不引起表格重排。 */
-.sprint-card .sp-pace{display:block;width:100%;margin-top:3px;font-size:var(--fs-sm);line-height:1.25;
+.sprint-card .sp-pace{display:block;width:100%;margin-top:3px;font-size:var(--fs-sm);line-height:var(--lh-title);
   white-space:nowrap;overflow:hidden;font-variant-numeric:tabular-nums}
 .sprint-card .sp-pace.is-hidden{visibility:hidden}
 .sprint-card .sp-pace.pace-behind{color:var(--dan)}
@@ -642,10 +642,10 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
 .sprint-card .sp-pace.pace-even{color:var(--t3)}
 /* 时间语义着色：达成未达时间进度=红，已超前=绿（复用全局 .progress>i 的绿/琥珀范式） */
 .sprint-card .progress.red>i{background:var(--dan)}
-.sprint-sum{margin:0 0 var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:1.7}
+.sprint-sum{margin:0 0 var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-relaxed)}
 .sprint-sum b{color:var(--t1)}
 .sprint-sum .muted{color:var(--t3);font-size:var(--fs-sm)}
-.sprint-suggest{margin-top:var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:1.8}
+.sprint-suggest{margin-top:var(--sp-3);font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-loose)}
 .sprint-suggest ul{margin:var(--sp-h6) 0 0;padding-left:var(--sp-h18)}
 .sprint-suggest li{margin:var(--sp-1) 0}
 .sprint-prod{display:inline-block;margin:0 var(--sp-2) 0 var(--sp-1);padding:1px var(--sp-2);background:var(--bg3);border-radius:var(--radius-md);font-size:var(--fs-sm);color:var(--t2)}

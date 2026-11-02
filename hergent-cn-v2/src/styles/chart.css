@@ -62,12 +62,12 @@
   font-size:var(--fs-sm);z-index:5}
 .ch-tip.to-left{transform:translateX(-100%)}
 .ch-tip b{display:block;margin-bottom:var(--sp-h6);font-size:var(--fs-sm);font-weight:500;color:var(--t1)}
-.ch-tp-row{display:flex;align-items:center;gap:var(--sp-2);line-height:1.9}
+.ch-tp-row{display:flex;align-items:center;gap:var(--sp-2);line-height:var(--lh-prose)}
 .ch-tp-k{color:var(--t3);flex:none}
 .ch-tp-v{color:var(--t1);font-variant-numeric:tabular-nums;margin-left:auto}
 .ch-tp-r{color:var(--t2);font-variant-numeric:tabular-nums}
 .ch-tp-r.warn{color:var(--danger-txt)}
-.ch-tp-ex{display:flex;gap:var(--sp-2);line-height:1.9;border-top:1px solid var(--border-subtle);margin-top:var(--sp-1);padding-top:var(--sp-1)}
+.ch-tp-ex{display:flex;gap:var(--sp-2);line-height:var(--lh-prose);border-top:1px solid var(--border-subtle);margin-top:var(--sp-1);padding-top:var(--sp-1)}
 .ch-tp-ex .ch-tp-v{color:var(--t2)}
 
 /* —— 环形图：中心汇总 + 右侧图例 —— */
@@ -121,7 +121,7 @@
 .ch-md-lg i{width:8px;height:8px;border-radius:var(--radius-hair);flex:none}
 /* 形态切换（走势 / 对比 / 占比） */
 .ch-md-seg{display:inline-flex;border:1px solid var(--bd);border-radius:var(--radius-xs);overflow:hidden;margin-bottom:var(--sp-h6)}
-.ch-md-segbtn{padding:var(--sp-h2) 9px;font:inherit;font-size:var(--fs-xs);line-height:1.7;background:transparent;border:0;color:var(--t2);cursor:pointer}
+.ch-md-segbtn{padding:var(--sp-h2) 9px;font:inherit;font-size:var(--fs-xs);line-height:var(--lh-relaxed);background:transparent;border:0;color:var(--t2);cursor:pointer}
 .ch-md-segbtn + .ch-md-segbtn{border-left:1px solid var(--bd)}
 .ch-md-segbtn.on{background:var(--p-solid);color:#fff}
 /* 环形：左图右明细（明细就是图例，名称+数值+占比三件一起看） */

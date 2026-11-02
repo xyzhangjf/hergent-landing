@@ -172,7 +172,7 @@ onMounted(loadInfo)
 
 <style scoped>
 .sec { margin-top: var(--sp-h14); }
-.doc-list, .ep-list { margin: 0; padding: var(--sp-1) var(--sp-h18) var(--sp-h14); line-height: 2; }
+.doc-list, .ep-list { margin: 0; padding: var(--sp-1) var(--sp-h18) var(--sp-h14); line-height: var(--lh-double); }
 .doc-list code, .ep-list code { background: var(--bg2); padding: 1px var(--sp-h6); border-radius: var(--radius-2xs); font-size:var(--fs-sm); }
 .ep-list li { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
 .ep-list li span { color: var(--t2); font-size:var(--fs-base); }

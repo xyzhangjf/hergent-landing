@@ -56,8 +56,8 @@ function onEnter() {
 </script>
 
 <style scoped>
-.ui-cd-text{font-size:var(--fs-md);color:var(--t1);line-height:1.6;white-space:pre-line}
-.ui-cd-cons{font-size:var(--fs-base);line-height:1.6;color:var(--danger-txt);background:var(--danger-bg);
+.ui-cd-text{font-size:var(--fs-md);color:var(--t1);line-height:var(--lh-normal);white-space:pre-line}
+.ui-cd-cons{font-size:var(--fs-base);line-height:var(--lh-normal);color:var(--danger-txt);background:var(--danger-bg);
   padding:9px var(--sp-3);border-radius:var(--radius-sm)}
 .ui-cd-field{display:flex;flex-direction:column;gap:var(--sp-h6)}
 .ui-cd-label{font-size:var(--fs-base);color:var(--t2)}

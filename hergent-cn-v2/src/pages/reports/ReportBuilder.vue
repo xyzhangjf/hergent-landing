@@ -673,12 +673,12 @@ onMounted(loadList)
   min-width: 0;
 }
 .rb-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:var(--fs-sm) }
-.rb-hint { margin-top: var(--sp-2); font-size:var(--fs-sm); color: var(--t3); line-height: 1.8 }
+.rb-hint { margin-top: var(--sp-2); font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-loose)}
 
 .rb-sql {
   width: 100%; box-sizing: border-box; padding: var(--sp-h10) var(--sp-3); border-radius: var(--radius-sm);
   border: 1px solid var(--line); background: var(--bg2); color: var(--t1);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:var(--fs-sm); line-height: 1.7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:var(--fs-sm); line-height: var(--lh-relaxed);
   resize: vertical;
 }
 
@@ -695,7 +695,7 @@ onMounted(loadList)
 .rb-col-hd { font-size:var(--fs-xs); color: var(--t3); padding: 0 var(--sp-h2) var(--sp-h2) }
 .rb-col-ops { display: flex; gap: var(--sp-h2) }
 .rb-x {
-  width: 22px; height: 22px; line-height: 1; padding: 0; border: 1px solid var(--line);
+  width: 22px; height: 22px; line-height: var(--lh-none); padding: 0; border: 1px solid var(--line);
   background: var(--bg1); color: var(--t2); border-radius: var(--radius-2xs); cursor: pointer; font-size:var(--fs-sm);
 }
 .rb-x:disabled { opacity: .35; cursor: default }
@@ -724,17 +724,17 @@ onMounted(loadList)
 .rb-note {
   width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: var(--radius-sm);
   border: 1px solid var(--line); background: var(--bg1); color: var(--t1);
-  font-size:var(--fs-sm); line-height: 1.9; resize: vertical;
+  font-size:var(--fs-sm); line-height: var(--lh-prose); resize: vertical;
 }
 
 .rb-err { padding: var(--sp-3) var(--sp-h14); border-left: 3px solid var(--danger); background: var(--bg2) }
 .rb-err-hd { display: flex; align-items: center; gap: var(--sp-h6); font-size:var(--fs-sm); font-weight: 600; color: var(--danger) }
-.rb-err p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: 1.8; color: var(--t2); word-break: break-all }
+.rb-err p { margin: var(--sp-h6) 0 0; font-size:var(--fs-sm); line-height: var(--lh-loose); color: var(--t2); word-break: break-all }
 
 .rb-hollow { padding: 28px var(--sp-6); text-align: center }
 .rb-hollow h2 { font-size:var(--fs-md); font-weight: 600; margin-bottom: var(--sp-2); color: var(--t1) }
-.rb-hollow p { font-size:var(--fs-sm); color: var(--t2); line-height: 1.9 }
+.rb-hollow p { font-size:var(--fs-sm); color: var(--t2); line-height: var(--lh-prose)}
 
-.rb-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: 1.9; color: var(--t3) }
+.rb-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-prose); color: var(--t3) }
 .rb-foot code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs) }
 </style>

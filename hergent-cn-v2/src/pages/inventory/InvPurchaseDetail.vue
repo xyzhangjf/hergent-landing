@@ -2192,7 +2192,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 .ipd-mi {
   display: block; width: 100%; padding: 7px var(--sp-h10); border: none; background: none;
   border-radius: var(--radius-sm); text-align: left; font-size:var(--fs-base);
-  line-height: 1.45; color: var(--t1); cursor: pointer;
+  line-height: var(--lh-tight); color: var(--t1); cursor: pointer;
 }
 .ipd-mi:hover { background: var(--bg2) }
 /* 菜单项副标题：解释「这条和那条差在哪」，否则两个「打印」会让人分不清 */
@@ -2457,7 +2457,7 @@ tfoot td { font-weight: 600 }
   min-width: 15px; height: 15px; padding: 0 3px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--radius-sm); background: var(--p-solid); color: #fff;
-  font-size:var(--fs-xs); line-height: 1; font-variant-numeric: tabular-nums;
+  font-size:var(--fs-xs); line-height: var(--lh-none); font-variant-numeric: tabular-nums;
 }
 /* 🔴 全局 `.page-hd.split` 是 `align-items:flex-start` —— 左侧那个 div 里
    `<h2>` 是块级元素，会把副标题（单号 + 状态）挤到第二行。这里把左侧自己
@@ -2472,7 +2472,7 @@ tfoot td { font-weight: 600 }
 .ipd-row > span:last-child, .ipd-row > b { text-align: right }
 .ipd-row-b { border-top: 1px solid var(--border-subtle); padding-top: var(--sp-h10); margin-top: var(--sp-h2) }
 .ipd-warn {
-  display: flex; gap: var(--sp-2); align-items: flex-start; font-size:var(--fs-sm); line-height: 1.6;
+  display: flex; gap: var(--sp-2); align-items: flex-start; font-size:var(--fs-sm); line-height: var(--lh-normal);
   color: var(--t1); background: var(--warn-amber-bg);
   border-radius: var(--radius-md); padding: var(--sp-h10) var(--sp-3);
 }
@@ -2520,7 +2520,7 @@ tfoot td { font-weight: 600 }
 .ipd-log-at { width: 170px; white-space: nowrap; font-variant-numeric: tabular-nums }
 .ipd-log-ev { width: 108px; white-space: nowrap }
 .ipd-log-dt { color: var(--t2); word-break: break-all }
-.ipd-loghint { margin: var(--sp-3) 0 0; line-height: 1.6 }
+.ipd-loghint { margin: var(--sp-3) 0 0; line-height: var(--lh-normal)}
 
 /* ---- 附件（v408 P1-8）----
    ⚠️ 这些是**本页私有**样式：附件 UI 目前只有采购单详情页一处。将来第二处要用时，

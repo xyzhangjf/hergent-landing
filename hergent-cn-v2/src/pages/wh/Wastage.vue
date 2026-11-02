@@ -580,7 +580,7 @@ defineExpose({ load: loadList })
 }
 .wl-op:hover { text-decoration: underline }
 
-.wl-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.wl-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
 .wl-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .wl-lock, .wl-void {
@@ -622,7 +622,7 @@ defineExpose({ load: loadList })
 /* 显著警示条：报损是一次性生效的库存+账务动作 */
 .wl-warn {
   display: flex; align-items: flex-start; gap: var(--sp-2);
-  margin-bottom: var(--sp-h14); padding: 9px var(--sp-3); font-size:var(--fs-sm); line-height: 1.6;
+  margin-bottom: var(--sp-h14); padding: 9px var(--sp-3); font-size:var(--fs-sm); line-height: var(--lh-normal);
   border: 1px solid var(--border-subtle); border-left: 3px solid var(--dan);
   border-radius: var(--radius-md); background: var(--bg2); color: var(--t2);
 }

@@ -355,6 +355,34 @@
   --fs-h1:24px;    /* 一级页头（大盘/工作台主标题） */
   --fs-num-lg:26px;/* 大数值 / 头像字符 */
 
+  /* 行高阶梯（v728 建立 11 档，0.1 步长）。
+     ------------------------------------------------------------
+     改前：全站 0 个行高令牌，475 处声明散在 21 种取值里，**同一字号最多配 23 种行高**
+     （12px 提示文字同时用过 1 / 1.25 / 1.3 / 1.35 / 1.4 … 2.1，折算 12–25px）。
+     改后：一律引用下面 11 档。**行高跟字号走，所以用倍数而不是 px** ——
+     写死 px 的话，字号档一变（如窄屏 KPI 从 22 降到 18），行高就不同步了。
+
+     🔴 允许直接写字面量的只有三种，护栏已放行：
+        `0`        消除内联元素空白符 / 图标对齐的技巧，**不是"行高为 1"**，别归一
+        `normal`   让浏览器算（UA 约 1.2），只出现在 `<button>` 复位类规则里
+        `var(--fc-cell,20px)` / `calc(…)`  图表单元格尺寸，是布局量不是文字行高
+
+     ⚠️ 核心 5 档：none / tight / normal / relaxed / loose。
+        其余 6 档（flat/title/mid/snug/prose/double）是**过渡档**，
+        P1 归一的目标是把它们往核心档靠（如 snug 1.5 → normal 1.6），
+        届时只改这里一行、全站跟着动，再跑视觉回归。 */
+  --lh-none:1;      /* 单行：图标按钮、单行控件垂直居中（改成 1.2 会错位） */
+  --lh-flat:1.1;    /* 过渡｜大数字（24px+），越大的字越不需要行距 */
+  --lh-title:1.2;   /* 过渡｜标题 */
+  --lh-mid:1.3;     /* 过渡｜中间档 */
+  --lh-tight:1.4;   /* 密排：表格单元格、列表项、标签 */
+  --lh-snug:1.5;    /* 过渡｜次要 */
+  --lh-normal:1.6;  /* 正文主力 —— 全站最多 */
+  --lh-relaxed:1.7; /* 说明文字主力 —— 第二多 */
+  --lh-loose:1.8;   /* 长段落 */
+  --lh-prose:1.9;   /* 过渡｜长段落（更松） */
+  --lh-double:2;    /* 过渡｜双倍 */
+
   /* 间距阶梯（v727 建立 12 档）。
      ------------------------------------------------------------
      改前：`--sp-1..6` 只覆盖 6 个值，而全站间距字面量有 **5037 处 / 43 个值**，
@@ -614,7 +642,7 @@ html,body{height:100%}
 body{
   font-family:var(--font-sans);
   font-size:var(--fs-md);
-  line-height:1.6;
+  line-height:var(--lh-normal);
   color:var(--t1);
   background:var(--bg);
   -webkit-font-smoothing:antialiased;
@@ -794,7 +822,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    渲染成「品牌 2 ⌄」这种与相邻按钮不同构的排版，且计数与标签之间只靠文本空格分隔。
    这里给成一个 18px 高的小胶囊：字号降一档以示「这是计数不是标签」，主色系与站内
    .confirm-badge 同源；高度写死使它在 32px 按钮内不参与撑高。 */
-.btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-deep);font-size:var(--fs-xs);font-weight:600;line-height:1;white-space:nowrap}
+.btn-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-deep);font-size:var(--fs-xs);font-weight:600;line-height:var(--lh-none);white-space:nowrap}
 .btn-badge.err{background:var(--danger-bg);color:var(--danger-txt)}
 .btn-icon{width:30px;height:30px;padding:0;border:none;background:none;border-radius:var(--radius-sm);color:var(--t2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:background var(--dur-base),color var(--dur-base)}
 .btn-icon svg{width:16px;height:16px}
@@ -880,7 +908,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
 /* v719 P2：页面标题改用 `<h1>`（每页唯一），同时保留 h2 兼容 —— 137 个页面里 62 处已改，
    剩下的少数（弹窗式页面、登录页、导入页）仍是 h2；两代写法必须同观感，否则改一个漏一个就漂。
    `margin:0` 是必须的：h1 的 UA 默认 margin 是 0.67em，会撑开页头且与 h2 不齐。 */
-.page-hd :is(h1,h2){font-size:var(--fs-h2);font-weight:600;margin:0;line-height:1.35}
+.page-hd :is(h1,h2){font-size:var(--fs-h2);font-weight:600;margin:0;line-height:var(--lh-tight)}
 .page-hd.split{align-items:flex-start;justify-content:space-between;gap:var(--sp-3)}
 .page-hd.flush{margin-bottom:0}
 .page-sub{font-size:var(--fs-sm);color:var(--t3)}
@@ -996,7 +1024,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
   content:'';position:absolute;left:-18px;top:3px;
   width:3px;height:14px;border-radius:0 var(--radius-hair) var(--radius-hair) 0;background:var(--p-dark);
 }
-.sec-sub{font-weight:400;font-size:var(--fs-sm);color:var(--t3);line-height:1.6}
+.sec-sub{font-weight:400;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 /* 标题若写成 `<b>xxx</b>`（多数页面如此），让它继承 600 而不是 UA 的 700 —— 否则同一
    视觉语言在两个页面里字重不一（本类只新增，不影响任何既有选择器）。 */
 .sec-hd b{font-weight:inherit}
@@ -1237,7 +1265,7 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
      </label> */
 .input.err{border-color:var(--dan);background:var(--danger-bg)}
 .input.err:focus{border-color:var(--dan);box-shadow:0 0 0 3px var(--dan-bg)}
-.field-err{display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-sm);color:var(--danger-txt);line-height:1.5}
+.field-err{display:flex;align-items:center;gap:var(--sp-1);font-size:var(--fs-sm);color:var(--danger-txt);line-height:var(--lh-snug)}
 
 /* 移动端基础 */
 @media(max-width:768px){

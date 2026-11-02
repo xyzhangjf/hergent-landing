@@ -1657,7 +1657,7 @@ watch([copyId], () => { reinit() })
    每个必填格省下 2 个字的宽度，一行更容易并下全部字段。
    `.ipn-opt`（原「选填」弱色标记）已随本轮**整体撤除**（舟谱那边选填不打标），
    故那条规则一并删掉，不留死 CSS。 */
-.ipn-req { color: var(--dan-ink); font-size:var(--fs-base); line-height: 1; margin-right: var(--sp-h2) }
+.ipn-req { color: var(--dan-ink); font-size:var(--fs-base); line-height: var(--lh-none); margin-right: var(--sp-h2) }
 /* v455：必填项图例（复刻舟谱创建页右上角那枚）。钉在标题右侧，
    让表单头 / 明细表里散落的红 `*` 有一个统一的解释处。 */
 .ipn-legend {
@@ -1703,7 +1703,7 @@ watch([copyId], () => { reinit() })
    留在框里会把那一格撑到 78px 高、四个框永远不等高；移出后表单头 = 四个 32px 等高的框。
    `max-width` 由 340 放到 900：它现在占整行，不必再挤在 380px 的格里反复换行。
    `-6px` 上边距用来抵掉表单头那 12px 的下外边距，让说明贴着它说明的那个头。 */
-.ipn-hint { font-size:var(--fs-xs); color: var(--t3); line-height: 1.4; max-width: 900px; margin: -6px 0 var(--sp-3) }
+.ipn-hint { font-size:var(--fs-xs); color: var(--t3); line-height: var(--lh-tight); max-width: 900px; margin: -6px 0 var(--sp-3) }
 .ipn-hint b { color: var(--t2) }
 /* 只读值（退货模式的供应商 / 退货仓库 / 原单状态）：由原单带出，**改不了**
    （刻意不用 disabled input —— 那会让人以为点开能改）。
@@ -1771,7 +1771,7 @@ watch([copyId], () => { reinit() })
 .ipn-prod-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
 /* v685：档位徽标（同名商品靠它分辨多档 / 仅一档 / 无价）。不换行、不被省略号吃掉。 */
 .ipn-prod-tier {
-  flex: none; font-size:var(--fs-xs); line-height: 16px; padding: 0 5px; border-radius: var(--radius-2xs);
+  flex: none; font-size:var(--fs-xs); line-height: var(--lh-snug); padding: 0 5px; border-radius: var(--radius-2xs);
   color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .ipn-prod-tier.is-muted { color: var(--t3) }
@@ -2066,7 +2066,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 .ipn-hist-warn {
   display: flex; align-items: flex-start; gap: var(--sp-h6);
   margin: 0 0 var(--sp-3); padding: 7px var(--sp-h10); max-width: 900px;
-  font-size:var(--fs-sm); line-height: 1.5; color: var(--t1);
+  font-size:var(--fs-sm); line-height: var(--lh-snug); color: var(--t1);
   background: rgba(var(--war-rgb), .1);
   border: 1px solid rgba(var(--war-rgb), .35);
   border-radius: var(--radius-xs);
@@ -2105,7 +2105,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
 }
 .ipn-bp-row { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-h6) }
 .ipn-bp-lb { flex: none; width: 52px; font-size:var(--fs-sm); color: var(--t3) }
-.ipn-bp-tip { margin: 0 0 var(--sp-h6); font-size:var(--fs-xs); line-height: 1.4; color: var(--t3) }
+.ipn-bp-tip { margin: 0 0 var(--sp-h6); font-size:var(--fs-xs); line-height: var(--lh-tight); color: var(--t3) }
 .ipn-bp-done {
   width: 100%; height: 26px; border: 1px solid var(--bd); border-radius: var(--radius-sm);
   background: var(--bg2); cursor: pointer; font-size:var(--fs-sm); color: var(--t1);
@@ -2150,7 +2150,7 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
   display: inline-block; padding: 1px 5px;
   border: 1px solid var(--border-subtle); border-radius: var(--radius-2xs);
   background: var(--bg2);
-  font-family: inherit; font-size:var(--fs-xs); line-height: 1.5; color: var(--t2);
+  font-family: inherit; font-size:var(--fs-xs); line-height: var(--lh-snug); color: var(--t2);
 }
 .ipn-kbd-hint em { margin: 0 var(--sp-h6); font-style: normal; color: var(--t3) }
 .ipn-save { position: relative; display: inline-flex; margin-left: auto }

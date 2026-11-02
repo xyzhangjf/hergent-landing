@@ -90,10 +90,18 @@ function declOf (css, selector, prop) {
   }
   return null
 }
-function num (body, prop) {
+function num (body, prop, ctx = {}) {
   if (!body) return null
   const m = new RegExp('(?:^|;|\\s)' + prop + '\\s*:\\s*([^;}]+)').exec(body)
-  return m ? tokenPx(m[1]) : null
+  return m ? tokenPx(m[1], ctx) : null
+}
+/* 行高折算：读同块的 font-size 当上下文，再把倍数/px/令牌统一折成 px。
+   🔴 v728：行高令牌是**倍数**（跟字号走），`13 × 1.4 = 18.2`，不可能精确回到 18。
+   所以契约比的是「行高是否撑满 min-height」而不是「是否写了 18px」—— 前者才是本意：
+   格子高度由 min-height 定，行高必须与它一致，否则密集表格逐行漂移。容差 0.5px 是渲染取整级别。 */
+function lhPx (body) {
+  const f = num(body, 'font-size')
+  return num(body, 'line-height', { fontSizePx: f ?? 13 })
 }
 function has (body, needle) {
   return !!body && body.includes(needle)
@@ -234,7 +242,15 @@ console.log('\n══ F. 共享件 ProductCombo 文本态（§R.2 = 18px / 紧�
   const det = (body, want) => num(body, 'min-height') === want
   prove('文本态高度检测器', (b) => det(b, 18), 'min-height: 18px; line-height: 18px', 'min-height: 20px; line-height: 20px')
   ok('ProductCombo 文本态 min-height = 18px', det(v, 18), `实际: ${v}`)
-  ok('ProductCombo 文本态 line-height = 18px', num(v, 'line-height') === 18, `实际: ${v}`)
+  prove('文本态行高检测器', (bd) => {
+    const l = lhPx(bd); const m = num(bd, 'min-height')
+    return l != null && m != null && Math.abs(l - m) <= 0.5
+  }, 'min-height: 18px; line-height: 18px; font-size: 13px',
+  'min-height: 18px; line-height: 24px; font-size: 13px')
+  ok('ProductCombo 文本态 line-height 撑满 min-height（±0.5px）',
+    (() => { const l = lhPx(v); const m = num(v, 'min-height')
+      return l != null && m != null && Math.abs(l - m) <= 0.5 })(),
+    `实际: 行高折算 ${lhPx(v)}px vs min-height ${num(v, 'min-height')}px :: ${v}`)
   const vc = declOf(pc, '[data-density="compact"] .ipn-v', 'min-height')
   ok('ProductCombo 紧凑档文本态 = 16px', det(vc, 16), `实际: ${vc}`)
 }

@@ -1545,7 +1545,7 @@ onMounted(() => {
 .set-row>.input{flex:1 1 240px;width:auto;min-width:0}
 .set-row>.set-desc{flex:1 1 260px;min-width:0}
 .set-lb{display:inline-block;min-width:88px;font-size:var(--fs-base);color:var(--t2)}
-.set-desc{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:1.7}
+.set-desc{font-size:var(--fs-sm);color:var(--t3);margin:0;line-height:var(--lh-relaxed)}
 .set-result{font-size:var(--fs-sm)}
 .set-result.ok{color:var(--suc)}
 .set-result.bad{color:var(--dan)}
@@ -1587,25 +1587,25 @@ onMounted(() => {
 .plog-tag{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-xs);
           background:var(--bg3);color:var(--t2)}
 .plog-tag.danger{background:var(--dan-bg);color:var(--dan);font-weight:600}
-.plog-detail{min-width:260px;white-space:normal;color:var(--t1);line-height:1.7;word-break:break-all}
+.plog-detail{min-width:260px;white-space:normal;color:var(--t1);line-height:var(--lh-relaxed);word-break:break-all}
 .plog-pager{display:flex;gap:var(--sp-h10);align-items:center;margin-top:var(--sp-h10);font-size:var(--fs-sm)}
 .plog-page-info{color:var(--t2)}
-.pm-help{margin:0 0 var(--sp-3);padding:9px var(--sp-3);border-radius:var(--radius-md);background:var(--bg3);font-size:var(--fs-sm);color:var(--t2);line-height:1.75}
+.pm-help{margin:0 0 var(--sp-3);padding:9px var(--sp-3);border-radius:var(--radius-md);background:var(--bg3);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-relaxed)}
 .pm-help p{margin:0 0 5px}
 .pm-help p:last-child{margin-bottom:0}
 .pm-mod-col{min-width:120px}
 /* v328：模块名 + 下面一行「勾了会怎样」。
    副文案刻意用小字、次级色 —— 它是**说明**，不能抢了模块名的视觉重量（老板找的是模块名）。 */
-.pm-mod-lb{font-size:var(--fs-sm);color:var(--t1);line-height:1.5}
+.pm-mod-lb{font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-snug)}
 /* v333：模块行下面的「对应页面」—— 让老板按页面名找到开关。
    刻意做得比模块名更淡更小（它是**索引**不是正文），且不加背景/边框，
    否则一整列小色块会把表格又切碎（样式纪律见文件头那段）。 */
-.pm-mod-pages{font-size:var(--fs-xs);color:var(--t3);line-height:1.45;margin-top:1px}
+.pm-mod-pages{font-size:var(--fs-xs);color:var(--t3);line-height:var(--lh-tight);margin-top:1px}
 /* v349：三种副文案要**分得开**，否则老板看不出"这一个到底能不能勾"：
      · `pm-mod-pages`  = 对应页面（可勾行）／数据权限说明
      · `pm-mod-fixed`  = 只读固定行 —— **不给勾选框**，用强调色把"为什么不能关"说清
      · `pm-fixed-mark` = 勾列里那个「不在此配」占位（替代勾选框，避免空格子被当成"没配"） */
-.pm-mod-fixed{font-size:var(--fs-xs);color:var(--t2);line-height:1.45;margin-top:var(--sp-h2);opacity:.85}
+.pm-mod-fixed{font-size:var(--fs-xs);color:var(--t2);line-height:var(--lh-tight);margin-top:var(--sp-h2);opacity:.85}
 .pm-mod-nopage{font-style:normal;opacity:.75}
 .pm-fixed-mark{font-size:var(--fs-xs);color:var(--t3);opacity:.7;white-space:nowrap}
 /* v350：搜索 = **查找**而非筛选 —— 未命中的行「淡化」而不是消失。
@@ -1642,7 +1642,7 @@ onMounted(() => {
 .pr-type.custom{background:var(--p-bg);color:var(--p-dark)}
 .pr-end{color:var(--t2)}
 .pr-empty{color:var(--t3);text-align:center;padding:22px 0}
-.pr-tip{margin:var(--sp-h10) var(--sp-h2) var(--sp-h2);font-size:var(--fs-sm);color:var(--t3);line-height:1.6}
+.pr-tip{margin:var(--sp-h10) var(--sp-h2) var(--sp-h2);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .perm-detail-table{width:100%;border-collapse:collapse;font-size:var(--fs-base)}
 .perm-detail-table th,.perm-detail-table td{padding:var(--sp-2) var(--sp-h10);border-bottom:1px solid var(--bd)}
 .perm-detail-table th{font-weight:600;color:var(--t2);background:var(--bg3)}
@@ -1656,7 +1656,7 @@ onMounted(() => {
 .pm-new{margin:0 0 var(--sp-h10);padding:var(--sp-h10) var(--sp-3);border:1px solid var(--bd);border-radius:var(--radius-md);background:var(--bg2)}
 .pm-new-row{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .pm-new-name{width:180px}
-.pm-new-tip{font-size:var(--fs-sm);color:var(--t3);margin:7px 0 0;line-height:1.6}
+.pm-new-tip{font-size:var(--fs-sm);color:var(--t3);margin:7px 0 0;line-height:var(--lh-normal)}
 .ctr{text-align:center}
 .pm-col-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin-bottom:var(--sp-1)}
 
@@ -1735,7 +1735,7 @@ onMounted(() => {
 .mem-count{font-size:var(--fs-sm);color:var(--t3)}
 .mem-empty{font-size:var(--fs-sm);color:var(--t3);padding:var(--sp-2) 0}
 .mem-item{display:flex;align-items:center;gap:var(--sp-2);padding:7px var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg2);margin-bottom:var(--sp-h6)}
-.mem-text{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--t1);line-height:1.6;word-break:break-word}
+.mem-text{flex:1;min-width:0;font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-normal);word-break:break-word}
 .mem-del{border:none;background:none;color:var(--t3);cursor:pointer;font-size:var(--fs-base)}
 .mem-del:hover{color:var(--dan)}
 .mem-danger{color:var(--dan)}

@@ -1202,7 +1202,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-co{margin-bottom:var(--sp-h14)}
 .la-co-hd{display:flex;align-items:baseline;gap:var(--sp-h10);flex-wrap:wrap;margin-bottom:var(--sp-3)}
 .la-co-hd b{font-size:var(--fs-md)}
-.la-co-formula{font-size:var(--fs-sm);color:var(--t3);line-height:1.6}
+.la-co-formula{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .la-link{margin-left:auto;background:none;border:none;padding:0;color:var(--p-dark);font-size:var(--fs-sm);cursor:pointer}
 .la-co-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3)}
 .la-kpi{padding:var(--sp-3) var(--sp-h14);border-radius:var(--radius-sm);background:var(--bg2);border:1px solid var(--border-subtle)}
@@ -1216,7 +1216,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-bd-row b{font-variant-numeric:tabular-nums;color:var(--t1)}
 .la-bd-sub{font-weight:500;color:var(--t1);border-top:1px solid var(--border-subtle);margin-top:var(--sp-1);padding-top:var(--sp-h6)}
 .la-bd-indent span{padding-left:var(--sp-h14);color:var(--t3)}
-.la-bd-note{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:1.6}
+.la-bd-note{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal)}
 .la-warn-inline{text-decoration:none;font-size:var(--fs-xs);color:var(--war);margin-left:var(--sp-h6)}
 .la-q{margin-top:var(--sp-3);display:flex;flex-wrap:wrap;gap:var(--sp-h6)}
 .la-q-item{font-size:var(--fs-sm);color:var(--war);background:color-mix(in srgb,var(--war) 9%,transparent);border:1px solid color-mix(in srgb,var(--war) 28%,transparent);padding:3px 9px;border-radius:var(--radius-sm)}
@@ -1268,7 +1268,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-foot td{background:var(--bg3);font-weight:600;border-top:1px solid var(--bd)}
 .la-foot-lbl{font-size:var(--fs-sm);color:var(--t2);background:var(--bg3);z-index:6;font-weight:500}
 
-.la-footnote{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h10);line-height:1.7}
+.la-footnote{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h10);line-height:var(--lh-relaxed)}
 
 /* ── 趋势：区间筛选条 ── */
 /* 分 tab 后的诚实性提示：仪表盘读的是**已保存**的数据，有草稿时必须说出来 */
@@ -1314,10 +1314,10 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-chip-mini{font-size:var(--fs-xs);padding:var(--sp-h2) 7px}
 
 /* ── 弹窗 ── */
-.la-modal-lead{font-size:var(--fs-sm);color:var(--t1);line-height:1.7;margin:0 0 var(--sp-h10)}
-.la-modal-tip{font-size:var(--fs-sm);color:var(--t3);line-height:1.7;margin:var(--sp-h10) 0 0}
+.la-modal-lead{font-size:var(--fs-sm);color:var(--t1);line-height:var(--lh-relaxed);margin:0 0 var(--sp-h10)}
+.la-modal-tip{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed);margin:var(--sp-h10) 0 0}
 .la-notice{font-size:var(--fs-base);color:var(--p-dark);background:var(--p-bg);border:1px solid color-mix(in srgb,var(--p) 28%,transparent);border-radius:var(--radius-sm);padding:var(--sp-h10) var(--sp-3);margin:0 0 var(--sp-3)}
-.la-list{margin:0 0 var(--sp-1);padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:1.9}
+.la-list{margin:0 0 var(--sp-1);padding-left:var(--sp-h18);font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-prose)}
 .la-h4{font-size:var(--fs-sm);font-weight:600;color:var(--t1);margin:var(--sp-4) 0 var(--sp-2)}
 .la-h4:first-child{margin-top:0}
 .la-mini{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
@@ -1331,7 +1331,7 @@ onMounted(async () => { await load(''); await loadTrend() })
 .la-field>span{display:block;font-size:var(--fs-sm);color:var(--t1);margin-bottom:5px}
 .la-field em{font-style:normal;font-size:var(--fs-xs);color:var(--t3);margin-left:var(--sp-h6)}
 .la-health{list-style:none;margin:0;padding:0}
-.la-health li{display:flex;gap:9px;align-items:flex-start;padding:var(--sp-2) var(--sp-h10);border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:1.6;margin-bottom:var(--sp-h6);background:var(--bg2)}
+.la-health li{display:flex;gap:9px;align-items:flex-start;padding:var(--sp-2) var(--sp-h10);border-radius:var(--radius-sm);font-size:var(--fs-sm);line-height:var(--lh-normal);margin-bottom:var(--sp-h6);background:var(--bg2)}
 .la-health .lv-warn{background:color-mix(in srgb,var(--war) 9%,transparent)}
 .la-health-lv{flex:0 0 auto;font-size:var(--fs-xs);padding:1px 7px;border-radius:var(--radius-sm);background:var(--bg4);color:var(--t2)}
 .la-health .lv-warn .la-health-lv{background:var(--war-solid);color:#fff}

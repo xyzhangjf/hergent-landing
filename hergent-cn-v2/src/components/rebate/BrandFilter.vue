@@ -78,5 +78,5 @@ function clearSel() { emit('update:modelValue', []) }
 .bf-item { display: flex; align-items: center; gap: 7px; font-size:var(--fs-base); color: var(--t1); cursor: pointer; padding: var(--sp-h2); }
 .bf-item:hover { background: var(--bg2); }
 .bf-empty { color: var(--t3); font-size:var(--fs-sm); margin: var(--sp-1) 0; }
-.bf-tip { font-size:var(--fs-sm); color: var(--t3); margin: var(--sp-2) 0 0; line-height: 1.5; }
+.bf-tip { font-size:var(--fs-sm); color: var(--t3); margin: var(--sp-2) 0 0; line-height: var(--lh-snug); }
 </style>

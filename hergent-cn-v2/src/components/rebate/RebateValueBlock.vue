@@ -64,6 +64,6 @@ defineEmits(['add-tier', 'remove-tier'])
 .dt-tier{width:100%;border-collapse:collapse;margin-top:var(--sp-2);font-size:var(--fs-sm)}
 .dt-tier th,.dt-tier td{border:1px solid var(--border-subtle);padding:var(--sp-h6) var(--sp-2);text-align:left}
 .cc-ti{width:90px;padding:3px var(--sp-h6);font-size:var(--fs-sm)}
-.cf-tip{font-size:var(--fs-base);color:var(--t2);line-height:1.6;margin:0}
+.cf-tip{font-size:var(--fs-base);color:var(--t2);line-height:var(--lh-normal);margin:0}
 @media(max-width:768px){ .form-grid2{grid-template-columns:1fr} }
 </style>

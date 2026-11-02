@@ -378,7 +378,7 @@ defineExpose({ load: loadList })
 .std-op:hover { text-decoration: underline }
 .std-op:disabled { color: var(--t3); cursor: not-allowed; text-decoration: none }
 
-.std-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.std-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
 .std-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .std-tip, .std-lock {

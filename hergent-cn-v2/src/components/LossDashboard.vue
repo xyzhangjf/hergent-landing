@@ -546,12 +546,12 @@ html.dark .dsh {
 /* ── 空态 / 「数据不全所以净额偏大」告警（左侧色条替掉整块底色，读起来不刺）── */
 .dsh-empty {
   padding: 26px 22px; border: 1px dashed var(--bd); border-radius: var(--radius-lg);
-  color: var(--t2); font-size:var(--fs-base); line-height: 1.7; text-align: center; background: var(--bg2);
+  color: var(--t2); font-size:var(--fs-base); line-height: var(--lh-relaxed); text-align: center; background: var(--bg2);
 }
 .dsh-warn {
   margin: var(--sp-3) 0 0; padding: var(--sp-h10) var(--sp-h14);
   border-left: 3px solid var(--warn-amber); border-radius: var(--radius-sm);
-  font-size:var(--fs-sm); line-height: 1.65;
+  font-size:var(--fs-sm); line-height: var(--lh-normal);
   color: var(--warn-amber); background: var(--warn-amber-bg);
 }
 
@@ -565,7 +565,7 @@ html.dark .dsh {
 .dsh-kpibox .kpi-val u {
   font-size:var(--fs-sm); font-weight: 400; color: var(--t2); text-decoration: none; margin-left: var(--sp-1);
 }
-.dsh-kpibox .kpi-sub { font-size:var(--fs-sm); line-height: 1.55; }
+.dsh-kpibox .kpi-sub { font-size:var(--fs-sm); line-height: var(--lh-snug); }
 .dsh-kpibox .kpi-sub.war { color: var(--warn-amber); }
 /* 数值按指标语义着色 —— 比"每张卡换一个边框色"安静，且颜色直接绑定数据 */
 .dsh-kpibox .val-gross { color: var(--c-gross); }

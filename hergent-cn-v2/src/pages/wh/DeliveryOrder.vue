@@ -265,5 +265,5 @@ onMounted(loadRows)
 .dvo-op-danger { color: var(--dan) }
 
 .dvo-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
-.dvo-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.dvo-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
 </style>

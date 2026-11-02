@@ -162,5 +162,5 @@ onMounted(load)
 .fc-node .input { flex: 1; min-width: 140px }
 .fc-empty { font-size:var(--fs-base); color: var(--t3) }
 .fc-actions { display: flex; gap: var(--sp-h10); margin-top: var(--sp-4) }
-.fc-note { margin: var(--sp-h14) 0 0; font-size:var(--fs-sm); color: var(--t3); line-height: 1.6 }
+.fc-note { margin: var(--sp-h14) 0 0; font-size:var(--fs-sm); color: var(--t3); line-height: var(--lh-normal)}
 </style>

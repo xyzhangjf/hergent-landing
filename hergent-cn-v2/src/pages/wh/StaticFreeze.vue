@@ -480,7 +480,7 @@ defineExpose({ load: loadList })
 .sfz-op:hover { text-decoration: underline }
 .sfz-op:disabled { color: var(--t3); cursor: not-allowed; text-decoration: none }
 
-.sfz-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: 1.7 }
+.sfz-foot { font-size:var(--fs-sm); color: var(--t2); margin-top: var(--sp-3); line-height: var(--lh-relaxed)}
 .sfz-empty-hint { font-size:var(--fs-sm); color: var(--t3); margin-top: var(--sp-h6) }
 
 .sfz-tip, .sfz-lock {

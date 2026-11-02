@@ -282,11 +282,11 @@ onMounted(load)
 
 .dh-legend {
   margin-top: var(--sp-h14); padding: var(--sp-h10) var(--sp-h14); font-size:var(--fs-sm);
-  line-height: 2.1; color: var(--t2); background: var(--bg2);
+  line-height: var(--lh-double); color: var(--t2); background: var(--bg2);
 }
 .dh-chip {
   display: inline-block; margin: 0 var(--sp-1); padding: 0 7px; border-radius: var(--radius-2xs);
-  font-size:var(--fs-xs); font-weight: 600; line-height: 18px;
+  font-size:var(--fs-xs); font-weight: 600; line-height: var(--lh-normal);
 }
 .dh-chip.st-pass { color: var(--ok-green); background: var(--ok-green-bg); }
 .dh-chip.st-warn { color: var(--warn-amber); background: var(--warn-amber-bg); }
@@ -329,7 +329,7 @@ onMounted(load)
 .dh-nv { font-size:var(--fs-base); font-weight: 600; color: var(--t1); font-variant-numeric: tabular-nums; }
 
 .dh-why, .dh-hint {
-  margin: var(--sp-h10) 0 0; font-size:var(--fs-sm); line-height: 1.95; color: var(--t2);
+  margin: var(--sp-h10) 0 0; font-size:var(--fs-sm); line-height: var(--lh-prose); color: var(--t2);
 }
 .dh-hint { color: var(--t1); }
 .dh-hint b { color: var(--warn-amber); }
@@ -337,7 +337,7 @@ onMounted(load)
 .dh-card .table-wrap { margin-top: var(--sp-h10); }
 .dh-foot { margin: var(--sp-h6) var(--sp-h2) 0; font-size:var(--fs-xs); color: var(--t2); }
 .dh-note {
-  margin: var(--sp-4) var(--sp-h2) 0; font-size:var(--fs-xs); line-height: 1.9; color: var(--t2);
+  margin: var(--sp-4) var(--sp-h2) 0; font-size:var(--fs-xs); line-height: var(--lh-prose); color: var(--t2);
 }
 .dh-note code { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs); }
 </style>

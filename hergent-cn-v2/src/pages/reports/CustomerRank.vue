@@ -174,5 +174,5 @@ onMounted(() => { loadCustomers(); loadSalespersons(); load() })
   min-width: 160px; padding: 5px var(--sp-2); font-size:var(--fs-sm); color: var(--t1);
   background: var(--bg); border: 1px solid var(--bd); border-radius: var(--radius-xs);
 }
-.cr-hint { font-size:var(--fs-xs); color: var(--t3); line-height: 1.6 }
+.cr-hint { font-size:var(--fs-xs); color: var(--t3); line-height: var(--lh-normal)}
 </style>

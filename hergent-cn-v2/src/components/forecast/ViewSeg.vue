@@ -39,12 +39,12 @@ function pick(m) {
 <style scoped>
 .view-seg-wrap{position:relative;display:inline-flex;flex:0 0 auto}
 .view-seg{display:inline-flex;gap:var(--sp-1);background:var(--bg3);border-radius:var(--radius-sm);padding:var(--sp-h2)}
-.view-seg button{border:1px solid transparent;background:transparent;padding:3px var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-base);line-height:1.45;color:var(--t2);cursor:pointer;white-space:nowrap}
+.view-seg button{border:1px solid transparent;background:transparent;padding:3px var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-base);line-height:var(--lh-tight);color:var(--t2);cursor:pointer;white-space:nowrap}
 .view-seg button:hover:not(.on){color:var(--p-dark)}
 .view-seg button.on{background:var(--bg4);color:var(--p-ink);box-shadow:var(--shadow-sm);border-color:var(--p);font-weight:500}
 .seg-tip{position:absolute;left:0;top:calc(100% + 6px);z-index:1240;width:340px;
   padding:var(--sp-2) var(--sp-h10);border-radius:var(--radius-sm);background:var(--bg);border:1px solid var(--bd);
-  box-shadow:var(--shadow-md);font-size:var(--fs-sm);line-height:1.6;color:var(--t2);
+  box-shadow:var(--shadow-md);font-size:var(--fs-sm);line-height:var(--lh-normal);color:var(--t2);
   opacity:0;visibility:hidden;pointer-events:none;
   transition:opacity var(--dur-fast) ease var(--dur-base),visibility 0s linear .28s}
 .seg-tip .st-row{display:block}

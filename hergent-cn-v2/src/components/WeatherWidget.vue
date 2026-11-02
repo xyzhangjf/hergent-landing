@@ -543,7 +543,7 @@ onBeforeUnmount(() => {
   background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-base);font-weight:500;cursor:pointer;border:1px solid transparent;transition:all var(--dur-base);white-space:nowrap}
 .wx-now:hover{background:var(--p-solid);color:#fff;box-shadow:0 4px 14px rgba(6,182,212,.22)}
 .wx-now.dim{opacity:.6}
-.wx-ic{font-size:var(--fs-lg);line-height:1}
+.wx-ic{font-size:var(--fs-lg);line-height:var(--lh-none)}
 .wx-temp{font-variant-numeric:tabular-nums}
 .wx-load{opacity:.7}
 
@@ -554,7 +554,7 @@ onBeforeUnmount(() => {
 .wx-where{display:flex;align-items:center;gap:var(--sp-h6);flex-wrap:wrap;font-size:var(--fs-sm);color:var(--t2)}
 .wx-where-ic{color:var(--p-ink);flex:0 0 auto}
 .wx-where-city{font-size:var(--fs-base);font-weight:600;color:var(--t1)}
-.wx-where-tag{flex:0 0 auto;padding:1px var(--sp-h6);border-radius:var(--radius-xs);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-xs);line-height:1.6}
+.wx-where-tag{flex:0 0 auto;padding:1px var(--sp-h6);border-radius:var(--radius-xs);background:var(--p-bg);color:var(--p-dark);font-size:var(--fs-xs);line-height:var(--lh-normal)}
 .wx-where-desc{font-variant-numeric:tabular-nums;white-space:nowrap}
 .wx-where-desc::before{content:'·';margin-right:var(--sp-h6);color:var(--t3)}
 /* 面板由 Teleport 挂在 <body> 上、position:fixed，坐标由 placePop() 写入。
@@ -596,7 +596,7 @@ onBeforeUnmount(() => {
    窄屏改为横向滚动（.wx-days 本就是 overflow-x:auto），信息仍完整可读。 */
 .wx-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;padding:var(--sp-1) var(--sp-h2);flex:1 0 auto}
 .wx-d-day{font-size:var(--fs-sm);color:var(--t1);font-weight:500}
-.wx-d-date{font-size:var(--fs-xs);color:var(--t2);line-height:15px}
+.wx-d-date{font-size:var(--fs-xs);color:var(--t2);line-height:var(--lh-tight)}
 /* 日期 / 节日名 = 徽标的定位锚（inline-block + relative，宽度即文字宽度，
    不随卡片宽度变化；徽标作为其内联子元素绝对定位，绝不影响行内布局与居中）。 */
 .wx-d-dt{display:inline-block;position:relative}
@@ -616,7 +616,7 @@ onBeforeUnmount(() => {
   color:#fff;font-style:normal;pointer-events:none}
 .wx-hb.off{background:var(--hd-off)}
 .wx-hb.work{background:var(--hd-work)}
-.wx-d-ic{font-size:var(--fs-num);line-height:1}
+.wx-d-ic{font-size:var(--fs-num);line-height:var(--lh-none)}
 .wx-d-t{font-size:var(--fs-xs);color:var(--t1);font-variant-numeric:tabular-nums}
 .wx-d-pop{font-size:var(--fs-xs);color:var(--ok-green)}
 
@@ -635,13 +635,13 @@ onBeforeUnmount(() => {
 .wx-trend-dot.up{color:var(--war)}
 .wx-trend-dot.down{color:var(--chart-6)}
 .wx-trend-dot em{position:absolute;left:9px;top:-5px;font-size:var(--fs-xs);font-style:normal;font-weight:600;
-  line-height:1.3;padding:0 3px;border-radius:var(--radius-2xs);background:var(--bg2);color:currentColor;
+  line-height:var(--lh-mid);padding:0 3px;border-radius:var(--radius-2xs);background:var(--bg2);color:currentColor;
   box-shadow:0 0 0 1px var(--glass-border)}
 .wx-trend-dot.last em{left:auto;right:9px}
 .wx-trend-hit{position:absolute;top:0;bottom:0;cursor:pointer;border-radius:var(--radius-xs)}
 .wx-trend-hit:hover,.wx-trend-hit.on{background:var(--p-bg);opacity:.55}
 .wx-trend-tip{position:absolute;top:0;transform:translateX(-50%);z-index:2;
   padding:var(--sp-h2) 7px;border-radius:var(--radius-xs);background:var(--t1);color:var(--bg);
-  font-size:var(--fs-xs);font-weight:500;line-height:1.5;white-space:nowrap;pointer-events:none;
+  font-size:var(--fs-xs);font-weight:500;line-height:var(--lh-snug);white-space:nowrap;pointer-events:none;
   box-shadow:0 4px 12px rgba(0,0,0,.18)}
 </style>

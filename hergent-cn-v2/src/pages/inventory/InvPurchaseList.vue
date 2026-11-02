@@ -244,7 +244,7 @@
              所以这段从「唯一的路」改成「两条路都写出来」，而且**按钮也要放出来**：
              原来 `v-if="canWrite && !isReturn"` 把退货页签的出口藏掉了 —— 那是按旧口径写的。 -->
         <p v-if="isReturn && !hasFilter && !f.status"
-           style="margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);line-height:1.5">
+           style="margin-top:var(--sp-h6);font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-snug)">
           可以直接新建（选供应商和退货仓库，自己挑商品）；<br>
           也可以打开一张<b>已入库</b>的采购单，点「转单为 → 采购退货」（会自动带上可退数量上限）。
         </p>
@@ -1889,7 +1889,7 @@ onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
 }
 .ipl-cm-i:hover { color: var(--p-dark); background: var(--bg2) }
 /* 读定义失败 / 无权限的说明：**必须显式**（藏起来用户会以为这页没有这个功能） */
-.ipl-cm-err { font-size:var(--fs-xs); color: var(--danger-txt); line-height: 1.4; flex-basis: 100% }
+.ipl-cm-err { font-size:var(--fs-xs); color: var(--danger-txt); line-height: var(--lh-tight); flex-basis: 100% }
 
 /* 分页器
    🔴 v501：整段删除 —— 分页器改共享件 `PsiPager.vue`，样式随 `psi-list.css` 的

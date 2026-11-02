@@ -308,11 +308,11 @@ onMounted(async () => {
 .zp-wrap{padding:0 0 60px}
 .zp-hd{margin-bottom:var(--sp-h14)}
 .zp-title{font-size:var(--fs-xl);font-weight:600;margin:0 0 var(--sp-h6);color:var(--t1)}
-.zp-sub{margin:0;font-size:var(--fs-base);line-height:1.7;color:var(--t2)}
+.zp-sub{margin:0;font-size:var(--fs-base);line-height:var(--lh-relaxed);color:var(--t2)}
 .zp-card{background:var(--bg2);border:1px solid var(--bd);
   border-radius:var(--radius-md);padding:var(--sp-4) var(--sp-h18);margin-bottom:var(--sp-h14)}
 .zp-rules{display:grid;gap:var(--sp-2)}
-.zp-rule{font-size:var(--fs-base);line-height:1.8;color:var(--t2)}
+.zp-rule{font-size:var(--fs-base);line-height:var(--lh-loose);color:var(--t2)}
 .zp-rule b{color:var(--t1);font-weight:600}
 .zp-file{display:flex;align-items:center;gap:var(--sp-h10);flex-wrap:wrap}
 .zp-file-input{font-size:var(--fs-base)}
@@ -321,7 +321,7 @@ onMounted(async () => {
   background:var(--bg2);color:var(--t1);font-size:var(--fs-base);cursor:pointer}
 .zp-btn:disabled{opacity:.5;cursor:not-allowed}
 .zp-btn.zp-primary{background:var(--p-solid);border-color:var(--p-dark);color:#fff}
-.zp-hint{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:1.7}
+.zp-hint{margin:var(--sp-2) 0 0;font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-relaxed)}
 .zp-err{margin:var(--sp-h10) 0 0;padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);background:var(--dan-bg);
   color:var(--dan);font-size:var(--fs-base)}
 .zp-h2{margin:0 0 var(--sp-3);font-size:var(--fs-h4);font-weight:600;color:var(--t1)}

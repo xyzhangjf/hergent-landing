@@ -337,7 +337,7 @@ onMounted(async () => {
 .lf-adv-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;cursor:pointer;font-size:var(--fs-md);font-weight:500;color:var(--t1);padding:0}
 
 .lf-panel{}
-.lf-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-4);line-height:1.6}
+.lf-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-4);line-height:var(--lh-normal)}
 .lf-form{display:flex;flex-direction:column;gap:var(--sp-h18)}
 
 .lf-field{display:flex;flex-direction:column;gap:var(--sp-2)}

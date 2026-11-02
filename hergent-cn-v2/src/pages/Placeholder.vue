@@ -38,6 +38,6 @@ const area = computed(() => (route.meta && route.meta.area) || '规划中')
 .ph-card { padding: var(--sp-h18) var(--sp-5); max-width: 720px }
 .ph-hd { display: flex; align-items: center; gap: var(--sp-h10); margin-bottom: var(--sp-2) }
 .ph-hd h3 { font-size:var(--fs-h4); font-weight: 600; color: var(--t1) }
-.ph-desc { font-size:var(--fs-base); color: var(--t2); line-height: 1.7; margin-bottom: var(--sp-3) }
+.ph-desc { font-size:var(--fs-base); color: var(--t2); line-height: var(--lh-relaxed); margin-bottom: var(--sp-3) }
 .ph-foot { font-size:var(--fs-sm); color: var(--t3) }
 </style>

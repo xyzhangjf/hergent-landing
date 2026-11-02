@@ -921,7 +921,7 @@ onMounted(() => { reset(); loadRefs() })
 .isn-lb { font-size:var(--fs-sm); color: var(--t3); white-space: nowrap; flex: none }
 /* 必填标记：用**红 `*`**（对齐舟谱的 `*供应商：`）—— 每个必填格省下 2 个字的宽度，
    一行更容易并下全部字段。**不用**「必填」两个字，也**不写**「选填」（无 `*` 即选填）。 */
-.isn-req { color: var(--dan-ink); font-size:var(--fs-base); line-height: 1; margin-right: var(--sp-h2) }
+.isn-req { color: var(--dan-ink); font-size:var(--fs-base); line-height: var(--lh-none); margin-right: var(--sp-h2) }
 
 /* ══ 框式字段（复刻舟谱建单头）═════════════════════════════════════════════
    舟谱建单头那排是「**一个描边框**里左边标签、右边值」，不是「标签在框外、旁边再放一个框」。
@@ -951,7 +951,7 @@ onMounted(() => { reset(); loadRefs() })
    留在框里会把那一格撑到 120px 高、四个框永远不等高；移出后表单头 = 四个 32px 等高的框。
    `max-width` 由 340 放到 900：它现在占整行，不必再挤在 380px 的格里反复换行。
    `-6px` 上边距抵掉表单头那 12px 的下外边距，让说明贴着它说明的那个头。 */
-.isn-hint { font-size:var(--fs-xs); color: var(--t3); line-height: 1.4; max-width: 900px; margin: -6px 0 var(--sp-3) }
+.isn-hint { font-size:var(--fs-xs); color: var(--t3); line-height: var(--lh-tight); max-width: 900px; margin: -6px 0 var(--sp-3) }
 .isn-hint b { color: var(--t2) }
 /* 只读值（退货模式的客户 / 退货仓库 / 原单状态）：由原单带出，**改不了**
    （刻意不用 disabled input —— 那会让人以为点开能改）。
@@ -1008,7 +1008,7 @@ onMounted(() => { reset(); loadRefs() })
 .isn-hist-warn {
   display: flex; align-items: flex-start; gap: var(--sp-h6);
   margin: -6px 0 var(--sp-3); padding: 7px var(--sp-h10); max-width: 900px;
-  font-size:var(--fs-sm); line-height: 1.5; color: var(--t1);
+  font-size:var(--fs-sm); line-height: var(--lh-snug); color: var(--t1);
   background: rgba(var(--war-rgb), .1);
   border: 1px solid rgba(var(--war-rgb), .35);
   border-radius: var(--radius-xs);
@@ -1016,7 +1016,7 @@ onMounted(() => { reset(); loadRefs() })
 .isn-hist-warn svg { flex: 0 0 auto; margin-top: var(--sp-h2); color: var(--war) }
 .isn-hist-dot {
   position: absolute; right: 5px; top: 2px;
-  font-size:var(--fs-xs); line-height: 1; color: var(--war);
+  font-size:var(--fs-xs); line-height: var(--lh-none); color: var(--war);
   cursor: help;
 }
 .isn-c-reason { min-width: 132px }

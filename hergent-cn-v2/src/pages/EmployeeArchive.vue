@@ -2219,7 +2219,7 @@ onMounted(() => {
 .sync-state.unlinked{background:rgba(var(--war-rgb),.12);color:var(--war)}
 
 .df-panel{padding:var(--sp-h18);margin-bottom:var(--sp-h14)}
-.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:1.7}
+.df-tip{font-size:var(--fs-sm);color:var(--t2);margin:var(--sp-1) 0 var(--sp-h14);line-height:var(--lh-relaxed)}
 /* v686：业务员部门表里的下拉 —— 表格行内控件必须矮。
    🔴 用全局 `.input` 的原高（40px）会把整行顶到 40+，表格瞬间变稀疏；
       这里收到 26px（与 .btn-row-ic 同档），行高由它决定，不再被文本撑。 */
@@ -2231,7 +2231,7 @@ onMounted(() => {
 .df-mini-lnk:hover{color:var(--p-dark)}
 .df-mismatch{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin:var(--sp-h2) 0 var(--sp-h10);padding:7px var(--sp-h10);border-radius:var(--radius-md);background:var(--bg3)}
 .df-mismatch-tag{font-size:var(--fs-sm);font-weight:600;padding:1px var(--sp-2);border-radius:var(--radius-pill);background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5);flex-shrink:0}
-.df-mismatch-txt{font-size:var(--fs-sm);color:var(--t2);line-height:1.6;min-width:0;flex:1 1 240px}
+.df-mismatch-txt{font-size:var(--fs-sm);color:var(--t2);line-height:var(--lh-normal);min-width:0;flex:1 1 240px}
 .df-warn{color:var(--war);background:rgba(var(--war-rgb),.08);padding:var(--sp-2) var(--sp-3);border-radius:var(--radius-sm);font-size:var(--fs-sm)}
 
 .df-ph{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-h10);flex-wrap:wrap}
@@ -2314,7 +2314,7 @@ onMounted(() => {
    ⚠️ 分区内(14) 必须 < 弹窗块间(18)：否则「分区」这一层在视觉上就不复存在，又回到一锅粥。 */
 .df-edit-body{display:flex;flex-direction:column;gap:var(--sp-h18)}
 .df-sec{display:flex;flex-direction:column;gap:var(--sp-h14)}
-.df-sec-title{font-size:var(--fs-base);font-weight:600;color:var(--t1);padding-left:11px;border-left:3px solid var(--p);line-height:1.2}
+.df-sec-title{font-size:var(--fs-base);font-weight:600;color:var(--t1);padding-left:11px;border-left:3px solid var(--p);line-height:var(--lh-title)}
 .df-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3) var(--sp-h18)}
 /* 独占整行：给「身份证号（18 位）/ 客户名称 / 允许登录」这类**明显更长**或**本区唯一**的字段。
    v706 引入 —— 它同时消掉了「奇数个字段 ⇒ 末行留半格空白」的老问题
@@ -2328,7 +2328,7 @@ onMounted(() => {
 /* 到期徽标：贴在「合同到期」标签右侧。用**语义色对**（--danger/warn/ok-green 的 -bg 版），
    不自己调 rgba —— 深色模式下这四组是成对定义的，拍数字会在暗色里发灰。 */
 .cf-end-tip{font-style:normal;font-size:var(--fs-xs);font-weight:600;margin-left:var(--sp-h6);
-  padding:1px var(--sp-h6);border-radius:var(--radius-xs);line-height:1.5;white-space:nowrap}
+  padding:1px var(--sp-h6);border-radius:var(--radius-xs);line-height:var(--lh-snug);white-space:nowrap}
 .cf-end-tip.is-expired{color:var(--danger-txt);background:var(--danger-bg)}
 .cf-end-tip.is-soon{color:var(--warn-amber);background:var(--warn-amber-bg)}
 .cf-end-tip.is-ok{color:var(--ok-green);background:var(--ok-green-bg)}
@@ -2371,7 +2371,7 @@ onMounted(() => {
 /* v385：`.df-acc-hint`（原「新建态那行提示」的容器，只有 margin-top:-2px）已随
    合并一屏而删除 —— 新建态现在复用 `df-acc-create` 那块表单，类名不再被引用。
    留着就是死 CSS：下次有人想"调一下新建态提示的间距"会改到这里，而它根本不生效。 */
-.df-acc-sum{font-size:var(--fs-sm);color:var(--t2);margin:0 0 var(--sp-h2);line-height:1.6}
+.df-acc-sum{font-size:var(--fs-sm);color:var(--t2);margin:0 0 var(--sp-h2);line-height:var(--lh-normal)}
 .df-acc-sum .on{color:var(--suc);font-weight:600}
 .df-acc-sum .off{color:var(--t3)}
 .df-acc-create{display:flex;flex-direction:column;gap:var(--sp-3)}
@@ -2385,7 +2385,7 @@ onMounted(() => {
 .df-acc-card-t{font-size:var(--fs-sm);font-weight:600;color:var(--t1)}
 /* 文字色跟主题走（浅色=深字 / 深色=浅字），只有底色是黄调 —— 避免深色主题下看不清。 */
 .df-dirty-tag{font-size:var(--fs-sm);font-weight:600;padding:1px var(--sp-2);border-radius:var(--radius-pill);background:rgba(234,179,8,.18);color:var(--t1);border:1px solid rgba(234,179,8,.5)}
-.df-acc-card-tip{font-size:var(--fs-sm);color:var(--t3);margin:-4px 0 0;line-height:1.6}
+.df-acc-card-tip{font-size:var(--fs-sm);color:var(--t3);margin:-4px 0 0;line-height:var(--lh-normal)}
 .df-acc-card-tip b{color:var(--t2)}
 /* v290：操作行 + 紧贴其下的展开区（输入框**不再**长在按钮上方、隔着别的区块）。 */
 .df-acc-ops{padding-top:1px}
@@ -2401,12 +2401,12 @@ onMounted(() => {
 .df-acc-extra{align-items:flex-start;flex-direction:column;gap:7px}
 .df-acc-extra-tip{font-size:var(--fs-sm);color:var(--t3)}
 .df-extra-chips{display:flex;flex-wrap:wrap;gap:var(--sp-h6)}
-.df-extra-chips .chip{border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-pill);cursor:pointer;font-family:inherit;line-height:1.6}
+.df-extra-chips .chip{border:1px solid var(--border-subtle);background:var(--bg2);color:var(--t2);font-size:var(--fs-sm);padding:3px var(--sp-h10);border-radius:var(--radius-pill);cursor:pointer;font-family:inherit;line-height:var(--lh-normal)}
 .df-extra-chips .chip:hover{border-color:var(--teal)}
 .df-extra-chips .chip.on{background:rgba(var(--teal-rgb,14,165,164),.14);border-color:var(--teal);color:var(--teal);font-weight:600}
 .df-extra-chips .chip:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
 /* Q29（2026-09-19）忘记密码：一次性重置码的展示区 */
-.rc-tip{font-size:var(--fs-sm);color:var(--t3);line-height:1.5}
+.rc-tip{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-snug)}
 .rc-box{gap:var(--sp-h10);background:var(--bg2);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-3)}
 .rc-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-xl);letter-spacing:3px;color:var(--teal)}
 .rc-exp{font-size:var(--fs-sm);color:var(--t3);margin-left:auto}

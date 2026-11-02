@@ -121,7 +121,7 @@ function onBlur () { editing.value = false }
 /* v685：档位徽标。`flex:none` 且不换行 —— 它是"用来分辨同名商品"的信息，
    被省略号吃掉就等于没有。单档灰、无价红。 */
 .ipn-prod-tier {
-  flex: none; font-size:var(--fs-xs); line-height: 16px; padding: 0 5px; border-radius: var(--radius-2xs);
+  flex: none; font-size:var(--fs-xs); line-height: var(--lh-snug); padding: 0 5px; border-radius: var(--radius-2xs);
   color: var(--t2); background: var(--bg2); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .ipn-prod-tier.is-muted { color: var(--t3) }

@@ -240,7 +240,7 @@ function confLabel(r) {
 .im-risk{font-size:var(--fs-sm);color:var(--danger-txt);background:var(--danger-bg);border-radius:var(--radius-sm);padding:7px var(--sp-h10);display:flex;flex-direction:column;gap:3px;border:1px solid var(--danger-txt)}
 .im-risk-h{display:flex;align-items:center;gap:5px;font-weight:600}
 .im-risk-l{margin:0;padding-left:var(--sp-h18);display:flex;flex-direction:column;gap:var(--sp-h2)}
-.im-risk-l li{line-height:1.5}
+.im-risk-l li{line-height:var(--lh-snug)}
 /* v346 收起态：一行把话说清，按钮永远在 */
 .im-fold{display:flex;align-items:center;gap:var(--sp-2);font-size:var(--fs-sm);color:var(--ok-green);background:var(--ok-green-bg);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-h10);flex-wrap:wrap}
 .im-fold-btn{display:inline-flex;align-items:center;gap:3px;border:none;background:none;padding:0;font-size:var(--fs-sm);color:var(--p-dark);text-decoration:underline;cursor:pointer}
@@ -254,7 +254,7 @@ function confLabel(r) {
 .im-sel{width:100%;height:30px;padding:0 var(--sp-h6);font-size:var(--fs-base)}
 /* 危险列的下拉框本身也描红 —— 只标「依据」徽章的话，扫一眼很难定位到是哪一行要改 */
 .im-sel-risk{border-color:var(--danger-txt)}
-.im-rdanger{display:flex;align-items:flex-start;gap:var(--sp-1);margin-top:var(--sp-1);font-size:var(--fs-sm);line-height:1.45;color:var(--danger-txt)}
+.im-rdanger{display:flex;align-items:flex-start;gap:var(--sp-1);margin-top:var(--sp-1);font-size:var(--fs-sm);line-height:var(--lh-tight);color:var(--danger-txt)}
 .im-smp{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:var(--fs-sm);color:var(--t2);word-break:break-all}
 .im-off .im-hd,.im-off .im-smp{color:var(--t3)}
 .im-cc{display:inline-block;padding:1px var(--sp-2);border-radius:var(--radius-sm);font-size:var(--fs-sm);white-space:nowrap;background:var(--bg2);color:var(--t3)}

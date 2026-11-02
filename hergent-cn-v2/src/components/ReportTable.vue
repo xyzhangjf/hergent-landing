@@ -287,7 +287,7 @@ function exportCsv() {
 .rpt-range { font-size:var(--fs-sm); color: var(--t2); margin-left: auto; }
 .rpt-card { margin-top: var(--sp-h14); }
 .rpt-sec { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
-.rpt-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: 1.9; color: var(--t2); }
+.rpt-foot { margin: var(--sp-h14) var(--sp-h2) 0; font-size:var(--fs-sm); line-height: var(--lh-prose); color: var(--t2); }
 .rpt-foot :deep(code) { background: var(--bg2); padding: 1px 5px; border-radius: var(--radius-2xs); font-size:var(--fs-xs); }
 
 /* ===== v701 下探：面包屑 + 单据链接 ===== */
@@ -308,7 +308,7 @@ function exportCsv() {
    金额列的视觉重心（报表里老板先看的是数字，其次才是单号）。 */
 .rpt-drill {
   background: none; border: 0; padding: 0; margin: 0; font: inherit;
-  color: var(--p); cursor: pointer; text-align: left; line-height: 1.6;
+  color: var(--p); cursor: pointer; text-align: left; line-height: var(--lh-normal);
   border-bottom: 1px dashed currentColor;
 }
 .rpt-drill:hover { color: var(--p-dark); border-bottom-style: solid }

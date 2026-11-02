@@ -684,12 +684,12 @@ function onHover(mo, i, key) {
 }
 .mac-tip.to-left { transform: translateX(-100%); }
 .mac-tip b { display: block; margin-bottom: var(--sp-h6); font-size:var(--fs-sm); font-weight: 500; color: var(--t1); }
-.tp-row { display: flex; align-items: center; gap: var(--sp-2); line-height: 1.9; }
+.tp-row { display: flex; align-items: center; gap: var(--sp-2); line-height: var(--lh-prose); }
 .tp-k { width: 56px; color: var(--t3); flex: none; }
 .tp-v { color: var(--t1); font-variant-numeric: tabular-nums; }
 .tp-r { margin-left: auto; color: var(--t2); font-variant-numeric: tabular-nums; }
 .tp-r.warn { color: #dc2626; }
-.tp-ex { display: flex; gap: var(--sp-2); line-height: 1.9; border-top: 1px solid var(--border-subtle); margin-top: var(--sp-1); padding-top: var(--sp-1); }
+.tp-ex { display: flex; gap: var(--sp-2); line-height: var(--lh-prose); border-top: 1px solid var(--border-subtle); margin-top: var(--sp-1); padding-top: var(--sp-1); }
 .tp-ex .tp-v { color: var(--t2); }
 
 .mac-ft { display: flex; flex-wrap: wrap; gap: var(--sp-h14); font-size:var(--fs-sm); color: var(--t3); }

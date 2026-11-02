@@ -370,7 +370,7 @@ onMounted(() => { load(); loadProducts() })
 .pm-badge.off { background: var(--bg2); color: var(--t3) }
 .pm-empty { padding: 28px var(--sp-1) }
 .pm-empty-note { font-size:var(--fs-base); color: var(--t2); margin: 0 }
-.pm-empty-guide { font-size:var(--fs-sm); color: var(--t1); margin: var(--sp-2) 0 0; line-height: 1.8 }
+.pm-empty-guide { font-size:var(--fs-sm); color: var(--t1); margin: var(--sp-2) 0 0; line-height: var(--lh-loose)}
 
 /* 弹窗 */
 .pm-form-err { padding: var(--sp-2) var(--sp-h10) }
