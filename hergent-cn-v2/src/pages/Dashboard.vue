@@ -451,7 +451,7 @@ watch(repOk, (ok) => {
 
 <style scoped>
 .dash{display:flex;flex-direction:column;gap:var(--sp-h14)}
-.dash-hd h1{font-size:var(--fs-h2);font-weight:600;color:var(--t1)}   /* v719：原 18px 与全站页面标题 20px 不一致（--fs-h2），统一 */
+.dash-hd h1{font-size:var(--fs-xl);font-weight:600;color:var(--t1)}   /* v719：原 18px 与全站页面标题 20px 不一致（--fs-h2），统一 */
 .dash-sub{font-size:var(--fs-sm);color:var(--t3);margin-top:var(--sp-h2)}
 
 .kpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--sp-3)}

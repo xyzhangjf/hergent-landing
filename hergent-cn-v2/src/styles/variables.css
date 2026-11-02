@@ -338,19 +338,26 @@
      10px/10.5px 这类低于中文可读下限的档，和 11.5/12.5/13.5/14.5 这类不在任何阶梯上的
      半像素档（同一份代码里 12px 与 12.5px 混用，纯属历史随手写）。
      现已机械归一：8~10.5 → 11、11.5/12.5 → 12、13.5/14.5 → 14、19 → 20、25 → 26，共 388 处；
-     23 档收敛到 12 档，最小值锁定 11px。剩下的 15/16/17/18/20/22/24/26 是标题与 KPI 数字档
-     （18px 是窄屏 KPI 的刻意降级值，见 @media(max-width:768px)），不属于"不可读"范畴；
-     再压缩到 7 档要重设计标题层级，留待 P1。新增样式一律从下面取，不要再写裸 px。 */
+     23 档收敛到 12 档，最小值锁定 11px。
+
+     v730 收掉两个**同值 / 单点**档（12 → 11 档）：
+       `--fs-h2` 20px ≡ `--fs-xl` 20px（同值两个名字，2 处引用）⇒ 删 h2，改指 xl
+       `--fs-h3` 17px（4 处，夹在 lg 16 与 stat 18 之间只差 1px）⇒ 图标字符/错误标题改 lg 16，
+                到货节奏的统计值改 stat 18（它本来就是统计值语义）
+     🔴 字号的归并与行高**风险不同档**：行高只影响垂直，字号会改变文字宽度 ⇒ 换行、截断、
+        表格列宽。所以这一版只动「同值」和「单点」的档，不碰有 43 处引用的 15px。
+
+     ⚠️ 已知过渡档只剩 `--fs-h4` 15px（43 处 + `@media(max-width:768px){body}`）。
+        它同时被当「四级标题」和「移动端正文字号」用 —— 语义已经冲突，P1 要连同 body 那条一起决策。
+        新增样式一律从下面取，不要再写裸 px。 */
   --fs-xs:11px;    /* 角标/计数/密集表格；中文下限，禁止再小 */
   --fs-sm:12px;    /* 提示/次要信息 */
   --fs-base:13px;  /* 表格/表单控件 */
   --fs-md:14px;    /* 正文 */
-  --fs-h4:15px;    /* 四级标题（面板标题/子分区名） */
+  --fs-h4:15px;    /* 过渡档｜四级标题 / 移动端 body（语义冲突，P1 处理） */
   --fs-lg:16px;    /* 弹窗标题 */
-  --fs-h3:17px;    /* 三级标题（卡片标题/分区名） */
   --fs-stat:18px;  /* 统计值/次级数字（窄屏 KPI 降级值也用它） */
   --fs-xl:20px;    /* 页头 h2 / 二级页头 */
-  --fs-h2:20px;    /* 等同 --fs-xl，保留是历史引用 */
   --fs-num:22px;   /* KPI 主数值 */
   --fs-h1:24px;    /* 一级页头（大盘/工作台主标题） */
   --fs-num-lg:26px;/* 大数值 / 头像字符 */
@@ -912,7 +919,7 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
 /* v719 P2：页面标题改用 `<h1>`（每页唯一），同时保留 h2 兼容 —— 137 个页面里 62 处已改，
    剩下的少数（弹窗式页面、登录页、导入页）仍是 h2；两代写法必须同观感，否则改一个漏一个就漂。
    `margin:0` 是必须的：h1 的 UA 默认 margin 是 0.67em，会撑开页头且与 h2 不齐。 */
-.page-hd :is(h1,h2){font-size:var(--fs-h2);font-weight:600;margin:0;line-height:var(--lh-tight)}
+.page-hd :is(h1,h2){font-size:var(--fs-xl);font-weight:600;margin:0;line-height:var(--lh-tight)}
 .page-hd.split{align-items:flex-start;justify-content:space-between;gap:var(--sp-3)}
 .page-hd.flush{margin-bottom:0}
 .page-sub{font-size:var(--fs-sm);color:var(--t3)}

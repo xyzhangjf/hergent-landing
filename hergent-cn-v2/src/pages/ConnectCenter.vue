@@ -1350,7 +1350,7 @@ onUnmounted(stopStatusPoll)
 .switch.on .slider::before{transform:translateX(18px)}
 .wf-card.disabled{cursor:default;opacity:.65}
 .wf-top{display:flex;align-items:center;gap:var(--sp-3)}
-.wf-icon{width:40px;height:40px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:var(--fs-h3);font-weight:600;flex-shrink:0}
+.wf-icon{width:40px;height:40px;border-radius:var(--radius-sm);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:var(--fs-lg);font-weight:600;flex-shrink:0}
 .wf-name-wrap{flex:1}
 .wf-name{font-size:var(--fs-h4);font-weight:500;color:var(--t1);margin-bottom:var(--sp-h2)}
 .wf-state{font-size:var(--fs-xs);padding:var(--sp-h2) var(--sp-2);border-radius:var(--radius-sm);background:var(--bg2);color:var(--t3)}

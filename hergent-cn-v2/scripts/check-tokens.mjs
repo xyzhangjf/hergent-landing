@@ -333,6 +333,46 @@ function checkLineHeightRamp () {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   v730 · 字号**阶梯**护栏（与 `checkLineHeightRamp` 同性质：锁档位，不只锁用法）
+   -----------------------------------------------------------------------------
+   由来：`checkFontSizes()` 只拦「没用令牌」。令牌本身可以是 12 档、步长 1px ——
+   每一条引用都合规，但 15/16/17 三档相邻，肉眼分不出，却把同类文字切成了三种。
+   v730 收掉两个：
+     · `--fs-h2` 20px ≡ `--fs-xl` 20px —— **同值两个名字**，共存了几个月没人发现
+     · `--fs-h3` 17px 只有 4 处，夹在 lg 16 与 stat 18 之间
+   🔴 所以这条护栏除了锁名字/值，还多查一条 **同值检测**：
+      两个 `--fs-*` 值是同一个数 ⇒ 报错。这比"档位太多"更难发现 ——
+      用的人只会想"我该用 h2 还是 xl"，而答案永远是"都一样"。 */
+const FONT_RAMP = new Map([
+  ['--fs-xs', 11],
+  ['--fs-sm', 12],
+  ['--fs-base', 13],
+  ['--fs-md', 14],
+  ['--fs-h4', 15],   // 过渡档：四级标题 / 移动端 body，语义冲突，P1 决策
+  ['--fs-lg', 16],
+  ['--fs-stat', 18],
+  ['--fs-xl', 20],
+  ['--fs-num', 22],
+  ['--fs-h1', 24],
+  ['--fs-num-lg', 26],
+])
+function checkFontRamp () {
+  const css = stripComments(readFileSync(join(ROOT, TOKEN_FILE), 'utf8'))
+  const seen = new Map()
+  for (const m of css.matchAll(/(--fs-[a-z0-9-]+)\s*:\s*(\d+(?:\.\d+)?)px\s*;/g)) seen.set(m[1], parseFloat(m[2]))
+  const bad = []
+  for (const [k, v] of seen) {
+    if (!FONT_RAMP.has(k)) bad.push({ k, v, why: '新增档位' })
+    else if (FONT_RAMP.get(k) !== v) bad.push({ k, v, why: `值应保持 ${FONT_RAMP.get(k)}px` })
+  }
+  for (const k of FONT_RAMP.keys()) if (!seen.has(k)) bad.push({ k, v: null, why: '档位被删' })
+  const byVal = new Map()
+  for (const [k, v] of seen) byVal.set(v, [...(byVal.get(v) || []), k])
+  for (const [v, ks] of byVal) if (ks.length > 1) bad.push({ k: ks.join(' ≡ '), v, why: `同值 ${v}px，同一件事两个名字（用的人只会问"该用哪个"，答案都一样）` })
+  return bad
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    v727 · 间距护栏
    ─────────────────────────────────────────────────────────────────────────────
    由来：`gap/padding/margin` 的间距字面量共 **5037 处 / 43 个值**，其中
@@ -392,6 +432,7 @@ const fsBad = checkFontSizes()
 const spBad = checkSpacing()
 const lhBad = checkLineHeights()
 const lhRampBad = checkLineHeightRamp()
+const fontRampBad = checkFontRamp()
 if (args.has('--update')) {
   const obj = {}
   for (const k of [...current.keys()].sort()) obj[k] = [...current.get(k)].sort()
@@ -430,7 +471,7 @@ for (const [file, vals] of current) {
   if (added.length) violations.push({ file, kind: 'new-color', vals: added })
 }
 
-if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length && !lhRampBad.length) {
+if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length && !spBad.length && !lhBad.length && !lhRampBad.length && !fontRampBad.length) {
   const files = Object.keys(base).length
   const total = Object.values(base).reduce((a, b) => a + b.length, 0)
   console.log(`✓ 设计令牌护栏通过（存量待清：${files} 个文件 / ${total} 条，见 --list）`)
@@ -440,6 +481,7 @@ if (!violations.length && !iconBad.length && !radiusBad.length && !fsBad.length 
   console.log(`✓ 间距护栏通过（12 档必须走令牌；离群值不许新增）`)
   console.log(`✓ 行高护栏通过（只许 var(--lh-*) / 0 / normal）`)
   console.log(`✓ 行高阶梯通过（5 档：1 / 1.2 / 1.4 / 1.6 / 1.8）`)
+  console.log(`✓ 字号阶梯通过（11 档：11 / 12 / 13 / 14 / 15 / 16 / 18 / 20 / 22 / 24 / 26，无同值重名）`)
   process.exit(0)
 }
 
@@ -471,6 +513,15 @@ if (lhRampBad.length) {
   console.error('\n阶梯锁死为 5 档（v729 决策，理由见 variables.css 该段注释）：')
   console.error('  --lh-none 1　--lh-title 1.2　--lh-tight 1.4　--lh-normal 1.6　--lh-loose 1.8')
   console.error('要从 11 档退回来的教训：档位越多，选择越随意，1.3px 的差别只有机器看得出。\n')
+}
+
+if (fontRampBad.length) {
+  console.error('\n✗ 字号阶梯：variables.css 的 --fs-* 档位被改动\n')
+  for (const b of fontRampBad) console.error(`  ${b.k}: ${b.v ?? '（已删除）'}  ← ${b.why}`)
+  console.error('\n阶梯锁死为 11 档（v730 决策，理由见 variables.css 该段注释）：')
+  console.error('  11 xs / 12 sm / 13 base / 14 md / 15 h4(过渡) / 16 lg / 18 stat / 20 xl / 22 num / 24 h1 / 26 num-lg')
+  console.error('🔴 字号归并与行高风险不同档：行高只影响垂直，字号会改变**文字宽度** ⇒')
+  console.error('   换行、截断、表格列宽。所以只收「同值」和「单点」的档，15px（43 处 + 移动端 body）留给 P1。\n')
 }
 
 if (fsBad.length) {

@@ -4047,7 +4047,7 @@ watch(() => store.chat.messages.length, () => { stopRead(); scrollBottom() })
 .cp-brand{display:flex;align-items:center;gap:var(--sp-h10)}
 /* v319b：顶栏头像容器与「消息头像」(`.msg-avatar`) 同一套视觉 —— 圆形底 + 居中 emoji/PNG，
    差别只在尺寸（32 / 26）。改这里时请一并看 `.msg-avatar` 与 `.cp-role-av`，三处必须同源。 */
-.cp-ai-img{width:32px;height:32px;border-radius:var(--radius-circle);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:var(--fs-h3);line-height:var(--lh-none);flex-shrink:0;overflow:hidden}
+.cp-ai-img{width:32px;height:32px;border-radius:var(--radius-circle);background:var(--p-bg);color:var(--p-dark);display:flex;align-items:center;justify-content:center;font-size:var(--fs-lg);line-height:var(--lh-none);flex-shrink:0;overflow:hidden}
 .cp-ai-img-png{width:100%;height:100%;border-radius:var(--radius-circle);object-fit:cover;display:block}
 .cp-titles{display:flex;flex-direction:column;min-width:0}
 .cp-titles b{font-size:var(--fs-md);font-weight:600;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

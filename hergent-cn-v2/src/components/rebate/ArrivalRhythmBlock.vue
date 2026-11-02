@@ -210,7 +210,7 @@ function wkLabel(iso) {
 .arr-stat{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-h10);margin-bottom:var(--sp-h10)}
 .arr-stat-i{display:flex;align-items:baseline;gap:var(--sp-1);flex-wrap:wrap;background:var(--bg1);border:1px solid var(--bd2);border-radius:var(--radius-sm);padding:var(--sp-2) var(--sp-h10)}
 .arr-stat-k{font-size:var(--fs-sm);color:var(--t3);flex-basis:100%}
-.arr-stat-i b{font-size:var(--fs-h3);color:var(--t1);font-variant-numeric:tabular-nums;line-height:var(--lh-title)}
+.arr-stat-i b{font-size:var(--fs-stat);color:var(--t1);font-variant-numeric:tabular-nums;line-height:var(--lh-title)}
 .arr-stat-i b.on{color:var(--p-dark)}
 .arr-stat-i b.cut{color:var(--t2)}
 .arr-stat-u{font-size:var(--fs-sm);color:var(--t3)}
