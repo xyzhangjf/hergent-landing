@@ -2733,3 +2733,28 @@ CDN / 浏览器可能命中**上一次部署的** `index.html` ⇒ 探针实际�
 ### 起号 / 并行分叉 / pages.js
 
 - 起号必读 `version-history.md` + 实搜两仓 `git log --all` + `git worktree list`。并行分叉：scoped 提交→merge origin/main→合并 HEAD 重建→部署→验「双方标记都在」。改 `pages.js` 先分清单"路由"还是"门禁"（本项目=门禁唯一源，`ruleFor` 未登记 path 一律放行⇒删占位登记=放宽门禁）v499。前端 `roles` 窄名单非真保险⇒敏感页必须后端 `_admin` 双保险(v531)。
+
+---
+
+## 免密码做生产 UI 真机验证（v707 建立，各版复用）
+
+生产后端**不是 git 仓**，改它要：`scp` 下来 → `.bak` → `install -o hergent -g hergent -m 644` → `systemctl restart`。
+
+登录态最省事的取法：主库 `sessions` join `users`(role='boss') 取 `token`，注入
+`erp_token`(httpOnly) + `hergent_auth=1` + `csrf_token`(任意) + `hergent_tenant` ⇒ 以老板身份跑生产页。
+⚠️ `sessions` **没有 id 列**（用 `created_at`）、`users` **没有 tenant_id**。
+
+🔴 **自己插 `sessions` 造临时登录态时**，`created_at` / `expires_at` / `last_activity` 三列
+必须写 `datetime('now','localtime')`；写 `datetime('now')`（UTC）差 8 小时 ⇒ 直接 **401**，
+表现像「token 无效」（v714 实踩）。用完 `delete from sessions where token like '<前缀>%'`。
+
+```python
+tok = 'v727probe' + secrets.token_hex(16)
+c.execute("insert into sessions(token,user_id,created_at,expires_at,last_activity) values(?,?,"
+          "datetime('now','localtime'),datetime('now','localtime','+2 day'),datetime('now','localtime'))", (tok, uid))
+```
+
+🔴 **免密验证走 `Authorization: Bearer`** ⇒ CSRF 中间件整段豁免；但权限类端点还要
+`X-Tenant-Id` 头（`_perms_tenant_or_400` fail-closed，缺了就 400，绝不回落主库）。
+
+清理是必做项：`delete … like 'v72xprobe%'`，然后核 `count(*)` 为 0。
