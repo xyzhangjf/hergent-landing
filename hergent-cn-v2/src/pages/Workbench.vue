@@ -845,5 +845,17 @@ onMounted(loadData)
   .wb-tasks,.expiry-card,.repl-panel,.ai-insight{grid-column:1/-1;grid-row:auto}
   .wb-status{margin-left:0;width:100%}
   .wb-hi{font-size:var(--fs-stat)}
+  /* 🔴 v733 修复：单卡被撑到 410px 高、标题逐字竖排。
+     根因不是"宽度算错"，是**固定项之和已经超过容器**：
+       卡片内容宽 277 = 375 − 卡片边距 − 内距
+       固定项 .tag 64 + .task-acts 189.8 + gap ×2 = 277.8 > 277
+     而 `.task-main{flex:1;min-width:0}` 允许被压到 0、文字又是 `overflow:visible`
+     ⇒ 标题在 0 宽盒子里逐字换行（`.task-sub` 同样溢出，看起来是横排但已出界）。
+     窄屏改成两行：第一行「徽标 + 标题」，第二行「按钮右对齐」。
+     `flex-basis:60%` 是"先占住六成"，剩下的交给 flex-grow —— 比写死
+     `calc(100% - 76px)` 稳：`76px` 会随徽标文案变化（`.task-ic` 分支只有 36px）。 */
+  .task-row{flex-wrap:wrap}
+  .task-main{flex:1 1 60%}
+  .task-acts{flex:0 0 100%;justify-content:flex-end}
 }
 </style>

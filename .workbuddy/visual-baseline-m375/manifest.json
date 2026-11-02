@@ -1,11 +1,11 @@
 {
  "set": "baseline",
- "tookAt": "2026-11-02T12:09:03.104Z",
+ "tookAt": "2026-11-02T12:22:20.821Z",
  "viewport": [
   375,
   812
  ],
- "build": "v732",
+ "build": "v733",
  "pages": [
   {
    "theme": "light",
@@ -14,7 +14,7 @@
    "route": "/workbench",
    "nodes": 392,
    "h1": "经营工作台",
-   "bytes": 48422
+   "bytes": 64605
   },
   {
    "theme": "light",
@@ -122,7 +122,7 @@
    "route": "/workbench",
    "nodes": 392,
    "h1": "经营工作台",
-   "bytes": 49090
+   "bytes": 65511
   },
   {
    "theme": "dark",
