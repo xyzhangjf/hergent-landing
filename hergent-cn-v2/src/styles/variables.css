@@ -1110,8 +1110,13 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 
 /* 空态样式已上移到「空/错态」段，此处不再重复定义（v717 去重）。 */
 
-/* 加载骨架 */
-.skel-line{height:14px;border-radius:var(--radius-2xs);background:var(--bg4);animation:pulse 1.4s ease-in-out infinite}
+/* 加载骨架
+   `.skel-line` 是全站骨架的基本单位（10 个文件在用，共 24 处）。v724 加两档高度修饰：
+   骨架的高度必须与**它替代的那行文字**等高，否则数据一到就会跳版；
+   KPI 数值是 22px、说明文字是 12px，用默认的 14px 两头都不对齐。 */
+.skel-line{display:block;height:14px;border-radius:var(--radius-2xs);background:var(--bg4);animation:pulse 1.4s ease-in-out infinite}
+.skel-line.sk-h12{height:12px}
+.skel-line.sk-h22{height:22px}
 
 /* ============================================================
    v241 补齐：危险按钮 / 输入禁用·只读 / 表单错误态（S3 · S4 · S5）

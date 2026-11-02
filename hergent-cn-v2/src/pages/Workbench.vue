@@ -18,8 +18,17 @@
       <div class="card kpi-strip" v-if="store.canModule('dashboard') && !isEmptyTenant">
         <div class="kpi" v-for="k in kpis" :key="k.label">
           <div class="kpi-label">{{ k.label }}</div>
-          <div class="kpi-val" :class="k.cls">{{ k.val }}</div>
-          <div class="kpi-sub">{{ k.sub }}</div>
+          <!-- v724：加载中不能显示「¥0」—— 那是数据没到的占位，不是经营结果。
+               老板每天第一眼看这页，假 0 跳成真值比多等 200ms 更伤信任。
+               骨架高度与真内容对齐（22px 数值 / 12px 说明），避免数据到了跳版。 -->
+          <template v-if="bootLoading">
+            <div class="kpi-val"><span class="skel-line sk-h22" style="width:64%"></span></div>
+            <div class="kpi-sub"><span class="skel-line sk-h12" style="width:46%"></span></div>
+          </template>
+          <template v-else>
+            <div class="kpi-val" :class="k.cls">{{ k.val }}</div>
+            <div class="kpi-sub">{{ k.sub }}</div>
+          </template>
         </div>
       </div>
 
@@ -49,21 +58,32 @@
       <div class="card wb-tasks" v-if="!isEmptyTenant">
         <div class="panel-hd">
           <b>今日要务</b>
-          <span class="badge" :class="taskBadgeCls">{{ mergedTasks.length }} 项待处理</span>
+          <!-- v724：加载中说「0 项待处理」等于告诉老板今天没事，实际是还没查。 -->
+          <span v-if="!bootLoading && !todoLoading" class="badge" :class="taskBadgeCls">{{ mergedTasks.length }} 项待处理</span>
         </div>
         <div class="task-list">
-          <div v-for="(t, i) in mergedTasks" :key="i" class="task-row" :class="'prio-' + t.prio">
-            <span v-if="t.kind === 'card'" class="tag" :class="t.tag">{{ t.tagText }}</span>
-            <span v-else class="task-ic">{{ t.icon }}</span>
-            <div class="task-main">
-              <div class="task-title">{{ t.title }}</div>
-              <div class="task-sub">{{ t.sub }}</div>
+          <template v-if="bootLoading || todoLoading">
+            <div v-for="i in 3" :key="'sk' + i" class="task-row">
+              <div class="task-main">
+                <span class="skel-line sk-h14" style="width:52%"></span>
+                <span class="skel-line sk-h12" style="width:34%;margin-top:9px"></span>
+              </div>
             </div>
-            <div class="task-acts">
-              <button v-for="a in t.actions" :key="a.label" class="btn btn-ghost" @click="cardAction(a)">{{ a.label }}</button>
-              <span v-if="t.kind === 'todo'" class="task-go" @click="goTodo(t)">去处理 →</span>
+          </template>
+          <template v-else>
+            <div v-for="(t, i) in mergedTasks" :key="i" class="task-row" :class="'prio-' + t.prio">
+              <span v-if="t.kind === 'card'" class="tag" :class="t.tag">{{ t.tagText }}</span>
+              <span v-else class="task-ic">{{ t.icon }}</span>
+              <div class="task-main">
+                <div class="task-title">{{ t.title }}</div>
+                <div class="task-sub">{{ t.sub }}</div>
+              </div>
+              <div class="task-acts">
+                <button v-for="a in t.actions" :key="a.label" class="btn btn-ghost" @click="cardAction(a)">{{ a.label }}</button>
+                <span v-if="t.kind === 'todo'" class="task-go" @click="goTodo(t)">去处理 →</span>
+              </div>
             </div>
-          </div>
+          </template>
         </div>
       </div>
 
@@ -87,6 +107,13 @@
               </tr>
             </tbody>
           </table>
+        </div>
+        <!-- v724：加载中必须显示骨架，不能落进「无临期批次，保持节奏」——
+             那是在数据没到时说「一切正常」，是最不该出现的假消息（尤其这一格是风控位）。 -->
+        <div v-else-if="bootLoading" class="ai-loading">
+          <div class="skel-line" style="width:92%"></div>
+          <div class="skel-line" style="width:76%;margin-top:11px"></div>
+          <div class="skel-line" style="width:84%;margin-top:11px"></div>
         </div>
         <div v-else class="state-empty">
           <div class="se-ic"><Icon name="check" :size="22" /></div>
@@ -567,6 +594,13 @@ async function igFile(ev) {
 }
 
 /* ---- 初始化加载 ---- */
+/* v724：整页首屏加载态。此前三个面板在「数据还没到」时都说了确定的话：
+   KPI 是 ¥0（看着像今天没卖出去）、要务是「0 项待处理」（看着像没事）、
+   近效期是「无临期批次，保持节奏」（风控位说一切正常）。三处都改成骨架。
+   只盖首屏那四个 await（dash/expiry/today/recentActions），不盖 AI 晨报 ——
+   等 AI 会让骨架挂太久，晨报自己有 aiLoading。 */
+const bootLoading = ref(true)
+
 async function loadData() {
   try {
     const d = await dashboardApi.todayProfit()
@@ -594,6 +628,9 @@ async function loadData() {
     const arr = Array.isArray(ra) ? ra : (ra?.items || ra?.data || [])
     recentActions.value = arr.filter(a => a && a.module !== 'auth')
   } catch (e) { recentActions.value = [] }
+  /* 首屏四个数据源已定 ⇒ 骨架退场。loadTodo 有自己的 todoLoading，
+     AI 晨报有自己的 aiLoading，都不在这里等。 */
+  bootLoading.value = false
   loadTodo()
   loadReplenishment()
   loadProducts()

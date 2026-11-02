@@ -208,7 +208,14 @@
           </label>
           <span class="frc-hint">共 {{ filteredGroups.length }} 组</span>
         </div>
-        <div v-if="!filteredGroups.length" class="state-empty">没有符合条件的组。</div>
+        <!-- v724：有任一侧正在读数据时，`filteredGroups` 必然是空 ⇒ 旧版会显示
+             「没有符合条件的组」。那是「还没读」不是「没有」，对账页说这句话等于报了结论。 -->
+        <div v-if="sides.a.loadingRows || sides.b.loadingRows" class="ai-loading">
+          <div class="skel-line" style="width:64%"></div>
+          <div class="skel-line" style="width:78%;margin-top:11px"></div>
+          <div class="skel-line" style="width:52%;margin-top:11px"></div>
+        </div>
+        <div v-else-if="!filteredGroups.length" class="state-empty">没有符合条件的组。</div>
         <div v-else class="table-wrap freeze-list">
           <table class="tbl">
             <thead><tr><th class="seq-th">组号</th><th>类型</th><th>方向</th><th class="num">渠道侧金额</th><th class="num">内部侧金额</th><th class="num">差额</th><th>日期</th><th>对方</th><th>说明</th></tr></thead>
