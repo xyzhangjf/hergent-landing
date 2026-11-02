@@ -591,3 +591,13 @@
 - UI 规范：新增/合并件合规（零新增硬编码色/v-html/内联svg/原生confirm）；仅历史偏离 H4/L12/L6。
 - 建议：上线前重跑 `hergent-cn-v2` `npm test`（21 契约+207 .vue 符号扫描）+ `npm run build` 以最终确认「悬空模板引用」类假象（仅 SFC 符号扫描可抓），因本审查严格只读未重跑构建。
 - 报告落盘：docs/code-review/2026-11-01.md（目录 31→30，删最旧 2026-09-29.md）。
+
+## 最近执行：2026-11-02
+- 模式：严格只读，未改/删/重命名任何代码配置（仅依任务授权删最旧报告 2026-09-30.md 留 30 份），未部署/重启，无 git 写操作（git status/diff/log/show 仅读）。
+- 范围：窗口 11-01 02:00→11-02 02:00。前端 hergent-cn-v2/src 在 11-01 白天至深夜落地 **v707–v720 共 34 提交**（员工档案附件/品牌全选控件/对齐与图标居中/报单配置默认收起/已停用公共件 useInactiveFilter+InactiveToggle/顶栏窄屏/全站对比度达标/焦点环令牌护栏/前端硬编码色清零 166→0 收尾/全站视觉一致性+无障碍 + 企微三点动画原生化），全部已提交 HEAD `574d0702`（129 文件 +2446/−1271）；后端 hergent-erp 窗口内 0 改动（HEAD 仍为 10-29 的 `0ff0be5`）；根 erp/ 0 改动。
+- 结果：高 0 / 中 0 / 低 0（新增缺陷）。风险正则扫描对 `git diff 570b97e..HEAD` 新增行零命中 v-html(非 renderMd)/window.confirm/alert(/JSON.parse/innerHTML/裸 #hex（仅 color:#fff 白字于主题色底合法）；`GenericReport.vue` 反向移除 `var(--line,#dcdfe6)`/`var(--bg1,#fff)` 兜底=正向清理。逻辑件 useInactiveFilter/EmployeeArchive 附件/ReportMapping 过滤/StatusBadge/InactiveToggle 逐行复核无缺陷（useInactiveFilter 正确实现 `===0||===false` 缺失当启用；附件走归属校验端点）。
+- 本轮新发现但非本轮引入的 UI 规范偏离 1 项（LOW）：`FundsPartyReconcile.vue:277/285/286` 硬编码 `background:#fff`/`#eef3ff`（深色破窗），为 10-30 批次遗留、v719 清零漏网，首次指出、不计入新增缺陷。
+- 历史遗留未修 9 项（1 高 / 1 中 / 7 低），轮次整体 +1：H-A(erp_db.py 四审批表 0 命中，第17轮)、M-A(sales.py:729/751/752 商品级 ret_map)、H3(CopilotDrawer:206 v-html)/H4(BidRadar:5/66 内联svg)/L5(rebate_settlement:47/155 缺键3)/L6(原生 confirm 17处)/L7(SettlementScheduleTab:265 静默catch)/L10(approvals.py:25 仅_auth)/L12(CopilotDrawer:4176 cp-doc-chip rgba)。本轮闭环 0 项（UI 批次未触遗留点）；L11 构建号 main.js:71='v720' 复核确认仍维护（上轮已闭环）。
+- 未提交：前端 src 工作树干净（v707–v720 全入库）；后端 3 carry-over tracked-M（sales.py/funds_db.py/funds.py = 10-29）+ 未跟踪 report_engine/patches/0004–0010/prompts/tools 仍遗留，窗口内无新增。
+- UI 规范：新增/合并件合规（零新增硬编码色/v-html/内联svg/原生confirm）；偏离=H4/L12 + 本轮指出的 FundsPartyReconcile 白底。
+- 报告落盘：docs/code-review/2026-11-02.md（目录 31→30，删最旧 2026-09-30.md）。

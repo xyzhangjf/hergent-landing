@@ -91,3 +91,15 @@
 - v0.22.3/4/5 增量全桌面/插件/Cloud 向，hergent 增益≈0；唯一安全项（Pillow13+依赖补丁）是 Hermes 运行时自身依赖，hergent 自有 venv 不继承、且 httpx 安全升级可就地 bump，不构成升级触发。
 - 报告：docs/hermes-update-monitor/2026-10-26.md（目录现 10 份，无需清理）。
 - 升级触发条件不变：headless/server 发行说明、cron bridge/config/18765 兼容修复、或波及 v0.19.0 的严重安全公告。
+
+## 2026-11-02（例行周检）
+- 结论：**A 无需升级，维持生产 v0.19.0**。
+- 官方最新：**仍止于 v0.22.5（2026-10-23）**，自 10-26 评估后 10 天内**无新 tag**（GitHub Releases 顶部 15 条全部 ≤2026-10-23）；PyPI 仍停 0.19.0（滞后）。
+- 重新 curl codeload 拉 v0.22.5 tarball（83MB，解压 10030 py，与 10-26 克隆数量一致）做 5 耦合点**真实复测**（非沿用记忆），结果与 10-26 逐条一致：
+  - ① /v1/chat/completions api_server.py:82 ✅语义兼容（形态待迁：8642+API_SERVER_KEY）
+  - ② /v1/skills 恢复 api_server.py:89/1662/2875，返回 {object,list,data} ✅兼容
+  - ③ **cron bridge 全仓零命中仍未回归（否决项不变）**；/api/jobs+/api/cron/fire HTTP 替代仍在（:1681-1693）
+  - ④ cors_origins 改读 extra/env（config_env.py:119 / api_server.py:1125），软迁移；mcp_servers 顶层仍读 ✅；API_SERVER_KEY 强制≥16字符仍新增约束
+  - ⑤ SOUL.md 仍被 context_file_sources.py:90 + session_execution.py:183 + cron/scheduler.py:2528 逐轮重读注入 ✅格式协议存活
+- v0.22.3/4/5 增量全桌面/插件/Cloud 向，hergent 增益≈0 → 维持 A。
+- 报告：docs/hermes-update-monitor/2026-11-02.md（目录现 11 份，无需清理）。升级触发条件不变。

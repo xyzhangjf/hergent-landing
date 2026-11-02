@@ -1782,3 +1782,36 @@
 - ✅ **`sqlite3` 命令行在生产机上不存在**（`command not found`），只读查库要用 `python3 -c 'sqlite3.connect("file:…?mode=ro", uri=True)'`。
 - ✅ **两次 `Started` 间隔仅 7 分钟（10:39/10:46）也仍是发版**：判据是有没有 `Stopping`→`Stopped` 成对 + `NRestarts` 是否为 0；本轮两对全齐、计数器 0 ⇒ 干净。**别只凭「短时间内重启两次」就判崩溃循环。**
 - ✅ **`ActiveEnterTimestamp` 是昨天、`MainPID` 与日志里的 `hergent-erp[PID]` 一致 ⇒ 说明进程从昨天起没换过**，可直接把「日志里所有 `[4148255]`」当成同一进程实例读，不必怀疑中途重启。
+
+---
+
+## 最近执行：2026-11-02（第 35 次 · 04:00）
+- 模式：严格只读。未改/删/重命名生产文件，未部署、未重启；库仅 `mode=ro`；只把 21 个生产文件 `tar cf - | tar xf -` 单向拉到本机 `/tmp/prod19` 比对（已删）。副作用 1 次 `demo-login`。`MainPID=4169882` 首尾一致、`NRestarts=0`。
+- 结果：**总体 🔴 高危（1 项 · 3 条风险）** —— 4 项正常、3 项需关注（5 日志 452M / 7 第 4 探针 / 见下）、1 项高危、0 项未知。
+  - 🔴🔴 **`routers/report_engine.py` 仍未入库（第 3 天）**：HEAD 自 10-29 `0ff0be5` 起零新提交；`server.py:1096` 顶层 import 未变 ⇒ 按 HEAD 部署 = 启动即崩。仍是唯一「禁令级」项。
+  - 🔴 **本轮新增：`server.py` 自己进了「生产独有」清单（+116/−3）** —— v706 员工档案附件四端点（`/api/employees/{eid}/attachments`，PII：劳动合同/身份证/体检报告，用 `_emp_attach_guard` 做归属校验、一律回 404）+ 员工合同/绩效 7 列 `_clearable` 白名单。11-01 07:21 上线未提交。**第 8 项 42 → 44**、健康 347 → 345。
+  - 第 8 项构成 **2+18+1+10+13**；新增两个 `server.py` / `tools/hermes_wecom_ack_patch.py`（+155/−59），另 `funds_db.py`+`routers/funds.py` 归入 2 类后也算进逐文件比对。逐文件：**16 超前 +1463/−211**（昨日 +1042/−137）、4 落后 −323、1 同行数异内容（product_targets）。`erp_db.py` 42→**111**。
+  - ✅ 第 4 项连续第 3 天全清：traceback 0、`[ERROR]` 0、5xx 0（窗口 10401 行）、`[WARNING]` 级 **0 条**。
+  - 🆕 👀 **17 条 `Duplicate Operation ID` UserWarning**（同一函数注册两遍，含 salary_*、portal_*、store_tiers、list_users 等）—— 首次记录，各 1 次不触发告警，列为观察。
+  - 第 3 项：4 次重启全在 11-01 07:17:58~07:21:39（3 分 41 秒内）⇒ **连续发版**，4 对干净 Stopping/Stopped、`NRestarts=0`、无 `status=9`（已连续 3 天无 SIGKILL）。旁证 `server.py` mtime = 11-01 07:21。
+  - 第 1 项 200/200/active，**RSS 404MB（昨日 283MB，+43%）** 与发版时间吻合，列为观察待明日确认是否泄漏。
+  - 第 5 项 **452.0M（+24M/天，前日 +16M）** ⇒ 由「正常」上调为「⚠️需关注」，约 6 天触 600MB（首次把 journald 上限列进人工清单）。
+  - 第 2 项备份连续第 11 天（7 份 73.9MB + alert「本地 7/期望 7/异地 7」）；第 6 项 **67.6 天**；第 7 项 3/3=403 原因正确 + 对照 200，第 4 探针 READONLY 第 **38** 天。
+  - 迁移 0006~0010 仍未入库（**第 6 天**）；三库 schema_patches 一致（1,2,3,6~14 ok）；`backup_config_get` 第 **35** 天（def 0、调用仍在 `server.py:5576/5607`）；世界可读整库副本仍 4 份 /220M；`routers/*.bak*` 58、根目录 `*.bak-*` **54**（+2）；`tenant_9.db` 不存在（维持结案）。
+- ✅ 报告落盘 `docs/prod-inspection/2026-11-02.md`；目录 31 → 删 `2026-09-29.md` 后 **30 份**（现最早 2026-09-30）。
+- ✅ 推送成功：`scp` → `hermes send --to wecom:ZhangJunFeng -f … < /dev/null` → `Sent to wecom home channel (chat_id: ZhangJunFeng)`；两侧临时文件已删。
+
+## 下轮必做（2026-11-03 起）
+1. 🔴🔴 `report_engine.py` 是否入库（第 4 天）—— 未入库前任何部署都不能做。
+2. 🔴 **`server.py` 是否入库**（第 2 天，本轮新增）；连同 `erp_db.py` +111 必须成对提交。
+3. 🔴 第 8 项 44 → 0；**必须比 numstat**，不只比总数。
+4. 🔴 迁移 0006~0010（第 7 天）。
+5. ⚠️ 内存 404MB 是否继续上行；journal 是否 ≥480M（逼近 600M）。
+6. ✅ 备份守第 12 天；第 7 项第 4 探针（39 天）；`backup_config_get`（36 天）；通知通道（35 天）。
+
+## 复用要点补充（2026-11-02）
+- 🔴 **「生产独有」清单会新增核心文件，不能假设「只有那 17 个」**：本轮 `server.py` 首次进入 ⇒ 判「HEAD 可启动性」之外，必须**单独看 `server.py` 有没有独立改动**（它既是「部署后会不会崩」的判据，也是「会不会丢改动」的判据，两个身份要分开写）。
+- ✅ **`grep "\[WARNING\]"` = 0 不等于没有警告**：本机 tenant-scan 那几条**不带 `[WARNING]` 级别前缀**（形如 `hergent-erp[PID]: [tenant-scan] …`），而 `UserWarning` 走的是 `python` 的 stderr 文本。判重复警告要用 `grep -i warning` + 归一化，别只数 `[WARNING]`。
+- ✅ **`Duplicate Operation ID` 是「端点重复注册」的可读信号**：出现时机不是启动瞬间，而是**第一次请求 `/openapi.json` 时**（`fastapi/openapi/utils.py:252`），所以时间戳与重启时间对不上是正常的，别据此怀疑又重启了。
+- ✅ **4 次重启 3 分 41 秒内仍可能是干净发版**：判据依旧是「成对 Stopping/Stopped + `NRestarts=0` + 无 `Main process exited`」，不看密集程度。
+- ✅ 想复用本轮演示会话做余下探针时：**令牌可从生产 `sessions` 表只读取回**（`select s.token from sessions s join users u on u.id=s.user_id where u.username='demo_boss' order by s.created_at desc limit 1`），比再调一次 `demo-login` 更守纪律。
