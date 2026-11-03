@@ -758,6 +758,24 @@ const DRIFT_CHECK_FIELDS = ['name', 'employee_no', 'position', 'hire_date', 'id_
   'contract_no', 'contract_type', 'contract_sign_date', 'contract_start', 'contract_end',
   'perf_period', 'perf_level']
 
+/* v737（2026-11-03）：**界面上能删空的字段**全集 —— 与后端 `server.py` 里
+   `employee_update_endpoint` 的 `_clearable` 必须同名同集合（少一边 = 静默失效）。
+   用途只有两个：① `saveEmployeeCore` 发请求前的漏写兜底；② 契约测试比对两侧清单。
+   ⚠️ 不含 `name`（必填，后端 400 兜着）；不含 `salary_structure`（不填就不该动，
+      补成空串会把底薪清掉）。 */
+const CLEARABLE_FIELDS = ['employee_no', 'position', 'hire_date', 'id_card', 'bank_name',
+  'bank_account', 'social_insurance_city',
+  'contract_no', 'contract_type', 'contract_sign_date', 'contract_start', 'contract_end',
+  'perf_period', 'perf_level']
+
+/* 数字列归一：清空（`''`）/ null / 脏值 一律 0 —— 与库里 `REAL DEFAULT 0` 同义。
+   🔴 不能发 `''`：后端 `d[k] != ''` 会把它当"没传"⇒ 基数清空后保存又是静默失效。 */
+function numOrZero(v) {
+  if (v === null || v === undefined || v === '') return 0
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
 /* ---- v706（2026-11-01）：合同 / 绩效的下拉值域 ----
    值用英文 key、label 用中文：与 `LOGIN_SCOPE_OPTIONS` / `ROLE_OPTIONS` 同口径。
    ⚠️ 顺序即业务优先级：「固定期限」最常见、放第一；「未设置」永远排最前（空值可回退）。 */
@@ -1244,17 +1262,31 @@ function openEdit(e) {
 async function saveEmployeeCore() {
   if (!editForm.name.trim()) { toast('请输入员工姓名', 'err'); return { ok: false } }
   const f = editForm
+  /* 🔴 v737（2026-11-03）：界面上**能删空**的字段一律发 `''`（数字发 0），绝不发 `undefined`。
+     老板实测：「柏万红是导购，员工档案里把她的岗位名称写的是『老板』，我删掉点击保存后又变回『老板』」。
+     链路（三层各自"正确"，合起来是一次**无报错的假保存**）：
+       ① `position: f.position || undefined` ⇒ 清空即 `undefined`；
+       ② `JSON.stringify` 把值为 `undefined` 的键**整个丢掉** ⇒ 请求里根本没有 position
+          ⇒ 后端 `if k in d` 判不到 ⇒ 不写库（HTTP 200）；
+       ③ 保存后回读校验 `if (body[k] === undefined) continue` ⇒ 正好也跳过 position
+          ⇒ 三道闸门同时放行，toast 照常「已保存」，重开弹窗又是「老板」。
+     v706 只在合同/绩效 7 列上修过同一族缺陷（注释见下），当时漏了基本信息这 7 列 ——
+     判据应该是「用户能不能删空它」，而不是「是不是这一轮新加的字段」。
+     ⚠️ 下面的 `CLEARABLE_FIELDS` 兜底不可删：新加字段时哪怕忘了写 `|| ''`，
+        也会在发请求前被补成空串，不会再退化成静默失效。 */
   const body = {
     name: f.name.trim(),
-    employee_no: f.employee_no || undefined,
-    position: f.position || undefined,
-    hire_date: f.hire_date || undefined,
-    id_card: f.id_card || undefined,
-    bank_name: f.bank_name || undefined,
-    bank_account: f.bank_account || undefined,
-    social_insurance_city: f.social_insurance_city || undefined,
-    social_insurance_base: f.social_insurance_base != null ? f.social_insurance_base : undefined,
-    housing_fund_base: f.housing_fund_base != null ? f.housing_fund_base : undefined,
+    employee_no: f.employee_no || '',
+    position: f.position || '',
+    hire_date: f.hire_date || '',
+    id_card: f.id_card || '',
+    bank_name: f.bank_name || '',
+    bank_account: f.bank_account || '',
+    social_insurance_city: f.social_insurance_city || '',
+    // 数字列：清空输入框（type=number + .number）拿到的是 `''`，发 0 与库里
+    // `REAL DEFAULT 0` 同义（= 未设置）。发 `''` 会被后端 `d[k] != ''` 跳过，同样静默失效。
+    social_insurance_base: numOrZero(f.social_insurance_base),
+    housing_fund_base: numOrZero(f.housing_fund_base),
     // v381：`warehouse_id` 不再随本表单提交（入口已搬到报单配置）。
     // 后端 `PUT /api/employees/{eid}` 的白名单**仍保留**它以兼容脚本与回滚。
     // v706（2026-11-01）：合同 / 绩效 —— 这 7 个**文本**列发 `''` 而不是 `undefined`。
@@ -1273,6 +1305,9 @@ async function saveEmployeeCore() {
     perf_score: (f.perf_score === null || f.perf_score === '' || f.perf_score === undefined)
       ? 0 : Number(f.perf_score),
   }
+  // 兜底：见上方 v737 注释末尾。只补**可清空列**，`salary_structure` 这类
+  // "不填就不该动"的字段绝不能被补成空串（会清掉底薪）。
+  for (const k of CLEARABLE_FIELDS) if (body[k] === undefined) body[k] = ''
   if (f.base_salary != null) body.salary_structure = JSON.stringify({ base_salary: f.base_salary })
   try {
     if (isCreate.value) {

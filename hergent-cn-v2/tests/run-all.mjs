@@ -389,6 +389,21 @@ if (has('skip-sfc')) {
   results.push({ name: '新增/编辑商品同界面（v689）', ok: r.code === 0, code: r.code })
 }
 
+// ── ㉓ 员工档案「可清空字段」前后端配对契约（v737）──────────────
+/* 老板原话：「柏万红是导购，员工档案里把她的岗位名称写的是『老板』，我删掉点击保存后
+   又变回『老板』」。三层各自"正确"、合起来是一次零报错的假保存：
+   前端 `|| undefined` → JSON.stringify 丢键 → 后端 `if k in d` 判不到 →
+   回读校验 `body[k] === undefined` 又跳过 ⇒ toast「已保存」但库里没变。
+   单改任何一层都测不出（改前端不改后端会变成"保存未生效"红字，改后端不改前端毫无变化），
+   只能靠静态钉住这一对。 */
+{
+  console.log('\n── ㉓ 员工档案可清空字段契约（清空必须真落库）──')
+  const r = run('employee-clearable.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '员工档案可清空字段', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
