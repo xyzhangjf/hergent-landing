@@ -645,7 +645,11 @@
             </colgroup>
             <thead>
               <tr>
-                <th v-for="(col, ci) in colOrderList" :key="col.key" :class="['th', colCls(col), { frozen: isFrozen(col), sortable: canSort(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')" :aria-sort="ariaSort(col)" @click="onHeadClick(col)" @contextmenu.prevent="openHdrCtx($event, col.key, col.type)">
+                <!-- v739：`cust-col` = 客户列（可整列拖动排序）。判据用 `col.type === 'qty'`，
+                     即 `cross.units` 里的列；主档列/合计列不参与（它们走列设置菜单里那套拖拽）。
+                     🔴 拖动走 **pointer 事件**、不走 HTML5 draggable：后者在"拖动中把这一列
+                        真的挪走"（实时让位）时会丢掉拖动源，手感会一顿一顿地断掉。 -->
+                <th v-for="(col, ci) in colOrderList" :key="col.key" :class="['th', colCls(col), { frozen: isFrozen(col), sortable: canSort(col), 'cust-col': col.type === 'qty', 'is-drag-src': col.type === 'qty' && custDragName === col.key }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')" :aria-sort="ariaSort(col)" :tabindex="col.type === 'qty' ? 0 : null" :title="col.type === 'qty' ? CUST_DRAG_TIP : null" @pointerdown="onCustHeadDown($event, col)" @keydown="onCustHeadKey($event, col)" @click="onHeadClick(col)" @contextmenu.prevent="openHdrCtx($event, col.key, col.type)">
                   <div class="th-in">
                     <template v-if="col.type === 'seq'">
                       <!-- v670：补 `:size="15"` 与全站另 26 处齿轮一致（`<Icon>` 默认是 16）。 -->
@@ -825,10 +829,10 @@
             </colgroup>
             <tbody>
               <tr class="col-total">
-                <td v-for="(col, ci) in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')">
+                <td v-for="col in colOrderList" :key="'f' + col.key" :class="['td', colCls(col), { frozen: isFrozen(col) }]" :style="col.fixed ? 'left:' + frozenLeftOf(col.key) : (isFrozen(col) ? 'left:' + frozenRight() : '')">
                   <template v-if="col.key === 'seq'"><button type="button" class="caliber-q" :aria-expanded="amtNoteOpen" aria-label="口径说明（合计/单价换算口径）" @mouseenter="amtNoteEnter" @mouseleave="amtNoteLeave" @focus="amtNoteEnter" @blur="amtNoteLeave" @click="amtNoteEnter"><Icon name="help-circle" :size="14"/></button></template>
                   <template v-else-if="col.key === 'name'">合计</template>
-                  <template v-else-if="col.type === 'qty'">{{ footUnit((ci - 1) - visibleCols.length) || '' }}</template>
+                  <template v-else-if="col.type === 'qty'">{{ footUnitOf(col.key) || '' }}</template>
                   <template v-else-if="col.key === 'qty'">{{ fmt(footNum('qty')) }}</template>
                   <template v-else-if="col.key === 'boxes'">{{ fmtBox(footNum('boxes')) }}<span v-if="footMissing.length" class="box-miss">（缺规格 {{ footMissing.length }} 行未计入）</span></template>
                   <template v-else-if="col.key === 'extra'">{{ fmt(footTotals.extra) }}</template>
@@ -2751,6 +2755,13 @@
         </button>
       </template>
     </Modal>
+    <!-- v739：客户列拖动时**跟手**的胶囊（显示"正在搬的是哪一列"）。
+         `v-show` 而不是 `v-if`：v-if 每次拖动都新建/销毁节点，第一次 pointermove 里
+         就取不到 DOM（要等下一帧），胶囊会"慢半拍才出现"。
+         ⚠️ 必须放在滚动容器**外面**：表格有 `zoom`、容器会滚 —— 里面写 fixed 会被一起缩放/偏移。 -->
+    <div v-show="!!custDragName" ref="custGhostEl" class="cust-drag-ghost" aria-hidden="true">
+      <span class="cdg-grip">⠿</span><span class="cdg-name"></span>
+    </div>
   </div>
 </template>
 
@@ -3562,6 +3573,20 @@ const footTotals = computed(() => {
 // 显示取值：有筛选用筛选后，无筛选用原口径（零变化 —— 这是「不筛时和以前一模一样」的保证）
 function footNum(k) { return cfOn.value ? footTotals.value[k] : cross.value.grand[k] }
 function footUnit(ui) { return cfOn.value ? (footTotals.value.units[ui] || 0) : (cross.value.colTotals[ui] || 0) }
+/* v739：客户列名 → `cross.units` 下标。**按名字取**，不按列号算术推。
+   旧写法 `(ci - 1) - visibleCols.length` 有两个前提，现在两个都不成立：
+     · 「空列不收起」（`showEmptyCols=false` 时 `colOrderList` 会比 `visibleCols` 少几列 ⇒ 下标偏）；
+     · 「客户列次序固定」（v739 起用户可整列拖动换位）。
+   两处任一漂移的表现都是**表尾合计整列错位**，而且不报错（数还是数，只是挂错了列）。 */
+function unitIdxOf (name) {
+  const us = cross.value && cross.value.units
+  if (!Array.isArray(us)) return -1
+  return us.findIndex(u => u.name === name)
+}
+function footUnitOf (name) {
+  const i = unitIdxOf(name)
+  return i >= 0 ? footUnit(i) : ''
+}
 // 「缺规格未计入」同理要跟着筛 —— 否则会出现「合计是筛后的、缺规格行数却是全表的」
 const footMissing = computed(() => cfOn.value ? liveRows.value.filter(r => rowFilterPass(r) && boxMissing(r)) : boxMissingRows.value)
 function rowState(r) { return rowStates.value[r.product_id] || (r._deleted ? 'disabled' : '') }
@@ -4230,8 +4255,21 @@ const colVis = ref({ name: true })
 //   第二个宿主页；两态（查看 / 改单）＋两页共用同一份定位契约，避免各写一份必然漂移。
 const { showColMenu, colMenuEl, colMenuStyle, toggleColMenu } = useColMenu()
 
-/** 当前列配置的**整体**（顺序 + 可见性一起存/取）。 */
-function _colCfg () { return { order: colOrder.value, vis: colVis.value } }
+/* ── v739：客户列（`cross.units`）的**用户顺序** ─────────────────────────────
+   一句话：这一列是「客户/报单人」的列，用户可以把某一列整体拖到别人前后。
+   🔴 为什么顺序存在**列配置**里（`cfg.cust`）而不是新建一张表：
+      · 它就是"我的表长什么样"的一部分，与列顺序/可见性同一语义、同一生命周期；
+      · 后端 `/api/ui/col-prefs` 存的是 `cfg` **JSON 原样**（`ui_col_prefs` 表，租户级、page 为键）
+        ⇒ 加一个键**零后端改动**，也天然跟着换设备/清缓存一起走。
+      ⚠️ 它与「列方案」（`/api/forecast/column-schemes`，具名多套、要手工点保存）是两条轴：
+         那条存"我保存过的几套方案"，这条存"我此刻正在用的这一套"。
+   数组里只存**名字**（`cross.units[i].name`），不存下标 —— 下标会随期次换人而漂移，
+   名字不会；新出现的客户不在数组里 ⇒ 落在末尾（见 `orderedUnits`）。
+   ⚠️ 必须在此处（`_colCfg` 之前）声明：`loadCols()` 在 setup 阶段会立刻调用 `applySaved`，
+      若它引用的 ref 还没初始化，就是 TDZ 报错（整页白屏）。 */
+const custOrder = ref([])
+/** 当前列配置的**整体**（顺序 + 可见性 + 客户列顺序一起存/取）。 */
+function _colCfg () { return { order: colOrder.value, vis: colVis.value, cust: custOrder.value } }
 /** 只写 localStorage（**不触发云端推送**）—— 云端值落下来时用它回写本地缓存。 */
 function _writeLocal () {
   try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(_colCfg())) } catch (e) {}
@@ -4284,6 +4322,12 @@ function applySaved (p) {
     colOrder.value = merged
   }
   if (p.vis) colVis.value = Object.assign({ name: true }, p.vis)
+  /* v739：客户列顺序。**只收字符串**（存档可能被手工改坏）—— 一旦混进对象，
+     `orderedUnits` 里 `idx.get(name)` 就永远取不到，表现为"顺序存了但没生效"。 */
+  if (Array.isArray(p.cust)) {
+    custOrder.value = p.cust.filter(n => typeof n === 'string' && n)
+    applyCustOrder()     // 表已加载时立刻重排；还没加载就等 loadCross 用自己的路径应用
+  }
 }
 function loadCols() {
   try {
@@ -4295,6 +4339,189 @@ function loadCols() {
 loadCols()
 // v411：云端列配置优先（**刻意不 await** —— 不拖慢汇总表首屏；本地那份已由 loadCols 应用）。
 onMounted(() => { colPrefs.syncFromCloud() })
+
+/* ── v739：客户列（`cross.units`）整列拖动排序 ─────────────────────────────────
+   交互契约 —— 三项都在这几个函数里落地，改任何一项先读这里：
+   ① **触发**：在客户列表头（表头文字那一格）按下左键，**横向移动 ≥5px** 才算进入拖动。
+      阈值的理由：表头同一格里还挂着「筛选 / ＋ / 改宽手柄」，没有阈值时一次普通点击
+      的 1px 抖动就可能被判成拖动 ⇒ 列莫名换位，用户根本不知道是自己碰的。
+      ⚠️ 改单态**不接**这套手势：那里表头 mousedown = 「选中整列」（`onHeadDown`），
+         同一个手势不能既选整列又挪整列 —— 两件事都会做不好。
+   ② **放置判定**：只跟**左右相邻列的中线**比 —— 指针越过左邻列中线 ⇒ 插到它前面；
+      越过右邻列中线 ⇒ 插到它后面。一次只走一格 ⇒ 不会在两根列之间来回抖。
+      "插到某人前面 / 后面"是这条规则的自然结果，**不需要**再维护一个 before/after 状态。
+   ③ **反馈**：被拖的列**实时让位**（数组真的在动，表格当场重排，不等到松手）；
+      源列表头半透明 + 青色框标出"它现在落在哪"；一个跟手的胶囊显示客户名；
+      光标变 grabbing、整页禁止选中。Esc 复位到拖动前的顺序且**不保存**。
+   ④ **保存**：落位即写 `cfg.cust`（localStorage 立即写 + 云端 debounce，并 `flush()`），
+      复用列配置那条已有通道 —— 不新增接口、不新增表。
+      所以"刷新 / 换设备 / 换个人登录"看到的都是同一套顺序（`ui_col_prefs` 是租户级）。
+   ⑤ **新客户**：不在数组里的名字排在末尾并保持服务端次序（`orderedUnits` 用稳定排序）。
+      ⇒ 某客户第一次报单时，它出现在最后，用户排好的那些一个都不动。 */
+const CUST_DRAG_TIP = '按住列头左右拖动，可把这一整列客户换个位置（也可 Alt + ← / →）。顺序自动保存。'
+const custDragName = ref('')      // 正在拖的客户列名（'' = 没在拖）；只在开始/结束各变一次
+const custGhostEl = ref(null)     // 跟手胶囊：位置用 DOM 直接改，**不走响应式**（否则每次移动重渲染整张大表）
+let _cust = null                  // { name, idx, x0, y0, active, orig: [names] | null }
+let _custGhostNameEl = null
+
+/** 按偏好顺序排一份 units 副本：不在偏好里的（新客户）保持服务端次序排在末尾。
+    稳定排序是**前提**（ES2019 起 Array#sort 保证稳定）—— 否则同分的新客户每次刷新顺序都会变。 */
+function orderedUnits (list) {
+  const order = custOrder.value
+  if (!Array.isArray(order) || !order.length) return list
+  const idx = new Map()
+  order.forEach((n, i) => { if (!idx.has(n)) idx.set(n, i) })
+  const rank = (u) => (idx.has(u.name) ? idx.get(u.name) : Number.MAX_SAFE_INTEGER)
+  return list.slice().sort((a, b) => rank(a) - rank(b))
+}
+
+/** 把偏好顺序应用到**已经加载**的 cross（云端配置晚到 / 用户刚拖完都走这里）。 */
+function applyCustOrder () {
+  const c = cross.value
+  if (!c || !Array.isArray(c.units) || !c.units.length) return
+  if (!custOrder.value.length) return
+  const next = orderedUnits(c.units)
+  if (next.every((u, i) => u.name === c.units[i].name)) return
+  c.units = next
+  recomputeTotals()   // colTotals 与 units **同下标**，不同步重算就会出现"列动了、表尾合计没动"
+}
+
+/** 把第 from 列挪到第 to 位。表尾列合计按**同一置换**挪一格（不是整表重算，拖动时每秒几十次）。 */
+function _custSplice (from, to) {
+  const c = cross.value
+  if (!c || from === to) return
+  const units = c.units
+  const [u] = units.splice(from, 1)
+  units.splice(to, 0, u)
+  const ct = c.colTotals
+  if (Array.isArray(ct) && ct.length === units.length) {
+    const [v] = ct.splice(from, 1)
+    ct.splice(to, 0, v)
+  } else {
+    recomputeTotals()
+  }
+}
+
+/** 指针 x → 目标下标；只判断左右邻列的中线，越过才动一格。 */
+function _custDropIndexAt (x) {
+  const host = scrollEl.value
+  if (!host || !_cust || !cross.value) return null
+  const ths = [...host.querySelectorAll('thead th.cust-col')]
+  /* 🔴 列数必须与 `cross.units` 一致才判位：`_cust.idx` 是 units 下标，而这里量的是
+     **渲染出来的** th。两者一旦不等（未来若给客户列加"隐藏"能力），下标就会整体偏移，
+     表现是"拖 A 却动了 B"——比不响应更难查。 */
+  if (!ths.length || ths.length !== cross.value.units.length) return null
+  const cur = _cust.idx
+  if (cur < 0 || cur >= ths.length) return null
+  const mid = (el) => { const r = el.getBoundingClientRect(); return r.left + r.width / 2 }
+  if (cur > 0 && x < mid(ths[cur - 1])) return cur - 1
+  if (cur < ths.length - 1 && x >= mid(ths[cur + 1])) return cur + 1
+  return cur
+}
+
+function _custGhostFollow (x, y) {
+  const el = custGhostEl.value
+  if (!el) return
+  el.style.transform = 'translate(' + (x + 12) + 'px,' + (y - 14) + 'px)'
+}
+
+function _custCleanup () {
+  window.removeEventListener('pointermove', _custMove)
+  window.removeEventListener('pointerup', _custUp)
+  window.removeEventListener('pointercancel', _custCancel)
+  window.removeEventListener('keydown', _custKey, true)
+  document.body.classList.remove('cust-col-dragging')
+  custDragName.value = ''
+  _custGhostNameEl = null
+  _cust = null
+}
+
+function _custMove (e) {
+  const d = _cust
+  if (!d) return
+  if (!d.active) {
+    if (Math.abs(e.clientX - d.x0) < 5 && Math.abs(e.clientY - d.y0) < 5) return
+    d.active = true
+    d.orig = cross.value ? cross.value.units.map(u => u.name) : null
+    custDragName.value = d.name
+    document.body.classList.add('cust-col-dragging')
+    if (custGhostEl.value) _custGhostNameEl = custGhostEl.value.querySelector('.cdg-name')
+    if (_custGhostNameEl) _custGhostNameEl.textContent = d.name
+  }
+  _custGhostFollow(e.clientX, e.clientY)
+  const to = _custDropIndexAt(e.clientX)
+  if (to != null && to !== d.idx) { _custSplice(d.idx, to); d.idx = to }
+}
+
+function _custUp () {
+  const d = _cust
+  if (!d) return
+  if (d.active && cross.value) {
+    // 本次拖动结果 = 新的偏好顺序；**全量写**，新客户也就此进入数组
+    custOrder.value = cross.value.units.map(u => u.name)
+    _persistCols()
+    colPrefs.flush()      // debounce 里那次可能还没发出去 —— 拖完立刻切页也不该丢
+  }
+  _custCleanup()
+}
+
+/** Esc / pointercancel：复位到按下前的顺序，**不写库**。 */
+function _custCancel () {
+  const d = _cust
+  if (!d) return
+  if (d.active && Array.isArray(d.orig) && cross.value) {
+    const byName = new Map(cross.value.units.map(u => [u.name, u]))
+    const back = d.orig.map(n => byName.get(n)).filter(Boolean)
+    if (back.length === cross.value.units.length) {
+      cross.value.units = back
+      recomputeTotals()
+    }
+  }
+  _custCleanup()
+}
+
+function _custKey (e) {
+  if (!_cust || e.key !== 'Escape') return
+  e.preventDefault()
+  e.stopPropagation()
+  _custCancel()
+}
+
+function onCustHeadDown (e, col) {
+  if (editMode.value) return                       // 改单态：mousedown 属于「选整列」
+  if (e.button !== 0 || !cross.value || !col || col.type !== 'qty') return
+  /* 表头里还有「漏斗 / ＋ / 改宽手柄」三个可点件。从它们身上按下时**不接管**手势 ——
+     `@mousedown.stop` 只挡 mousedown，挡不住 pointerdown；不显式排除的话，
+     用户想点筛选、手一抖移动 5px，列就被搬走了（而他以为自己在点按钮）。 */
+  if (e.target && e.target.closest && e.target.closest('button,.col-resizer')) return
+  const idx = cross.value.units.findIndex(u => u.name === col.key)
+  if (idx < 0) return
+  _cust = { name: col.key, idx, x0: e.clientX, y0: e.clientY, active: false, orig: null }
+  window.addEventListener('pointermove', _custMove, { passive: true })
+  window.addEventListener('pointerup', _custUp)
+  window.addEventListener('pointercancel', _custCancel)
+  window.addEventListener('keydown', _custKey, true)
+}
+
+/** 键盘等价路径：列头聚焦后 Alt + ←/→ 换位（拖动对键盘/读屏用户不可达，必须有替代）。 */
+function onCustHeadKey (e, col) {
+  if (editMode.value || !col || col.type !== 'qty') return
+  if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return
+  e.preventDefault()
+  moveCustCol(col.key, e.key === 'ArrowLeft' ? -1 : 1)
+}
+function moveCustCol (name, delta) {
+  const c = cross.value
+  if (!c) return
+  const i = c.units.findIndex(u => u.name === name)
+  const j = i + delta
+  if (i < 0 || j < 0 || j >= c.units.length) return
+  _custSplice(i, j)
+  custOrder.value = c.units.map(u => u.name)
+  _persistCols()
+  colPrefs.flush()
+  toast('客户列顺序已更新', 'ok')
+}
 
 // 品牌下拉候选（来自 brands 档案表）：编辑网格品牌列以 datalist 形式提供候选，同时允许手填新建（决策②）
 const brandOptions = ref([])
@@ -12729,7 +12956,11 @@ async function loadCross() {
       if (!unitMap.has(name)) unitMap.set(name, { name, role: s.role || '' })
       else if (!unitMap.get(name).role && s.role) unitMap.get(name).role = s.role
     }))
-    const units = [...unitMap.values()]
+    /* v739：客户列的**用户顺序**在这里落地（唯一入口）。
+       在这一步排序 —— 而不是加载完再排 —— 是因为下面 `colTotals`/`matrixRows` 全都按
+       `units` 的下标算：先排好，后续一切（表尾列合计、格内数量、导出、复制报单）天然同序，
+       不会出现"列动了、合计还是老顺序"。 */
+    const units = orderedUnits([...unitMap.values()])
     // 2026-09-13：后端汇总已把名称/规格/单位对齐商品主档，同一 product_id 正常只返回一行。
     //   此处仍做「合并而非覆盖」的防御性聚合 —— 此前 sumById[pid]=r 是单键赋值，
     //   同商品多行时后一行直接覆盖前一行，导致数量静默丢失（实测 pid=1537 的 12 件被 300 件吞掉）。
@@ -13853,6 +14084,22 @@ provide('sprintSummary', sprintSummary)
 [data-density="compact"] .cross-tbl{--cell-pad-h:6px}
 [data-density="compact"] .cross-tbl :deep( thead th){padding:1px 7px 0}
 .qty-th{text-align:center;min-width:52px}
+/* ── v739：客户列整列拖动 ───────────────────────────────────────────────
+   反馈分三层，缺一层用户就会怀疑"到底动了没"：
+     ① 源列表头 `is-drag-src`：半透明 + 青框 ⇒ 一眼看到"我现在搬的是这一列、它落在哪"；
+     ② 真实让位：被搬的列**已经**在数组里换过位置了（表格当场重排）⇒ 不是虚影；
+     ③ 跟手胶囊 `.cust-drag-ghost`：写得下客户名，横向滚很远也不会忘记在搬谁。
+   ⚠️ `touch-action:pan-y` 而不是 `none`：横向手势留给拖动（否则触屏上按下就被浏览器
+      当成横向滚动，永远等不到 pointermove）；纵向仍可滚页面。 */
+.cross-tbl thead th.cust-col{cursor:grab;touch-action:pan-y}
+.cross-tbl thead th.cust-col:active{cursor:grabbing}
+.cross-tbl thead th.is-drag-src{opacity:.45;background:var(--p-bg);box-shadow:inset 0 0 0 2px var(--p)}
+body.cust-col-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}
+body.cust-col-dragging .cross-tbl thead th.cust-col{cursor:grabbing}
+body.cust-col-dragging .cross-tbl tbody td{cursor:grabbing}
+.cust-drag-ghost{position:fixed;left:0;top:0;z-index:2147483000;pointer-events:none;display:flex;align-items:center;gap:var(--sp-h6);max-width:240px;padding:var(--sp-1) var(--sp-3);border-radius:var(--radius-circle);background:var(--p-solid);color:#fff;font-size:var(--fs-sm);font-weight:600;line-height:var(--lh-none);box-shadow:0 8px 22px rgba(0,0,0,.22);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;will-change:transform}
+.cust-drag-ghost .cdg-grip{opacity:.75;font-size:var(--fs-base);flex-shrink:0}
+.cust-drag-ghost .cdg-name{overflow:hidden;text-overflow:ellipsis}
 /* v597（B2）：数量列改**右对齐**（Excel 同款）。数字左/居中时个位对不齐，154 行里
    一眼看不出 66 和 660 差在哪；右对齐 + 等宽数字后，量级差异是**数位长度**带来的，
    扫读成本最低。

@@ -1,6 +1,7 @@
 # Hergent 记忆索引（判据首句 + 去哪查；细节一律 `topics/*.md`）
 
-前端 **v738**（汇总表冻结列斑马纹，2026-11-03）；**v737 = 员工档案可清空字段**、**v736 = 小程序+法务页品牌色统一**，下一版 **v739**（`hergent-cn-v2/src/main.js:71`）。唯一开发源 = `main`。
+前端 **v739**（汇总表客户列整列拖动排序，2026-11-03）；**v738 = 冻结列斑马纹**、**v737 = 员工档案可清空字段**，下一版 **v740**（`hergent-cn-v2/src/main.js:71`）。唯一开发源 = `main`。
+🔴 **「列能拖了」= 四件事缺一件就假生效**（v739 客户列顺序）：加载期按存下来的顺序排（`orderedUnits`）/ 表尾合计**按列名取不许按列号算术反推** / 拖动有 ≥5px 阈值且不抢改单态「选整列」手势 / 落位写 `cfg.cust`（`ui_col_prefs` 租户级，零后端改动）。拖动用 **pointer 事件不用 HTML5 draggable**（实时让位会把拖动源搬掉）；判定只跟左右邻列**中线**比 ⇒ 不需要 before/after 状态。护栏 `tests/forecast-cust-col-order.contract.mjs`（含坏样本自证 + 已做真实突变测试）。
 🔴 **「某几列不跟斑马纹/hover 走」先查那几列是不是冻结列**（v738）：斑马纹写在 `<tr>`，冻结列为了遮横向滚动内容在 `td` 上写死不透明白底 ⇒ **子元素背景盖住父元素背景**，行底色整块消失（实测 tr=#f5f5f7、前三格=#ffffff、第四格起=#f5f5f7）。两条规则各自都"对"，只有逐格量 computed 才暴露 ⇒ 判据是**同一行不同 td 的 backgroundColor 是否一致**。修法不是给冻结列补一条斑马规则（补一条只修好斑马、hover/选中/错误仍死），而是**行状态统一下发 `--row-bg`、冻结列只读 `var(--row-bg,var(--bg))`**；半透明行色（选中 rgba）必须 `color-mix` 压成**实色**再下发，否则冻结格刷在 tr 之上叠成两倍浓度。护栏 `tests/forecast-sticky-zebra.contract.mjs`（含坏样本自证）。
 🔴 **「保存了又变回原值」= 假保存三连**（v737，第二次踩 v706）：前端 `|| undefined` ⇒ `JSON.stringify` 丢键 ⇒ 后端 `if k in d` 判不到 ⇒ 不写库；而回读校验 `body[k] === undefined` 又跳过它 ⇒ toast 照样「已保存」。判据不是"哪些是新加字段"，是**"界面上用户能不能删空它"**：能，就必须前端发 `''`（数字发 0）+ 后端 `_clearable` 收录 + 回读校验覆盖，缺一处即静默失效。护栏 `tests/employee-clearable.contract.mjs`（含坏样本自证）。
 「改了但用户说没变」先查 `window.__HG_BUILD__` + `html[data-build]`；判产物 `grep -o "v70x" dist/assets/index-*.js`（`mv dist-vNNN dist` 会嵌套 ⇒ 闭包全 200 也能骗过）。

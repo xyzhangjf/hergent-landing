@@ -418,6 +418,18 @@ if (has('skip-sfc')) {
   results.push({ name: '冻结列行底色', ok: r.code === 0, code: r.code })
 }
 
+// ── ㉕ 客户列拖动排序契约（v739）──────────────────────────────
+/* 需求：「把某一报单人的整列拖到其他报单人所在列的前面或后面，并顺序持久化」。
+   这一族缺陷的形态是"四件事里缺一件"（加载不排序 / 表尾按列号算 / 没阈值 / 不写偏好），
+   每一件单独看都能"正常工作"，合起来就是"拖完刷新就回去"。 */
+{
+  console.log('\n── ㉕ 客户列拖动排序契约（拖完必须真的记住）──')
+  const r = run('forecast-cust-col-order.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '客户列拖动排序', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

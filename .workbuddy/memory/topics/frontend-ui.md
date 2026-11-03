@@ -5867,3 +5867,24 @@ v717 把两级灰合并成 `--t2`（AA 安全）时，判的是"能被读的**�
   1.27~1.61%（表格单号链接全部变深）—— **这个"翻倍"是可解释的，才说明改对了地方**
 
 > 变化像素 bbox 在纯颜色改动里必然是**全屏**（文字散布），bbox 判据在此无效，别被它误导。
+
+## v739 · 客户列整列拖动排序（`/forecast` 汇总表 `cross.units`）
+
+**判据首句：说"列拖了没用/刷新就回去了"，先分清是四件事里的哪一件 —— 加载排序 / 表尾取值 / 触发手势 / 落位保存。**
+- 顺序通道 = **既有列配置** `cfg.cust`（`ui_col_prefs`，租户级、page=`forecast`），零后端改动；
+  与「列方案」（`/api/forecast/column-schemes`，具名多套）是两条轴。
+- 加载期必须排（`orderedUnits`）：**排完之后**再算 `colTotals`/`matrixRows`，否则"列动了、合计没动"。
+  新客户不在数组里 ⇒ 稳定排序落末尾（ES2019 起 `Array#sort` 保证稳定，否则每次刷新新客户顺序都变）。
+- 🔴 **表尾合计不许按列号算术反推**：旧写法 `footUnit((ci-1)-visibleCols.length)` 依赖
+  「空列不收起」+「列次序固定」；后者被本版推翻 ⇒ 改 `unitIdxOf(name)` 按名字取。
+  这类错位不报错、数字自洽，只有"名→值 映射"才能验出来。
+- 拖动用 **pointer 事件**（`pointerdown`→window 上 `pointermove/up`），**不用 HTML5 draggable**：
+  实时让位要真的移动数组元素，HTML5 拖拽在源节点被移走时会丢 drag ⇒ 手感断成一节一节。
+- 放置判定只跟**左右邻列中线**比，一次一格 ⇒ 不会抖，也不需要维护 before/after 状态。
+- 触发阈值 5px；从 `button,.col-resizer` 上按下不接管（`@mousedown.stop` 挡不住 `pointerdown`）；
+  **改单态不接**（那里表头 mousedown = 选整列）。触屏 `touch-action:pan-y`。
+- 反馈三层缺一不可：源列 `is-drag-src`(.45 + 青框) / 实时让位 / 跟手胶囊（`--p-solid` 底白字 ≥AA，
+  `--p` 只有 2.43 不行）。Esc 复位且**不保存**（取消里出现 `_persistCols()` 就是 bug）。
+- 键盘等价：列头 `tabindex` + Alt+←/→。
+- 探针：表尾在**另一张吸底表** `.col-total` 里，不在 `.cross-viewport` 内 ⇒ 按视口查会永远读到空，
+  得出"合计全空"的假结论；此时"名→值 不变"会在任何顺序下成立（空转绿灯），必须先断言有非空值。
