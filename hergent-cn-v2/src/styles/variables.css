@@ -735,6 +735,49 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
   outline:2px solid var(--p-dark);
   outline-offset:2px;
 }
+
+/* ============================================================
+   组框接管焦点环（v749）
+   ------------------------------------------------------------
+   现象（用户报障，附截图）：「点『供应商』输入框，会出现一个品牌色的定位框，
+   全站多处输入控件都一样」。截图里能同时看到两层：
+     ① 圆角框（整个「*供应商：____」字段框变品牌色 + 3px 淡光晕）← 设计意图
+     ② **尖角细框**，只框住输入区那一小块 ← 多余的那层
+
+   根因：v439/v448 把焦点高亮**上移到组框**（`.hd-box .ipn-f:focus-within`
+   改 `border-color` + `box-shadow`），注释当时就写着"框内控件的 focus 环要关掉，
+   否则一大一小两层环"，但实现只写了 `border-color:transparent;box-shadow:none`
+   —— **没写 `outline`**。而上面那条全局焦点环用的正是 `outline:2px`，
+   它完全不看 border/box-shadow ⇒ 两层环叠着出现。
+
+   🔴 这不是"只有键盘 Tab 才看得见"的边角情况：**文本类控件用鼠标点击也会匹配
+      `:focus-visible`**（规范如此 —— 它能接受键盘输入，浏览器就按键盘可达处理）。
+      实测线上 v747 点一下供应商框：`matches(':focus-visible') === true`。
+
+   特异性：`:is()` 取内部最高 (0,2,0) + `:focus-within` (0,1,0) + `:focus-visible`
+   (0,1,0) = **(0,4,0)**，高于全局那条 (0,2,0) ⇒ 不需要 `!important`。
+
+   🔴🔴 `:focus-within` 必须**紧贴容器的右括号**（`:is(...):focus-within`），
+      不能写成 `:is(...) :focus-within`（中间有空格＝多要求一层"focus-within 的后代"）。
+      后者只在容器与控件之间还夹着别的元素时才成立 —— 首版就是这么写的：供应商输入框
+      因为中间有个 `.ipn-sup-combo` 侥幸治好了，而 `.ipn-f > select` 这种直接子元素
+      照旧两层环。**"改了一个、没改另一个"比完全没改更难发现。**
+
+   🔴 三条边界，改这条规则前先读：
+     1. 只压**框内控件**（后代），不压框本身 —— 框的环是舟谱式字段框的设计语言。
+     2. 只列 `input/select/textarea`，**不含 button/a/[tabindex]** —— 组框里若还有
+        按钮，它没有"外层环"可依赖，压掉就是零指示。
+     3. 只对 `:focus-visible` 生效，与全局口径一致（不扩成 `:focus`）。
+
+   🔴 新增任何"用 :focus-within 画焦点环"的容器，**必须同时登记到下面 `:is()` 里**，
+      否则又会冒出一大一小两层环。护栏 `tests/focus-ring-takeover.contract.mjs`
+      双向查：画环的必须登记 / 登记了的必须还在画环。
+   ============================================================ */
+:is(.hd-box .ipn-f,.hd-box .isn-f,.ipn-hd-box .ipn-f,.isn-hd-box .isn-f,
+    .tb-search,.cp-search-bar,.cp-composer):focus-within
+  :where(input,select,textarea):focus-visible{
+  outline:none;
+}
 /* 滚动条：加粗放粗，方便鼠标点击/拖动（v454） */
 ::-webkit-scrollbar{width:14px;height:14px}
 ::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:var(--radius-sm)}

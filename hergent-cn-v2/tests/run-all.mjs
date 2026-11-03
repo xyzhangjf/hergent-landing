@@ -540,6 +540,18 @@ if (has('skip-sfc')) {
   results.push({ name: '小程序品牌色', ok: r.code === 0, code: r.code })
 }
 
+// ── ㉞ 组框接管焦点环契约（v749）─────────────────────────────────
+/* 报障：「点供应商输入框会出现一个品牌色的定位框，全站多处输入控件一样」——
+   组框已经在 :focus-within 上画了环，框内控件又画了一层 2px outline（尖角套圆角）。
+   判据查三件：接管规则存在 / 特异性压得住全局环 / 画环容器与登记名单**双向**一致。 */
+{
+  console.log('\n── ㉞ 组框接管焦点环（不许一大一小两层环）──')
+  const r = run('focus-ring-takeover.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '组框接管焦点环', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
