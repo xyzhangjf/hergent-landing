@@ -298,7 +298,7 @@ const tipEl = ref(null) // tooltip 元素本身：落位后用它的实测宽高
 // v159 色板：fill = 达成填充（历史月＝系列色）；deep = 超额段（同色相加深）；
 //        ahead/behind = 本月「超前/落后时间进度」；neutral = 无目标时的中性灰（不判红绿）
 const C = {
-  sales: { fill: '#06b6d4', deep: '#0e7490', lbl: '#0e7490' },
+  sales: { fill: '#0D9488', deep: '#0F766E', lbl: '#0F766E' },  /* v751 品牌焕新：亮青 #06b6d4→#0D9488、蓝青 #0e7490→#0F766E（沉稳青瓷） */
   rebate: { fill: '#f59e0b', deep: '#b45309', lbl: '#b45309' },
   ahead: { fill: '#16a34a', deep: '#15803d', lbl: '#15803d' },
   behind: { fill: '#dc2626', deep: '#b91c1c', lbl: '#b91c1c' },
@@ -627,7 +627,7 @@ function onHover(mo, i, key) {
 /* 灰轨道示意：上半深灰（达成位）＋下半浅灰（未达位）—— 与柱体两段结构同形 */
 .lg-track { background: linear-gradient(180deg, var(--bd) 0%, var(--bd) 45%, var(--border-subtle) 45%, var(--border-subtle) 100%); }
 .lg-line { width: 12px !important; height: 0 !important; border: 0 !important; border-top: 1px dashed #d97706 !important; border-radius: 0 !important; }
-.lg-deep { background: linear-gradient(180deg, #0e7490 0%, #0e7490 50%, #06b6d4 50%, #06b6d4 100%); }
+.lg-deep { background: linear-gradient(180deg, #0F766E 0%, #0F766E 50%, #0D9488 50%, #0D9488 100%); }  /* v751 品牌焕新：上=深档 #0F766E / 下=装饰青 #0D9488 */
 
 /* 与两张图的实际高度一致：26 + 200 + 16 + 26 + 200 = 468（骨架屏/空态不跳动） */
 .mac-body { height: 468px; }

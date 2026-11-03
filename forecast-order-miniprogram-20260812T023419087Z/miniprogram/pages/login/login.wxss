@@ -45,8 +45,8 @@
 .pz-li{font-size:26rpx;color:#3a3a3c;line-height:1.7;margin:8rpx 0}
 /* 非必要项区块：与必需项做视觉区隔，让用户一眼看出「这段是可以拒绝的」 */
 .pz-opt{background:#f0fdfa;border:1rpx solid #99f6e4;border-radius:12rpx;padding:16rpx 20rpx;margin:16rpx 0}
-.pz-opt-h{font-size:25rpx;font-weight:600;color:#0f766e;line-height:1.6}
-.pz-opt-b{font-size:24rpx;color:#0f766e;line-height:1.6;margin-top:8rpx}
+.pz-opt-h{font-size:25rpx;font-weight:600;color:var(--brand);line-height:1.6}
+.pz-opt-b{font-size:24rpx;color:var(--brand);line-height:1.6;margin-top:8rpx}
 .privacy-actions{display:flex;flex-direction:row;margin-top:24rpx}
 .p-btn{flex:1;height:84rpx;line-height:84rpx;font-size:28rpx;border-radius:14rpx;margin:0;padding:0}
 .p-btn::after{border:none}

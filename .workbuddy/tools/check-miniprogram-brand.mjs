@@ -31,10 +31,10 @@ const MINI = process.env.HG_MINI_ROOT
   ? path.resolve(process.env.HG_MINI_ROOT)
   : path.join(ROOT, 'forecast-order-miniprogram-20260812T023419087Z/miniprogram')
 
-/** 唯一的品牌色 —— 与 Web 端 --p-solid 同值 */
-const BRAND = '#0e7490'
-/** 不许再出现的旧值 / 另两档青 */
-const STALE = ['#06b6d4', '#0891b2', '#0d9488', '#0a5a6d']
+/** 唯一的品牌色 —— 与 Web 端 --p-solid 同值（v751 品牌焕新·沉稳青瓷：#0e7490→#0F766E，色相 H193°→H175° 贴 Logo） */
+const BRAND = '#0f766e'
+/** 不许再出现的旧值 / 另两档青（含 v751 之前的旧主色 #0e7490） */
+const STALE = ['#06b6d4', '#0891b2', '#0e7490', '#0d9488', '#0a5a6d']
 /** var(--brand) 使用处下限（低于它说明有人绕过令牌写死） */
 const MIN_TOKEN_USES = 50
 
@@ -89,7 +89,7 @@ for (const f of files) {
     const isNativeCarrier =
       (ext === '.json' && /"(navigationBarBackgroundColor|selectedColor)"\s*:/.test(ctx)) ||
       (ext === '.js' && /confirmColor\s*:/.test(ctx)) ||
-      (ext === '.wxml' && /\bcolor\s*=\s*"$/.test(ctx.slice(0, ctx.indexOf(hit))))
+      (ext === '.wxml' && /\bcolor\s*=\s*"/.test(ctx.slice(0, ctx.indexOf(hit))))
     if (isNativeCarrier) {
       if (hit !== BRAND) {
         errs.push(`${rel(f)}:${ln} 原生载体色值不是 ${BRAND}（是 ${hit}）—— ${ctx.trim()}`)
@@ -142,7 +142,7 @@ for (const f of files) {
   }
 }
 
-/* ── ② app.wxss 的 --brand 必须存在且等于 #0e7490 ───────────────────────── */
+/* ── ② app.wxss 的 --brand 必须存在且等于 #0f766e ───────────────────────── */
 if (fs.existsSync(APP_WXSS)) {
   const code = stripComments(fs.readFileSync(APP_WXSS, 'utf8'), '.wxss')
   const m = code.match(/--brand\s*:\s*(#[0-9a-fA-F]{6})\s*;/)
@@ -264,7 +264,7 @@ function decodePng(buf) {
 }
 
 const ICONS = ['assets/tab-fill-active.png', 'assets/tab-mine-active.png']
-const tb = [0x0e, 0x74, 0x90]
+const tb = [0x0f, 0x76, 0x6e]
 for (const relIcon of ICONS) {
   const p = path.join(MINI, relIcon)
   if (!fs.existsSync(p)) {

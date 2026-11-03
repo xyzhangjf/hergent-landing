@@ -920,7 +920,7 @@ Page({
         title: '覆盖当前已填内容？',
         content: '当前已填 ' + this.data.cartCount + ' 项 / ' + this.data.cartQty
                + ' 件，将被「' + src.name + '」的 ' + src.count + ' 项替换。',
-        confirmText: '覆盖', cancelText: '取消', confirmColor: '#0e7490',
+        confirmText: '覆盖', cancelText: '取消', confirmColor: '#0F766E',
         success: (r) => { if (r.confirm) doIt() },
         fail: () => {}
       })

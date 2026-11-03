@@ -290,7 +290,8 @@ table.tbl.psi-tbl th.psi-chk, table.tbl.psi-tbl td.psi-chk,
 .psi-pg:hover:not(:disabled) { border-color: var(--p); color: var(--p-ink) }
 .psi-pg:disabled { opacity: .45; cursor: not-allowed }
 /* v723：底色 `--p-dark` → `--p-solid`。深色下 `--p-dark` 是亮青 #06b6d4，白字只有 2.43:1，
-   当前页码反而比别的页码难读。`--p-solid` 深浅都是 #0e7490（白字 5.36）。 */
+   当前页码反而比别的页码难读。`--p-solid` 深浅都是 #0e7490（白字 5.36）。
+   v751 品牌焕新：--p-solid 改为 #0F766E（白字 5.47），色相 H193°→H175° 贴 Logo 左端。 */
 .psi-pg.on { background: var(--p-solid); border-color: var(--p-solid); color: #fff }
 .psi-pg-size { width: auto; height: 28px; padding: 0 var(--sp-2); font-size:var(--fs-base); border-radius: var(--radius-sm) }
 .psi-pg-jump { display: inline-flex; align-items: center; gap: var(--sp-h6); font-size:var(--fs-sm); color: var(--t3) }

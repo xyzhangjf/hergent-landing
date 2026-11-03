@@ -14,7 +14,7 @@ const BASE_CSS = `
   html,body{margin:0;padding:0;}
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;color:#1f2733;background:#f4f6f8;line-height:1.7;}
   .doc{max-width:820px;margin:24px auto;background:#fff;padding:48px 56px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-radius:8px;}
-  .doc-hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #06b6d4;padding-bottom:16px;margin-bottom:24px;}
+  .doc-hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0F766E;padding-bottom:16px;margin-bottom:24px;}
   .brand{font-size:13px;color:#0a4a55;font-weight:600;letter-spacing:.5px;}
   .doc-hd h1{font-size:22px;margin:6px 0 0;color:#1f2733;}
   .meta{font-size:12px;color:#6b7785;text-align:right;white-space:nowrap;}
@@ -24,7 +24,7 @@ const BASE_CSS = `
   .doc-body p{margin:.7em 0;}
   .doc-body ul,.doc-body ol{margin:.6em 0;padding-left:1.4em;}
   .doc-body li{margin:.3em 0;}
-  .doc-body blockquote{margin:.8em 0;padding:.4em 1em;border-left:3px solid #06b6d4;background:rgba(6,182,212,.06);color:#6b7785;}
+  .doc-body blockquote{margin:.8em 0;padding:.4em 1em;border-left:3px solid #0F766E;background:rgba(15,118,110,.10);color:#6b7785;}
   .doc-body pre{background:#0f172a;color:#e2e8f0;padding:14px 16px;border-radius:6px;overflow:auto;font-size:13px;}
   .doc-body code{background:#eef2f5;padding:1px 5px;border-radius:4px;font-size:13px;}
   .doc-body table{border-collapse:collapse;width:100%;margin:.8em 0;font-size:14px;}
@@ -34,8 +34,8 @@ const BASE_CSS = `
   .doc-body button{display:none;}
   .doc-ft{margin-top:32px;padding-top:14px;border-top:1px solid #e6e9ee;font-size:12px;color:#6b7785;text-align:center;}
   .toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #e6e9ee;padding:10px 16px;text-align:right;z-index:10;max-width:820px;margin:0 auto;}
-  .toolbar button{margin-left:8px;padding:6px 14px;border:1px solid #06b6d4;background:#06b6d4;color:#fff;border-radius:6px;cursor:pointer;font-size:13px;display:inline-block;}
-  .toolbar button.ghost{background:#fff;color:#06b6d4;}
+  .toolbar button{margin-left:8px;padding:6px 14px;border:1px solid #0F766E;background:#0F766E;color:#fff;border-radius:6px;cursor:pointer;font-size:13px;display:inline-block;}
+  .toolbar button.ghost{background:#fff;color:#0F766E;}
   @media print{
     body{background:#fff;}
     .doc{box-shadow:none;margin:0;max-width:none;padding:0 8mm;}
