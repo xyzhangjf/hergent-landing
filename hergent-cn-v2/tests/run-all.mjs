@@ -443,6 +443,78 @@ if (has('skip-sfc')) {
   results.push({ name: '删客户列反馈', ok: r.code === 0, code: r.code })
 }
 
+// ── ㉗ 改单保存数量「真的生效」契约（v741）──────────────────
+/* 报障：「改了易胜玲的报单数量，点保存，数量又回到改单前」。
+   根因是显示用跨角色合计、保存只覆盖 role='导入'，小程序那份刷新又叠加回来。
+   ⚠️ v741 当时漏了本块 ⇒ 护栏写好了却没人跑（孤儿）。v745 补注册。 */
+{
+  console.log('\n── ㉗ 改单保存数量契约（改的数必须真的生效）──')
+  const r = run('forecast-qty-revert.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '改单保存数量生效', ok: r.code === 0, code: r.code })
+}
+
+// ── ㉘ 列设置面板「面板内滚动不收起」契约（v742）─────────────
+/* 报障：「列设置面板，鼠标往下滚动的时候会自动关闭」。
+   面板列表本来就有 overflow:auto，但开合逻辑监听任意 scroll 就收起 ⇒ 翻列即关。
+   ⚠️ v742 当时漏了本块 ⇒ 孤儿护栏。v745 补注册。 */
+{
+  console.log('\n── ㉘ 列设置面板滚动契约（面板内翻列不收起）──')
+  const r = run('colmenu-scroll-dont-close.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '列设置面板滚动不误关', ok: r.code === 0, code: r.code })
+}
+
+// ── ㉙ 缩放后虚拟滚动不留白契约（v745）───────────────────────
+/* 报障：「点击缩放按钮缩小网格后，显示的行数最多只有 20 行，下方大量留白」。
+   根因是坐标系混用：表格带 zoom，而虚拟窗口把 scrollTop+viewportH 当成未缩放值，
+   缩小时窗口只覆盖半个屏 ⇒ 只挂一半行。 */
+{
+  console.log('\n── ㉙ 缩放后铺满契约（缩小不得只渲染半屏）──')
+  const r = run('forecast-zoom-virtual.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '缩放后虚拟滚动铺满', ok: r.code === 0, code: r.code })
+}
+
+// ── ㉚ 改单态首批行数随缩放契约（v746）─────────────────────────
+/* ㉙ 修的是只读态虚拟滚动；改单态走「首批 N 行 + 双 rAF 补齐」，`EDIT_FIRST_BATCH` 是定值
+   ⇒ 缩到 50% 时 24 行只占半屏（真机实测空 284px）。且旧 `fillEditRows` 把「击键让路」
+   放在最前，用户一边打字一边看着下方空白一直挂着。 */
+{
+  console.log('\n── ㉚ 改单态首批行数随缩放（缩小后首屏必须铺满）──')
+  const r = run('forecast-edit-batch-zoom.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '改单态首批行数随缩放', ok: r.code === 0, code: r.code })
+}
+
+// ── ㉛ 护栏注册自检（防「写了但没人跑」的孤儿护栏）──────────────
+/* 🔴 本文件**不自动扫描** tests 目录，每个契约都要在上面的块里显式 `run(...)`。
+   代价是：新加的 .contract.mjs 只要忘了注册，就会静默地永远不执行 ——
+   `npm test` 照样 ALL PASS，给人"有护栏"的错觉。
+   实测已踩过三次：v741（改单保存）、v742（列设置面板）、v745（缩放留白）
+   都是先写好、当场手跑通过，却没接进来。这一段把"漏注册"变成**红**。
+   判据就是本文件自身的源码文本：文件名被提到过一次即视为已注册。 */
+{
+  console.log('\n── ㉛ 护栏注册自检（不许有没被执行的契约）──')
+  const selfSrc = fs.readFileSync(path.join(__dirname, 'run-all.mjs'), 'utf8')
+  const all = fs.readdirSync(__dirname).filter((f) => f.endsWith('.contract.mjs'))
+  /* 只认 `run('xxx.contract.mjs'` 这种**带引号的实参**：写在注释里提一嘴不算注册，
+     否则"注释里提到过但没 run"会被误判为已接好（那正是最隐蔽的假通过）。 */
+  const missing = all.filter((f) =>
+    !selfSrc.includes(`'${f}'`) && !selfSrc.includes(`"${f}"`))
+  if (missing.length) {
+    console.log('  ❌ 以下契约文件没被注册（写了也不会跑）：')
+    for (const f of missing) console.log('     · ' + f)
+  } else {
+    console.log(`  ✅ ${all.length} 个契约全部已注册`)
+  }
+  results.push({ name: '护栏注册自检', ok: missing.length === 0, code: missing.length ? 1 : 0 })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

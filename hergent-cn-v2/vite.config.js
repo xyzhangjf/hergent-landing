@@ -30,6 +30,12 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    /* 🔴 不清空 outDir。两条硬理由：
+       ① 本机安全护栏会把「一次删掉 dist/assets 里 200+ 个文件」判为批量删除并直接抛错，
+          构建停在 prepareOutDir（表现为「跑了十几分钟一点输出都没有」，极易误判成沙箱卡死）；
+       ② 部署走**闭包补传**（只上传 index.html 实际引用的 chunk，最后传 index.html），
+          旧 hash 文件留在 dist 里无害 —— 每次 build 全部 hash 都会变，留着才能对比补传。 */
+    emptyOutDir: false,
     sourcemap: false,
     chunkSizeWarningLimit: 1500
   }

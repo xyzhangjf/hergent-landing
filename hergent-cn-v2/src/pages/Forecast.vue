@@ -3410,9 +3410,44 @@ const liveRows = computed(() => cross.value.rows.filter(r => !r._deleted))
    🔴 判据是「首帧可用 + 长任务峰值」，**不是总时长** —— 活还是那么多，变的是用户多久能开始改。
    🔴 任何「按行号定位 DOM」的入口（focusCell / editRow）都必须先 `ensureRowsRendered`，
       否则 querySelector 找不到未挂载的行 ⇒ **静默 focus 失败**（点查错跳到第 200 行会没反应）。 */
-const EDIT_FIRST_BATCH = 24        // 首批（≈620px，一屏出头）；实测 60 行在 4x 下要 700ms，太慢
+const EDIT_FIRST_BATCH = 24        // 首批（100% 缩放下一屏出头）；实测 60 行在 4x 下要 700ms，太慢
+const EDIT_FIRST_CAP = 32          // 🔴 缩小档的首帧上限：再多首帧长任务会回到 500ms+，违背 v666 初衷
+const EDIT_SAFETY_CAP = 72         // 安全线上限，防极端缩放把首屏行数算爆（DOM 兜底）
 const EDIT_BATCH = 24              // 后续每批；够小才把长任务切碎
 const editRenderCount = ref(0)     // 0 / >=总行数 都表示「全渲染」
+
+/* v746：🔴「一屏铺满要几行」必须**跟着缩放算** —— 与只读态 `vsWindow` 是同一个坑。
+   真机实测（生产 1600×900，期次 42）：改单态每行 **21px**（= `ROW_H`），容器高 **536px**
+   ⇒ 100% 时一屏 25.5 行，v666 的 24 行刚好「一屏出头」。
+   但缩到 50% 后每行只剩 10.5px，同样 24 行仅占 252px ⇒ 下方空 **284px（半屏多）**，
+   用户看到的是「缩小了反而更空」。
+   注意 CSS `zoom` 只改视觉尺寸、**不动布局像素**（`offsetHeight` 恒 21），所以直接用
+   「容器高 / (行高 × z)」即可，不需要再量一次 DOM。 */
+function editRowsPerScreen() {
+  const h = editMaxH.value || 0
+  const z = zoomScale()
+  if (h <= 0 || !Number.isFinite(z) || z <= 0) return EDIT_FIRST_BATCH
+  return Math.ceil(h / (ROW_H * z))
+}
+/* 首帧行数：100% 档**逐值沿用** v666 的 24 行（默认表现一个像素都不变），
+   仅缩小档按屏算，且受 `EDIT_FIRST_CAP` 约束（首帧长任务不能回到 500ms+）。 */
+function editFirstBatch() {
+  const h = editMaxH.value || 0
+  if (zoomScale() >= 0.999 || h <= 0) return EDIT_FIRST_BATCH
+  return Math.max(EDIT_FIRST_BATCH, Math.min(EDIT_FIRST_CAP, editRowsPerScreen() + 1))
+}
+/* 安全线 = 首屏**必须铺满**的行数（+1 行余量）。
+   🔴 未达安全线时不许给击键让路：否则用户点完改单直接往格子里打字，
+   `_lastGridTypeAt` 会一直把补齐循环挡回去 ⇒ 下方空白长期挂着（不是闪一下，是一直在）。
+   🔴 100% 档、或容器高还没量到 ⇒ **沿用 v666 的节奏**（安全线 = 首批 24，下一帧照常 +24）。
+      100% 时严格说 24 行还差 32px 才铺满（536/21=25.5），但那是原行为、且百毫秒内就被
+      常规批次补上 —— 改它会动默认档的补齐序列，不值当。只在**缩放档**才按屏抬安全线。 */
+function editSafetyFloor(total) {
+  const h = editMaxH.value || 0
+  if (zoomScale() >= 0.999 || h <= 0) return Math.min(total, EDIT_FIRST_BATCH)
+  const floor = Math.max(EDIT_FIRST_BATCH, Math.min(EDIT_SAFETY_CAP, editRowsPerScreen() + 1))
+  return Math.min(total, floor)
+}
 const editRowsShown = computed(() => {
   const rows = cross.value.rows || []
   /* 🔴 载入中不建任何行 —— 这条是分批真正生效的前提。
@@ -3444,9 +3479,17 @@ function fillEditRows(token) {
     if (!editMode.value) return
     const t = total()
     if (editRenderCount.value >= t) return
-    /* 用户正在连打（500ms 内有击键）⇒ 让路，免得补齐批次吃掉输入的那一帧 */
-    if (Date.now() - _lastGridTypeAt < 500) { nextFrame(step); return }
-    editRenderCount.value = Math.min(t, editRenderCount.value + EDIT_BATCH)
+    /* 🔴 v746：安全线**优先于**击键让路 —— 先把首屏铺满，再谈让路。
+       旧写法把让路放在最前面，于是「点改单 → 立刻在第一个格子打字」时补齐被无限期挡回，
+       下方空白一直挂着（缩放后尤其明显：24 行只占半屏）。 */
+    const floor = editSafetyFloor(t)
+    const needFloor = editRenderCount.value < floor
+    /* 用户正在连打（500ms 内有击键）⇒ 让路，免得补齐批次吃掉输入的那一帧。
+       但只在**已铺满一屏**之后才让（见上）。 */
+    if (!needFloor && Date.now() - _lastGridTypeAt < 500) { nextFrame(step); return }
+    editRenderCount.value = needFloor
+      ? floor                                                        // 一步补到铺满（单批增量 ≤ 28 行，可控）
+      : Math.min(t, editRenderCount.value + EDIT_BATCH)
     if (editRenderCount.value < t) nextFrame(step)
   }
   nextFrame(step)
@@ -3455,8 +3498,24 @@ function fillEditRows(token) {
 function resetEditRender() {
   const total = (cross.value.rows || []).length
   const my = ++_editFillToken
-  editRenderCount.value = Math.min(total, EDIT_FIRST_BATCH)
+  /* v746：按当前缩放算首批。`editMaxH` 此刻可能还是 0（只读态被清零、进改单后才由
+     recalcEditHeight 量出）⇒ `editRowsPerScreen` 内部回退成 24，等于旧行为，不会算错；
+     真正的高度稍后由 `_topUpEditRowsForZoom` 补上。 */
+  editRenderCount.value = Math.min(total, editFirstBatch())
   fillEditRows(my)
+}
+/* v746：`editMaxH` 是**进改单之后**才量出来的（只读态被清零）⇒ 首批若早于它算，
+   只能回退成 24（旧行为）。量到真高度 / 缩放变化后在这里补一次到「铺满一屏」，
+   否则「先缩到 50% → 再点改单」这一路仍然是 24 行 + 下方空半屏。
+   只在**未达安全线**时动手，单批增量 ≤ 28 行，不会造出长任务。 */
+function _topUpEditRowsForZoom() {
+  if (!editMode.value || loadingEdit.value) return
+  const t = (cross.value.rows || []).length
+  if (!t || editRenderCount.value >= t) return
+  const floor = editSafetyFloor(t)
+  if (editRenderCount.value >= floor) return
+  editRenderCount.value = floor
+  fillEditRows(_editFillToken)
 }
 /* 按行号定位 DOM 之前必须调：把渲染窗口撑到目标行。
    返回 true 表示「刚撑开过」，调用方若在**同一个 tick 里**就要查 DOM，需等 nextTick。 */
@@ -4082,13 +4141,27 @@ function offsetOf(i) {
   const off = vsOffsets.value
   return off[i < off.length ? i : off.length - 1]
 }
+/* 🔴 v745：虚拟滚动的**坐标系必须换算**，否则缩放一缩小就「只渲染半屏 + 下面大片留白」。
+   `.cross-tbl` 整体带 `zoom: gridZoom%`（见模板），于是同一屏里并存两套像素：
+     · **缩放后**：容器 `scrollTop`、`scrollHeight`（容器 clientHeight 本身不变）
+     · **未缩放**：`ROW_H` 等行高常量、`vsOffsets` 的累加值、`vs-spacer` 的 height
+       （spacer 是 zoom 内部的 `<tr>`，写未缩放值、渲染时被再压一次 —— 那是对的）
+   旧代码把 `scrollTop + viewportH` 直接当成未缩放的"可见下沿" ⇒ 50% 时窗口只覆盖半屏
+   ⇒ 只挂一半行、下半屏全是 spacer 空白（用户看到的就是"最多 20 行 + 大量留白"）。
+   统一换算到未缩放坐标系再比较：`st = scrollTop/z`、可见高 = `viewportH/z`。
+   z=1（100%）时与旧行为**逐值等价**，不改变任何默认表现。 */
+function zoomScale() {
+  const z = (Number(gridZoom.value) || 100) / 100
+  return Math.min(2, Math.max(0.5, z))
+}
 const vsWindow = computed(() => {
   const arr = flatItems.value
   const off = vsOffsets.value
   if (!vScrollOn.value) return { items: arr, top: 0, bottom: 0 }
   const n = arr.length
-  const lo = scrollTop.value - OVER * ROW_H
-  const hi = scrollTop.value + viewportH.value + OVER * ROW_H
+  const z = zoomScale()
+  const lo = scrollTop.value / z - OVER * ROW_H
+  const hi = (scrollTop.value + viewportH.value) / z + OVER * ROW_H
   /* 二分边界，语义与原来的线性推进逐字对齐：
      start = 第一个「下沿 ≥ lo」的行（原式继续条件 `off[start+1] < lo`）；
      end   = 第一个「上沿 ≥ hi」的行（原式继续条件 `off[end] < hi`）。 */
@@ -4143,8 +4216,12 @@ function scrollToIndex(ri) {
   if (!vScrollOn.value || !scrollEl.value) return
   const off = offsetOf(ri)
   const h = (flatItems.value[ri] && flatItems.value[ri].h) || ROW_H
-  if (off < scrollTop.value) scrollEl.value.scrollTop = Math.max(0, off - ROW_H)
-  else if (off + h > scrollTop.value + viewportH.value) scrollEl.value.scrollTop = off + h - viewportH.value + ROW_H
+  /* v745：`scrollTop` 是**缩放后**坐标，`off`/`h`/`ROW_H` 是未缩放 ⇒ 落点必须乘 z 再比，
+     否则缩小时"滚动到某商品"会滚过头或滚不到（同 vsWindow 的坐标系问题）。 */
+  const z = zoomScale()
+  const top = off * z, bot = (off + h) * z
+  if (top < scrollTop.value) scrollEl.value.scrollTop = Math.max(0, top - ROW_H * z)
+  else if (bot > scrollTop.value + viewportH.value) scrollEl.value.scrollTop = bot - viewportH.value + ROW_H * z
 }
 function scrollToPid(pid) { const i = flatItems.value.findIndex(it => it.kind === 'row' && it.r.product_id === pid); if (i >= 0) scrollToIndex(i) }
 function focusActive() {
@@ -4867,6 +4944,11 @@ async function loadEditGrid() {
     matrixAt.value = d.matrix_at || ''
     matrixBy.value = d.matrix_by || ''
     const srcByPid = {}
+    /* v741（易胜玲改数回退）：编辑格显示的是**跨角色合计**（电脑录入'导入' + 小程序'distributor' 等），
+       但 save-matrix 只覆盖 '导入' 行 —— 小程序报的那部分永远删不掉，刷新后又叠加回来，
+       用户改完的合计被抵消 ⇒ "回到改单前"。这里额外记一份「非导入」的来源量，保存时从合计里拆掉，
+       只把差额写进 '导入'，刷新后合计 = 差额 + 非导入 = 用户改的值（不动小程序数据，非破坏性）。 */
+    const nonImportByPid = {}
     const units = []
     const _seenUnit = new Set()
     // ① 跨期持久的客户名册：即使当期无报单，也保留客户列（与后端占位机制互补）
@@ -4879,6 +4961,14 @@ async function loadEditGrid() {
     ;(d.rows || []).forEach(r => {
       const prevSrc = srcByPid[r.product_id]
       srcByPid[r.product_id] = prevSrc ? [...prevSrc, ...(r.sources || [])] : (r.sources || [])
+      /* v741：非导入来源（小程序'distributor' 等）单独归集 —— 与 srcByPid 同源遍历。
+         🔴 必须同时排除 `主管调整`：那是**本机制自己的产物**（减单负数行），
+            若把它算进「非导入」，下次保存时 差额 = 合计 − (门店自报 + 调整) = 0
+            ⇒ 不再写任何行 ⇒ 调整行被 scope 一并清掉 ⇒ 合计跳回门店自报量。
+            非导入只应包含「门店/仓库自己报的」，即 role 存在且既非导入也非主管调整。 */
+      const curNI = (r.sources || []).filter(s => s.role && s.role !== '导入' && s.role !== '主管调整')
+      const prevNI = nonImportByPid[r.product_id]
+      nonImportByPid[r.product_id] = prevNI ? prevNI.concat(curNI) : curNI
       ;(r.sources || []).forEach(s => {
         const name = s.store || s.store_name || '未署名'
         if (!_seenUnit.has(name)) {
@@ -4941,6 +5031,12 @@ async function loadEditGrid() {
         const name = s.store || s.store_name || '未署名'
         qtyByUnit[name] = (qtyByUnit[name] || 0) + (s.qty || 0)
       })
+      /* v741：非导入量（小程序等）按客户名归集 —— 保存时从合计里拆掉，只把差额写 '导入'。 */
+      const nonImportQtyByUnit = {}
+      ;(nonImportByPid[pd.id] || []).forEach(s => {
+        const name = s.store || s.store_name || '未署名'
+        nonImportQtyByUnit[name] = (nonImportQtyByUnit[name] || 0) + (s.qty || 0)
+      })
       return {
         // v161：自定义列的值随 grid 一起回来（服务端权威，按 product_id）。
         // 放在最前，便于一眼看出"这些键不是写死的列，而是列注册表里的自定义列"。
@@ -4980,7 +5076,7 @@ async function loadEditGrid() {
         /* v673：下单日节奏。与到货周期同一条「两条加载路径都要带」纪律 ——
            缺本处（编辑网格），改单态「今日下单」就筛不到任何品、列恒「未设置」。 */
         order_days: pd.order_days || '',
-        price: pd.sale_price || 0, qtyByUnit, extraQty: extraByPid[pd.id] || 0,
+        price: pd.sale_price || 0, qtyByUnit, nonImportQtyByUnit, extraQty: extraByPid[pd.id] || 0,
         /* v190：本期手工单价 —— 编辑态的**草稿初始值**。没有它，刷新或换个人打开改单网格时
            单价框会回到灰色自动价（明明存过），用户会以为「保存没生效」。 */
         casePrice: casePriceByPid[pd.id] || null,
@@ -5962,7 +6058,23 @@ async function saveEdits(opts = {}) {
       hidden_customers: hiddenUnits(),
       rows: usable.map(r => ({
         product_id: r.product_id || 0, product_name: r.name || '', spec: r.spec || '',
-        unit: r.unit || '件', price: r.sale_price || 0, qty_by_unit: r.qtyByUnit || {},
+        unit: r.unit || '件', price: r.sale_price || 0,
+        /* v741：格子显示的是「跨角色合计」（电脑录入 + 小程序等），而本接口只覆盖 '导入' 行。
+           若原样把合计发过去，刷新后合计 = 写入的导入值 + 小程序量 ⇒ 用户改的数被抵消/叠加回原值。
+           这里只发 差额 = 合计 − 非导入；写回后合计 = 差额 + 非导入 = 用户填的值。
+           🔴 **允许为负**（用户 2026-11-03 拍板「不设下限，主管有减单的权利」）：
+              合计被压到低于门店自报量时，负差额由后端落成一条 `role='主管调整'` 明细
+              （见 routers/forecast_submissions.py::save_matrix 的 v741 段），门店自报的原始
+              行**分毫不动**，刷新后合计仍等于用户填的那个数。 */
+        qty_by_unit: (() => {
+          const q = r.qtyByUnit || {}
+          const ni = r.nonImportQtyByUnit || {}
+          const out = {}
+          for (const k of Object.keys(q)) {
+            out[k] = (Number(q[k]) || 0) - (Number(ni[k]) || 0)
+          }
+          return out
+        })(),
         /* v612：标记「这是用户手动新增的行（补录 / 粘贴）」——
            后端据此决定要不要把该商品登记进**本期商品清单**（小程序的商品来源）。
            ⚠️ 只标 `_new`（addRow / 粘贴导入时置位，保存成功后清除），
@@ -6009,8 +6121,13 @@ async function saveEdits(opts = {}) {
        原实现是「发射后不管」，与随后的「退出编辑态」构成竞态：刚退出就点「修改日志」可能看不到这一条。
        ⚠️ 仍**不阻断保存**：recordAudit 内部自己 catch（失败只告警、不抛出）。
        ⚠️ 必须在 exitEdit() **之前**调 —— 先记痕，再离开编辑态。 */
+    /* v741：主管减单条数 —— 必须当场回执。减单是「把合计压到低于门店自报量」的负差额，
+       若静默执行，用户分不清「我改成功了」与「我手滑清空了一格」（清空 = 合计 0，也会产生减单）。
+       只在**有减单**时说，日常保存不增加噪音。 */
+    const _adj = Number(r.saved_adjusts) || 0
+    const _adjAudit = _adj ? ` / 减单 ${_adj} 行` : ''
     await recordAudit('save_changes',
-      `${r.saved_customers} 客户 / ${r.saved_items} 条明细${prodMsg}`
+      `${r.saved_customers} 客户 / ${r.saved_items} 条明细${_adjAudit}${prodMsg}`
       + (r.closed_edit ? '（已关闭期次 · 授权改单）' : ''))
     /* 🔴 v305：授权改单必须**当场回执** —— 用户改的是「已关闭」的期次，要立刻看到"已留痕"，
        否则他无法确认系统真的记了账（本项目最怕那类「看起来做了、其实没做」）。
@@ -6022,7 +6139,8 @@ async function saveEdits(opts = {}) {
     const _la = Number(r.list_added) || 0
     const _lr = Number(r.list_removed) || 0
     const _lTip = (_la || _lr) ? `　· 小程序商品清单：新增 ${_la} 个 / 移除 ${_lr} 个` : ''
-    toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}${_lTip}${_ceTip}`,
+    const _adjTip = _adj ? `　· 其中 ${_adj} 行按减单处理（低于门店自报量）` : ''
+    toast(`已保存：${r.saved_customers} 个客户 · ${r.saved_items} 条商品明细${prodMsg}${_lTip}${_adjTip}${_ceTip}`,
           r.closed_edit ? 'warn' : 'ok')
     /* 清单同步失败（后端已单独 catch，报单本身是存上的）⇒ **必须**单独说一句：
        否则用户以为小程序能看到新商品，明天销售报单时才发现搜不到。 */
@@ -11040,6 +11158,22 @@ function onGlobalFind(e) {
 const gridFullscreen = ref(false)
 // 全屏缩放：按比例放大/缩小汇总表，便于查看数据（仅全屏时显示控制条）
 const gridZoom = ref(100)
+/* v745：缩放一变，内容总高就按比例变（`scrollHeight` = 未缩放总高 × z）。
+   原先的 `scrollTop` 可能已越过新的 max —— 元素自身会被浏览器夹到 max，
+   但 `scrollTop.value`（虚拟窗口的唯一起点）还停在旧值 ⇒ 窗口落在内容之外 ⇒ 一屏空白。
+   这里跟着夹一次并同步 ref（只在越界时动，不打断正常位置）。 */
+watch(gridZoom, () => {
+  nextTick(() => {
+    const el = scrollEl.value
+    if (!el) return
+    const max = Math.max(0, el.scrollHeight - el.clientHeight)
+    if (el.scrollTop > max) el.scrollTop = max
+    scrollTop.value = el.scrollTop
+  })
+  /* v746：缩放会让「一屏铺满需要几行」整屏变化 ⇒ 改单态要跟着补行，
+     否则缩到 50% 后首批 24 行只占半屏（与只读态 vsWindow 同源的坑）。 */
+  nextTick(() => _topUpEditRowsForZoom())
+})
 function toggleGridFullscreen() {
   gridFullscreen.value = !gridFullscreen.value
   if (!gridFullscreen.value) gridZoom.value = 100
@@ -11135,6 +11269,8 @@ function _availHeight(wrap, min = 180) {
 
 function _applyEditHeight(wrap) {
   editMaxH.value = _availHeight(wrap)
+  /* v746：高度一量到就把编辑网格补到铺满（见 `_topUpEditRowsForZoom` 注释）。 */
+  _topUpEditRowsForZoom()
 }
 
 function _applyViewHeight(wrap) {

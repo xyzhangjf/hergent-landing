@@ -70,9 +70,15 @@ export function useColMenu () {
 
   watch(showColMenu, (v) => { if (!v) colMenuGear.value = null })
 
-  // 面板是 fixed（脱离文档流），任何滚动或改窗口都会让它与齿轮脱位 ⇒ 直接收起。
+  // 面板是 fixed（脱离文档流），页面 / 表格滚动会让它与齿轮脱位 ⇒ 收起。
   // 挂 window 且用捕获阶段：一个监听同时覆盖页面滚动与表格内部 .table-wrap 的滚动。
-  function closeColMenuOnViewportChange () { if (showColMenu.value) showColMenu.value = false }
+  // 🔴 v742：面板**内部**翻列（.col-menu-list 的 overflow:auto 滚动）不算脱位 ——
+  //   当时那个滚动事件的 target 落在面板内部 ⇒ 跳过，否则列一多、点开面板一滚轮就关，
+  //   根本没法翻看全部列（本期预报页实测必现）。只有关面板之外的滚动才收起。
+  function closeColMenuOnViewportChange (e) {
+    if (showColMenu.value && colMenuEl.value && colMenuEl.value.contains(e && e.target)) return
+    if (showColMenu.value) showColMenu.value = false
+  }
   onMounted(() => {
     window.addEventListener('scroll', closeColMenuOnViewportChange, true)
     window.addEventListener('resize', closeColMenuOnViewportChange)
