@@ -404,6 +404,20 @@ if (has('skip-sfc')) {
   results.push({ name: '员工档案可清空字段', ok: r.code === 0, code: r.code })
 }
 
+// ── ㉔ 冻结列行底色契约（v738）────────────────────────────────
+/* 用户原话：「预报订单汇总表里，前面三列『序号/商品名称/到货周期』没有跟后面的列一样，
+   行与行之间的背景色是深浅交替的」。根因不是斑马纹没画上，而是**画在了被盖住的地方** ——
+   冻结列为了遮横向滚动的内容，自己在 td 上刷了一层不透明白底，把 `<tr>` 的斑马纹整块盖掉。
+   任何单点检查都看不出来（两条规则各自都"对"），只能靠结构约束钉住：
+   行底色统一走 `--row-bg`，冻结列只负责"照着刷"。 */
+{
+  console.log('\n── ㉔ 冻结列行底色契约（斑马纹必须跟着行走）──')
+  const r = run('forecast-sticky-zebra.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '冻结列行底色', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

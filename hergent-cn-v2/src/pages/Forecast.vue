@@ -13790,7 +13790,14 @@ provide('sprintSummary', sprintSummary)
    svg 不再参与基线计算 ⇒ 行盒回到 20px、整行 **22px = 合计行**，且箭头视觉上更居中。
    ⚠️ 只作用于本页表头，别上提到全局（采购单等页的表头高度另有自己的口径）。 */
 .cross-tbl thead .sort-ind{display:inline-flex;align-items:center;height:12px;vertical-align:middle}
-:deep(.cross-tbl .frozen){position:sticky;left:0;background:var(--bg);z-index:6;min-width:200px;box-shadow:1px 0 0 var(--bd)}
+/* 🔴 v738：冻结列的底色**必须跟着行走**，不能写死 `var(--bg)`。
+   由来（用户 2026-11-03）：「序号 / 商品名称 / 到货周期 三列的行底色不跟着斑马纹深浅交替」。
+   根因不是斑马纹没画上，而是**画在了被盖住的地方**：斑马纹是 `<tr>` 的背景，
+   而冻结列为了遮住横向滚过来的内容，自己在 `td` 上刷了一层**不透明白底** ⇒
+   行底色被这层盖掉。实测（同一 zebra 行，浅色）：tr=#f5f5f7，前三格=#ffffff，第四格起=#f5f5f7。
+   ⇒ 冻结列改读 `--row-bg`（由下面各条行状态规则统一下发），仍未声明时兜底 `var(--bg)`。
+   同一处变量化的收益：hover / 选中 / 错误行**一并**恢复，不会出现"斑马纹修好了、hover 还是死的"。 */
+:deep(.cross-tbl .frozen){position:sticky;left:0;background:var(--row-bg,var(--bg));z-index:6;min-width:200px;box-shadow:1px 0 0 var(--bd)}
 /* v184：到货周期是**固定列**，但比「商品名称」窄得多 —— 覆盖 .frozen 的 200px 宽度下限。
    ⚠️ 位置：排在 `.cross-tbl .frozen` 之后（既然后写者赢，又多了个类 → 特异性更高，双重保险）。
    ⚠️ 本表是 `table-layout:fixed` ⇒ **列宽实际由 colgroup 的 colW() 单独决定**
@@ -13858,12 +13865,17 @@ provide('sprintSummary', sprintSummary)
 .calc-th.final{background:var(--p-bg);color:var(--p-ink)}
 .calc-th.final .th-sub{font-weight:400;font-size:var(--fs-xs);opacity:.7}
 /* 表体优化 P1/P2/P3：斑马纹/排序/分组/吸底合计 */
+/* 🔴 v738：行底色**唯一源 = `--row-bg`**。这里只负责"这一行是什么色"，冻结列负责"照着刷"。
+   ⇒ 以后新增任何行状态，只需在这里多写一行 `--row-bg`，冻结列自动跟上；
+     反之若把底色只写在 `tr` 的 background 上，冻结列就又会脱节（本次缺陷即此）。
+   ⚠️ `background` 仍保留给非冻结格（它们本来就能透出 tr 的底色，不必多刷一层）。 */
 .tb-toolbar{display:flex;gap:var(--sp-3);align-items:center;margin:var(--sp-1) 0 var(--sp-2);flex-wrap:wrap}
 .tb-toolbar .hint{color:var(--t3);font-size:var(--fs-sm)}
-:deep(.cross-tbl tbody tr.data-row.zebra){background:var(--bg2)}
-:deep(.cross-tbl tbody tr.data-row:hover){background:var(--bg3)}
-.cross-tbl.edit-tbl :deep( tbody tr:nth-child(even)){background:var(--bg2)}
-.cross-tbl.edit-tbl :deep( tbody tr:hover){background:var(--bg3)}
+:deep(.cross-tbl tbody tr.data-row){--row-bg:var(--bg)}
+:deep(.cross-tbl tbody tr.data-row.zebra){background:var(--bg2);--row-bg:var(--bg2)}
+:deep(.cross-tbl tbody tr.data-row:hover){background:var(--bg3);--row-bg:var(--bg3)}
+.cross-tbl.edit-tbl :deep( tbody tr:nth-child(even)){background:var(--bg2);--row-bg:var(--bg2)}
+.cross-tbl.edit-tbl :deep( tbody tr:hover){background:var(--bg3);--row-bg:var(--bg3)}
 :deep(th.sortable){cursor:pointer;user-select:none}
 :deep(th.sortable:hover){color:var(--p-ink)}
 .sort-ind{font-size:var(--fs-xs);margin-left:var(--sp-h2);color:var(--p-ink)}
@@ -13959,8 +13971,9 @@ provide('sprintSummary', sprintSummary)
    本节只保留 **Forecast 特有的宽表横向冻结** 规则（下面几条）。 */
 /* 序号列冻结（v176）：横向滚动时保持可见 —— 「商品名称」之前这一列不许被滚走。
    ① 必须 sticky + **不透明**底色：sticky 只改绘制位置，透明底会把滚过来的内容透出来；
-   ② 底色与既有冻结列 .frozen 完全一致（表体 var(--bg) / 表头 var(--bg3) / 表尾 var(--bg3)），
+   ② 底色与既有冻结列 .frozen 完全一致（体 `--row-bg` 兜底 var(--bg) / 表头 var(--bg3) / 表尾 var(--bg3)），
       让「序号 + 商品名称」读作**一个整体冻结块**，而不是给序号列单染一条色带；
+      🔴 v738：体不能用 `var(--bg)` 写死 —— 那会把 `<tr>` 的斑马纹整块盖成纯白（同 .frozen 的缺陷）；
    ③ 行状态优先级更高、**自动生效无需在此重复**：条件告警行 `.cond-warn>td` 带 !important；
       错误行 `.td.seq-cell.row-bad`(0,3,0) > 本规则(0,2,0)；键盘选中 `.cross-tbl td.cell-active`(0,2,1) 亦然；
       两个表尾的底色由下面第 3 行单独兜回 var(--bg3)，否则会被第 1 行（0,2,0 > .col-total td 的 0,1,1）染白；
@@ -13968,7 +13981,7 @@ provide('sprintSummary', sprintSummary)
       否则横向滚过来的普通表头会盖在序号表头上（同为 sticky，z 相同时后出现者胜）；
    ⑤ 权威列宽是 <colgroup> 的 colW('seq')（.cross-tbl/.edit-tbl 为 table-layout:fixed）；
       冻结列的右移量见 v184 的 frozenLeftOf()。 */
-.cross-tbl .seq-th, :deep(.cross-tbl .seq-cell){position:sticky;left:0;background:var(--bg);z-index:6}
+.cross-tbl .seq-th, :deep(.cross-tbl .seq-cell){position:sticky;left:0;background:var(--row-bg,var(--bg));z-index:6}
 .cross-tbl thead .seq-th, :deep(.cross-tbl thead .seq-cell){background:var(--bg3);z-index:9}
 :deep(.cross-tbl .col-total .seq-cell), :deep(.cross-tbl .foot-row .seq-cell){background:var(--bg3)}
 /* v408：`.gear` 已上提全局（variables.css「列设置」段），此处不再保留副本。 */
@@ -14168,12 +14181,20 @@ provide('sprintSummary', sprintSummary)
 .cross-tbl :deep( thead th){position:sticky;top:0;z-index:7}
 :deep(.cross-tbl thead th.frozen){z-index:8}
 .cross-tbl :deep( td){position:relative}
-:deep(.cross-tbl tr.data-row.selected){background:rgba(6,182,212,.10)}
+/* v738：这两个状态的底色是**半透明**的（选中 10% 青 / 错误浅红），冻结列不能直接抄同一句 ——
+   冻结格刷在 tr 的底色**之上**，同色刷两遍会叠成两倍浓度（选中行会看起来比旁边深一档）。
+   ⇒ 用 `color-mix` 把"半透明色压在本表底色上"算成**实色**下发给 `--row-bg`；
+   冻结格与 tr 各刷一次，但两者都是同一个实色 ⇒ 深浅一致、不叠色。
+   ⚠️ tr 自己的 background 也改成读 `--row-bg`（不再另写 `rgba(6,182,212,.10)`）——
+      两个值写两遍就会漂，这里要的就是**一个值两处用**。
+      同时这也是唯一能过 `check-tokens` 的写法：裸 hex 会被护栏当场拦下（已实测）。
+   （`--danger-bg` 本身不透明，直接下发即可。） */
+:deep(.cross-tbl tr.data-row.selected){--row-bg:color-mix(in srgb,var(--p) 10%,var(--bg));background:var(--row-bg)}
 :deep(.cross-tbl td.cell-active){outline:2px solid var(--p);outline-offset:-2px;background:var(--p-bg);z-index:4}
 .cross-tbl :deep( td:focus){outline:2px solid var(--p);outline-offset:-2px}
 :deep(.cross-tbl tr.data-row.row-loading){opacity:.6}
 .cross-tbl tr.data-row.row-loading .pname::after{content:' 加载中…';font-size:var(--fs-xs)}
-:deep(.cross-tbl tr.data-row.row-error){background:var(--danger-bg)}
+:deep(.cross-tbl tr.data-row.row-error){background:var(--danger-bg);--row-bg:var(--danger-bg)}
 .cross-tbl tr.data-row.row-error .pname{color:var(--danger-txt)}
 :deep(.cross-tbl tr.data-row.row-disabled){opacity:.45;filter:grayscale(.6)}
 /* v572：展开箭头**不再单独占一行**。
