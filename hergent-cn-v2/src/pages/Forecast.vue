@@ -6202,6 +6202,22 @@ async function saveEdits(opts = {}) {
        ⚠️ 保存**失败**不走这里 —— catch 分支停在编辑态、数据不丢（另有红色横幅）。
        副作用（已核对）：粘贴/新增的商品行不会消失 —— 它们已随本次 saveMatrix 落库，
        只读态 loadCross() 会从服务端把它们读回来。 */
+    /* v752：删列落库「回读校验」护栏 —— 防「以为删了其实没删」的静默失败。
+       根因（2026-11-04 真机）：用户删列+保存后列又回来，逐层核查后端写入逻辑正确、
+       守卫也能过，唯一解释是那次保存没把 hidden_customers 真正落库（最常见是保存瞬间
+       撞乐观锁 409 被整单拦掉，或操作路径未真正提交）。此处保存成功后**重新拉一次
+       服务端列名册**，对比本次待删集合：若仍有名字残留 ⇒ 明确提示（而不是让用户以为删好了）。
+       ⚠️ 不阻断退出：校验失败（网络等）只吞掉，照常 exitEditAfterSave。 */
+    try {
+      const _pendingHidden = (hiddenUnits() || []).filter(Boolean)
+      if (_pendingHidden.length) {
+        const _chk = await forecastApproveApi.summary('', p.order_start || '', p.order_end || '', p.id || 0)
+        const _still = _pendingHidden.filter(n => ((_chk && _chk.all_units) || []).includes(n))
+        if (_still.length) {
+          toast(`⚠️ 以下客户列未能隐藏（可能保存时遇并发冲突未真正落库）：${_still.join('、')}。请重新进入「改单」删除并保存。`, 'warn')
+        }
+      }
+    } catch (_e) { /* 校验不影响主流程 */ }
     exitEditAfterSave()
   } catch (e) {
     // Q26：按错误类型分流，并明确告知「商品已落库、数量未保存」的部分成功状态
