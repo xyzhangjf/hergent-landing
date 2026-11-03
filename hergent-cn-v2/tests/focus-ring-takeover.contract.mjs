@@ -1,12 +1,20 @@
-/* v749 契约：组框已画焦点环时，框内控件不许再画自己的 outline（"一大一小两层环"）。
+/* v749 + v750 契约：焦点环在同一处位置只能出现**一层**。
  *
- * 报障原话：「点『供应商』输入框时会出现一个品牌色的定位框，全站其他多处输入控件也有相同现象」
+ * 两次报障是同一类病的两层：
+ *   v749 「点『供应商』输入框时会出现一个品牌色的定位框，全站其他多处输入控件也有相同现象」
+ *        ⇒ 组框已经画了环，框内控件又画一层（一大一小）
+ *   v750 「报单配置 → 新建报单配置 里也有类似的情况」
+ *        ⇒ 控件自己画环，且环与边框隔着 2px 空隙（边框 + 一圈游离框）
  *
- * 根因：v439/v448 把焦点高亮上移到组框（`.hd-box .ipn-f:focus-within` 改 border + 3px 光晕），
+ * v749 根因：v439/v448 把焦点高亮上移到组框（`.hd-box .ipn-f:focus-within` 改 border + 3px 光晕），
  *   注释里写着"框内控件的 focus 环要关掉"，但只写了 `border-color:transparent;box-shadow:none`
  *   —— **没写 outline**。全局焦点环恰好用的是 `outline:2px`，不看 border/box-shadow，
- *   于是圆角框里又套一个尖角框。截图实测：内层 outline 2px solid rgb(14,116,144)、
- *   offset 2px；外层 1px 同色描边 + 3px 光晕。
+ *   于是圆角框里又套一个尖角框。
+ *
+ * v750 根因：全局那条环是按「鼠标点按钮不该出圈、Tab 才出圈」写的，
+ *   但 **`:focus-visible` 对文本类控件在鼠标点击时同样成立**（浏览器按"能接受键盘输入"
+ *   判定），所以每条 input/select/textarea 一被点就是「边框变色 + 隔 2px 一圈游离框」。
+ *   修法只能是**环内缩**（-1px），不能删环（键盘指示归零）、也不能换 box-shadow（盖掉错误态）。
  *
  * 🔴 这套判据要挡的是三件事，缺一条就有一类回归能溜过去：
  *   ① **接管规则存在**，且只压 `input/select/textarea`（组框里的按钮压掉就是零指示）
@@ -69,32 +77,50 @@ function splitTop(sel) {
   return out.map(norm)
 }
 
-/* ── 工具：特异性（只覆盖本项目用到的形态：#id .cls [attr] :pseudo :where()=0 :is()=max）──
-   返回单个数便于比较：(0,2,0) → 20、(0,4,0) → 40。 */
+/* ── 工具：截出「平衡括号」的伪类函数体（`:where(:not(...))` 这种嵌套必须按括号配平切，
+   用 `[^)]*` 的非贪婪正则会切在第一个 `)`，把剩余部分当成普通选择器算进特异性）── */
+function cutBalanced(s, marker) {
+  const start = s.indexOf(marker)
+  if (start < 0) return null
+  let depth = 0
+  for (let i = start + marker.length - 1; i < s.length; i++) {
+    if (s[i] === '(') depth++
+    else if (s[i] === ')') {
+      depth--
+      if (depth === 0) return { before: s.slice(0, start), inner: s.slice(start + marker.length, i), after: s.slice(i + 1) }
+    }
+  }
+  return null
+}
+
+/* ── 工具：特异性（只覆盖本项目用到的形态：#id .cls [attr] :pseudo
+      `:where()`=0、`:is()`/`:not()`=参数里最高）── 返回单个数便于比较：(0,2,0) → 20。 */
 function specificity(sel) {
   let s = ' ' + sel + ' '
-  s = s.replace(/:where\([^)]*\)/g, ' ') // :where 整体归零
-  let extra = 0
+  /* :where() 整体归零 */
   let guard = 0
-  while (/:is\(/.test(s) && guard++ < 20) {
-    const start = s.indexOf(':is(')
-    let depth = 0
-    let end = -1
-    for (let i = start + 3; i < s.length; i++) {
-      if (s[i] === '(') depth++
-      else if (s[i] === ')') {
-        depth--
-        if (depth === 0) {
-          end = i
-          break
-        }
+  while (guard++ < 30) {
+    const c = cutBalanced(s, ':where(')
+    if (!c) break
+    s = c.before + ' ' + c.after
+  }
+  /* :is() / :not() 取参数里最高（:not 本身不加权重，与 :is 同规则） */
+  let extra = 0
+  guard = 0
+  while (guard++ < 40) {
+    let hit = null
+    let which = ''
+    for (const fn of [':is(', ':not(']) {
+      const c = cutBalanced(s, fn)
+      if (c && (!hit || c.before.length < hit.before.length)) {
+        hit = c
+        which = fn
       }
     }
-    if (end < 0) break
-    const inner = s.slice(start + 4, end)
-    /* :is() 的特异性 = 参数里最高的那个 */
-    extra += Math.max(...splitTop(inner).map(specificity))
-    s = s.slice(0, start) + ' ' + s.slice(end + 1)
+    if (!hit) break
+    extra += Math.max(...splitTop(hit.inner).map(specificity))
+    void which
+    s = hit.before + ' ' + hit.after
   }
   const ids = (s.match(/#[\w-]+/g) || []).length
   const cls = (s.match(/\.[\w-]+/g) || []).length
@@ -117,6 +143,13 @@ const globalRule = varsRules.find(
       把框本身也压掉的写法 —— 后者会把设计意图（圆角框变色）一起干掉。 */
 const takeover = varsRules.find(
   (r) => /:focus-within/.test(r.sel) && /outline\s*:\s*none/.test(r.body) && /:where\(input/.test(r.sel)
+)
+
+/* 文本控件内缩环（v750）：按"选择器形态"找，**不按 offset 的正负找** ——
+   否则把 offset 改回 2px 时规则"找不到"，报的是"规则不存在"，
+   诊断信息指错方向（真问题在值上，不在有没有规则）。 */
+const innerRing = varsRules.find(
+  (r) => /^:is\(input/.test(r.sel) && /outline-offset\s*:/.test(r.body)
 )
 
 /* 画环容器：凡「选择器含 :focus-within」且「声明了 border-color 或 box-shadow」的规则 */
@@ -197,6 +230,12 @@ console.log('\n② 特异性')
   ok(specificity(':is(.a .b):focus-within :where(input):focus-visible') === 40,
     '自检：接管选择器算得 (0,4,0)',
     `= ${specificity(':is(.a .b):focus-within :where(input):focus-visible')}`)
+  /* v750：选择器里出现嵌套的 `:where(:not(...))` 与 `:not(.err *)`，
+     用 `[^)]*` 非贪婪切括号会切错（把剩余片段当成普通选择器算进去）⇒ 必须按括号配平。
+     期望 (0,4,1) = 元素 1 + `.err` 10 + `.err *` 的 `.err` 10 + 两个 :focus-visible 20。 */
+  ok(specificity(':is(input):where(:not([type=checkbox])):not(.err):not(.err *):focus-visible:focus-visible') === 41,
+    '自检：内缩环形态算得 (0,4,1)（嵌套伪类按括号配平）',
+    `= ${specificity(':is(input):where(:not([type=checkbox])):not(.err):not(.err *):focus-visible:focus-visible')}`)
   const g = globalRule ? specificity(globalRule.sel) : 0
   const t = takeover ? specificity(takeover.sel) : 0
   ok(t > g, '接管规则特异性 > 全局焦点环（否则规则是死的）', `接管=${t} / 全局=${g}`)
@@ -225,6 +264,49 @@ ok(!!globalRule, '全局 :focus-visible 环仍在（删了就是全站键盘零�
   )
   ok(anyOutlineNone.length === 0, '没有"无条件的 :focus-visible{outline:none}"',
     anyOutlineNone.length ? anyOutlineNone.map((r) => r.sel).join(' | ') : '')
+}
+
+/* ---------------- ⑤ 文本控件：焦点环贴内侧（v750） ----------------
+   与 ①②③④ 是"同一件事故的第二层"：
+     ①–④ 管「组框已经画环 ⇒ 框内控件别再画」（一大一小）
+     ⑤   管「控件自己画环 ⇒ 环别浮在边框外 2px」（边框 + 一圈游离框）
+   用户两次报障分别对应这两层；只修一层另一种照旧，所以必须在同一个契约里双向守着。 */
+console.log('\n⑤ 文本控件焦点环贴内侧（v750）')
+/* 判据写成纯函数：真实规则跑一遍要 0 条，若干坏样本各跑一遍要 ≥1 条 ——
+   只对真实规则断言，只能证明"现在是对的"，不能证明"改错会被发现"。 */
+function innerRingViolations(sel, body) {
+  const v = []
+  if (!/outline-offset\s*:\s*-1px/.test(body)) v.push('offset 不是 -1px')
+  if (/outline\s*:\s*none/.test(body)) v.push('写成 outline:none（键盘用户零指示）')
+  if (/box-shadow\s*:/.test(body)) v.push('改用 box-shadow（会盖掉错误态的 --dan-bg 光晕）')
+  for (const t of ['checkbox', 'radio', 'range', 'color', 'file']) {
+    if (!sel.includes(`[type=${t}]`)) v.push(`未排除 [type=${t}]`)
+  }
+  if (!/:not\(\.err\)/.test(sel)) v.push('未排除 .err 自身')
+  if (!/:not\(\.err \*\)/.test(sel)) v.push('未排除 .err 容器内的控件')
+  if (!/\):where\(/.test(sel)) v.push(':is() 与 :where() 之间有空白（= 后代选择器 ⇒ 规则静默失效）')
+  if (!/^:is\(input/.test(sel)) v.push('没有以 :is(input…) 开头（目标不是文本控件）')
+  return v
+}
+if (innerRing) {
+  const v = innerRingViolations(innerRing.sel, innerRing.body)
+  ok(v.length === 0, '真实规则 0 条违规', v.length ? v.join('；') : innerRing.sel.slice(0, 72) + '…')
+  const ig = specificity(innerRing.sel)
+  const gg = globalRule ? specificity(globalRule.sel) : 0
+  ok(ig > gg, '特异性 > 全局焦点环（否则规则是死的）', `内缩环=${ig} / 全局=${gg}`)
+} else {
+  ok(false, 'variables.css 里有"文本控件环内缩"规则（outline-offset:-Npx + :is(input…)）')
+}
+
+/* ---------------- ⑥ 反向：按钮/链接仍用外环 ---------------- */
+console.log('\n⑥ 反向：非文本控件（按钮/链接/[tabindex]）必须保留外环')
+{
+  const gBody = globalRule ? globalRule.body : ''
+  ok(/outline-offset\s*:\s*2px/.test(gBody),
+    '全局环仍是向外 2px（按钮/链接没有可变色的边框，靠这圈认焦点）', gBody)
+  const gSel = globalRule ? globalRule.sel : ''
+  ok(/button/.test(gSel) && /a,/.test(gSel) && /\[tabindex\]/.test(gSel),
+    '全局环仍覆盖 button/a/[tabindex]')
 }
 
 /* ---------------- 坏样本自证 ---------------- */
@@ -267,6 +349,22 @@ console.log('\n坏样本自证（改坏了必须红）')
   const fakePainters = new Map([['.hd-box .ipn-f', ['x']]])
   ok(list.filter((w) => !fakePainters.has(w)).length > 0,
     '坏样本 D：某容器不再画环 ⇒ 名单里那条成为过期条目，③ 会报红')
+
+  /* F–J：v750 这层的五种典型改错，逐条对**真实规则**做字符串突变，判据必须报红 */
+  {
+    const g = innerRing || { sel: '', body: '' }
+    const cases = [
+      ['F offset 写回 2px（＝这次要修的症状）', g.sel, g.body.replace('-1px', '2px')],
+      ['G `:is(...)` 与 `:where(...)` 之间加空格', g.sel.replace('):where(', ') :where('), g.body],
+      ['H 顺手改成 outline:none', g.sel, g.body.replace(/outline-offset\s*:\s*-1px/, 'outline:none')],
+      ['I 去掉 [type=checkbox] 排除', g.sel.replace(':not([type=checkbox])', ''), g.body],
+      ['J 去掉 .err 排除', g.sel.replace(':not(.err *)', '').replace(':not(.err)', ''), g.body],
+    ]
+    for (const [label, s, b] of cases) {
+      const v = innerRingViolations(s, b)
+      ok(v.length > 0, `坏样本 ${label} ⇒ 判据报红`, v.slice(0, 2).join('；'))
+    }
+  }
 }
 
 /* ---------------- 结论 ---------------- */
