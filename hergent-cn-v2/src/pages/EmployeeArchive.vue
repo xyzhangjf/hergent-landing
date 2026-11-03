@@ -1196,8 +1196,12 @@ function resetEditForm(e) {
   editForm.bank_name = src.bank_name || ''
   editForm.bank_account = src.bank_account || ''
   editForm.social_insurance_city = src.social_insurance_city || ''
-  editForm.social_insurance_base = src.social_insurance_base != null ? src.social_insurance_base : null
-  editForm.housing_fund_base = src.housing_fund_base != null ? src.housing_fund_base : null
+  // 🔴 v737：0 必须折算成 null（输入框留空），不能原样回填成「0」。
+  //   库里这两列是 `REAL DEFAULT 0` = **未设置**；本次让用户能删空之后，删空存的就是 0 ——
+  //   若这里用 `!= null` 判断，用户「清空 → 保存 → 重开」会看到凭空冒出一个「0」，
+  //   等于把一次修复变成一个新的怪现象。与下面 `perf_score` 同一口径。
+  editForm.social_insurance_base = src.social_insurance_base ? src.social_insurance_base : null
+  editForm.housing_fund_base = src.housing_fund_base ? src.housing_fund_base : null
   editForm.base_salary = e ? (salaryOf(e) || null) : null
   // v381：`warehouse_id` 不再回填（字段已移出本表单）。
   // v706：合同 / 绩效 —— 逐字段 `|| ''` 与上一段同口径（列表接口是 `SELECT *`，

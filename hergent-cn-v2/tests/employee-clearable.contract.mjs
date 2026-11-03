@@ -106,6 +106,22 @@ console.log('③ 数字列（社保基数 / 公积金基数）')
 ok(/social_insurance_base\s*:\s*numOrZero\(/.test(body), 'social_insurance_base 走 numOrZero')
 ok(/housing_fund_base\s*:\s*numOrZero\(/.test(body), 'housing_fund_base 走 numOrZero')
 ok(/function\s+numOrZero\s*\(/.test(pageSrc), 'numOrZero 已定义')
+/* 🔴 反向那一半：存 0 之后，回填绝不能把 0 显示成「0」。
+   否则「清空 → 保存 → 重开」会凭空冒出一个 0，等于拿一次修复换一个新怪现象
+   （与 `perf_score` 的 0=未评 同口径）。 */
+{
+  /* 判据抽成函数，才能喂坏样本自证（否则「坏样本」那条只是断言正则能匹配字面量，恒真） */
+  const refillShowsZero = (lines) => lines.some((l) => /!=\s*null/.test(l))
+  const refillLines = (strip(pageSrc).match(/editForm\.(?:social_insurance_base|housing_fund_base)\s*=[^\n]*/g) || [])
+  ok(refillLines.length === 2, '两处基数回填都能定位到', `(${refillLines.length})`)
+  ok(!refillShowsZero(refillLines), '回填把 0 折算成空输入框（不显示「0」）',
+    refillShowsZero(refillLines) ? '仍用 `!= null` 判断 ⇒ 清空后重开会冒出「0」' : '')
+  // 坏样本自证：同一判据喂给旧写法必须命中
+  const badRefill = ['editForm.social_insurance_base = src.social_insurance_base != null ? src.social_insurance_base : null']
+  ok(refillShowsZero(badRefill), '坏样本 `!= null` 会被同一判据抓出（不是恒真）')
+  ok(!refillShowsZero(['editForm.social_insurance_base = src.social_insurance_base ? src.social_insurance_base : null']),
+    '干净样本零命中')
+}
 
 /* ── ④ 前后端清单必须同名同集合 ── */
 console.log('④ 前后端可清空清单必须完全一致')
