@@ -515,6 +515,18 @@ if (has('skip-sfc')) {
   results.push({ name: '护栏注册自检', ok: missing.length === 0, code: missing.length ? 1 : 0 })
 }
 
+// ── ㉜ 侧栏一级区图标唯一性契约（v747）─────────────────────────
+/* 报障：「侧边栏『经营分析和数据报表』前面的图标是一样的」—— analytics 与 reports 都写
+   `bar-chart`。功能全绿、只有看才看得出来，所以必须靠静态判据守。
+   除唯一性外还查**图标名存在性**（写错不会报错，会兜底成齿轮，v453 教训）。 */
+{
+  console.log('\n── ㉜ 侧栏图标唯一性（一级区不许撞图标 / 图标名必须存在）──')
+  const r = run('sidebar-icon-unique.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '侧栏图标唯一性', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

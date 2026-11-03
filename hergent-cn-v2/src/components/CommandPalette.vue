@@ -133,7 +133,9 @@ const REPORT_COMMANDS = Object.keys(PAGE_RULES)
   .map(p => ({
     id: 'rpt-' + p,
     group: '数据报表',
-    icon: 'bar-chart',
+    /* v747：与侧栏「数据报表」区对齐用 `file-text` —— 侧栏那格已从 `bar-chart` 换掉
+       （它与「经营分析」撞图标）。同一概念两处图标不一致比撞图标更难解释。 */
+    icon: 'file-text',
     title: pageTitle(p) || p,
     path: p,
     when: () => canSee(p),
