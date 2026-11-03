@@ -430,6 +430,19 @@ if (has('skip-sfc')) {
   results.push({ name: '客户列拖动排序', ok: r.code === 0, code: r.code })
 }
 
+// ── ㉖ 删客户列「做得到 + 说清楚还要保存」契约（v740）──────
+/* 报障：「易胜玲那一列为什么删不掉呢？是因为她本期已报单吗？」
+   功能本身是好的（改单态点 ✕ 后保存载荷 customers 不含她 + hidden_customers 含她），
+   让人"删不掉"的是两个静默：只读态只有一句不可点的灰字；改单态删完零反馈，
+   刷新即回来。护栏钉住"入口可点"与"删完必须说还要保存"。 */
+{
+  console.log('\n── ㉖ 删客户列契约（入口可点 + 删完要说还要保存）──')
+  const r = run('forecast-delcol-persistence.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '删客户列反馈', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

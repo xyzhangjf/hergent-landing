@@ -2122,7 +2122,14 @@
                   <button v-if="hdrCtx.key !== 'name' && (hdrCtx.type === 'qty' || canDeleteMaster(hdrCtx.key)) && canDo('data', 'delete')" class="danger" @click="hdrDeleteCol"><Icon name="close"/> 删除列</button>
                   <div v-if="hdrCtx.key !== 'name' && hdrCtx.type === 'master' && !canDeleteMaster(hdrCtx.key)" class="ctx-note">该主档列不可删除（可在列设置中隐藏）</div>
                 </template>
-                <div v-else class="ctx-note">增删列 / 改字段请先点上方「改单」进入编辑态</div>
+                <!-- v740：原来这里只有一句灰字「增删列 / 改字段请先点上方『改单』进入编辑态」——
+                     **纯文字、点了没反应**，而用户眼里"这一列就在这儿、菜单里却没有删除项"
+                     ⇒ 报「这一列为什么删不掉」（2026-11-03 报障）。改成**可点入口**，
+                     直接把用户送到能做这件事的地方；权限不够才保留纯说明（不放假旋钮）。 -->
+                <template v-else>
+                  <button v-if="canDo('data', 'delete')" @click="hdrGoEditForStructural"><Icon name="edit"/> 去改单里删列 / 改字段</button>
+                  <div class="ctx-note">结构编辑只在改单态生效：进改单后客户列表头有 ✕，点它删列，<b>再点「保存」才真正生效</b>。</div>
+                </template>
                 <div class="ctx-sep"></div>
                 <button @click="hdrColStats"><Icon name="list"/> 列统计</button>
                 <button @click="startHdrFilter"><Icon name="filter"/> {{ cfHas(hdrCtx.key, hdrCtx.type) ? '修改筛选…' : '筛选…' }}</button>
@@ -5379,6 +5386,11 @@ function delCol(ui) {
   const hu = hiddenUnits()
   if (u.name && !hu.includes(u.name)) hu.push(u.name)
   clampSelection()          // v197：列总数少一列 ⇒ 选区/锚点要跟着夹（见 clampSelection 注释）
+  /* v740 🔴 删列是**待保存**动作，不是即时生效：后端要等 save-matrix 的 `hidden_customers`
+     落进 `forecast_hidden_units`，名册的 NOT EXISTS 过滤才生效。此前这里**零反馈** ——
+     列当场从屏幕上消失，用户以为删掉了，一刷新又回来，唯一结论只能是"删不掉"
+     （2026-11-03 报障：易胜玲那一列）。屏幕上已经变了，就必须同时说清楚"还差一步"。 */
+  toast(`已删除客户列「${u.name || ''}」· 点「保存」才会真正生效`, 'warn')
 }
 
 /* ---- Q16 / Q25：全量校验 + 可点击跳转的错误清单 ----
@@ -7723,6 +7735,13 @@ function openHdrCtx(e, key, type, ui = -1) {
     mode: 'menu' }
 }
 function closeHdrCtx() { hdrCtx.value.show = false; hdrCtx.value.mode = 'menu' }
+/* v740：只读态菜单里的「去改单」入口。走 enterEdit 本身（不另起一套进编辑逻辑）——
+   期次已关闭 / 无权限 / 无开放期次这些闸门都由它自己 toast 说明，这里不要重复判断，
+   否则两处判据迟早漂移（一半能进、一半不能，用户完全猜不到规律）。 */
+function hdrGoEditForStructural () {
+  closeHdrCtx()
+  if (!editMode.value) enterEdit()
+}
 /* ===== v666：Excel 式筛选面板（表头漏斗 / 右键「筛选此列…」都进这里，只有一份 UI） =====
    面板内三件事：值清单多选（含搜索、全选、清空、空白项）+ 条件筛选（包含/等于/大于/介于…，二级折叠）。
    v667：**勾选即生效**（Excel 交互，无「应用」按钮），条件区仍要填值后确认。
