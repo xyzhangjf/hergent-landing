@@ -164,8 +164,17 @@
 
 /* P2-7: 回到顶部
    v224：结果卡显示时该按钮由 wxml 侧 `&& !submitResult` 隐藏 —— 它是 fixed + z-index:20，
-   会浮在 z-index:10 的结果卡**上面**把卡片顶部几行压住，而卡片正是此刻唯一要看的东西。 */
-.back-top{position:fixed;right:24rpx;bottom:220rpx;width:84rpx;height:84rpx;border-radius:50%;background:rgba(6,182,212,.92);color:#fff;font-size:44rpx;display:flex;align-items:center;justify-content:center;z-index:20}
+   会浮在 z-index:10 的结果卡**上面**把卡片顶部几行压住，而卡片正是此刻唯一要看的东西。
+
+   v748（2026-11-03）：这个按钮躲过了上一轮品牌色统一，原因是它写成 `rgba(6,182,212,.92)`。
+   两层问题，都得治：
+     ① **值不对**：6,182,212 就是旧的亮青 #06b6d4，只是换了个写法 —— 逐字节搜 `#06b6d4`
+        永远搜不到它，于是「58 处字面量」数完之后它自己留了下来。
+     ② **不该用半透明**：92% 不透明度把底色和后景混在一起，实测渲染出来是 #1abbd7，
+        白箭头压它只有 2.28:1；而且**同一个按钮压在商品行上和压在白卡片上是两个颜色**
+        —— 品牌色只要带 alpha 就不再是品牌色，而是「品牌色 × 背后内容」。
+   规则：品牌实心底一律 var(--brand)，要显得"浮起来"用阴影，不用透明度。 */
+.back-top{position:fixed;right:24rpx;bottom:220rpx;width:84rpx;height:84rpx;border-radius:50%;background:var(--brand);color:#fff;font-size:44rpx;display:flex;align-items:center;justify-content:center;z-index:20}
 
 /* ================= v224（2026-09-21）：底部固定区三态（方案 A） =================
    三种状态**互斥且同位置**：结果卡 / 错误条 / 提交栏。这样"反馈"永远出现在

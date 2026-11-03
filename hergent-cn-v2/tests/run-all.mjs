@@ -527,6 +527,19 @@ if (has('skip-sfc')) {
   results.push({ name: '侧栏图标唯一性', ok: r.code === 0, code: r.code })
 }
 
+// ── ㉝ 小程序品牌色契约（v748）─────────────────────────────────
+/* 报障：「一键置顶按钮背景色还没改成统一的品牌色」。根因是它写成 `rgba(6,182,212,.92)`
+   —— 数值上就是旧亮青 #06b6d4，只认 #hex 的校验看不见；而且半透明让品牌色随背景漂移。
+   更关键：`.workbuddy/tools/check-miniprogram-brand.mjs` 当时**没有任何 runner 在跑**，
+   手工跑是绿的却漏掉这个按钮 ⇒ 本块唯一的职责就是让它每版都被真正执行。 */
+{
+  console.log('\n── ㉝ 小程序品牌色（唯一值 / rgb 写法 / 半透明 / 校验真在跑）──')
+  const r = run('miniprogram-brand.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '小程序品牌色', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

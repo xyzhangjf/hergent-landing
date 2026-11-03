@@ -8,6 +8,8 @@
  *
  * 这套校验要挡的不是"某个色值不好看"，而是**同一个品牌色又长出第二个值**。
  *   ① 除 app.wxss 的声明行外，任何 wxss/js/wxml 里出现 brand 色字面量 → 报错
+ *   ①b 同一颜色写成 rgb()/rgba() 数值也要抓（v748：`rgba(6,182,212,.92)` 就是
+ *      旧的亮青，只认 #hex 的校验逐字节看不见它）
  *   ② app.wxss 必须声明 --brand 且值精确等于 #0e7490
  *   ③ --brand 在各实际底色上的对比度必须 ≥ 4.5（改浅了当场挂）
  *   ④ 原生载体（json/js/组件属性）必须与 --brand 同值 —— 这几个吃不到 CSS 变量
@@ -16,13 +18,18 @@
  *   ⑥ 令牌被使用（var(--brand) 少于下限 = 有人绕过令牌写死了别的东西）
  *
  * 用法：node .workbuddy/tools/check-miniprogram-brand.mjs
+ *       HG_MINI_ROOT=<另一个小程序目录> node ...   ← 只给护栏自测（故障注入）用
  */
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
 
 const ROOT = path.resolve(new URL('../..', import.meta.url).pathname)
-const MINI = path.join(ROOT, 'forecast-order-miniprogram-20260812T023419087Z/miniprogram')
+/* v748：允许指向一份副本 —— 契约测试靠"往副本里注入回旧写法、要求护栏必须红"
+   来证明它真的检查了这件事，而不是只证明自己肯 exit 0。 */
+const MINI = process.env.HG_MINI_ROOT
+  ? path.resolve(process.env.HG_MINI_ROOT)
+  : path.join(ROOT, 'forecast-order-miniprogram-20260812T023419087Z/miniprogram')
 
 /** 唯一的品牌色 —— 与 Web 端 --p-solid 同值 */
 const BRAND = '#0e7490'
@@ -91,6 +98,46 @@ for (const f of files) {
     }
     errs.push(
       `${rel(f)}:${ln} 出现品牌色字面量 ${hit}（应写 var(--brand)）—— ${ctx.trim()}`
+    )
+  }
+}
+
+/* ── ①b 换个写法（rgb/rgba 数值）也算品牌色字面量 ──────────────────────────
+   v748 教训：`.back-top` 写的是 `rgba(6,182,212,.92)` —— 数值上就是旧的亮青
+   #06b6d4，只是不叫这个名字。只认 `#hex` 的校验**逐字节看不见它**，所以上一轮
+   「58 处已清零」数完之后，这个按钮一直亮着一档更浅的青（实测渲染 #1abbd7）。
+
+   判定按**数值**、不按写法：把 rgb()/rgba() 解析成 hex 再比对。
+   顺带把「带 alpha 的品牌色」一并挡掉 —— 品牌色只要混了透明度，压在不同内容上
+   就是不同颜色（同一按钮压在商品行上 vs 白卡片上是两个色），那已经不是品牌色
+   而是「品牌色 × 背后内容」。要"浮起来"用阴影，不用透明度。 */
+const BRAND_FAMILY = new Map([...STALE.map((h) => [h, '旧值']), [BRAND, '品牌色']])
+const rgbToHex = (r, g, b) =>
+  '#' +
+  [r, g, b]
+    .map((n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0'))
+    .join('')
+
+for (const f of files) {
+  const ext = path.extname(f)
+  if (!['.wxss', '.wxml', '.js', '.json'].includes(ext)) continue
+  if (f === APP_WXSS) continue
+  const code = stripComments(fs.readFileSync(f, 'utf8'), ext)
+  /* 兼容三种写法：rgb(6,182,212) / rgba(6, 182, 212, .92) / rgb(6 182 212 / .92) */
+  const re = /rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*(?:[,/]\s*([\d.]+%?)\s*)?\)/gi
+  let m
+  while ((m = re.exec(code))) {
+    const hex = rgbToHex(+m[1], +m[2], +m[3])
+    const kind = BRAND_FAMILY.get(hex)
+    if (!kind) continue
+    const ln = lineOf(code, m.index)
+    const alpha = m[4]
+    const translucent = alpha !== undefined && alpha.replace('%', '') !== '1'
+    const ctx = code.slice(Math.max(0, m.index - 60), m.index + 40).replace(/\s+/g, ' ')
+    errs.push(
+      `${rel(f)}:${ln} 用 rgb()/rgba() 写法绕过了十六进制校验：${m[0]} = ${hex}（${kind}）` +
+        (translucent ? `，还带透明度 ${alpha} ⇒ 压在不同内容上是不同颜色` : '') +
+        `（应写 var(--brand)）—— ${ctx.trim()}`
     )
   }
 }
