@@ -104,8 +104,14 @@ if (anchorHits === 1) {
     .replace(/\/\*[\s\S]*?\*\//g, '')
   const m = css.match(/\.back-top\{([^}]*)\}/)
   ok(!!m, '⑥ fill.wxss 里有 .back-top 规则')
-  const bg = m ? (m[1].match(/background\s*:\s*([^;]+)/) || [])[1] : ''
+  const decl = m ? m[1] : ''
+  const bg = (decl.match(/background\s*:\s*([^;]+)/) || [])[1]
   ok(bg === 'var(--brand)', '⑥ .back-top 的 background 必须是 var(--brand)', `实际=${bg || '无'}`)
+  /* 品牌色带 alpha 就是"品牌色 × 背后内容"（本版根因），已由 ①b 按数值拦住；
+     这里再钉住"抬升感靠阴影、不靠透明度"这个决定本身 —— 否则有人为了显得轻，
+     会把实心底改回半透明，或者在删掉阴影后被迫加回透明度。 */
+  const shadow = (decl.match(/box-shadow\s*:\s*([^;]+)/) || [])[1]
+  ok(/rgba\(0,\s*0,\s*0\s*,/.test(shadow || ''), '⑥ .back-top 用中性黑阴影表达"浮起"', `实际=${shadow || '无'}`)
 }
 
 /* ---------------- 收尾 ---------------- */

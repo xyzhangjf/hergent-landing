@@ -173,8 +173,13 @@
      ② **不该用半透明**：92% 不透明度把底色和后景混在一起，实测渲染出来是 #1abbd7，
         白箭头压它只有 2.28:1；而且**同一个按钮压在商品行上和压在白卡片上是两个颜色**
         —— 品牌色只要带 alpha 就不再是品牌色，而是「品牌色 × 背后内容」。
-   规则：品牌实心底一律 var(--brand)，要显得"浮起来"用阴影，不用透明度。 */
-.back-top{position:fixed;right:24rpx;bottom:220rpx;width:84rpx;height:84rpx;border-radius:50%;background:var(--brand);color:#fff;font-size:44rpx;display:flex;align-items:center;justify-content:center;z-index:20}
+   规则：品牌实心底一律 var(--brand)，要显得"浮起来"用阴影，不用透明度。
+   v748 补：阴影取**中性黑**（rgba(0,0,0,.12)），不能用品牌色 —— 品牌色的 rgba 写法
+   会被上面的校验按数值抓出来（那正是本次漏检的写法）。偏移 6rpx / 模糊 20rpx 比
+   卡片的 `0 4rpx 24rpx rgba(0,0,0,.05)` 略紧略重：卡片是"平铺在白底上"只需分离感，
+   这个是"浮在滚动内容上方"，要给抬升感；对象又只有 84rpx，模糊再大就糊成一团。
+   ⚠️ 不加 `:active{transform:scale()}` —— 它是 position:fixed，缩放会重锚浮层。 */
+.back-top{position:fixed;right:24rpx;bottom:220rpx;width:84rpx;height:84rpx;border-radius:50%;background:var(--brand);color:#fff;font-size:44rpx;display:flex;align-items:center;justify-content:center;z-index:20;box-shadow:0 6rpx 20rpx rgba(0,0,0,.12)}
 
 /* ================= v224（2026-09-21）：底部固定区三态（方案 A） =================
    三种状态**互斥且同位置**：结果卡 / 错误条 / 提交栏。这样"反馈"永远出现在
