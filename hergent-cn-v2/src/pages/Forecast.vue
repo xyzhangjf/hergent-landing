@@ -525,7 +525,7 @@
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。
                  v621（上一条角标的落点）：≥1462 时在表格合计行、本行那份由 CSS 隐藏；≤1461 时留在本行。 -->
             <div class="tb-pop">
-              <span ref="brandBtn" class="tb-pop-anchor"></span>
+              <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop" title="按品牌（供货方）筛选报单：表格只显示这些品牌，复制厂家编码/下单数量也只针对它们（与到货周期、搜索等筛选叠加生效）"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
                 <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><label class="bp-selall" :class="{ 'is-off': !brandCandidates.length }"><SelectAllCheckbox :checked="brandAllOn" :indeterminate="brandSomeOn" :disabled="!brandCandidates.length" :count="brandCandidates.length" unit="个品牌" title="全选/取消全选当前列出的品牌（不勾 = 不过滤，显示全部品牌）" @toggle="toggleBrandAll" /><span>{{ brandAllOn ? '取消全选' : '全选' }}</span></label><button class="link-btn" @click="brandSel = []">清空</button></div></div>
@@ -991,7 +991,7 @@
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。
                  v621（上一条角标的落点）：≥1462 时在表格合计行、本行那份由 CSS 隐藏；≤1461 时留在本行。 -->
             <div class="tb-pop">
-              <span ref="brandBtn" class="tb-pop-anchor"></span>
+              <button ref="brandBtn" class="btn btn-sm btn-ghost" :class="{on:brandPopOpen}" @click="toggleBrandPop" title="按品牌（供货方）筛选报单：表格只显示这些品牌，复制厂家编码/下单数量也只针对它们（与到货周期、搜索等筛选叠加生效）"><Icon name="filter"/> 品牌<span v-if="brandSel.length" class="btn-badge">{{ brandSel.length }}</span> <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="brandPopOpen" class="tb-pop-panel brand-pop" :style="popStyle" @click.stop>
                 <div class="bp-head"><span>按品牌（供货方）筛选报单</span><div class="bp-acts"><label class="bp-selall" :class="{ 'is-off': !brandCandidates.length }"><SelectAllCheckbox :checked="brandAllOn" :indeterminate="brandSomeOn" :disabled="!brandCandidates.length" :count="brandCandidates.length" unit="个品牌" title="全选/取消全选当前列出的品牌（不勾 = 不过滤，显示全部品牌）" @toggle="toggleBrandAll" /><span>{{ brandAllOn ? '取消全选' : '全选' }}</span></label><button class="link-btn" @click="brandSel = []">清空</button></div></div>
