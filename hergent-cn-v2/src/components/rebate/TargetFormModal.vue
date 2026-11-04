@@ -299,7 +299,9 @@ async function runPrecheck() {
     trigger_mode: monthlyOn.value ? 'on_target' : (f.trigger_mode || 'on_target'),
     trigger_threshold: f.trigger_threshold || 1,
     rebate_basis: monthlyOn.value ? 'rate' : (f.rebate_basis || 'rate'),
-    rebate_rate: Number(f.rebate_rate) || 0.01,
+    // v769：留空按 0 预检。原来兜成 0.01 只为绕过旧的「返利率必须 > 0」校验，
+    //       后端现在允许 0 / 空，兜一个假费率会让预检与真实落库口径不一致。
+    rebate_rate: Number(f.rebate_rate) || 0,
     effective_start: f.effective_start || '',
     effective_end: f.effective_end || '',
     monthly_amounts: monthlyOn.value ? monthly.monthlyAmounts : {},
@@ -881,13 +883,12 @@ async function save() {
     if (!Object.keys(monthly.monthlyAmounts).length) {
       toast('请至少填写一个月的目标金额 —— 可以只在「全年目标」填一个数，自动均分到 12 个月', 'error'); return
     }
-    if (!Object.keys(monthly.monthlyAmounts).length) {
-      toast('请至少填写一个月的目标金额 —— 可以只在「全年目标」填一个数，自动均分到 12 个月', 'error'); return
-    }
-    // v126：阶梯模式下返利由各月档位承载，不再要求每月返利率
-    if (f.trigger_mode !== 'tiered' && !Object.keys(monthly.monthlyRates).length) {
-      toast('请至少填写一个月的返利率 —— 可以只在「全年返利率」填一个数，12 个月统一', 'error'); return
-    }
+    // v769：返利率**允许整列留空** —— 部分厂家本身没有返利，不该逼用户编一个费率。
+    //   原来这里有一条「请至少填写一个月的返利率」硬拦（v126 把月表当返利配置表的口径），
+    //   同一段上方那条目标金额校验还被复制了两遍，一并删掉。
+    //   🔴 不能只删这一行：buildMonthlyPayloads 会把「有金额 + 费率留空」的月显式落 0，
+    //      否则后端 resolve_month_rate 向前继承，空月会套上前一个月的费率（零报错多算钱）。
+    //   负数 / 非数字仍由后端 validate_rule 的 [0,1] 判据拦，这里不放宽。
     if (f.trigger_mode === 'tiered' && !Object.keys(monthly.monthlyTiers).length
         && !(ruleTiers.value || []).length) {
       toast('阶梯模式：请配置「默认档位」，或给某个月单独配档位', 'error'); return
@@ -935,13 +936,13 @@ async function save() {
   if (f.order_first_date && !leadValid.value) {
     toast(leadErr.value || '「提前天数」须为 0~30 的整数', 'error'); return
   }
-  // v360：比例返利**允许填 0**（= 本月确实没有返利），但**留空 / 非数字仍然拦**。
+  // v360：比例返利**允许填 0**（= 本月确实没有返利）；单值模式的**留空 / 非数字仍拦**。
   //   🔴 这条「空值」判据只能在前端做：后端 `_coerce_num('', 0)` 与 `float('0')` 都得到 0，
-  //      光看后端根本无法把「没填」与「显式填 0」分开（故 defaultForm 的初值特意用 ''，
-  //      见 useRebateTargetForm.js 的注释）。后端另有一条同源判据 `_is_num_like` 兜底直连 API。
-  //   为什么只判单值模式（!monthlyOn）：月度分解下 f.rebate_rate 是「最早非零月」的**投影值**，
-  //      由月表算出（下方 monthlyOn 分支），不是用户直接填的那一格 —— 在那里判空会误报。
-  //   月度模式下的「空」由月表门槛负责：「请至少填写一个月的返利率」（只认真正填过的月）。
+  //      光看后端根本无法把「没填」与「显式填 0」分开（故 defaultForm 的初值特意用 ''）。
+  //   为什么只判单值模式（!monthlyOn）：月度分解下 f.rebate_rate 是「最早非零月」的投影值，
+  //      由月表算出（上方 monthlyOn 分支），不是用户直接填的那一格 —— 判空会误报。
+  //   v769：品牌月度目标（monthlyOn）的返利率可整列留空，空月由 buildMonthlyPayloads
+  //      显式落 0；后端 validate_rule 同源放开。单值模式（商品 / 单期）口径不变。
   if (f.trigger_mode === 'on_target' && f.rebate_basis === 'rate') {
     const _rr = f.rebate_rate
     const _rrBlank = (_rr === '' || _rr == null)

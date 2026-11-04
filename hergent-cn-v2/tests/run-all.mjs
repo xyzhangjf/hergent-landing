@@ -717,6 +717,21 @@ if (has('skip-sfc')) {
   results.push({ name: '权限跳转收敛', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊻ 品牌目标「返利率可留空」契约（v769）─────────────────────
+/* v126 的硬拦「请至少填写一个月的返利率」逼用户对没返利的厂家编一个费率。
+   撤拦本身简单，难的是：后端 resolve_month_rate 对「该月不在 monthly_rates」会
+   **向前找最近有值的月** ⇒ 留空月会被套上前一个月的费率，凭空多算返利且零报错。
+   所以契约同时钉住「真跑 buildMonthlyPayloads 的 7 种形态」+「前后端同源静态判据」
+   + 6 个坏样本（删落 0 / 硬拦换马甲 / 后端全放行 / 删非数字判据 / 改核心计算）。
+   🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs（v748 起连踩三轮）。 */
+{
+  console.log('\n── ㊻ 品牌目标返利率可留空（v769）──')
+  const r = run('rebate-rate-optional.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '返利率可留空', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

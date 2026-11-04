@@ -134,8 +134,10 @@ export function fillAnnualRateToMonths(rows, inputPct) {
 }
 
 /**
- * v126：组装落库 JSON —— 金额(元) / 返利率(小数) / 月级阶梯，只含有值的月份。
+ * v126：组装落库 JSON —— 金额(元) / 返利率(小数) / 月级阶梯。
  * 三者同构，合起来就是后端那张 12 行的月表。
+ *
+ * v769：返利率**允许留空**（部分厂家本身没有返利，不该逼用户编一个费率）。
  */
 export function buildMonthlyPayloads(rows) {
   const monthlyAmounts = {}
@@ -146,18 +148,18 @@ export function buildMonthlyPayloads(rows) {
     //   · amtWan > 0 —— 金额 0 万元 = **该月没有目标**（= 留空）。0 绝不落库：
     //     否则 12 个月各多出一格 0，`covered_months`（只认 monthly_amounts）会把整年
     //     都算成「已占用」⇒ 白占月份锁、挡住别的规则。
-    //   · ratePct    —— 返利率 0% 是**有效业务事实**（该月厂家确实没返利），**必须存下来**。
-    //     旧写法用 `> 0` 把它当空丢掉，造成两个后果（本轮修的就是它）：
-    //       ① 用户填的 0 静默消失 ⇒ 后端 monthly_rates 为空 ⇒ 保存报
-    //          「请至少填写一个月的返利率」（表象：**填 0 存不了**）；
-    //       ② 更贵的一条：`resolve_month_rate` 对「该月不在 rates 里」的规则会**向前找**
-    //          最近有值的月 ⇒ 9 月填的 0 丢掉后，会把 10 月的 10% **静默套到 9 月**，
-    //          凭空多出返利（真金白银的错，且零报错）。
-    //   · `!== ''` 是为了把「留空」与「显式填 0」分开：emptyMonthlyRows 用 null 表示未填，
-    //     用户敲 0 后是 number 0。用户要求「空值校验不变」⇒ 空仍由 save() 拦，
-    //     所以这里必须区分，不能只判 `!= null`。
-    if (r.amtWan != null && Number(r.amtWan) > 0) monthlyAmounts[r.mm] = Math.round(Number(r.amtWan) * 10000)
-    if (r.ratePct != null && r.ratePct !== '' && !isNaN(Number(r.ratePct))) {
+    //   · ratePct    —— 返利率 0% 是**有效业务事实**（该月厂家确实没返利），必须存下来。
+    const hasAmt = r.amtWan != null && Number(r.amtWan) > 0
+    if (hasAmt) monthlyAmounts[r.mm] = Math.round(Number(r.amtWan) * 10000)
+
+    const rateBlank = r.ratePct == null || r.ratePct === ''
+    // 🔴 v769：只把「留空」跳过是**错的** —— 后端 `resolve_month_rate` 对
+    //    「该月不在 monthly_rates 里」会**向前找最近有值的月**：1 月填过 10%、
+    //    2 月留空 ⇒ 2 月被静默套成 10%，凭空多算返利且零报错（真金白银的错）。
+    //    所以有目标金额的月份，留空必须**显式落 0**，把「无返利」钉死在这一格。
+    //    无目标金额的月份不落：不制造 12 个 0，也不影响月份锁口径。
+    if (hasAmt && rateBlank) monthlyRates[r.mm] = 0
+    else if (!rateBlank && !Number.isNaN(Number(r.ratePct))) {
       monthlyRates[r.mm] = Math.round(Number(r.ratePct) * 1000) / 100000
     }
     const ts = buildTiersPayload(r.tiers)
@@ -255,10 +257,10 @@ export function defaultForm({ presetDim = 'brand', defaultCadence = 2, currentYe
     trigger_mode: 'on_target', trigger_threshold: 1,
     target_year: currentYear, target_unit: '',
     tiers_json: '', rebate_basis: 'rate',
-    // 🔴 v360：初值是 `''` 而**不是** 0 —— 这样「用户没填」与「用户显式敲了 0」在前端可区分。
-    //    验收要求是「填 0 能存、留空仍然拦」，而这两件事在后端**分不开**：
-    //    `_coerce_num('', 0)` 与 `float('0')` 都得到 0。所以这个区分只能落在前端，
-    //    初值必须与「用户敲的 0」不同值，故用空串。save() 里据此拦住未填。
+    // v360 起初值是 `''` 而不是 0 —— 区分「用户没填」与「用户显式敲了 0」。
+    // v769 起口径分两类：**单值模式**（商品 / 单期）留空仍由 save() 拦；
+    //   **品牌月度目标**留空 = 厂家本身没有返利，允许保存（落库归一为 0）。
+    // 空串初值必须保留：单值模式那条判据还靠它，且绝不能默认成一个非零费率。
     rebate_rate: '', rebate_amount: 0,
     effective_start: '', effective_end: '', priority: 0, is_active: 1,
     scale_type: 'non_graduated', rounding_mode: 'half_up', rounding_digits: 2,

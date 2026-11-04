@@ -22,7 +22,7 @@
 
   <div class="monthly-grid" style="margin-top:var(--sp-2)">
     <div class="monthly-grid-hd" style="display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-h6)">
-      <span class="page-sub">金额 <b>万元</b>、返利率 <b>%</b>（10 = 10%）；留空 = 该月无目标</span>
+      <span class="page-sub">金额 <b>万元</b>、返利率 <b>%</b>（10 = 10%）；金额留空 = 该月无目标，返利率留空 = 该月无返利（按 0 保存）</span>
       <span style="flex:1"></span>
       <span class="page-sub">已填 <b>{{ filledCount }}</b> 个月 · 合计 <b>{{ sumWan }}</b> 万元</span>
       <button type="button" class="btn btn-ghost btn-xs" @click="$emit('clear')">清空</button>
