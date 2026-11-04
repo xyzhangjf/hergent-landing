@@ -491,6 +491,17 @@ if (has('skip-sfc')) {
   results.push({ name: '改单态首批行数随缩放', ok: r.code === 0, code: r.code })
 }
 
+// ── ㉜ 预报页工具行右键菜单（v753）────────────────────────────
+/* 工具行「品牌筛选 / 新增客户」两个常驻按钮改为右键 .ctx-menu 入口、原按钮撤下。
+   护栏钉：原 button 触发已移除、换成 .tb-pop-anchor 锚点、两个工具行都挂右键、
+   复用既有 .ctx-menu/.ctx-overlay、菜单项调用既有 toggleBrandPop/toggleAddColPop（逻辑不变）。 */
+{
+  const r = run('forecast-toolbar-rightclick.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '工具行右键菜单（v753）', ok: r.code === 0, code: r.code })
+}
+
 // ── ㉛ 护栏注册自检（防「写了但没人跑」的孤儿护栏）──────────────
 /* 🔴 本文件**不自动扫描** tests 目录，每个契约都要在上面的块里显式 `run(...)`。
    代价是：新加的 .contract.mjs 只要忘了注册，就会静默地永远不执行 ——
