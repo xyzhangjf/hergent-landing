@@ -1713,14 +1713,66 @@ Page({
      🔴 必须先清品牌/常报筛选：两者是 AND 叠加，带着"椰果"品牌去扫一个"纯甄"的码会返回空
         ⇒ 弹出「不在本期清单里」这个**假结论**（用户据此以为这商品本期不用报）。 */
   onScanTap() {
+    /* v762（2026-11-04）：一维码「认不出」的两个物理原因，代码改不了，只能**提前**教一次：
+       ① 贴太近 —— 低于镜头最近对焦距离，整片糊。而且人越扫不出越往近怼，恶性循环。
+       ② 竖着扫 —— EAN-13 只能横向解码，竖着举手机永远认不出。
+       🔴 关键在于 `wx.scanCode` **没有 `prompt` 参数**（官方只有 onlyFromCamera / scanType /
+          success / fail / complete）⇒ 一旦进了微信扫码页，一个字也写不进去。
+          所以唯一的时机是「拉相机之前」。首次教一次，之后不再打扰（`fs_scan_tip` 落本机）。 */
+    if (wx.getStorageSync('fs_scan_tip')) { this._openScanner(); return }
+    wx.showModal({
+      title: '扫条码小提示',
+      content: '对准包装上的黑白竖条纹条码，手机离 10~15 厘米、横向拿稳。\n认不出就远近动一下找焦点；也可以先拍张清楚的照片，再点扫码页的「相册」选它。',
+      /* 🔴 单按钮、不带取消：点图标的目的就是扫，给个「不用了」就等于让他点了没反应
+         （与 `fail` 空函数是同一个形态）。要退出，按手机的返回键即可。 */
+      showCancel: false,
+      confirmText: '开始扫',
+      success: (r) => {
+        /* 安卓按返回键关层时 success 也会进来（confirm=false）⇒ 必须判一下，
+           否则"想退出"的人被直接推进相机，这是比"点了没反应"更烦的反向 bug */
+        if (!r || !r.confirm) return
+        try { wx.setStorageSync('fs_scan_tip', 1) } catch (e) {}
+        this._openScanner()
+      }
+    })
+  },
+
+  /* 真正拉起微信扫码界面。单独抽出来是因为「继续扫 / 再试一次」也要走它 ——
+     引导只教一次，重试不该再弹一遍提示。 */
+  _openScanner() {
     wx.scanCode({
       /* 一维码 + 二维码都认：包装上两种都有，只开一种等于随机失效一半 */
       scanType: ['barCode', 'qrCode'],
       /* 允许相册：有人存了商品图/整箱标签，只给相机等于少一条路 */
       onlyFromCamera: false,
       success: (res) => { this._onScanResult(res) },
-      /* 用户主动取消：不提示、不打点。取消是正常动作，弹「扫码失败」是冤枉他 */
-      fail: () => {}
+      fail: (err) => { this._onScanFail(err) }
+    })
+  },
+
+  /* 🔴 v762：`fail` 原本是一句空函数。用户主动取消（cancel）确实该静默 ——
+     但**相机权限被拒 / 系统错误**也从这里走 ⇒ 全部成了「点了没反应」，
+     用户永远不知道是自己权限没开，只当成「这功能不灵」。三类必须分开说。 */
+  _onScanFail(err) {
+    const msg = String((err && err.errMsg) || '')
+    /* 主动取消：正常动作，弹「扫码失败」是冤枉他 */
+    if (msg.indexOf('cancel') >= 0) return
+    if (msg.indexOf('auth') >= 0 || msg.indexOf('permission') >= 0) {
+      /* 用户拒过一次后微信不会再弹授权框 ⇒ 只能引导去设置页手动打开 */
+      wx.showModal({
+        title: '没有相机权限',
+        content: '扫条码要用相机。请在设置里打开「摄像头」再回来重试。\n也可以用搜索框直接输入条码数字。',
+        confirmText: '去设置',
+        success: (r) => { if (r.confirm) wx.openSetting({}) }
+      })
+      return
+    }
+    wx.showModal({
+      title: '没能打开扫码',
+      content: '可以再试一次；也可以在搜索框里直接输入条码数字，一样能定位到这个商品。',
+      confirmText: '再试一次',
+      cancelText: '知道了',
+      success: (r) => { if (r.confirm) this._openScanner() }
     })
   },
 
@@ -1803,7 +1855,8 @@ Page({
   onScanAct() {
     const r = this.data.scanRes || {}
     if (r.actKind === 'all') { this.clearSearch(); return }   // clearSearch 里已清 scanRes
-    this.onScanTap()
+    /* 走 `_openScanner` 而不是 `onScanTap`：首次引导只教一次，重试不该再弹 */
+    this._openScanner()
   },
 
   closeScanRes() {
@@ -1815,8 +1868,12 @@ Page({
   _scanTip(kind, o) {
     const d = o || {}
     if (kind === 'bad') {
+      /* 扫到方形二维码 / 付款码 / 网址都会落到这里。只说「这不是商品条码」，
+         用户不知道该扫什么 —— 直接描述**要扫的那个东西长什么样**（黑白竖条纹）。 */
       return { kind: kind, tip: '这不是商品条码', act: '重扫', actKind: 'scan',
-               sub: d.raw ? '扫到的内容是「' + d.raw + '」' : '请对准包装上的条码再扫一次' }
+               sub: d.raw
+                 ? ('扫到的是「' + d.raw + '」· 要扫包装上的黑白竖条纹条码')
+                 : '请对准包装上的黑白竖条纹条码再扫一次' }
     }
     if (kind === 'notfound') {
       return { kind: kind, tip: '这个条码不在本期清单里', act: '看全部', actKind: 'all',

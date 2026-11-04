@@ -274,6 +274,68 @@ console.log('K. 取数失败不许伪装成"不在清单里"')
   ok(!/if \(loaded !== true\)/.test(badErr), '坏样本自证：去掉失败分支必须判否')
 }
 
+/* ───────────────────────────────────────────────────────────────────────── */
+console.log('')
+console.log('L. v762：`fail` 不许吞掉权限错误 / 首次要教一次识别要领')
+{
+  /* 用户报障原话（2026-11-04）：「感觉扫码功能不是那么灵，经常扫不到」，
+     自述是「相机开了、也对准了，一直认不出」。
+     🔴 代码改不了微信相机的对焦 —— 但有两个**做错了就静默**的地方：
+        ① `fail` 写成空函数 ⇒ 相机权限被拒/系统错误全变成「点了没反应」；
+        ② `wx.scanCode` **没有 prompt 参数** ⇒ 进了扫码页一个字也写不进去，
+           识别要领只能在「拉相机之前」教，且只能教一次。 */
+  const openFn = js.slice(js.indexOf('_openScanner() {'), js.indexOf('  _onScanFail(err) {'))
+  const failFn = js.slice(js.indexOf('_onScanFail(err) {'), js.indexOf('  async _onScanResult(res) {'))
+  ok(openFn.length > 200, '定位到 _openScanner 函数体', `${openFn.length} 字符`)
+  ok(failFn.length > 300, '定位到 _onScanFail 函数体', `${failFn.length} 字符`)
+
+  /* 单一入口：wx.scanCode 只能出现一次。第二处 = 引导/失败分流会被绕过 */
+  const nScan = (js.match(/wx\.scanCode\(/g) || []).length
+  ok(nScan === 1, 'wx.scanCode 只有一个调用点（`_openScanner`）', `实测 ${nScan}`)
+
+  /* 🔴 空 fail 是这条判据的原始 bug 形态 —— 必须能从源码里一眼判出来。
+     范围只限 `_openScanner`：别的接口（showActionSheet 等）用户取消时静默是对的，
+     全文级断言会把它们一起判死。 */
+  ok(!/fail:\s*\(\s*\)\s*=>\s*\{\s*\}/.test(openFn), '扫码入口不得有空 fail 回调（`fail: () => {}`）')
+  ok(/fail:\s*\(err\)\s*=>\s*\{\s*this\._onScanFail\(err\)\s*\}/.test(openFn),
+    'fail 必须转交 _onScanFail（不是空函数、也不是就地写一段）')
+
+  /* 三类必须分开：取消静默 / 权限去设置 / 其他可重试 */
+  ok(/msg\.indexOf\('cancel'\)\s*>=\s*0\)\s*return/.test(failFn), '取消静默返回（不弹「扫码失败」冤枉用户）')
+  ok(/auth|permission/.test(failFn) && /wx\.openSetting\(/.test(failFn),
+    '权限被拒 ⇒ 引导 wx.openSetting（拒过一次后微信不再弹授权框）')
+  ok(/再试一次/.test(failFn) && /_openScanner\(\)/.test(failFn), '其他失败 ⇒ 给「再试一次」出口')
+  ok(/搜索框/.test(failFn), '失败文案要指出「搜索框输条码」这条兜底路（不新增 UI）')
+
+  /* 首次引导：只教一次，且教的内容必须是"能照着做"的动作 */
+  ok(/fs_scan_tip/.test(js), '首次引导落本机标记（只教一次，之后不打扰）')
+  ok(/黑白竖条纹/.test(js), '引导要说清"要扫的是黑白竖条纹"（不是方形二维码）')
+  ok(/10~15\s*厘米|10–15\s*厘米/.test(js), '引导要给距离（一维码贴太近必糊）')
+  ok(/横向/.test(js), '引导要说"横向"（EAN-13 竖着扫永远认不出）')
+  /* 相册是唯一能绕开"实时预览帧糊"的路：照片分辨率高，解码成功率明显更好 */
+  ok(/相册/.test(js) && /onlyFromCamera:\s*false/.test(js), '引导要给出相册这条路（且入口真的开着）')
+  /* 引导弹层若带「取消」且取消分支只是 return，等于让用户点了图标没反应 —— 同一形态 */
+  const tipFn = js.slice(js.indexOf('onScanTap() {'), js.indexOf('  _openScanner() {'))
+  ok(/showCancel:\s*false/.test(tipFn), '首次引导用单按钮（不给「点了没反应」的出口）')
+  ok(!/cancelText/.test(tipFn), '首次引导不设取消按钮')
+  /* 单按钮不等于"关不掉"：安卓返回键仍会走 success(confirm=false)，不判就变成"想退出反被推进相机" */
+  ok(/r\.confirm|!r\s*\|\|/.test(tipFn), '引导回调要判 confirm（返回键关层不许直接进相机）')
+
+  /* 「继续扫 / 重扫」不许再走 onScanTap —— 否则每重试一次就弹一次引导 */
+  const actFn = js.slice(js.indexOf('onScanAct() {'), js.indexOf('  closeScanRes() {'))
+  ok(!/this\.onScanTap\(\)/.test(actFn), '结果条按钮不得回落到 onScanTap（重试不重复引导）')
+  ok(/_openScanner\(\)/.test(actFn), '结果条按钮走 _openScanner')
+
+  /* 坏样本自证：删掉 cancel 判断 ⇒ 必须判否（否则这条断言是空白支票） */
+  const badFail = failFn.replace("if (msg.indexOf('cancel') >= 0) return", 'if (false) return')
+  ok(!/msg\.indexOf\('cancel'\)\s*>=\s*0\)\s*return/.test(badFail),
+    '坏样本自证：去掉取消判断必须判否')
+
+  /* 坏样本自证：把 fail 写回空函数 ⇒ 必须判否 */
+  const badOpen = openFn.replace('fail: (err) => { this._onScanFail(err) }', 'fail: () => {}')
+  ok(/fail:\s*\(\s*\)\s*=>\s*\{\s*\}/.test(badOpen), '坏样本自证：空 fail 能被检出')
+}
+
 console.log('')
 if (failed) { console.log(`❌ 失败 ${failed} 项`); process.exit(1) }
-console.log('✓ v761 扫码报单契约全部通过')
+console.log('✓ v761 + v762 扫码报单契约全部通过')
