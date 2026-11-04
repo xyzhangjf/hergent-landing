@@ -628,6 +628,95 @@ if (has('skip-sfc')) {
   results.push({ name: '登录页使用范围说明', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊵ 按品牌报单日管控 · 判定内核（v765）───────────────────────────
+/* 用户要求「某期次不属于某品牌报单日时，该品牌商品禁止提交」。这是一个
+   **双向都会静默出错**的判定：判宽=该拦没拦；判紧=全员报不了单（更贵）。
+   两种都不抛异常。判定内核在 `domain/brand_order_window.py`（生产后端），
+   校验脚本是 `.py` —— 不注册进 `run()` 就等于永不执行（v764 同族教训）。 */
+{
+  console.log('\n── ㊵ 品牌报单日判定内核（v765）──')
+  const r = run('forecast-brand-window.contract.mjs', [], { timeout: 240000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '品牌报单日判定', ok: r.code === 0, code: r.code })
+}
+
+// ── ㊶ 按品牌报单日管控 · 小程序三道闸门（v765）────────────────────
+/* ㊵ 只证「算法对不对」，管不到小程序有没有**真的用它**。最可能的失败形态是
+   只挡住 `setQty`、漏了 `_applyLastOrder` / `_applySample` 这两条绕过它的写入口
+   ⇒「手填进不去、一键带进来却能提交」，且零报错。判据是静态源码 + 坏样本自证。 */
+{
+  console.log('\n── ㊶ 品牌报单日 · 小程序闸门（v765）──')
+  const r = run('forecast-brand-window-mini.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '品牌报单日小程序闸门', ok: r.code === 0, code: r.code })
+}
+
+// ── ㊷ 按品牌报单日管控 · Web 配置界面（v765）──────────────────────
+/* 组件写了没挂进页面 = 老板找不到开关；开关发字符串 = 点「关闭」其实打开
+   （后端 bool("false") 为真）。两者都不报错，只能静态判 + 坏样本自证。 */
+{
+  console.log('\n── ㊷ 品牌报单日 · Web 配置（v765）──')
+  const r = run('forecast-brand-window-web.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '品牌报单日Web配置', ok: r.code === 0, code: r.code })
+}
+
+// ── ㊸ 全站「指路文案」契约（v766）──────────────────────────────────
+/* 老板原话：「请帮我全站排查一下哪些地方也应该采取这种『去配置、去填写』关联设计，
+   给用户提供快速跳转到对应页面入口，而不是只提供文案，让用户自己去找」。
+   实测根因是跳转写法 4 套并存 ⇒ 每次「加个可点入口」都要重新发明，多数时候干脆没加。
+   最贵的两处是**四张利润报表**：缺进价时毛利率恒为 100%，看起来像生意极好，
+   而提示只有一句「请先在商品档案补齐进货价」—— 点不动，用户找不到。
+   本块钉：死文案数三态（超基线红 / 低于基线红并提示下调）+ 18 条已修锚点仍在位
+   + `<GoLink>` 用了必须 import（漏了会整段静默不渲染）+ tooltip 豁免不许过期
+   + 坏样本自证（死文案必检出、有入口不误报）。 */
+{
+  console.log('\n── ㊸ 全站「指路文案」契约（死文案只降不升，v766）──')
+  const r = run('go-hint.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '指路文案可点入口', ok: r.code === 0, code: r.code })
+}
+
+// ── ㊹ 指路文案 vs 权限门禁（v767）─────────────────────────────
+/* 比 ㊸ 更隐蔽的一族：文案指向的不是**别的页面**，而是本页一颗**被权限藏起来**的按钮。
+   页头普遍写 `v-if="canDo('data','create')"`，只读角色能进页面但看不到那颗按钮，
+   空态却无条件说「点右上角「+ 新增客户」」⇒ 用户去右上角找，那里什么都没有 ⇒
+   结论是「系统坏了 / 数据丢了」，不是「我没权限」。
+   本块钉：未保护数三态（基线 0）+ 10 条已修锚点仍在位 + `noNewPermHint` 用了必须 import
+   + 坏样本自证三条（闸门裸文案必检出 / 在分支里不误报 / 无闸门不误报）。
+   🔴 「在不在分支里」不能用「附近 N 行有没有 canDo」判 —— 第一版这么写，按钮隔三行
+      就把坏样本判成"已保护"，当场漏掉。改成「本行含权限调用」或「未闭合 template 祖先含权限调用」。 */
+{
+  console.log('\n── ㊹ 指路文案 vs 权限门禁（v767）──')
+  const r = run('btn-hint-perm.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '指路文案权限分支', ok: r.code === 0, code: r.code })
+}
+
+// ── ㊺ 「带权限闸门的跳转」收敛契约（v768）────────────────────────────
+/* v291 起，把「canSee 判据 + toast 提示 + router.push」这三行**手抄了 11 份**，
+   代价已经实际发生：只有一处写「请联系管理员」、一处还在用 `location.hash`
+   （拿不到 Promise，吞不掉重复导航的 reject）、页名全是手抄（v311 改名时得逐个改）。
+   收敛到 `utils/useGoPage.js` 后，本块钉住回退：
+   手抄数三态（基线 0）+ 唯一实现仍完整（含 label 覆盖与 catch）+ 16 条锚点仍在位
+   + **实例名不许叫 goPage**（四个档案页里 goPage(p) 是分页函数，同名 const+function 是
+     SyntaxError，跨作用域则静默覆盖）+ 用了 goNav 必须 import + 坏样本自证 4 条。
+   🔴 判据必须**先剥注释再判**：本仓注释里大量抄着反例（Shell.vue 说明里就有
+      `canSee('/data-fill')` 那一段），不剥会自撞；但剥的时候**行数必须保持不变**，
+      否则报出来的行号集体前移（v766 第一版就是这么错的）。 */
+{
+  console.log('\n── ㊺ 权限跳转收敛（手抄数只降不升，v768）──')
+  const r = run('go-nav-unified.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '权限跳转收敛', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
