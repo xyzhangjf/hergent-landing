@@ -42,7 +42,7 @@
           <span v-if="s.catLabel" class="sp-catb">{{ s.catLabel }}</span>
         </label>
         <div v-if="!filtered.length" class="sp-empty">
-          没有匹配的供应商。若确实没有，请先到「档案管理 › 供应商档案」建档。
+          没有匹配的供应商。若确实没有，<GoLink to="/archive/suppliers">去「供应商档案」建一个</GoLink>。
         </div>
       </div>
 
@@ -66,6 +66,7 @@
    分类筛选取自候选自身的 supplier_category，只聚合「有哪几类」，不另建分类字典
    （避免出现库里根本没有的分类选项）。 */
 import Icon from '../Icon.vue'
+import GoLink from '../GoLink.vue'
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 
 const props = defineProps({

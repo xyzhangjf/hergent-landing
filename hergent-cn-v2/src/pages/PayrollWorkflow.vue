@@ -182,7 +182,7 @@
         </div>
         <div v-else class="state-empty">
           <p>{{ result.note || '暂无数据' }}</p>
-          <button v-if="!result.results?.length" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)" @click="goDataFill">去补录员工档案 →</button>
+          <button v-if="!result.results?.length" class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)" @click="goNav('/data-fill')">去补录员工档案 →</button>
         </div>
         <ColMenuPanel ref="panel" :col-list="PAYROLL_COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
       </div>
@@ -215,16 +215,16 @@ import Icon from '../components/Icon.vue'
 import Skeleton from '../components/Skeleton.vue'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { toast } from '../store'
 import { useColSettings } from '../composables/useColSettings.js'
-/* v291：页内跳转入口同判据（见 goDataFill）。 */
-import { canSee } from '../constants/pages'
+/* v291：页内跳转入口同判据。v768：收敛到 useGoPage（判据 + 提示 + 跳转的唯一实现，
+   页名由页面注册表反查，不再手写）。 */
+import { useGoPage } from '../utils/useGoPage'
 import { payrollApi, adviceApi } from '../api/modules'
 import AdvicePanel from '../components/AdvicePanel.vue'
 import { openPrintable } from '../utils/printable'
 
-const router = useRouter()
+const goNav = useGoPage()
 
 /* v432：员工工资明细列设置（齿轮 + 可选列显隐）。员工/应发/实发为固定列，其余可选。 */
 const PAYROLL_COLS = [
@@ -241,12 +241,9 @@ const { isVisible, toggleCol, resetCols } = useColSettings('payroll-workflow', P
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
-function goDataFill() {
-  /* v291（2026-09-27）：「去补录」的目标页也受权限保护（/data-fill 只给业务管理岗）——
-     入口同判据，避免点了被守卫弹回工作台（假入口）。 */
-  if (!canSee('/data-fill')) { toast('你没有访问「库存效期补录」的权限', 'warn'); return }
-  router.push('/data-fill')
-}
+/* v291（2026-09-27）：「去补录」的目标页也受权限保护（/data-fill 只给业务管理岗）——
+   入口同判据，避免点了被守卫弹回工作台（假入口）。
+   v768：原三行（canSee / toast / router.push）收敛到 useGoPage。 */
 
 const showAdvice = ref(false)
 const adviceKey = ref(0)

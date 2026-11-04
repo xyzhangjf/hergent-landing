@@ -509,7 +509,8 @@ import { toast, store } from '../store'
 import { workflowApi, aiSkillsApi, zhoupuApi } from '../api/modules'
 import { api } from '../api/client'
 import { canImportZhoupu } from '../constants/roles'
-import { canSee } from '../constants/pages'
+/* v768：带权限闸门的跳转收敛到 useGoPage（原 `canSee` 只为工作流入口服务，已收进去）。 */
+import { useGoPage } from '../utils/useGoPage'
 import RoleManage from './RoleManage.vue'
 // v311：产出与用量页签 —— 直接复用原「AI 中心」页面组件（同一份实现，不复制）。
 import AiHub from './AiHub.vue'
@@ -517,6 +518,7 @@ import DataLedger from '../components/DataLedger.vue'
 
 const router = useRouter()
 const route = useRoute()
+const goNav = useGoPage()
 const CONNECT_TABS = ['im', 'pairing', 'erp', 'datasource', 'mcp', 'expert', 'skill', 'evolution', 'output']
 function normConnectTab(q) {
   return CONNECT_TABS.indexOf(q) >= 0 ? q : 'im'
@@ -637,8 +639,10 @@ function openWorkflow(w) {
      这里不把「未开通」和「无权限」合成一句话 —— 两者对用户的下一步动作完全不同。 */
   if (!w.ready) { toast(w.name + ' 未开通', 'info'); return }
   if (!w.path) return
-  if (!canSee(w.path)) { toast('你没有访问「' + w.name + '」的权限，请联系管理员', 'warn'); return }
-  router.push(w.path)
+  /* v768：判据 / 提示 / 跳转收敛到 `goNav`。这里必须传 `label` ——
+     `w.path` 是后端 `/api/workflows` 下发的**动态路径**，不在页面注册表里，
+     `pageTitle()` 反查不到，会退化成显示一段英文路径，反而不如插件名易懂。 */
+  goNav(w.path, { label: w.name })
 }
 
 /* ===== 连接手机：Hermes 官方通道（应用凭证 + 长连接 + 配对码审批） =====

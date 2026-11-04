@@ -57,11 +57,20 @@
     </div>
     <div v-if="legacyOpen && legacyStores.length" class="card legacy-detail">
       <b class="hd-t">这些门店现在只有本页能改</b>
+      <!-- v767：这两句各自指向一颗带门禁的按钮（「新建配置」= data/create，
+           「收回」= data/delete）。只读角色两颗都看不到，照着找会以为页面坏了。 -->
       <p class="lb-tip">
-        <b>还要用</b> —— 点工具栏「新建配置」，给该员工建一条「门店」映射；此后由映射派生，
-        可停用、可启用。<br>
-        <b>不要了</b> —— 点「收回」，该员工在小程序里就不再能选这家门店报单；
-        <b>不影响</b>已经报过的单与应收。
+        <template v-if="canDo('data', 'create')">
+          <b>还要用</b> —— 点工具栏「新建配置」，给该员工建一条「门店」映射；此后由映射派生，
+          可停用、可启用。<br>
+        </template>
+        <template v-if="canDo('data', 'delete')">
+          <b>不要了</b> —— 点「收回」，该员工在小程序里就不再能选这家门店报单；
+          <b>不影响</b>已经报过的单与应收。
+        </template>
+        <template v-if="!canDo('data', 'create') && !canDo('data', 'delete')">
+          这些门店当前只能查看 —— 你当前是只读权限，改配置和收回都要管理员给这个角色放开写权限。
+        </template>
       </p>
       <ul>
         <li v-for="l in legacyStores" :key="l.employee_id + '-' + l.store_id">
@@ -137,8 +146,11 @@
                所以这里直接给一个就地按钮，点一下就把它们放出来。 -->
           <tr v-if="!list.length">
             <td colspan="10" class="empty">
-              <template v-if="!allList.length">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</template>
-              <template v-else>当前没有启用中的配置（{{ inactiveCount }} 条已停用，已收起）——<button type="button" class="lnk-btn empty-lnk" @click="showInactive = true">显示已停用</button></template>
+              <!-- v767：「新建配置」按钮带 v-if="canDo('data','create')"（见工具栏），
+                   只读角色看不到 ⇒ 空态要说清是权限问题，不能让他去工具栏找。 -->
+              <template v-if="allList.length">当前没有启用中的配置（{{ inactiveCount }} 条已停用，已收起）——<button type="button" class="lnk-btn empty-lnk" @click="showInactive = true">显示已停用</button></template>
+              <template v-else-if="canDo('data', 'create')">暂无报单配置，点「新建配置」或「Excel 批量导入」开始</template>
+              <template v-else>{{ noNewPermHint('新建配置') }}</template>
             </td>
           </tr>
         </tbody>
@@ -174,7 +186,7 @@
                 </select>
                 <span v-if="errors.employee_id" class="field-err">{{ errors.employee_id }}</span>
                 <span v-if="!editId && !refs.externals.length" class="al-note">
-                  还没有外部客户账号？先<button type="button" class="lnk-btn" @click="goEmployees">去员工档案开通</button>，再回来给他配门店。
+                  还没有外部客户账号？先<button type="button" class="lnk-btn" @click="goNav('/archive/employees')">去员工档案开通</button>，再回来给他配门店。
                 </span>
               </div>
             </div>
@@ -219,7 +231,7 @@
                       @mouseenter="objHi = i"
                     >{{ c.name }}<span v-if="isSelfWh && whOwnerMap[c.id]" class="combo-note">已被 {{ whOwnerMap[c.id] }} 占用</span><span v-if="c.id === Number(form.counterparty_id)" class="combo-sel"><Icon name="check"/></span></div>
                     <div v-if="!objFiltered.length" class="combo-empty">
-                      <template v-if="isSelfWh && !refs.warehouses.length">还没有仓库档案 —— 请先到「档案管理 → 仓库档案」新建一个仓</template>
+                      <template v-if="isSelfWh && !refs.warehouses.length">还没有仓库档案 —— 先<GoLink to="/archive/warehouses">去「仓库档案」</GoLink>新建一个仓</template>
                       <template v-else>无匹配结果</template>
                     </div>
                   </div>
@@ -408,18 +420,19 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
+import GoLink from '../components/GoLink.vue'
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 /* v713：「已停用记录默认收起」的全站统一件（本页是这套设计的原型，现已收敛到公共件） */
 import InactiveToggle from '../components/InactiveToggle.vue'
 import { useInactiveFilter } from '../composables/useInactiveFilter'
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
-/* v317：页内跳转入口同判据（见 goEmployees）。 */
-import { canSee } from '../constants/pages'
+/* v317：页内跳转入口同判据。v768：收敛到 useGoPage（唯一实现 + 页名反查）。 */
+import { useGoPage } from '../utils/useGoPage'
 import { reportMappingApi, priceChannelApi } from '../api/modules'
 import { api } from '../api/client'
 import { toast, canDo } from '../store'
+import { noNewPermHint } from '../utils/permHint.js'
 
 /* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。 */
 const COLS = [
@@ -447,14 +460,11 @@ const allList = ref([])
    原先这里是第二份拷贝，7 个页面各写一遍必然有一页写歪（判据、计数、空态文案都会漂）。
    变量名刻意保持 `showInactive` / `inactiveCount` / `list` 不变 ⇒ 模板与其它逻辑零改动。 */
 const { showInactive, inactiveCount, list } = useInactiveFilter(allList)
-const router = useRouter()
+const goNav = useGoPage()
 /* v317：给「还没有外部客户账号」的提示条一个**真入口**。
-   🔴 入口同判据（与 `EmployeeArchive::goConnect` 同规矩）：能进「报单配置」的人
-      **不一定**能进员工档案 ⇒ 不判就会出现「点了没反应 / 被弹回工作台」的假入口。 */
-function goEmployees() {
-  if (!canSee('/archive/employees')) { toast('你没有访问「员工档案」的权限', 'warn'); return }
-  router.push('/archive/employees')
-}
+   🔴 入口同判据（与 `EmployeeArchive` 的「去 AI 引擎」同规矩）：能进「报单配置」的人
+      **不一定**能进员工档案 ⇒ 不判就会出现「点了没反应 / 被弹回工作台」的假入口。
+   v768：判据 / 提示 / 跳转收敛到 `useGoPage`（模板直接 `goNav('/archive/employees')`）。 */
 // v317：`externals` = 外部客户（分销商）账号名册（后端按租户收口后下发）。
 const refs = reactive({ employees: [], contacts: [], warehouses: [], externals: [] })
 const health = ref(null)

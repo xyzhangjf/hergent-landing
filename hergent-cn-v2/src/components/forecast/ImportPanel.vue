@@ -10,6 +10,7 @@ import { ref, computed } from 'vue'
 import { importApi } from '../../api/modules'
 import { toast } from '../../store'
 import Icon from '../Icon.vue'
+import GoLink from '../GoLink.vue'
 import ImportMapping from '../ImportMapping.vue'
 
 const props = defineProps({
@@ -219,7 +220,7 @@ function reload() { emit('reload') }
           <p class="imp-tip">系统按列名猜字段，可能猜错（例如把「合计」当成客户列）。核对「识别为」这一列，不对就在下拉里改 —— 标「不导入」的列不会进来。</p>
           <ImportMapping v-model="impMapping" :suggestions="impSuggestions" :field-options="impFieldOptions"
                          :memory="impMemory" :show-incremental="false" />
-          <p v-if="impFactoryMissing" class="imp-gate">没有识别到「进价」列。进价闸门开启时，档案里也没有进价的行会被整行拒收 —— 文件里若有这一列（旧模版里叫「厂价」），请在上表把它改成「进价」。</p>
+          <p v-if="impFactoryMissing" class="imp-gate">没有识别到「进价」列。进价闸门开启时，档案里也没有进价的行会被整行拒收 —— 文件里若有这一列（旧模版里叫「厂价」），请在上表把它改成「进价」；或<GoLink to="/archive/products?fp=1">去商品档案批量补进价</GoLink>（档案里有价的行就不会被拒）。</p>
           <div v-if="impPreview.length" class="imp-matrix">
             <table class="tbl">
               <thead><tr><th v-for="(h, hi) in impHeaders.slice(0, 12)" :key="hi">{{ h }}</th></tr></thead>

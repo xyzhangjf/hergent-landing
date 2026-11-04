@@ -597,7 +597,7 @@
         </div>
         <div class="set-row" style="justify-content:space-between" v-if="canSee('/data-fill')">
           <p class="set-desc">员工档案、客户档案在左侧「档案管理」中维护；此处用于补录库存批次效期。</p>
-          <button class="btn btn-sm btn-primary" @click="goDataFill">库存效期补录</button>
+          <button class="btn btn-sm btn-primary" @click="goNav('/data-fill')">库存效期补录</button>
         </div>
       </div>
     </template>
@@ -607,7 +607,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { store, setTheme, toast } from '../store'
 import { density, setDensity } from '../composables/useDensity'
 import { api } from '../api/client'
@@ -622,13 +622,15 @@ import AiOps from './AiOps.vue'
 //      与员工档案下拉里的"会计"、"员工"**不是同一个名字** ⇒ 跨页对照时会当成两个角色。
 import { loginScopeLabel, endToScope, ROLE_NAMES, ROLE_HINTS, isCanonicalRole } from '../constants/roles'
 import { canSee } from '../constants/pages'
+// v768：带权限闸门的跳转收敛到 useGoPage（全站唯一实现，见 utils/useGoPage.js）
+import { useGoPage } from '../utils/useGoPage'
 // v349：权限页的**行**改为由 `permView.js` 定义（行 = 侧栏功能，而不是后端模块名）。
 //   行名 / 分组 / 只读固定行 /「更多」折叠，全部在那一个文件里改，本页不再内联第二份。
 import {
   PERM_SIDEBAR_GROUPS, PERM_MORE_GROUP, PERM_AI_MODULE, PERM_NO_PAGE_NOTE,
 } from '../constants/permView'
 
-const router = useRouter()
+const goNav = useGoPage()
 const rtab = useRoute()
 
 /* ---- 模块级标签页（v427：改为 URL `?tab=` 驱动，页内页签条已退役，见 v396）---- */
@@ -653,12 +655,10 @@ watch(() => rtab.query.tab, () => applySettingsTab())
    目标是 `/data-fill`（模块 `stock` + 业务管理岗），与设置页自身的门槛**不是同一条**
    —— 设置页能进 ≠ 这一页能进。原先按钮直接 `router.push('/data-fill')` 没有任何判据，
    权限被收窄的账号点下去只会被路由守卫弹回工作台（看起来像"点了没反应"）。
-   现在按钮本身也按同一份 `PAGE_RULES` 决定显不显示（见模板 `v-if`），
-   这里再守一道，防的是"渲染后权限被改"的窗口期。 */
-function goDataFill() {
-  if (!canSee('/data-fill')) { toast('你没有访问「库存效期补录」的权限，请联系管理员', 'warn'); return }
-  router.push('/data-fill')
-}
+   按钮本身已按同一份 `PAGE_RULES` 决定显不显示（模板 `v-if`），走 `goNav()` 再守一道，
+   防的是"渲染后权限被改"的窗口期。
+   🔴 v768：判据 / 提示 / 跳转这三行原先全站手抄了 11 份，文案已开始漂移
+      （只有本页写「请联系管理员」）⇒ 收敛到 `useGoPage`，页名由注册表反查。 */
 
 /* ---- AI 副驾连接检测 ----
    🔴 v281（2026-09-26）：原先这里让用户**在前端填网关 Bearer Key** 并存 localStorage，

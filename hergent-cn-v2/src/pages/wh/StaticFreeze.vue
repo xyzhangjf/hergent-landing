@@ -160,7 +160,7 @@
           盘点期间以这张快照为<b>计数基准</b>，核对完点「释放」结束冻结。
           <b>冻结不阻止出库、也不改库存</b> —— 它是权威快照与状态标识，不是库存闸门。
           ⚠️ 本页与「盘点单」<b>互不联动</b>：在这里释放<b>不会</b>完成任何盘点期次；
-          要录实盘数、把差异落到库存，请去「盘点单」（或本组「盘点差异单」看结果）。
+          要录实盘数、把差异落到库存，<GoLink to="/wh/stocktake">去「盘点单」</GoLink>（或本组「盘点差异单」看结果）。
         </p>
       </template>
 
@@ -280,6 +280,7 @@
 import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import GoLink from '../../components/GoLink.vue'
 import { whApi } from '../../api/wh'
 import { toast, confirm } from '../../store'
 import ProductCombo from '../inventory/new/ProductCombo.vue'

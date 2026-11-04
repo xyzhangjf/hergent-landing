@@ -92,7 +92,7 @@
     <div v-else class="card">
       <div class="state-empty">
         <div class="se-ic"><Icon name="smartphone" :size="22" /></div>
-        <p>还没有登记车辆。请先在车辆档案里新增，或在车销业务中建车。</p>
+        <p>还没有登记车辆 —— 车辆不是单独建档的，是在<b>车销订单</b>里选车时顺手新增的。<GoLink to="/inventory/sale/vehicle/new">去新建车销订单</GoLink></p>
       </div>
     </div>
   </div>
@@ -105,6 +105,7 @@
 import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import GoLink from '../../components/GoLink.vue'
 import { whApi } from '../../api/wh'
 import { fmtMoney } from '../../constants/psiLabels'
 

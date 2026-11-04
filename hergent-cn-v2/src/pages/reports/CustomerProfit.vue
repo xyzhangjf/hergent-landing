@@ -19,7 +19,7 @@
           后端按客户算出的 <b>成本 / 利润 / 毛利率</b> 在当前生产数据下<b>不可信</b>：14 万余行已送达明细里
           <b>有进货价的行数 = 0</b> ⇒ 成本恒记为 0 ⇒ 利润恒等于销额、毛利率恒为 100%。
           因此本表<b>只列客户销额</b>，<b>不展示虚高的利润数字</b>。
-          请先到「商品档案」补齐进货价，补齐后本页会自动启用利润口径。
+          <GoLink to="/archive/products?fp=1">去「商品档案」补齐进货价</GoLink>，补齐后本页会自动启用利润口径。
         </p>
       </div>
 
@@ -52,6 +52,7 @@
    🔴 不开 `filterable`：/api/reports/customer-profitability 不支持 date_from/date_to。 */
 import ReportTable from '../../components/ReportTable.vue'
 import Icon from '../../components/Icon.vue'
+import GoLink from '../../components/GoLink.vue'
 import { ref, computed, onMounted } from 'vue'
 import { reportsApi } from '../../api/modules'
 

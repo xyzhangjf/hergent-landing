@@ -21,7 +21,7 @@
            否则用户会得出「我填了数、图怎么没变」—— 分 tab 之后这是最容易误解的一处。 -->
       <div v-if="dirtyCount" class="la-tabnote">
         当前有 <b>{{ dirtyCount }}</b> 格录入改动<b>尚未保存</b> ——
-        本页读的是已保存的数据，切到「数据填报」保存后才会更新。
+        本页读的是已保存的数据，<GoLink :to="{ path: '/loss-accounting', query: { tab: 'fill' } }">去「数据填报」</GoLink>保存后才会更新。
       </div>
 
       <div class="la-tbar">
@@ -293,7 +293,7 @@
                   <span v-else class="la-grp-den la-grp-noratio">无分母 · 不给率</span>
                   <span class="la-grp-desc">{{ groupMeta(g.row_kind).desc }}</span>
                   <button
-                    v-if="editMode && isMulti(g.row_kind) && canDo('loss', 'update')"
+                    v-if="canAddSubject(g.row_kind)"
                     class="la-add"
                     @click="openSubject(g.row_kind)"
                   >+ 添加{{ g.row_kind === 'store' ? '门店' : '业务员' }}</button>
@@ -303,8 +303,12 @@
               <tr v-if="!g.rows.length" class="la-row la-row-blank">
                 <td :colspan="slots.length + 1" class="la-blank">
                   还没有{{ g.row_kind === 'store' ? '门店' : '业务员' }}。
-                  <template v-if="editMode">点右上角「+ 添加」开始。</template>
-                  <template v-else>点「手工录入」后再添加。</template>
+                  <!-- v767：判据与按钮同源（canAddSubject）。原来这里只判 editMode，
+                       只读角色进编辑态后照着「点右上角「+ 添加」」去找，那颗按钮不渲染。
+                       另外「右上角」本来就不准 —— 它在**本组标题行右侧**。 -->
+                  <template v-if="!editMode">点「手工录入」后再添加。</template>
+                  <template v-else-if="canAddSubject(g.row_kind)">点本组标题行右侧的「+ 添加{{ g.row_kind === 'store' ? '门店' : '业务员' }}」开始。</template>
+                  <template v-else>{{ noNewPermHint('+ 添加' + (g.row_kind === 'store' ? '门店' : '业务员')) }}</template>
                 </td>
               </tr>
 
@@ -513,11 +517,13 @@ import Skeleton from '../components/Skeleton.vue'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
+import GoLink from '../components/GoLink.vue'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { useColSettings } from '../composables/useColSettings.js'
 /* v396（2026-10-08）：主 Tab 改由 URL 的 `?tab=` 驱动（页签条已退役）⇒ 需要路由。 */
 import { useRoute, useRouter } from 'vue-router'
 import { toast, canDo, confirm } from '../store'
+import { noNewPermHint } from '../utils/permHint.js'
 import { lossAccountingApi } from '../api/modules'
 import LossDashboard from '../components/LossDashboard.vue'
 
@@ -674,6 +680,11 @@ function groupMeta(rk) {
       || { no: '', title: rk, denominator_label: '', desc: '' }
 }
 function isMulti(rk) { return rk === 'store' || rk === 'operator' }
+
+/* v767：能不能在该组增行 —— 按钮渲染与空态话术**共用这一条判据**。
+   🔴 原来判据只写在按钮的 v-if 里，空态却无条件说「点右上角「+ 添加」」，
+   只读角色进得了编辑态（enterEdit 不判权限）却找不到那颗按钮。 */
+function canAddSubject(rk) { return editMode.value && isMulti(rk) && canDo('loss', 'update') }
 function slotWidth(sk) {
   if (sk === 'extra') return '116px'
   if (sk === 'rate_gross' || sk === 'rate_net') return '94px'

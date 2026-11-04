@@ -362,6 +362,7 @@
         </div>
         <div v-else-if="!achvRows.length" class="state-empty">
           <p>本月还没有可填报的行。请先在「目标配置」创建品牌 / 商品目标，或直接「Excel 导入」达成数据。</p>
+          <GoLink @click="openCreate('brand')">去创建品牌目标</GoLink>
         </div>
         <div v-else class="table-wrap">
           <table class="tbl">
@@ -1067,7 +1068,7 @@
                   <option v-for="o in contactOptions" :key="o.id" :value="o.id">{{ o.name }}</option>
                 </select>
                 <span v-if="!contactOptions.length" class="cf-hint" style="color:var(--dan);font-size:var(--fs-sm)">未找到厂家档案，请先
-                  <button type="button" class="cf-jump" @click="goArchivePage('/archive/suppliers', '供应商档案')">到「档案管理 › 供应商档案」录入厂家</button>（如 蒙牛），或勾选上方按名称直录</span>
+                  <button type="button" class="cf-jump" @click="goNav('/archive/suppliers')">到「档案管理 › 供应商档案」录入厂家</button>（如 蒙牛），或勾选上方按名称直录</span>
               </div>
               <div class="form-row" v-else>
                 <label>合作方名称（直接填写）</label>
@@ -1080,7 +1081,7 @@
                   <option v-for="b in brandList" :key="b.id" :value="b.id">{{ b.name }}</option>
                 </select>
                 <span v-if="!brandList.length" class="cf-hint" style="color:var(--war);font-size:var(--fs-sm)">暂无品牌档案，可先
-                  <button type="button" class="cf-jump" @click="goArchivePage('/archive/brands', '品牌档案')">到「档案管理 › 品牌档案」录入</button>；不选品牌则合同视为覆盖全部品牌</span>
+                  <button type="button" class="cf-jump" @click="goNav('/archive/brands')">到「档案管理 › 品牌档案」录入</button>；不选品牌则合同视为覆盖全部品牌</span>
               </div>
             </div>
             <!-- Step 2 年度与比例 -->
@@ -1191,7 +1192,12 @@
               <span class="skel-line sk-h12" style="width:52%"></span>
               <span class="skel-line sk-h12" style="width:74%"></span>
             </div>
-            <div v-else-if="!versionList.length" class="state-empty"><p>暂无版本。点「新增版本」把当前阶梯快照为一版（可设生效期）。</p></div>
+            <!-- v767：「新增版本」带 v-if="canDo('sales','create')"，只读角色看不到它，
+                 空态不能再说「点「新增版本」」。 -->
+            <div v-else-if="!versionList.length" class="state-empty">
+              <p v-if="canDo('sales', 'create')">暂无版本。点「新增版本」把当前阶梯快照为一版（可设生效期）。</p>
+              <p v-else>暂无版本。{{ noNewPermHint('新增版本') }}</p>
+            </div>
             <table v-else class="dt-tier" style="margin-top:var(--sp-2)">
               <thead><tr><th>版本</th><th>生效期</th><th>阶梯</th><th>计法</th><th></th></tr></thead>
               <tbody>
@@ -1243,13 +1249,15 @@ import ColMenuPanel from '../components/ColMenuPanel.vue'
 import CommitmentsTab from '../components/CommitmentsTab.vue'
 import SettlementScheduleTab from '../components/rebate/SettlementScheduleTab.vue'
 import EmptyState from '../components/EmptyState.vue'
+import GoLink from '../components/GoLink.vue'
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast, canDo } from '../store'
-/* v387（2026-10-06）：页内跳转入口的**同判据** —— 下面 `goArchivePage()` 用它。
-   🔴 不判就是"假入口"：能进返利的人不一定能进那个档案页（如会计进不了员工档案）。
-      唯一源仍是 `constants/pages.js`（本文件不另写一份名单）。 */
-import { canSee } from '../constants/pages'
+import { noNewPermHint } from '../utils/permHint.js'
+/* v387（2026-10-06）：页内跳转入口的**同判据**。v768：收敛到 `useGoPage`
+   （判据 + 提示 + 页名反查的唯一实现）。不判就是"假入口"：能进返利的人不一定能进那个档案页
+   （如会计进不了员工档案）。唯一源仍是 `constants/pages.js`（本文件不另写一份名单）。 */
+import { useGoPage } from '../utils/useGoPage'
 import { rebateApi } from '../api/modules'
 import { api } from '../api/client.js'
 import { useColSettings } from '../composables/useColSettings.js'
@@ -1270,6 +1278,7 @@ const rules = ref([])
 // v242b：「报单配置」页的「改节奏」深链落点 —— #/rebate?edit_rule=<id> 直接打开该规则
 const _route = useRoute()
 const _router = useRouter()
+const goNav = useGoPage()   // v768：带权限闸门的跳转（唯一实现）
 
 /* ---------------------------------------------------------------------------
    v396（2026-10-08）：**主 Tab 改由 URL 的 `?tab=` 驱动**（此前是纯本地状态）
@@ -1348,14 +1357,15 @@ watch(() => (_route.query || {}).tab, function () {
 /** 把子页写进 URL（`replace`：切页签不产生历史记录，与退役前行为一致）。
  *  🔴 已经是目标状态就不 replace —— 重复 `router.replace` 同一 URL 会抛
  *     "Avoided redundant navigation"（vue-router 4），而且会多出一条无意义的路由记录。
- *     唯一的例外：URL 上还挂着一次性的 `edit_rule`，那种情况必须清掉它。 */
+ *     唯一的例外：URL 上还挂着一次性的 `edit_rule` / `new`，那种情况必须清掉它。 */
 function syncTabUrl(t) {
   const q0 = _route.query || {}
   const cur = String(q0.tab || '')
   const want = (t === 'dashboard') ? '' : t
-  if (cur === want && !q0.edit_rule) return
+  if (cur === want && !q0.edit_rule && !q0.new) return
   const q = { ...q0 }
   delete q.edit_rule                    // 一次性编辑指令，消费过就不要再带回 URL
+  delete q.new                          // 一次性新建指令（v765e），同上
   if (t === 'dashboard') delete q.tab   // 默认子页省略 ⇒ `/rebate` 与 `?tab=dashboard` 同义
   else q.tab = t
   _router.replace({ path: _route.path, query: q })
@@ -1365,12 +1375,10 @@ function syncTabUrl(t) {
    背景：`合约` 弹窗里原本有两句指路文案（「档案管理 → 供应商」「档案管理 → 品牌档案」），
    但它们是**死文本** —— 一句指向当时**并不存在**的页面（供应商档案页 v387 才有），
    另一句虽然指向存在的页面却点不动。老板按提示去找，找不到就以为系统坏了。
-   现在：统一走本函数，**判据同源**（`canSee`）+ 目标页不存在/无权限时给一句可读的 toast，
-   而不是把用户推进一个空白页。 */
-function goArchivePage(path, label) {
-  if (!canSee(path)) { toast('你没有访问「' + label + '」的权限', 'warn'); return }
-  _router.push(path)
-}
+   现在：统一走 `goNav()`，**判据同源** + 无权限时给一句可读的 toast，而不是把用户推进空白页。
+   🔴 v768：原函数收 `(path, label)` 两个参数，label 是**手抄的页名** ——
+     正是不该手抄的东西（注册表改名它不会跟）。收敛后 `pageTitle(path)` 自动反查，
+      两个调用点都少传一个参数，也就不可能传错。 */
 let _routeEditDone = false
 function _applyRouteEdit() {
   if (_routeEditDone) return
@@ -1380,6 +1388,30 @@ function _applyRouteEdit() {
   if (!r) return
   _routeEditDone = true          // 只认一次，避免保存后 loadRules 再次弹出
   openEdit(r)
+}
+
+/* v765e（2026-11-04）：「品牌报单日」卡片的空态要能**直达新建品牌规则**。
+   背景：那张卡片说「去 返利目标 → 品牌 → 新建/编辑 → 报单模式选按固定星期 → 勾报单星期」——
+   四个层级全靠记，还得认出是「品牌」维度不是「单品」。既然卡住的是「找到了还要再找」，
+   就让入口把这四步一次走完：`/rebate?tab=rules&new=brand` 进来直接弹出新建弹窗、维度预设品牌。
+   🔴 只认 `new=brand` 这一种：其它维度（单品/客户）没有对应的深链需求，
+      放开任意 `new=<dim>` 等于给这个一次性指令开了个后门，将来谁传错值都会弹出一个
+      「看起来像用户自己点的」新建窗。
+   🔴 与 `edit_rule` 一样是**一次性**指令：消费后由 `syncTabUrl` 从 URL 清掉，
+      否则按 F5 会再弹一次（用户会以为没保存成功）。 */
+let _routeNewDone = false
+function _applyRouteNew() {
+  if (_routeNewDone) return
+  if (String((_route.query || {}).new || '') !== 'brand') return
+  _routeNewDone = true
+  openCreate('brand')
+  /* 消费完立即从 URL 摘掉 —— 只靠 `syncTabUrl`（切子页才执行）不够：
+     用户可能进来就关掉弹窗、然后按 F5，那时 `_routeNewDone` 已被重置而 URL 上还挂着 `new`，
+     于是又弹一次新建窗。**用户会以为上次没保存成功**，这是最难解释的一类困惑。
+     这里只摘 `new`，不动 `edit_rule`（那条路径已有既有行为，不在这轮改）。 */
+  const q = { ...(_route.query || {}) }
+  delete q.new
+  _router.replace({ path: _route.path, query: q }).catch(() => {})
 }
 const loading = ref(false)
 const filterDim = ref('')
@@ -1802,6 +1834,10 @@ async function loadRules() {
     const d = await rebateApi.list(1)
     rules.value = d.rules || d.data || d || []
     _applyRouteEdit()
+    /* v765e：`?new=brand` 直达新建。**放在 edit 之后** —— 两个一次性指令同时挂在 URL 上时
+       （不该发生，但 URL 是用户可手改的）以「打开已有那一条」为准：那是有具体对象的动作，
+       比"开个空白新建窗"更可能是本意。 */
+    _applyRouteNew()
   } catch (e) {
     // 静默
   } finally {

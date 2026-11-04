@@ -62,7 +62,7 @@
         <p>
           有 <b>{{ missingCost.length }}</b> 个已产生销售的商品<b>未录入进货价</b>，成本按 0 计入，
           涉及销售额 <b>{{ fmtMoney(missingRevenue) }}</b> —— 这部分的毛利等于销售额，<b>毛利被虚高</b>。
-          请到「商品档案」补录进货价，补录后本表自动修正。
+          <GoLink to="/archive/products?fp=1">去「商品档案」补录进货价</GoLink>，补录后本表自动修正。
         </p>
       </div>
 
@@ -100,6 +100,7 @@
    🔴 不开 `filterable`：/api/reports/profit-breakdown 不支持 date_from/date_to。 */
 import ReportTable from '../../components/ReportTable.vue'
 import Icon from '../../components/Icon.vue'
+import GoLink from '../../components/GoLink.vue'
 import ChartDonut from '../../components/chart/ChartDonut.vue'
 import ChartHbar from '../../components/chart/ChartHbar.vue'
 import { ref, computed, onMounted } from 'vue'

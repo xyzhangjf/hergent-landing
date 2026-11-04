@@ -176,7 +176,7 @@
                          而不是留一个空列让用户以为「报了单却没数」。 -->
                     <div class="pt-note">
                       逐人实报（谁报了多少）在下一批上线 —— 它依赖员工与报单门店的别名对应关系，
-                      请先在「报单配置」里为员工维护别名。
+                      <GoLink @click="goReportMapping">去「报单配置」为员工维护别名</GoLink>。
                     </div>
                   </div>
                 </td>
@@ -453,10 +453,13 @@
 
 <script setup>
 import Skeleton from '../components/Skeleton.vue'
+import GoLink from '../components/GoLink.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 // v265：本页已收进「预报订货管理」当第 4 个页签 ⇒ 允许一处**同页互跳**（告警条 →「报单配置」tab）。
 // 这是本页唯一的路由耦合，语义是「同页切页签」，不是跨页导航。
-import { useRouter } from 'vue-router'
+// v768：改用 useGoPage —— 原来这里没有权限判据（`router.replace` 裸跳）。同一族假入口：
+//   能进本页但进不了 `/forecast` 的角色点下去会被守卫弹回工作台。判据交给统一实现。
+import { useGoPage } from '../utils/useGoPage'
 import { productTargetsApi, forecastApi } from '../api/modules.js'
 // v277：补换算成功后要给「已写进哪个商品档案」一个明确回执。本页此前只用页内 err 条，
 // 但那行是「列表级」的（会被后续 load 覆盖），而这里是一次单点写操作 ⇒ 用全站 toast。
@@ -521,12 +524,10 @@ const ptColspan = computed(() => 1 + COLS.filter(c => isVisible(c.key)).length)
 /* v264c（R9）：报单「列名 ↔ 报单对象」对账（**只读**）。
    null = 还没查 / 查失败 ⇒ 不渲染告警（一次辅助查询失败不该在页面上吓用户）。 */
 const audit = ref(null)
-// v265：切到同页的「报单配置」页签。走 router.replace 而**不是** location.hash 拼接 ——
+// v265：切到同页的「报单配置」页签。走 replace 而**不是** location.hash 拼接 ——
 // 与 Forecast.vue 的 setTab 共用同一套 URL 语义（`?tab=config`）；两处各写一份 hash 拼接必然漂移。
-const router = useRouter()
-function goReportMapping() {
-  router.replace({ path: '/forecast', query: { tab: 'config' } }).catch(() => {})
-}
+const goNav = useGoPage()
+const goReportMapping = () => goNav({ path: '/forecast', query: { tab: 'config' } }, { replace: true })
 
 /* ---- 展示工具 ---- */
 function fmt(v) {

@@ -21,6 +21,7 @@ import { productTargetsApi } from '../../api/modules'
 import { fmt, parseNumInput } from '../../utils/forecast/format.js'
 import { toast } from '../../store'
 import Icon from '../Icon.vue'
+import GoLink from '../GoLink.vue'
 /* v671：表头全选（三态）全站统一件 —— 与本期预报序号列那颗同款。 */
 import SelectAllCheckbox from '../SelectAllCheckbox.vue'
 
@@ -678,7 +679,7 @@ async function applyAlloc() {
   //   「本期专用占比」是他们**唯一**的落点（写档案那条路对他们不存在）。
   const _periodPath = (_derived || _ovr || allocPickMode.value)
   if (!tid && !_periodPath) {
-    toast('该商品本月没有启用的目标，比例无处可存（请先到「商品目标」页建目标）', 'err'); return
+    toast('该商品本月没有启用的目标，比例无处可存 —— 点上方「去『商品目标』为它建目标」', 'err'); return
   }
   const changed = allocRatiosChanged()
   const _pid = Number((data.product && data.product.id) || 0)
@@ -822,14 +823,14 @@ onMounted(() => { loadAllocSetup() })
             <p v-else-if="allocSetup && allocFlags.no_target" class="imp-tip alloc-note">
               该商品在 <b>{{ (allocSetup.product && allocSetup.product.month) || '' }}</b> 没有启用目标
               ⇒ 本次按<b>各人本期报单量</b>推导占比来分摊（客观事实，<b>比例只读</b>）。
-              要让比例可调，请到「商品目标」页为它建目标并填分解比例。
+              要让比例可调，<GoLink :to="{ path: '/forecast', query: { tab: 'target' } }">去「商品目标」为它建目标</GoLink>并填分解比例。
             </p>
             <!-- v657：名册里没有登录账号的人，定稿通知到不了 —— **汇总说一次**，
                  不逐行打标（生产 tenant_1 全员无账号 ⇒ 逐行标全是噪音）。 -->
             <p v-if="allocPickMode && allocPoolNoAcct > 0" class="imp-tip warn-text">
               名册中有 {{ allocPoolNoAcct }} 个门店的负责人没有关联登录账号 —— 期次<b>定稿（关闭期次）</b>时
-              这些门店收不到加/减单通知（分配本身不受影响）。要收到通知，请先到「员工档案」
-              给他们关联登录账号。
+              这些门店收不到加/减单通知（分配本身不受影响）。要收到通知，
+              <GoLink to="/archive/employees">去「员工档案」</GoLink>给他们关联登录账号。
             </p>
             <template v-if="allocSetup && (!allocFlags.no_members || allocPickMode)">
               <div class="alloc-top">

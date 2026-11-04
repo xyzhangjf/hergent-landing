@@ -14,7 +14,7 @@
       <!-- ⚠️ 缺进货价警示：原文案整段保留，只换容器（骨架表头无警示位，挂在 #extra）。 -->
       <div v-if="revenueTotal > 0 && costTotal === 0" class="warn-banner">
         🔴 当前全部客户「成本」均为 0 —— 这是商品档案<b>未录入进货价</b>导致，不是真零成本。
-        因此本页「毛利」＝销售额、毛利率＝100%，<b>不能当作真实盈利</b>。请先在商品档案补齐进货价，利润口径会自动启用。
+        因此本页「毛利」＝销售额、毛利率＝100%，<b>不能当作真实盈利</b>。<GoLink to="/archive/products?fp=1">去商品档案补齐进货价</GoLink>，利润口径会自动启用。
       </div>
 
       <!-- 原 tfoot「本页合计」：只对可见行的可加总列求和；毛利率为比率，不合计。 -->
@@ -45,6 +45,7 @@
       取数与合计算法一字未动（原页本就没有 KPI 条，不擅自新增）。
    🔴 不开 `filterable`：/api/bi/pivot 不支持 date_from/date_to，开了就是假筛选。 */
 import ReportTable from '../../components/ReportTable.vue'
+import GoLink from '../../components/GoLink.vue'
 import { ref, computed, onMounted } from 'vue'
 import { reportsApi } from '../../api/modules'
 

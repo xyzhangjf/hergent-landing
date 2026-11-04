@@ -72,8 +72,13 @@
           </select>
         </div>
       </div>
+      <!-- v767：空态分三层 —— 筛选无结果 / 有权限说「点右上角」/ 只读角色说「你没有这颗按钮」。
+           那颗「+ 新增供应商」带 v-if="canDo('data','create')"，只读角色看不到它，
+           原来无条件的「点右上角…」会让人以为系统坏了。 -->
       <div v-else class="state-empty">
-        {{ keyword ? '没有匹配的供应商，换个关键词试试' : '还没有供应商档案 —— 点右上角「+ 新增供应商」录入第一家' }}
+        <template v-if="keyword">没有匹配的供应商，换个关键词试试</template>
+        <template v-else-if="canDo('data', 'create')">还没有供应商档案 —— 点右上角「+ 新增供应商」录入第一家</template>
+        <template v-else>{{ noNewPermHint('+ 新增供应商') }}</template>
       </div>
     </div>
 
@@ -160,13 +165,13 @@
 import Skeleton from '../components/Skeleton.vue'
 import Modal from '../components/Modal.vue'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { toast, canDo } from '../store'
-/* v291：页内跳转入口同判据（见 goConnect）。 */
-import { canSee } from '../constants/pages'
+import { noNewPermHint } from '../utils/permHint.js'
+/* v291：页内跳转入口同判据。v768：收敛到 useGoPage（唯一实现 + 页名反查）。 */
+import { useGoPage } from '../utils/useGoPage'
 
-const router = useRouter()
+const goNav = useGoPage()
 
 /* ---- 列表 ---- */
 const items = ref([])
@@ -398,14 +403,11 @@ async function onSync() {
   } catch (e) { toast(e.message || '同步失败', 'err') }
   finally { syncBusy.value = false }
 }
-function goConnect() {
-  /* v291（2026-09-27）：入口同判据 —— 能进档案的人**不一定**能进「AI 引擎」
-     （业务员能进档案，但不能进连接器/数据源配置）⇒ 不判就会出现"点了被弹回工作台"（假入口）。
-     ⚠️ v311：容器已由「能力中心」更名「AI 引擎」——**提示文案必须跟着改**。 */
-  if (!canSee('/connect')) { toast('你没有访问「AI 引擎」的权限', 'warn'); return }
-  remindOpen.value = false
-  router.push('/connect')
-}
+/* v291（2026-09-27）：入口同判据 —— 能进档案的人**不一定**能进「AI 引擎」
+   （业务员能进档案，但不能进连接器/数据源配置）⇒ 不判就会出现"点了被弹回工作台"（假入口）。
+   🔴 v311：容器已由「能力中心」更名「AI 引擎」。v768 起这个页名**不再手写** ——
+     由 `useGoPage` 从页面注册表反查，改名时提示自动跟着变（上一批清掉的正是这类假指路）。 */
+const goConnect = () => goNav('/connect', { before: () => { remindOpen.value = false } })
 
 onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 onBeforeUnmount(() => { clearTimeout(_t) })

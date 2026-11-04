@@ -131,7 +131,7 @@
         <div v-else class="state-empty">
           <p>按当前配方没有命中临期/过期库存。</p>
           <p style="margin-top:var(--sp-h6);color:var(--t3)">如果库存里有数据却没结果，多半是库存缺批次/效期信息。</p>
-          <button class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)" @click="goDataFill">去补录库存效期 →</button>
+          <button class="btn btn-primary btn-sm" style="margin-top:var(--sp-3)" @click="goNav('/data-fill')">去补录库存效期 →</button>
         </div>
       </div>
 
@@ -195,16 +195,16 @@
 import Icon from '../components/Icon.vue'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { toast } from '../store'
 import { useColSettings } from '../composables/useColSettings.js'
-/* v291：页内跳转入口同判据（见 goDataFill）。 */
-import { canSee } from '../constants/pages'
+/* v291：页内跳转入口同判据。v768：收敛到 useGoPage（判据 + 提示 + 跳转的唯一实现，
+   页名由页面注册表反查，不再手写）。 */
+import { useGoPage } from '../utils/useGoPage'
 import { lossApi, adviceApi } from '../api/modules'
 import AdvicePanel from '../components/AdvicePanel.vue'
 import { openPrintable } from '../utils/printable'
 
-const router = useRouter()
+const goNav = useGoPage()
 
 /* v432：损耗明细列设置（齿轮 + 可选列显隐）。商品/效期/数量/损耗/建议为固定列，批次/剩余/单价可选。 */
 const LOSS_COLS = [
@@ -221,12 +221,9 @@ const { isVisible, toggleCol, resetCols } = useColSettings('loss-workflow', LOSS
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
-function goDataFill() {
-  /* v291（2026-09-27）：「去补录」的目标页也受权限保护（/data-fill 只给业务管理岗）——
-     入口同判据，避免点了被守卫弹回工作台（假入口）。 */
-  if (!canSee('/data-fill')) { toast('你没有访问「库存效期补录」的权限', 'warn'); return }
-  router.push('/data-fill')
-}
+/* v291（2026-09-27）：「去补录」的目标页也受权限保护（/data-fill 只给业务管理岗）——
+   入口同判据，避免点了被守卫弹回工作台（假入口）。
+   v768：原三行（canSee / toast / router.push）收敛到 useGoPage。 */
 
 const showAdvice = ref(false)
 const adviceKey = ref(0)

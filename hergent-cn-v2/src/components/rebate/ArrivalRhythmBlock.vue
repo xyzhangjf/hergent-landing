@@ -18,6 +18,15 @@
         </div>
       </div>
     </div>
+    <!-- v765（2026-11-04）：**报单星期的实际含义**必须写在选择器下面。
+         用户提的第四件事「低频率品牌跟随高频率品牌的期次规则」，真实机制是：
+         期次由高频品牌（每 2 天一期）排出，低频品牌只在自己那几个星期截止的期次里可报。
+         所以「选 2 个星期」= 只占约 2/7 的期次，**不是"每两周报一次"**，更不是"每周报两次"。
+         这一句不写，配置的人一定按直觉理解错（而错了没有任何界面会报）。
+         🔴 另一条**生产真实陷阱**同屏点出来：判定只认 `order_weekdays` 有没有值、
+            不看 `order_mode` ⇒ 勾了星期却没切到「按固定星期」也是生效的；
+            反过来「切了模式但星期没勾」= 配了等于没配。两种都要说清。 -->
+    <p v-if="orderWkNote" :class="['wk-note', orderWkNoteWarn ? 'wk-note-warn' : '']">{{ orderWkNote }}</p>
     <!-- v121b：报单日 → N → 到货日 三字段同排，左→右即计算链路 -->
     <div class="form-grid3">
       <div class="form-row"><label>提前天数</label>
@@ -139,6 +148,37 @@ defineEmits(['lead-input', 'arrival-change', 'toggle-wk', 'open-migrate',
 
 const weekdayOptions = WEEKDAY_OPTIONS
 
+/* ── v765：报单星期的实际含义（模板里说明为什么要写这句）────────────────
+   🔴 这里**只做文案换算，不做判定**：真正的"这一期能不能报"由后端
+      `domain/brand_order_window.py` 判（2 天/期 与 7 天/周 互质 ⇒ 星期以 7 期为周期
+      循环，配 2 个星期 = 约 2/7 的期次）。前端再算一遍就是第二份实现。
+   🔴 但反过来说，「N 个星期 = 约占 N/7 的期次」这个换算必须给出来 ——
+      配置的人否则会理解成"每周报两次"，从而把低频品牌的量按错误频次摊开。
+      ⚠️ 只在 weekday 之外的模式下补一句"期次仍按间隔排"：低频品牌跟高频品牌
+         共用同一批期次、只在自己那几个星期截止的期次里可报，这正是需求里
+         「低频率品牌跟随高频率品牌的期次规则」的落地形态，不是错误配置。 */
+const orderWkList = computed(() => String((props.form && props.form.order_weekdays) || '')
+  .split(',').map(s => s.trim()).filter(Boolean))
+const orderWkNoteWarn = computed(() =>
+  !orderWkList.value.length && !!props.form && props.form.order_mode === 'weekday')
+const orderWkNote = computed(() => {
+  const n = orderWkList.value.length
+  if (!n) {
+    // 切到「按固定星期」却没勾任何一天 ⇒ 保存会被拦（TargetFormModal 有 toast），先同屏说清
+    return orderWkNoteWarn.value ? '还没勾任何星期：这条规则目前不会按星期管控（等于不限）' : ''
+  }
+  if (n >= 7) return '7 天全勾 = 不限制（每天截止的期次都能报）'
+  const labels = orderWkList.value
+    .map(v => (WEEKDAY_OPTIONS.find(o => String(o.value) === String(v)) || {}).label || ('周' + v))
+    .join('、')
+  const every = Math.round(7 / n)
+  let s = '只在 ' + labels + ' 截止的期次可报（约占 ' + n + '/7 的期次，≈每 ' + every + ' 天一次）'
+  if (props.form && props.form.order_mode !== 'weekday') {
+    s += '；期次仍按「间隔天数」与其它品牌同步排，不额外建期次'
+  }
+  return s
+})
+
 /* v364：② 区的所有数字都从**预览返回体**取 —— 前端不再自己算次数。
    上一版正是让次数脱离日历被单独改写，才出现「次数 15、日历 16」两把尺子；
    这里连「已停哪几天」也以返回体为准（未改动时它就是库里的值）。 */
@@ -190,6 +230,10 @@ function wkLabel(iso) {
 .wk-chips{display:flex;gap:var(--sp-h6);flex-wrap:wrap}
 .wk-chip{padding:var(--sp-h6) var(--sp-3);border:1px solid var(--bd2);border-radius:var(--radius-pill);background:var(--bg1);cursor:pointer;font-size:var(--fs-base);color:var(--t2)}
 .wk-chip.on{background:var(--p-solid);color:#fff;border-color:var(--p)}
+/* v765：报单星期的含义说明 —— 压在 chips 正下方，用中性色（信息）/
+   警示色（未勾星期）两档。全部走设计令牌，不写死底色（v735 层级倒挂的教训）。 */
+.wk-note{font-size:var(--fs-sm);color:var(--t3);line-height:var(--lh-normal);margin:0 0 var(--sp-h6)}
+.wk-note-warn{color:var(--danger)}
 .input-affix{display:flex;align-items:center;gap:var(--sp-h6)}
 .input-affix .input{flex:1}
 .input-affix .affix{font-size:var(--fs-sm);color:var(--t3);white-space:nowrap}

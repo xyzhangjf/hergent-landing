@@ -2467,6 +2467,11 @@
     <!-- 报单自动化（v242 迁入；v424 由「运行参数」区拆出为独立子页） -->
     <div v-else-if="activeTab === 'config-auto'">
       <AutoPeriodBlock />
+      <!-- v765：品牌报单日（总开关 + 预览矩阵）。
+           🔴 刻意**不新增子页**：加子页要同步 `TAB_KEYS` / `SUB_TITLES` / `NAV` 三处，
+              漏一处就把新页关在门外（v405 的教训）。这块与「报单自动化」同一语义族
+              （都回答"什么时候能报单"），挂在同一子页里最自然。 -->
+      <BrandWindowCard />
     </div>
 
     <!-- 报单提醒设置（v2026-09-23 从设置页迁入；v424 拆出为独立子页） -->
@@ -2810,7 +2815,9 @@ import Modal from '../components/Modal.vue'
    与 CustomerArchive / EmployeeArchive 同一范式：**能进预报的人不一定能进「AI 引擎」**
    （业务员能报单、能开补货建议弹窗，但 `ADMIN_ROLES` 之外进不了 `/connect`）
    ⇒ 不判就是"点了被弹回工作台"的假入口。判据源仍是 `constants/pages.js`。 */
-import { canSee } from '../constants/pages'
+/* v768：带权限闸门的跳转收敛到 useGoPage（全站唯一实现，页名由注册表反查）。
+   原这里 `import { canSee }` 只为 `goConnect` 服务，判据收进 useGoPage 后已无引用。 */
+import { useGoPage } from '../utils/useGoPage'
 import GridZoomCtl from '../components/GridZoomCtl.vue'
 import ViewSeg from '../components/forecast/ViewSeg.vue'
 import ForecastRow from '../components/forecast/ForecastRow.vue'
@@ -2825,6 +2832,8 @@ import ReportMapping from './ReportMapping.vue'
 // v424：「报单配置」的四条子页 —— 除上面的「报单对象」外，另外三块各自是一个现成组件
 //      （原先它们与报单对象挤在同一张长页面上，见模板区顶部注释）。
 import AutoPeriodBlock from '../components/forecast/AutoPeriodBlock.vue'
+// v765：品牌报单日（挂在「报单自动化」同一子页，见模板区注释）
+import BrandWindowCard from '../components/forecast/BrandWindowCard.vue'
 import ReminderConfig from '../components/forecast/ReminderConfig.vue'
 import TemplateParams from '../components/forecast/TemplateParams.vue'
 /* v585：页脚「返利冲刺胶囊」—— 全屏也常显达成摘要，悬停展开完整看板（组件内自取 summary，不重算数字） */
@@ -6906,6 +6915,7 @@ const rowFilterShort = computed(() => {
       （否则用户手动改完筛选会被立刻改回去 = 死控件）。参数被清空时复位，下次同值再来仍生效。 */
 const route = useRoute()
 const router = useRouter()   // v265：页签同步 URL 用（setTab）
+const goNav = useGoPage()   // v768：带权限闸门的跳转（唯一实现，判据 + 页名都在里面）
 const brandParamDone = ref('')
 watch([brandCandidates, () => route.query.brand], () => {
   const q = String(route.query.brand || '').trim()
@@ -12505,12 +12515,12 @@ async function probeErp() {
 /* v311（2026-09-28）：原为裸 `location.hash = '#/connect'`。
    补货建议弹窗里的「未连接 ERP」提示对**能开这个弹窗的所有角色**都可见（含业务员），
    而 `#/connect` 只给老板/管理员 ⇒ 业务员点了会被路由守卫弹回工作台，看着像坏了。
-   与 CustomerArchive / EmployeeArchive 统一：先判 `canSee`，无权限就只提示不跳。
-   ⚠️ 改了容器显示名不等于改了路由 —— 跳转目标仍是 `/connect`（没动路径）。 */
-function goConnect() {
-  if (!canSee('/connect')) { toast('你没有访问「AI 引擎」的权限', 'warn'); return }
-  location.hash = '#/connect'
-}
+   与 CustomerArchive / EmployeeArchive 统一：先判权限，无权限就只提示不跳。
+   ⚠️ 改了容器显示名不等于改了路由 —— 跳转目标仍是 `/connect`（没动路径）。
+   🔴 v768：收敛到 `useGoPage`。顺带修掉一处**迟来的分叉** —— 这里还用着
+      `location.hash`，而其余 10 处早就是 `router.push`：前者拿不到 Promise、
+      无法吞掉「导航到当前路由」的 reject，是四种写法并存的最后一块残片。 */
+const goConnect = () => goNav('/connect')
 
 async function openAudit() {
   if (!cross.value.period) { toast('请先选择期次', 'warn'); return }

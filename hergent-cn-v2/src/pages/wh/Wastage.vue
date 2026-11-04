@@ -64,7 +64,7 @@
           <div class="wl-warn">
             <Icon name="alert" :size="14" />
             <span>这是<b>一次性生效</b>的库存 + 账务动作：保存即扣库存、即落分录。
-              填错了要纠正，请到单据详情用「撤销报损」（会恢复库存并冲销分录）。</span>
+              填错了要纠正，<GoLink @click="showCreate = false">回到损益单列表</GoLink>打开单据详情用「撤销报损」（会恢复库存并冲销分录）。</span>
           </div>
 
           <div class="wl-new-row">
@@ -364,6 +364,7 @@
 import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import GoLink from '../../components/GoLink.vue'
 import { whApi } from '../../api/wh'
 import { toast, confirm } from '../../store'
 import ProductCombo from '../inventory/new/ProductCombo.vue'

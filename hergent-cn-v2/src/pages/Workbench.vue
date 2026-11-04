@@ -294,12 +294,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { toast, store } from '../store'
 /* v291：待办项也会指向受权限保护的页面 ⇒ 入口同判据（见 goTodo）。 */
-import { canSee, pageTitle } from '../constants/pages'
+/* v768：带权限闸门的跳转收敛到 useGoPage（原 `canSee` / `pageTitle` 两处引用只为待办跳转服务）。 */
+import { useGoPage } from '../utils/useGoPage'
 import { hermesChat, auth } from '../api/client'
 import { stripAllFences } from '../composables/useCardTrigger'
 import { dashboardApi, expiryApi, todayApi, importApi, aiJudgementApi, aiExperienceApi, productsApi } from '../api/modules'
 import CollectionsCard from '../components/CollectionsCard.vue'
 import Icon from '../components/Icon.vue'
+
+const goNav = useGoPage()
 
 /* ---- 日期 ---- */
 const todayStr = new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
@@ -730,10 +733,10 @@ function goTodo(t) {
   if (t.path === '/chat') { if (store.canUseAi()) store.ui.copilotOpen = true; return }
   /* v291（2026-09-27）：待办项也会指向**受权限保护的页面**（如「临期预警」→ /loss）——
      入口必须与侧栏同一判据，否则司机/导购看到待办、点一下被守卫弹回工作台，
-     正是 v267 修过的那类**假入口**。 */
-  if (!canSee(t.path)) { toast('你没有访问「' + pageTitle(t.path) + '」的权限', 'warn'); return }
-  // hash 路由跳转
-  window.location.hash = '#' + t.path
+     正是 v267 修过的那类**假入口**。
+     v768：判据 / 提示 / 跳转收敛到 `goNav`。顺带把 `window.location.hash = '#' + path`
+     换成 router.push —— 前者拿不到 Promise，登不进"导航到当前路由"的 reject。 */
+  goNav(t.path)
 }
 
 onMounted(loadData)

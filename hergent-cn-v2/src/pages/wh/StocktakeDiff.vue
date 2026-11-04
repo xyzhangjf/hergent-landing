@@ -53,7 +53,7 @@
           <div class="state-empty">
             <div class="se-ic"><Icon name="inbox" :size="22" /></div>
             <p>还没有盘点期次。</p>
-            <p class="std-empty-hint">差异单是「盘点单」的<b>结果视图</b> —— 先去「盘点单」开一期、录完实盘数，
+            <p class="std-empty-hint">差异单是「盘点单」的<b>结果视图</b> —— 先<GoLink to="/wh/stocktake">去「盘点单」</GoLink>开一期、录完实盘数，
               这里就会出现差异。</p>
           </div>
         </div>
@@ -252,6 +252,7 @@
 import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted } from 'vue'
 import Icon from '../../components/Icon.vue'
+import GoLink from '../../components/GoLink.vue'
 import { whApi } from '../../api/wh'
 
 const LIST_LIMIT = 50

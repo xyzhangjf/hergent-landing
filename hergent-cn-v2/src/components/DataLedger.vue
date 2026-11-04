@@ -96,9 +96,9 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { toast } from '../store'
-import { canSee } from '../constants/pages'
+/* v768：带权限闸门的跳转收敛到 useGoPage（判据 + 提示 + 页名反查的唯一实现）。 */
+import { useGoPage } from '../utils/useGoPage'
 import { importApi } from '../api/modules'
 import Icon from './Icon.vue'
 import Modal from './Modal.vue'
@@ -147,7 +147,7 @@ import ImportReceipt from './ImportReceipt.vue'
      不会出现"新类目没入口"或"两个入口"。
    ============================================================================ */
 
-const router = useRouter()
+const goNav = useGoPage()
 
 const rows = ref([])
 const loading = ref(false)
@@ -253,8 +253,9 @@ function go(cat) {
      避免点下去被路由守卫弹回工作台 —— 用户看到的是「点了没反应」的假入口。 */
   const p = metaOf(cat).page
   if (!p) return
-  if (!canSee(p)) { toast('你没有访问该类数据维护页的权限，请联系管理员', 'warn'); return }
-  router.push(p)
+  /* v768：改用 `goNav` —— 页名由注册表反查，比原来那句笼统的「该类数据维护页」
+     更具体（用户才知道自己缺的到底是哪一页的权限）。 */
+  goNav(p)
 }
 
 /* ---------- 上传弹窗 ---------- */

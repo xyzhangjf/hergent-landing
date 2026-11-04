@@ -50,7 +50,7 @@
               <td class="num">¥{{ fmt(salaryOf(e)) }}</td>
               <td>
                 <StatusBadge v-if="e.has_account" :tone="e.account_active ? 'ok' : 'off'" :label="'已开通 ' + e.account_username"
-                             :title="'账号：' + e.account_username + (e.account_active ? '（启用中）' : '（已禁用，点「编辑」可重新启用）')" />
+                             :title="acctTitle(e)" />
                 <StatusBadge v-else tone="neutral" label="未开通" />
                 <span v-if="e.account_role" class="df-role" :class="['r-' + e.account_role, { stopped: e.is_active === 0 }]">{{ roleDisplay(e.account_role) }}</span>
                 <span
@@ -192,7 +192,7 @@
                 <span v-if="u.report_mapping_count > 0">{{ u.report_mapping_count }} 家</span>
                 <span v-else-if="u.report_mapping_count === null || u.report_mapping_count === undefined"
                       class="df-no" title="读取报单配置失败，请刷新重试">—</span>
-                <button v-else class="df-mini-lnk" @click="goReportConfig">未配 · 去配置</button>
+                <button v-else class="df-mini-lnk" @click="goReportMapping">未配 · 去配置</button>
               </td>
               <td><span :class="u.is_active ? 'on' : 'off'">{{ u.is_active ? '启用中' : '已禁用' }}</span></td>
               <td class="df-ops">
@@ -205,7 +205,12 @@
           </tbody>
         </table>
       </div>
-      <div v-else class="state-empty">还没有外部客户账号 —— 点右上角「＋ 新建外部客户」开通</div>
+      <!-- v767：那颗「＋ 新建外部客户」带 v-if="canDo('data','create')"（见 df-ph-right），
+           只读角色看不到 ⇒ 空态不能再说「点右上角」。 -->
+      <div v-else class="state-empty">
+        <template v-if="canDo('data', 'create')">还没有外部客户账号 —— 点右上角「＋ 新建外部客户」开通</template>
+        <template v-else>{{ noNewPermHint('＋ 新建外部客户') }}</template>
+      </div>
     </div>
 
     <!-- Excel 批量导入 -->
@@ -595,7 +600,7 @@
                 网页端能看到整店的经营数据。
               </p>
               <p class="df-tip">
-                开通后请到 <b>预报订单管理 → 报单配置</b> 选「报单人 = 该客户」，把<b>他的门店</b>配给他，
+                开通后<GoLink @click="goReportMapping">去「报单配置 → 报单对象」</GoLink>选「报单人 = 该客户」，把<b>他的门店</b>配给他，
                 他在小程序里才能报单。
               </p>
             </section>
@@ -679,6 +684,7 @@
 import Skeleton from '../components/Skeleton.vue'
 import Modal from '../components/Modal.vue'
 import Icon from '../components/Icon.vue'
+import GoLink from '../components/GoLink.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
@@ -686,11 +692,11 @@ import ImportReceipt from '../components/ImportReceipt.vue'
 import InactiveToggle from '../components/InactiveToggle.vue'
 import { useInactiveFilter } from '../composables/useInactiveFilter'
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { api, apiBlob } from '../api/client'
 import { toast, store, canDo, confirm } from '../store'
-/* v291：页内跳转入口同判据（见 goConnect）。 */
-import { canSee } from '../constants/pages'
+import { noNewPermHint } from '../utils/permHint.js'
+/* v291：页内跳转入口同判据。v768：收敛到 useGoPage（唯一实现 + 页名反查）。 */
+import { useGoPage } from '../utils/useGoPage'
 import { employeeApi, importApi, staffAccountApi } from '../api/modules'
 // 角色中文名 —— 前端唯一来源（constants/roles.js 顶部有完整说明与权威源出处）
 // v300：另取 `ROLE_END`/`ROLE_END_LABEL`（「适用端」标注的唯一来源）与 `canUseMiniProgram`
@@ -699,7 +705,24 @@ import { roleName, isCanonicalRole, ROLE_END, ROLE_END_LABEL, canUseMiniProgram,
          LOGIN_SCOPE_OPTIONS, defaultLoginScope, loginScopeLabel,
          ROLE_HINTS } from '../constants/roles'
 
-const router = useRouter()
+const goNav = useGoPage()
+/* v766：外部客户开通账号后，紧接着的动作是去「报单对象」把门店配给他 —— 原来只有一句
+   死文案（用户得自己从侧栏摸到「预报订单管理 › 报单配置」）。这里给可点入口。
+   🔴 URL 语义与 `ProductTarget.vue` 的同名函数必须一致（`?tab=config`），
+      两处各拼一份 hash 必然漂移；`tab=config` 是旧深链落点，不许改名。
+   🔴 v768：原先这里还有第二个副本 `goReportConfig`（同一个目标、只多一道 canSee），
+      而本函数**没有**判据 ⇒ 能进员工档案但进不了预报订单管理的角色，点它会被守卫
+      弹回工作台（同一族假入口）。现合并为本函数，判据由 `useGoPage` 统一给。 */
+const goReportMapping = () => goNav({ path: '/forecast', query: { tab: 'config' } }, { replace: true })
+/* v767：禁用账号的徽标 tooltip 也要看权限 —— 「点「编辑」可重新启用」里的「编辑」按钮
+   带 v-if="canDo('data','update')"，只读角色照着找是找不到的（tooltip 是唯一说法时最坑）。 */
+function acctTitle(e) {
+  const base = '账号：' + e.account_username
+  if (e.account_active) return base + '（启用中）'
+  return base + (canDo('data', 'update')
+    ? '（已禁用，点「编辑」可重新启用）'
+    : '（已禁用；当前账号没有修改权限，需要启用请联系管理员）')
+}
 const loading = ref(false)
 const importing = ref(false)
 /* v713：「全量」与「渲染视图」分开 —— 已停用员工**默认收起**，靠开关展开。
@@ -1152,15 +1175,10 @@ async function onSync() {
   }
 }
 
-function goConnect() {
-  /* v291（2026-09-27）：入口同判据 —— 能进档案的人**不一定**能进「AI 引擎」
-     （业务员能进档案，但不能进连接器/数据源配置）⇒ 不判就会出现"点了被弹回工作台"（假入口）。
-     ⚠️ v311：容器已由「能力中心」更名「AI 引擎」——**提示文案必须跟着改**，
-        否则用户按提示去找一个已经不存在的菜单名。路由仍是 `/connect`，判据没变。 */
-  if (!canSee('/connect')) { toast('你没有访问「AI 引擎」的权限', 'warn'); return }
-  remindOpen.value = false
-  router.push('/connect')
-}
+/* v291（2026-09-27）：入口同判据 —— 能进档案的人**不一定**能进「AI 引擎」
+   （业务员能进档案，但不能进连接器/数据源配置）⇒ 不判就会出现"点了被弹回工作台"（假入口）。
+   🔴 v311：容器已由「能力中心」更名「AI 引擎」。v768 起这个页名**不再手写**。 */
+const goConnect = () => goNav('/connect', { before: () => { remindOpen.value = false } })
 
 /* ---- 员工 CRUD ---- */
 function salaryOf(e) {
@@ -1676,13 +1694,9 @@ async function resetExtPwd() {
   finally { extBusy.value = false }
 }
 
-/** 去「预报订单管理 → 报单配置」给该客户配门店。
- *  🔴 入口同判据（与 goConnect 同规矩）：能进员工档案的人**不一定**能进预报订单管理
- *     ⇒ 不判就会出现「点了没反应 / 被弹回工作台」的假入口。 */
-function goReportConfig() {
-  if (!canSee('/forecast')) { toast('你没有访问「预报订单管理」的权限', 'warn'); return }
-  router.replace({ path: '/forecast', query: { tab: 'config' } }).catch(() => {})
-}
+/* v768：「去「预报订单管理 → 报单配置」给该客户配门店」= 上面的 `goReportMapping`。
+   原 `goReportConfig` 与它目标完全相同（`/forecast?tab=config` + replace），
+   只多一道 canSee —— 两个副本同时存在，早晚有一处改漏。已删，调用点统一。 */
 
 /* ---- v266 兼任角色（角色可叠加）---------------------------------------------
    三个小工具，判据与后端 `core.user_roles()` 完全同源（都容错中英文分隔符），

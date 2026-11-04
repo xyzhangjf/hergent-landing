@@ -120,7 +120,7 @@
           <span class="rts-new-sub">从下面勾选当日待配送单，按勾选顺序串成线路；顺序可用「优化排序」重排</span>
         </div>
         <div v-if="!tasks.length" class="rts-hint-empty">
-          {{ form.date }} 没有待配送的单 —— 可换个日期，或先去销售单侧分车。
+          {{ form.date }} 没有待配送的单 —— 可换个日期，或<GoLink to="/inventory/sale">先去销售单侧分车</GoLink>。
         </div>
         <div v-else class="rts-pick-list">
           <label v-for="t in tasks" :key="t.id" class="rts-pick-item">
@@ -277,6 +277,7 @@ import Skeleton from '../../components/Skeleton.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { whApi } from '../../api/wh.js'
 import Icon from '../../components/Icon.vue'
+import GoLink from '../../components/GoLink.vue'
 import { toast } from '../../store'
 /* v671：全选三态复选框（全站统一件，原型 = 本期预报 v615 那颗）。 */
 import SelectAllCheckbox from '../../components/SelectAllCheckbox.vue'

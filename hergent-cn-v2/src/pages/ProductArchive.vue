@@ -681,6 +681,7 @@ import ColMenuPanel from '../components/ColMenuPanel.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { productsApi, importApi } from '../api/modules'
 import * as XLSX from 'xlsx'
@@ -1379,6 +1380,31 @@ function openBatchFp() {
   loadFpGate()
 }
 
+const _route = useRoute()
+const _router = useRouter()
+/* v766：`/archive/products?fp=1` 直达「批量补进价」面板。
+   ------------------------------------------------------------
+   由来：四张利润报表（企业经营利润 / 客户利润概览 / 客户利润分析 / 毛利分析）
+   和预报导入面板都写着「请先在商品档案补齐进货价」—— 那是**跨页死文案**：
+   用户被要求去补价，却没有可点的东西，还得自己从侧栏摸到本页、再找到工具栏那颗
+   徽标按钮。更糟的是这四张报表在缺进价时毛利率恒为 100%，看起来像"生意极好"。
+
+   🔴 入口判定必须与本页工具栏那颗按钮**同源**（`missingFactoryCount > 0`）：
+      都为 0 时直接说「已全部录过」，不弹一个空面板让用户以为系统坏了。
+   🔴 这是一次性指令，消费后立刻从 URL 摘掉 —— 否则关掉弹窗按 F5 又弹一次，
+      用户会以为上次没保存成功（同 `Rebate.vue::_applyRouteNew` 的教训）。 */
+async function _applyRouteFp() {
+  if (String((_route.query || {}).fp || '') !== '1') return
+  const q = { ...(_route.query || {}) }
+  delete q.fp
+  _router.replace({ path: _route.path, query: q }).catch(() => {})
+  if (!missingFactoryCount.value) {
+    toast('所有启用商品都已录过进价，无需补录', 'ok')
+    return
+  }
+  openBatchFp()
+}
+
 /* ---- v158 进价闸门：读状态 / 开与关 ---- */
 async function loadFpGate() {
   try {
@@ -1876,10 +1902,11 @@ async function exportXlsx() {
   } catch (e) { toast(e.message || '导出失败', 'err') }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadProducts()
   loadBrandOptions()
-  refreshProductIndex()
+  await refreshProductIndex()
+  _applyRouteFp()
 })
 </script>
 

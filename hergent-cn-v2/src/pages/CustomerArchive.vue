@@ -84,8 +84,12 @@
           </select>
         </div>
       </div>
+      <!-- v767：空态分三层 —— 筛选无结果 / 有权限说「点右上角」/ 只读角色说「你没有这颗按钮」。
+           「+ 新增客户」「导入」两颗都带 v-if="canDo('data','create')"，只读角色一颗也看不到。 -->
       <div v-else class="state-empty">
-        {{ keyword || bizFilter ? '没有匹配的客户，换个条件试试' : '还没有客户档案 —— 点右上角「+ 新增客户」，或用「导入」批量录入' }}
+        <template v-if="keyword || bizFilter">没有匹配的客户，换个条件试试</template>
+        <template v-else-if="canDo('data', 'create')">还没有客户档案 —— 点右上角「+ 新增客户」，或用「导入」批量录入</template>
+        <template v-else>{{ noNewPermHint('+ 新增客户') }}</template>
       </div>
       <ColMenuPanel ref="panel" :col-list="COLS" :is-visible="isVisible" :toggle-col="toggleCol" :reset-cols="resetCols" />
     </div>
@@ -214,10 +218,10 @@ import ColMenuPanel from '../components/ColMenuPanel.vue'
 import ImportMapping from '../components/ImportMapping.vue'
 import ImportReceipt from '../components/ImportReceipt.vue'
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { api } from '../api/client'
 import { importApi } from '../api/modules'
 import { toast, canDo } from '../store'
+import { noNewPermHint } from '../utils/permHint.js'
 /* v291：页内跳转入口同判据（见 goConnect）。 */
 
 /* 🔴 列设置（齿轮）：替换「序号」表头，可选列默认全开，核心列恒显。 */
@@ -232,9 +236,10 @@ const { isVisible, toggleCol, resetCols } = useColSettings('CUSTOMER-ARCHIVE', C
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
-import { canSee } from '../constants/pages'
+/* v291：页内跳转入口同判据。v768：收敛到 useGoPage（唯一实现 + 页名反查）。 */
+import { useGoPage } from '../utils/useGoPage'
 
-const router = useRouter()
+const goNav = useGoPage()
 
 /* ---- 列表 ---- */
 const items = ref([])
@@ -491,15 +496,11 @@ async function onSync() {
   } catch (e) { toast(e.message || '同步失败', 'err') }
   finally { syncBusy.value = false }
 }
-function goConnect() {
-  /* v291（2026-09-27）：入口同判据 —— 能进档案的人**不一定**能进「AI 引擎」
-     （业务员能进档案，但不能进连接器/数据源配置）⇒ 不判就会出现"点了被弹回工作台"（假入口）。
-     ⚠️ v311：容器已由「能力中心」更名「AI 引擎」——**提示文案必须跟着改**，
-        否则用户按提示去找一个已经不存在的菜单名。路由仍是 `/connect`，判据没变。 */
-  if (!canSee('/connect')) { toast('你没有访问「AI 引擎」的权限', 'warn'); return }
-  remindOpen.value = false
-  router.push('/connect')
-}
+/* v291（2026-09-27）：入口同判据 —— 能进档案的人**不一定**能进「AI 引擎」
+   （业务员能进档案，但不能进连接器/数据源配置）⇒ 不判就会出现"点了被弹回工作台"（假入口）。
+   🔴 v311：容器已由「能力中心」更名「AI 引擎」。v768 起这个页名**不再手写** ——
+     由 `useGoPage` 从页面注册表反查，改名时提示自动跟着变（上一批清掉的正是这类假指路）。 */
+const goConnect = () => goNav('/connect', { before: () => { remindOpen.value = false } })
 
 onMounted(() => { loadList(); loadOptions(); probeConnectors() })
 </script>

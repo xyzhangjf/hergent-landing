@@ -24,6 +24,7 @@ import {ARR_WEEKDAY_CN} from '../../utils/forecast/date.js'
 //    抽离脚本只探测了 api/fmt/calc/date 等 helper，漏了 Icon ⇒ 组件未解析、箭头**从未渲染**
 //    （项目无 unplugin-vue-components、main.js 也未全局注册 Icon，故必须显式 import）。
 import Icon from '../Icon.vue'
+import GoLink from '../GoLink.vue'
 
 const props = defineProps({
   period:    { type: Object,  default: null },
@@ -573,7 +574,7 @@ onMounted(() => { loadTenantParams(); loadRebateRules(); loadRebateAchievements(
           <b class="val-warn">{{ rebateRulesErr }}</b> —— 处理完这里会自动出现；
           已填报的达成数据不受影响，不会丢。
         </p>
-        <p v-else class="hint">尚未配置品牌 / 商品返利目标。去「目标与返利」页创建目标后，这里会在你下单时实时显示达成率、缺口与建议均单；实际达成可在「达成填报」补录或 Excel 导入。</p>
+        <p v-else class="hint">尚未配置品牌 / 商品返利目标。<GoLink :to="{ path: '/rebate', query: { tab: 'rules', new: 'brand' } }">去「目标与返利」创建目标</GoLink>后，这里会在你下单时实时显示达成率、缺口与建议均单；实际达成可在「达成填报」补录或 Excel 导入。</p>
       </div>
     </div>
 </template>

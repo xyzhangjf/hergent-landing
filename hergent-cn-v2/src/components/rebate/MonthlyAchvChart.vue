@@ -189,8 +189,11 @@
 
     <div v-if="!loading && hasAny && ftText" class="mac-ft">
       <!-- v154 E4：原三条并列脚注读起来像"bug 列表"，本质是同一件事：本图的统计范围 → 合并为一句；
-           「去达成填报补录」的动作指引下沉到 hover title（需要时才有，不占常驻版面） -->
-      <span :title="(emptyMonths || emptyRebateMonths) ? '灰色轨道＝该月尚未填报销量达成或实际返利，可去「达成填报」补录' : ''">{{ ftText }}</span>
+           「去达成填报补录」的动作指引下沉到 hover title（需要时才有，不占常驻版面）。
+           v766：title 里放不进按钮 ⇒ 有缺月时**另给一个常驻可点入口**。原来那句话在
+           hover 里说「可去达成填报补录」，用户点不动、也不知道达成填报在哪。 -->
+      <span :title="(emptyMonths || emptyRebateMonths) ? '灰色轨道＝该月尚未填报销量达成或实际返利' : ''">{{ ftText }}</span>
+      <GoLink v-if="emptyMonths || emptyRebateMonths" :to="{ path: '/rebate', query: { tab: 'achv' } }">去「达成填报」补录</GoLink>
     </div>
   </div>
 </template>
@@ -198,6 +201,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { rate, niceMax } from './useMonthlyAchv.js'
+import GoLink from '../GoLink.vue'
 import { tipAnchor, clampTipAnchor } from './tipPlacement.js'
 /* v491：柱体几何上提到通用图表层 —— 本组件的「槽宽 / 柱宽 / 高度 / 刻度」不再自己算。
    🔴 抽出的判据是**几何逐像素等价**（同一套 slot/gap/bw 公式），不是"重写一遍看着像"：

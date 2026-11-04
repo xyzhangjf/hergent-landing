@@ -34,7 +34,12 @@
       <Skeleton :rows="5" label="正在加载渠道" />
     </div>
     <!-- v713：空态分两种 —— 渠道全被停用时说「还没有渠道」是谎报（渠道在，只是被收起） -->
-    <div v-else-if="!channelsAll.length" class="pc-empty">还没有渠道。点右上角「新建渠道」开始。</div>
+    <!-- v767：只读角色看不到页头「新建渠道」（v-if="canDo('data','create')"），
+         空态不能再说「点右上角」。 -->
+    <div v-else-if="!channelsAll.length" class="pc-empty">
+      <template v-if="canDo('data', 'create')">还没有渠道。点右上角「新建渠道」开始。</template>
+      <template v-else>{{ noNewPermHint('新建渠道') }}</template>
+    </div>
     <div v-else-if="!channels.length" class="pc-empty">
       当前没有启用中的渠道（{{ inactiveChCount }} 个已停用，已收起）——<button type="button" class="lnk-btn" @click="showInactiveCh = true">显示已停用</button>
     </div>
@@ -212,7 +217,7 @@
         没有匹配的客户专属价。
         <div class="pc-empty-sub">
           ① 点上方「下载导入模板」填好再导入（列：客户名称、商品名称、条码、小单位价、中单位价、大单位价）；
-          ② 或先去「客户档案」「商品档案」把客户与商品建出来。
+          ② 或先<GoLink to="/archive/customers">去「客户档案」</GoLink>、<GoLink to="/archive/products">「商品档案」</GoLink>把客户与商品建出来。
         </div>
       </div>
     </div>
@@ -373,12 +378,14 @@
 <script setup>
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
+import GoLink from '../components/GoLink.vue'
 /* v713：已停用渠道默认收起 —— 全站统一件（口径见 composables/useInactiveFilter.js） */
 import InactiveToggle from '../components/InactiveToggle.vue'
 import { useInactiveFilter } from '../composables/useInactiveFilter'
 import { ref, computed, onMounted } from 'vue'
 import { priceChannelApi, reportMappingApi, productsApi, custPriceApi } from '../api/modules'
 import { toast, canDo, confirm } from '../store'
+import { noNewPermHint } from '../utils/permHint.js'
 // 列设置齿轮（替换「序号」表头）：复用共享 useColSettings + ColMenuPanel，不新建基础设施。
 import { useColSettings } from '../composables/useColSettings.js'
 import ColMenuPanel from '../components/ColMenuPanel.vue'
