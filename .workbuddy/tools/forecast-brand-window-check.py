@@ -115,7 +115,8 @@ def main():
         try:
             from domain.brand_order_window import (
                 normalize_brand, weekday_of, weekdays_short, weekdays_full, tip_for,
-                rules_from_rows, judge, window_map, banner_for, banner_sub_for, preview,
+                rules_from_rows, judge, window_map, banner_for, preview,
+                next_order_date, lock_msg_for, has_unrestricted_brand,
             )
         except Exception as e:
             print('\u274c 判定内核无法导入：%r' % (e,))
@@ -173,21 +174,51 @@ def main():
         ok(weekdays_full([1, 4]) == '周一、周四', 'E2 full')
         ok(tip_for([7]) == '该商品可报单时间为每周日，本期不可提报', 'E3 单星期周日')
 
-        print('=== F 横幅 ===')
+        print('=== F 横幅（v765d：只报可报品牌，不点名不可报）===')
+        # 🔴 判据方向变了：v765b 锁的是「主句不列品牌名」，现在锁的是
+        #    「主句**只**列可报品牌、且绝不出现不可报品牌名」。
+        #    这两条必须一起断言 —— 只锁前者，把 old 实现换回来也全绿。
         ok(banner_for({}) == '', 'F1 无规则 → 空串')
-        ok(banner_for({'简爱': {'orderable': True}}) == '', 'F2 全可报 → 空串')
-        # F3/F4/F5（v765b）：主句**不列品牌名**，品牌名归展开明细。
-        # 这条判据必须锁在"主句里没有品牌"上 —— 锁"含品牌"就等于把旧行为钉死，
-        # 而旧行为正是主句被品牌名挤爆换行的成因。
+        ok(banner_for({'简爱': {'orderable': True}}) == '', 'F2 全可报 → 空串（列白名单＝误导）')
         b3 = banner_for({'简爱': {'orderable': False}, '蒙牛低温': {'orderable': True}})
-        ok('简爱' not in b3 and '蒙牛低温' not in b3, 'F3 🔴 主句不列品牌名：' + b3)
-        ok('1' in b3, 'F4 主句报数量')
-        ok(banner_sub_for({'简爱': {'orderable': False}, '蒙牛低温': {'orderable': True}}) != '',
-           'F5 部分不可报 → 副句成立')
-        ok(banner_sub_for({'简爱': {'orderable': False}}) == '',
-           'F6 🔴 全部不可报 → 副句必须空（说"其余可报"是反话）')
-        ok(banner_sub_for({'简爱': {'orderable': True}}) == '', 'F7 全可报 → 副句空')
-        ok(banner_sub_for({}) == '', 'F8 无规则 → 副句空')
+        ok(b3 == '本期可报品牌：蒙牛低温', 'F3 🔴 正向句只列可报品牌：' + b3)
+        ok('简爱' not in b3, 'F4 🔴 绝不点名不可报品牌')
+        b5 = banner_for({'简爱': {'orderable': False}})
+        ok(b5 == '本期暂无可报品牌', 'F5 🔴 全禁必须留一句（整条消失＝用户以为没限制）')
+        ok('简爱' not in b5, 'F6 全禁那句同样不点名品牌')
+        # 🔴 free=True（还有没配报单日的品牌）—— 生产就是这个形态：
+        #    只有简爱/新希望配了星期，蒙牛低温等几百个商品随时可报。
+        #    这时只说「本期可报品牌：简爱」会让用户以为别的都不能报 ⇒ 整片少报。
+        ok(banner_for({'简爱': {'orderable': False}, '新希望': {'orderable': True}}, True)
+           == '本期可报品牌：新希望，其它品牌均可报', 'F7 🔴 有 free 品牌必须交代兜底')
+        ok(banner_for({'简爱': {'orderable': False}}, True) == '本期可报品牌：其它品牌均可报',
+           'F8 🔴 受限品牌全禁 + 有 free ⇒ 不能说"暂无可报品牌"（那是假话）')
+        ok(banner_for({'简爱': {'orderable': True}}, True) == '',
+           'F9 全可报仍然不渲染（有没有 free 都一样）')
+
+        _fc = sqlite3.connect(db_main)
+        ok(has_unrestricted_brand(_fc, {}) is True, 'F10 一条规则都没有 ⇒ 有 free')
+        ok(has_unrestricted_brand(_fc, {'简爱': {}, '蒙牛低温': {}, '蒙牛鲜奶': {}}) is False,
+           'F11 🔴 品牌配齐（归一后比对）⇒ 无 free，横幅不许再提"其它品牌"')
+        ok(has_unrestricted_brand(_fc, {'简爱': {}, '蒙牛低温': {}}) is True,
+           'F12 漏一个品牌就算 free')
+        _fc.close()
+
+        print('=== L 拦截弹窗文案（v765d：本期不可报 + 哪天再来）===')
+        from datetime import datetime as _dt
+        ok(next_order_date([], _dt(2026, 11, 4)) == '', 'L1 无星期 → 空串（前端退到无日期句）')
+        nd = next_order_date([1, 4], _dt(2026, 11, 4))   # 周三 → 下一个周一/周四 = 11-05
+        ok(nd == '11月5日（周四）', 'L2 下一个可报日：' + nd)
+        ok(next_order_date([3], _dt(2026, 11, 4)) == '11月11日（周三）',
+           'L3 🔴 今天本身在星期里也要跳过（从明天起算）')
+        jl = judge('简爱', '2026-11-04', R, True, _dt(2026, 11, 4))
+        ok(jl['lock_msg'] == '简爱 只能在每周一、四报单，请在11月5日（周四）填报',
+           'L4 🔴 弹窗整句（品牌+星期+具体日期）：' + jl['lock_msg'])
+        ok(jl['next_date'] == '11月5日（周四）', 'L5 单独字段也可用')
+        ok(lock_msg_for('简爱', [1, 4], '') == '简爱 只能在每周一、四报单，本期已无可报日',
+           'L6 算不出日期 ⇒ 不带假日期')
+        ok(judge('新希望', '2026-11-04', R, True, _dt(2026, 11, 4))['lock_msg'] == '',
+           'L7 可报品牌不得带拦截句（否则会误弹）')
 
         print('=== G 生产真实 23 期（核心断言）===')
         got14 = {pid for pid, oe in PERIODS if judge('简爱', oe, R, True)['orderable']}
@@ -263,11 +294,14 @@ def main():
         ok('简爱' in ctx42['brands'], 'N1 简爱进判定表')
         ok(ctx42['brands']['简爱']['orderable'] is False, 'N2 🔴 周三 42 不可报')
         ok(ctx42['brands']['简爱']['tip'] == '该商品可报单时间为每周一、四，本期不可提报', 'N3 提示文案')
-        ok(ctx42['banner'] != '' and '简爱' not in ctx42['banner'], 'N4 主句只报数量：' + ctx42['banner'])
-        # N 段夹具里只有「简爱」一个品牌配了规则 ⇒ 本期是**全禁**，副句必须为空。
-        # 这不是顺带测：生产当前就是这个形态（生效品牌只有一个），若副句在这里说
-        # 「其余品牌可正常报单」，用户一个都报不了却被告知别的品牌能报。
-        ok(ctx42['banner_sub'] == '', 'N4b 🔴 单规则品牌全禁 → 副句空：' + repr(ctx42['banner_sub']))
+        # N 段夹具里只有「简爱」一个品牌配了规则 ⇒ 本期**全禁**。
+        # 这一格是全套里最容易被写成空串的地方（旧实现就是空串）—— 但整条横幅消失
+        # 等于告诉用户"这期没限制"，然后每一行都被挡、页面顶部找不到任何解释。
+        # 夹具 products 里有「蒙牛低温 / 蒙牛鲜奶」而规则只配了简爱 ⇒ free=True，
+        # 所以这里的正确输出是「其它品牌均可报」，**不是**"暂无可报品牌"。
+        ok(ctx42['banner'] == '本期可报品牌：其它品牌均可报',
+           'N4 🔴 全禁 + 有 free 品牌 → 说"其它可报"：' + ctx42['banner'])
+        ok(ctx42['free'] is True, 'N4b 🔴 下发 free 标记（前端据此解释"其它品牌"）')
         ok(bw.period_brand_windows(41)['brands']['简爱']['orderable'] is True, 'N5 🔴 周一 41 可报')
         ok(bw.period_brand_windows(41)['banner'] == '', 'N6 全可报 → 无横幅')
 
@@ -281,7 +315,7 @@ def main():
         ok(c_old['order_end'] == '2026-11-04', 'U1 缺列仍读到 order_end：' + repr(c_old['order_end']))
         ok(c_old['brands'].get('简爱', {}).get('orderable') is False,
            'U2 🔴 缺列不许把限制吞成全放行')
-        ok(c_old['banner'] != '', 'U3 缺列仍能出横幅：' + c_old['banner'])
+        ok(c_old['banner'] == '本期可报品牌：其它品牌均可报', 'U3 缺列仍能出横幅：' + c_old['banner'])
         conn_old.close()
 
         print('=== O 边界 ===')

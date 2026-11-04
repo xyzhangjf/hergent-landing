@@ -36,7 +36,7 @@ fail-safe 方向 = **放行**（与 `db/queries/forecast_rules.py` 的数量校�
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from db.connection import get_db, get_db_tx
 from domain.arrival_schedule import WEEKDAY_LABELS, parse_weekdays
@@ -54,17 +54,34 @@ DEFAULTS = {"enabled": False}
 #（v759 教训：五种组合摊在 wxml 里必然漏一种）。
 TIP_TMPL = "该商品可报单时间为每周{wd}，本期不可提报"
 
-# 顶部横幅主句（有不可报品牌时用）。
-# 🔴 主句**只报数量、不列品牌名**：品牌名迁移到展开明细（`bwDetail`）由前端按
-#    「品牌（每周X、Y）」逐条列。原因是同一条信息在两个位置各说一遍时，
-#    主句一旦品牌多（生产最长见过 3 个）就会换行、把「详情」挤出可视区，
-#    而明细本来就要列品牌 —— 主句再列一次只是重复，且重复处更早被截断。
-BANNER_TMPL = "本期有 {n} 个品牌的商品不可提报"
+# 顶部横幅（v765d）：**只说「本期能报什么」，不说「哪些不能报」**。
+#    用户原话：「只需要告知本期可报品牌，不需要告知哪些品牌不能提报」。
+#    报单是"我要填什么"的场景，用户扫一眼要拿到的答案是白名单；
+#    「有 2 个品牌不可提报」需要他再点开明细才知道能填哪些 —— 多一步、且默认是坏消息。
+BANNER_TMPL = "本期可报品牌：{brands}"
 
-# 顶部横幅副句（展开时显示）：只在「确实还有可报品牌」时给。
-# 🔴 全禁时必须为**空串** —— 此时说「其余品牌可正常报单」是反话，
-#    而这句话恰好出现在用户最需要准确信息的时刻（一个都报不了）。
-BANNER_SUB_TMPL = "其余品牌可正常报单"
+# 🔴 白名单必须交代「没说到的品牌怎么办」。
+#    `window` 里只有**配了 `order_weekdays` 的品牌**，其余品牌（生产上还有
+#    蒙牛低温 / 蒙牛鲜奶等几百个商品）**随时可报**。横幅若只写「本期可报品牌：简爱」，
+#    用户会读成"今天只有简爱能报"，然后整个蒙牛低温都不填了 ——
+#    白名单漏项比黑名单更危险：黑名单漏掉的品牌用户照样填得进去（还能提交），
+#    白名单漏掉的品牌用户**不敢填**，直接少报一期。
+BANNER_FREE_SUFFIX = "，其它品牌均可报"
+
+# 全部「配了报单日」的品牌本期都不可报，但还有不受限的品牌（生产常态：周四既非
+# 简爱（三/六）也非新希望（一/五）的报单日）。
+BANNER_FREE_ONLY = "本期可报品牌：其它品牌均可报"
+
+# 所有活跃品牌都配了报单日，且一个都不在报单日（客户把品牌配齐了的极端态）。
+# 🔴 此时**必须**说一句：横幅整条消失，用户会以为「这期没有限制」，
+#    然后每一行都被挡、页面顶部找不到任何解释。这句话不点名任何品牌。
+BANNER_NONE_TMPL = "本期暂无可报品牌"
+
+# 拦截弹窗（填了不可报的商品时）：「本期不可报 + 哪天再来」。
+# 🔴 必须给**具体日期**而不是只说「下个报单日」：用户看完弹窗就要决定
+#    "现在收手、那天再来"，给星期等于让他自己算日子。
+LOCK_TMPL = "{brand} 只能在{wd}报单，请在{nd}填报"
+LOCK_TMPL_NO_DATE = "{brand} 只能在{wd}报单，本期已无可报日"
 
 
 # ---------------------------------------------------------------- 纯函数（可脱离 DB 单测）
@@ -124,6 +141,36 @@ def tip_for(ws):
     return TIP_TMPL.format(wd=weekdays_short(ws))
 
 
+def next_order_date(ws, today=None):
+    """下一个符合 `ws` 的**日历日** → `11月5日（周四）`；`ws` 空 ⇒ 空串。
+
+    从**明天**起算（今天若能报就不该走到这里 —— 走到锁定的都是今天不在 `ws` 的）。
+
+    🔴 口径限制（写在这里，免得后人当权威）：这是**日历推算**，不是查期次表。
+       本系统 2 天/期，与 7 天/周互质，所以「下一个星期三」和「下一个下单日落在
+       星期三的期次」在绝大多数情况下重合，但**不保证**（期次手工调整过就会错位）。
+       所以文案里**同时给了星期**（`11月5日（周四）`）—— 日期错位时用户仍能从
+       "每周三、六"看出规律，而不是彻底迷路。真正的判据永远在服务端。
+    """
+    if not ws:
+        return ""
+    t = today if isinstance(today, datetime) else datetime.now()
+    base = t.date() if hasattr(t, "date") else t
+    for i in range(1, 15):
+        d = base + timedelta(days=i)
+        if d.isoweekday() in ws:
+            return "%d月%d日（周%s）" % (d.month, d.day, WEEKDAY_LABELS[d.isoweekday()])
+    return ""
+
+
+def lock_msg_for(brand, ws, nd):
+    """拦截弹窗正文。`nd` 为空 ⇒ 退到不带日期的句子（宁缺日期，不给假的）。"""
+    label = "每周" + weekdays_short(ws)
+    if nd:
+        return LOCK_TMPL.format(brand=brand, wd=label, nd=nd)
+    return LOCK_TMPL_NO_DATE.format(brand=brand, wd=label)
+
+
 def rules_from_rows(rows):
     """DB 行 → `{brandKey: {"weekdays":[…], "rule_id", "lead_days"}}`。**纯函数**。
 
@@ -153,8 +200,9 @@ def rules_from_rows(rows):
     return out
 
 
-def judge(brand, order_end, rules, enabled=True):
-    """单品牌判定 → `{"brand","orderable","weekdays","weekdays_label","tip"}`。
+def judge(brand, order_end, rules, enabled=True, today=None):
+    """单品牌判定 → `{"brand","orderable","weekdays","weekdays_label","tip",
+                    "next_date","lock_msg"}`。
 
     `order_end` 是该期次的**报单截止日**（`forecast_periods.order_end`）。
     任何一环缺失（开关关 / 日期坏 / 品牌没规则）⇒ 可报。
@@ -167,7 +215,7 @@ def judge(brand, order_end, rules, enabled=True):
     """
     key = normalize_brand(brand)
     res = {"brand": key, "orderable": True, "weekdays": [],
-           "weekdays_label": "", "tip": ""}
+           "weekdays_label": "", "tip": "", "next_date": "", "lock_msg": ""}
     if not enabled:
         return res
     wd = weekday_of(order_end)
@@ -185,51 +233,49 @@ def judge(brand, order_end, rules, enabled=True):
         return res
     res["orderable"] = False
     res["tip"] = tip_for(ws)
+    # v765d：弹窗正文（含"请在 X月X日（周X）填报"）也在这里拼好 ——
+    # 前端 `_bwMsg()` 早期版本是自己拼「品牌：周X 才能报单」，两处口径必然漂
+    #（品牌名、星期、日期三样东西各一处），所以改成后端给整句、前端只渲染。
+    nd = next_order_date(ws, today)
+    res["next_date"] = nd
+    res["lock_msg"] = lock_msg_for(key, ws, nd)
     return res
 
 
-def window_map(order_end, rules, enabled=True):
+def window_map(order_end, rules, enabled=True, today=None):
     """全部**有规则**的品牌 → `{brandKey: judge(...)}`。**纯函数**。
 
     只返回有规则的品牌（没规则的直接不存在 ⇒ 前端取不到就按可报处理），
     这样下发体最小：生产目前是 2 个有效品牌，不是 390 个。
     """
     return {
-        k: judge(k, order_end, rules, enabled)
+        k: judge(k, order_end, rules, enabled, today)
         for k in (rules or {}).keys()
     }
 
 
-def banner_for(window, brand_counts=None):
-    """顶部横幅主句。没有不可报品牌时返回空串（前端整条不渲染）。
+def banner_for(window, free=False):
+    """顶部横幅：**只列本期可报的品牌**（v765d 用户口径）。
 
-    `brand_counts` 保留但**已不参与文案**（主句不再列品牌名）：
-    排序只在明细里用，且明细由前端按 `brands` 的键序渲染 —— 这里留参数是为了
-    不破坏既有调用点与 71 项断言的签名；真正的排序责任已经转到前端明细。
+    `free` = 还存在「有活跃商品、但没配 `order_weekdays`」的品牌（不受限）。
+
+    四种状态，缺一即说谎：
+      · 无规则 ⇒ 空串（一条限制都没有，谈不上"本期可报"）
+      · 全可报 ⇒ 空串。**没有限制时列白名单就是误导**
+      · 部分可报 ⇒ 「本期可报品牌：A、B」(+ 「，其它品牌均可报」)
+      · 全部不可报 ⇒ 「本期暂无可报品牌」；若 `free` 则改说「其它品牌均可报」
+        —— 此时说"没有可报品牌"是**假的**（不受限的品牌一大堆能报）
     """
-    blocked = [k for k, v in (window or {}).items() if not v.get("orderable")]
-    if not blocked:
-        return ""
-    return BANNER_TMPL.format(n=len(blocked))
-
-
-def banner_sub_for(window):
-    """顶部横幅副句（展开时显示）。**只在还有可报品牌时**返回，否则空串。
-
-    🔴 三态缺一即说谎：
-      · 无规则 / 全可报 ⇒ 主句与副句都空（整条不渲染，谈不上"其余"）
-      · 部分不可报 ⇒ 副句成立
-      · **全部不可报** ⇒ 副句必须空。此时说"其余品牌可正常报单"是反话，
-        而它恰好出现在用户一个都报不了的时刻 —— 比不说更糟。
-    """
-    brands = (window or {})
+    brands = window or {}
     if not brands:
         return ""
-    if not [k for k, v in brands.items() if not v.get("orderable")]:
-        return ""
-    if not [k for k, v in brands.items() if v.get("orderable")]:
-        return ""
-    return BANNER_SUB_TMPL
+    ok = [k for k, v in brands.items() if v.get("orderable")]
+    tail = BANNER_FREE_SUFFIX if free else ""
+    if not ok:
+        return BANNER_FREE_ONLY if free else BANNER_NONE_TMPL
+    if len(ok) == len(brands):
+        return ""            # 配了星的都可报 ⇒ 这一期没有任何限制，无需横幅
+    return BANNER_TMPL.format(brands="、".join(ok)) + tail
 
 
 def preview(rules, periods, limit=8):
@@ -342,7 +388,31 @@ def load_rules(conn=None):
     return rules_from_rows(rows)
 
 
-def period_brand_windows(period_id=None, conn=None):
+def has_unrestricted_brand(conn, rules):
+    """是否存在「有活跃商品、但没配 `order_weekdays`」的品牌 —— 即不受报单日限制的品牌。
+
+    🔴 这个布尔值只影响横幅**敢不敢只说白名单**（见 `banner_for` 的 `free`）：
+       `window` 里只有配了星期的品牌，其余品牌随时可报。漏说这一句，用户会把
+       「本期可报品牌：简爱」读成"今天只有简爱能报"，整个蒙牛低温都不填了。
+       **白名单漏项 = 少报**，比黑名单漏项更危险（后者用户照样填得进去）。
+
+    fail 方向 = **当作有**（`True`）：多说一句"其它品牌均可报"最坏是用户去试一下
+    发现被挡（有弹窗解释）；少说一句则是用户默默少报一期，且零报错、无从发现。
+    """
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT brand FROM products WHERE is_active=1"
+        ).fetchall()
+    except Exception:
+        return True
+    for row in rows:
+        k = normalize_brand(row[0] if row else "")
+        if k and k not in (rules or {}):
+            return True
+    return False
+
+
+def period_brand_windows(period_id=None, conn=None, today=None):
     """某期次的品牌窗口总览 —— 端点与提交闸门共用。
 
     Returns:
@@ -353,7 +423,7 @@ def period_brand_windows(period_id=None, conn=None):
     调用方据 `brands.get(品牌, {}).get("orderable", True)` 判定 —— **取不到就是可报**。
     """
     ctx = {"enabled": False, "period_id": period_id, "order_end": "",
-           "weekday_cn": "", "banner": "", "banner_sub": "", "brands": {}, "rules": []}
+           "weekday_cn": "", "banner": "", "free": False, "brands": {}, "rules": []}
     try:
         cfg = get_config()
         ctx["enabled"] = bool(cfg.get("enabled"))
@@ -373,15 +443,15 @@ def period_brand_windows(period_id=None, conn=None):
                 d = dict(zip([x[0] for x in (cur.description or [])], r))
                 oe = ((d.get("order_end") or "").strip()
                       or (d.get("order_end_date") or "").strip())
-            # counts 已不需要：主句不再列品牌名（v765b），排序责任在明细。
-            # 保留一次全表 `GROUP BY brand` 只会白付一次扫描成本。
-            return oe, load_rules(c)
+            # counts 已不需要：主句只报可报品牌名（v765d），排序责任在明细。
+            rules = load_rules(c)
+            return oe, rules, has_unrestricted_brand(c, rules)
 
         if conn is not None:
-            oe, rules = _collect(conn)
+            oe, rules, free = _collect(conn)
         else:
             with get_db() as c2:
-                oe, rules = _collect(c2)
+                oe, rules, free = _collect(c2)
 
         oe = oe or ""
         wd = weekday_of(oe)
@@ -392,13 +462,13 @@ def period_brand_windows(period_id=None, conn=None):
         if wd is None:
             ctx["order_end"] = oe
             return ctx
-        wm = window_map(oe, rules, True)
+        wm = window_map(oe, rules, True, today)
         ctx.update({
             "order_end": oe,
             "weekday_cn": ("周" + WEEKDAY_LABELS[wd]) if wd else "",
             "brands": wm,
-            "banner": banner_for(wm),
-            "banner_sub": banner_sub_for(wm),
+            "banner": banner_for(wm, free),
+            "free": bool(free),
             "rules": [
                 {"brand": k, "weekdays": v.get("weekdays"),
                  "weekdays_cn": weekdays_full(v.get("weekdays") or []),
@@ -409,7 +479,7 @@ def period_brand_windows(period_id=None, conn=None):
     except Exception as e:
         log.warning("period_brand_windows 失败，按「全放行」处理: %s", e)
         return {"enabled": False, "period_id": period_id, "order_end": "",
-                "weekday_cn": "", "banner": "", "banner_sub": "", "brands": {}, "rules": []}
+                "weekday_cn": "", "banner": "", "free": False, "brands": {}, "rules": []}
     return ctx
 
 
@@ -424,5 +494,9 @@ def spec():
         "enabled": bool(cfg.get("enabled")),
         "tip_tmpl": TIP_TMPL,
         "banner_tmpl": BANNER_TMPL,
-        "banner_sub_tmpl": BANNER_SUB_TMPL,
+        "banner_none_tmpl": BANNER_NONE_TMPL,
+        "banner_free_only_tmpl": BANNER_FREE_ONLY,
+        "banner_free_suffix": BANNER_FREE_SUFFIX,
+        "lock_tmpl": LOCK_TMPL,
+        "lock_tmpl_no_date": LOCK_TMPL_NO_DATE,
     }

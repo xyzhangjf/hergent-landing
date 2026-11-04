@@ -2473,7 +2473,7 @@ def brand_window(request: Request, period_id: int = 0):
     except Exception as e:
         logging.getLogger("hergent").warning("brand-window 判定失败，按全放行: %s", e)
         ctx = {"enabled": False, "period_id": pid, "order_end": "", "weekday_cn": "",
-               "banner": "", "banner_sub": "", "brands": {}, "rules": []}
+               "banner": "", "free": False, "brands": {}, "rules": []}
     ctx["spec"] = spec()
     return {"success": True, **ctx}
 
