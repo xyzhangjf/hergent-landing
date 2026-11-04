@@ -61,8 +61,17 @@ function audit(src) {
 
   /* ── 2. 唯一写入口 setQty 的闸门 ── */
   A(js.includes('if (p.orderable === false) {'), '🔴 setQty 有 orderable === false 闸门')
-  A(/if \(p\.orderable === false\) \{\s*\n\s*wx\.showToast\(\{ title: this\._bwMsg\(p\)/.test(js),
-    '🔴 闸门必须用 _bwMsg 说清"哪天能报"，不能静默 return')
+  /* v765d：**toast → 弹窗**。用户原话：「如果用户没看到这个提示，还是去填报不能提报的
+     商品，给一个弹窗提示」。toast 2.6 秒就消失，而这一屏在小键盘弹起、列表滚到一半时
+     顶部横幅根本不在视野里 —— "没看到提示所以继续填"正是要修的场景。
+     四条一起锁：弹窗形态 / 走 _bwLock / 正文取后端整句 / 同品牌节流。 */
+  A(/wx\.showModal\(\{\s*\n\s*title: '本期不可提报'/.test(js),
+    '🔴 闸门用弹窗（不是 2.6s 就消失的 toast）')
+  A(js.includes('this._bwLock(p, this._bwMsg(p))'), '🔴 闸门统一走 _bwLock（一处文案）')
+  A(/if \(b\.lock_msg\) return b\.lock_msg/.test(js),
+    '🔴 弹窗正文用后端整句（前端不拼日期，否则多一份口径）')
+  A(js.includes('this._bwLockKey === k'), '🔴 同品牌 4 秒内只弹一次（showModal 会串行排队）')
+  A(!/wx\.showToast\(\{ title: this\._bwMsg/.test(js), '🔴 不再用 toast 做拦截（残留即两套）')
   /* fail-safe 方向：老后端没有这个字段（undefined），真值判断会把它当"不许报" */
   A(!/!\s*p\.orderable\b/.test(js), '🔴 不许出现 !p.orderable（undefined 会被当成不许报）')
 
@@ -94,9 +103,13 @@ function audit(src) {
   /* ── 6. 模板：横幅 + 行内禁用态，且横幅只有一条 ── */
   A((wxml.match(/class="bw-bar"/g) || []).length === 1, '🔴 品牌横幅只有一条（不重复渲染）')
   A(wxml.includes('bwOpen'), '横幅可展开（默认单行，不把商品列表挤出首屏）')
-  /* v765b：主句只报数量，品牌名进明细；副句「其余品牌可正常报单」只许由后端给空串控制 */
-  A(/bwOpen && bwSub/.test(wxml), '🔴 副句渲染条件含 bwSub（全禁时后端给空串 ⇒ 不许说反话）')
-  A(js.includes("d.banner_sub"), '🔴 副句取后端 banner_sub（前端不自己判谁可报）')
+  /* v765d：横幅改成**正向句**（只说本期能报什么，不说哪些不能报）。
+     三条必须一起锁：① 取后端 `banner`；② 明细只收可报品牌；③ `bwSub` 彻底撤销。
+     🔴 只锁 ③（"没有 bwSub"）的话，把整条横幅删掉也全绿 —— 那正是本文件最该防的。 */
+  A(js.includes("bwBanner: String((d && d.banner) || '')"), '横幅取后端 banner')
+  A(/if \(brands\[k\]\.orderable !== false\) \{\s*\n\s*parts\.push/.test(js),
+    '🔴 明细只列可报品牌（不点名不可报）')
+  A(!/bwSub/.test(js) && !/bwSub/.test(wxml), '🔴 副句机制已撤销（一件事只留一套语义）')
   A(wxml.includes('prod-row-lock'), '不可报行有专用类')
   A(wxml.includes('class="prod-lock"'), '行内显示"哪天才能报"')
   A(/\{\{item\.orderable === false\}\}/.test(wxml) || wxml.includes('item.orderable === false'),
@@ -117,7 +130,7 @@ function audit(src) {
   A(!/\.bw-[a-z]+\{[^}]*rgba\(/.test(wxss), '🔴 .bw-* 不用 rgba（品牌色带 alpha 会漂）')
 
   /* ── 9. 模板引用的 data 键必须都在 data 里声明（小程序不报错，只是永远假） ── */
-  for (const k of ['bwBrands', 'bwBanner', 'bwSub', 'bwDetail', 'bwOpen']) {
+  for (const k of ['bwBrands', 'bwBanner', 'bwDetail', 'bwOpen']) {
     A(new RegExp('\\b' + k + ':').test(js), `data 里声明了 ${k}`)
   }
 
@@ -155,8 +168,8 @@ try {
   /* ③ 三个坏样本，每个都必须让 audit 变红 */
   const samples = [
     ['m1', 'fill.js',
-      "if (p.orderable === false) {\n      wx.showToast({ title: this._bwMsg(p), icon: 'none', duration: 2600 })\n      return\n    }",
-      'if (false) {\n      return\n    }',
+      'if (p.orderable === false) {',
+      'if (false) {',
       'setQty 闸门被去掉（能填但提交时才炸）'],
     ['m2', 'fill.js',
       '      const purged = this._bwPurgeCart()\n      this.syncCart()',
@@ -170,10 +183,14 @@ try {
       'class="bw-bar"',
       'class="bw-bar-x"',
       '横幅整条被改名（用户再也看不到"本期哪些品牌不能报"）'],
-    ['m5', 'fill.wxml',
-      '{{bwOpen && bwSub}}',
-      '{{bwOpen}}',
-      '副句渲染条件被抹掉（全禁时会说"其余品牌可正常报单"）'],
+    ['m5', 'fill.js',
+      'if (this._bwLockKey === k',
+      'if (false',
+      '节流被抹掉（+ 连点会叠 3~4 个一模一样的弹窗）'],
+    ['m6', 'fill.js',
+      'if (brands[k].orderable !== false) {',
+      'if (true) {',
+      '明细把不可报品牌也列进去（用户又被塞回一份黑名单）'],
   ]
   for (const [tag, file, from, to, desc] of samples) {
     const src = mutate(tag, file, from, to)

@@ -54,21 +54,19 @@ Page({
        两条横幅**互斥渲染**（服务端优先）：一屏出现两条「本期已报」是最容易让人不信数字的
        那种 UI 缺陷（v735 同族：同一语义两处显示，各自都对、合起来是错的）。 */
     serverSub: null,
-    /* v765（2026-11-04）：**品牌报单日窗口** —— 本期哪些品牌"今天不能报"。
+    /* v765 / v765d（2026-11-04）：**品牌报单日窗口**。
        数据来自 `GET /api/forecast/brand-window?period_id=`，逐品牌给
-       `{ orderable, weekdays_short, tip }`；前端只做三件事：行内短标签 / 行禁用 /
-       顶部汇总横幅。**一个星期的推算都不在这里做**（2 天/期 与 7 天/周 互质 ⇒
-       星期以 7 期为周期循环，这条算法只许有一份实现，在后端 `domain/brand_order_window.py`）。
-       · `bwBrands` = 归一化品牌 label -> { orderable, cn, tip }（空对象 = 全放行）
-       · `bwBanner` = 汇总句（空串 ⇒ 整条不渲染，不占界面）
-       · `bwDetail` = 展开后的逐品牌明细
+       `{ orderable, weekdays_label, tip, lock_msg, next_date }`；前端只做三件事：
+       行内短标签 / 行禁用 / 顶部横幅。**一个星期的推算都不在这里做**
+       （2 天/期 与 7 天/周 互质 ⇒ 星期以 7 期为周期循环，这条算法只许有一份实现）。
+       · `bwBrands` = 品牌 label -> { orderable, cn, tip, lock_msg }（空对象 = 全放行）
+       · `bwBanner` = **正向**横幅句（`本期可报品牌：A、B`；空串 ⇒ 整条不渲染）
+       · `bwDetail` = 展开后逐品牌的可报星期
+       🔴 v765d 口径（用户原话）：只说"本期能报什么"，**不说"哪些不能报"**。
+          报单是"我要填什么"的场景，用户要的是白名单，不是黑名单 + 再点开一次。
        取不到 / 接口失败 / 老板没开开关 ⇒ 三项都空 ⇒ 行为与 v764 一字不差。 */
     bwBrands: {},
     bwBanner: '',
-    /* v765b：主句只报数量，品牌名与星期都进 `bwDetail`（展开区第一行）；
-       副句 `bwSub` 由后端在「还有可报品牌」时下发，全禁时是空串 —— 
-       横幅自己**不判**这件事，否则又多一份「谁算可报」的实现。 */
-    bwSub: '',
     bwDetail: '',
     bwOpen: false,
     /* v227（2026-09-21）：样单来源回执 —— { name, count, qty, outTip, outOfScope }。
@@ -1453,7 +1451,7 @@ Page({
       // 没期次 ⇒ 一定没有任何限制（判定依赖期次的报单截止日）
       this._bwPid = ''
       if (this.data.bwBanner || Object.keys(this.data.bwBrands || {}).length) {
-        this.setData({ bwBrands: {}, bwBanner: '', bwSub: '', bwDetail: '', bwOpen: false })
+        this.setData({ bwBrands: {}, bwBanner: '', bwDetail: '', bwOpen: false })
       }
       return Promise.resolve()
     }
@@ -1469,16 +1467,21 @@ Page({
           brands[k] = {
             orderable: b.orderable !== false,
             cn: String(b.weekdays_label || ''),
-            tip: String(b.tip || '')
+            tip: String(b.tip || ''),
+            /* v765d：拦截弹窗整句由后端拼（品牌+星期+具体日期三样都在里面）。
+               前端自己拼过一次「品牌：周X 才能报单」，那是**第二份口径**，
+               日期一加必然漂（谁拼谁负责，两处拼必有两套标点与措辞）。 */
+            lock_msg: String(b.lock_msg || '')
           }
-          if (brands[k].orderable === false) {
+          /* 明细**只列可报品牌**：主句已给名字，这里补的是"哪天能报"。
+             不可报品牌一个都不出现 —— 这是 v765d 的硬要求，不是排版偏好。 */
+          if (brands[k].orderable !== false) {
             parts.push(k + (brands[k].cn ? '（' + brands[k].cn + '）' : ''))
           }
         }
         this.setData({
           bwBrands: brands,
           bwBanner: String((d && d.banner) || ''),
-          bwSub: String((d && d.banner_sub) || ''),
           bwDetail: parts.join(' · '),
           bwOpen: false
         })
@@ -1502,9 +1505,37 @@ Page({
 
   /* 统一拦截句（setQty / 扫码 / 提交前共用一处文案，三处各拼一句必然漂） */
   _bwMsg(item) {
+    const b = (this.data.bwBrands || {})[String((item && item.brand_key) || '')] || {}
+    /* v765d：后端已给整句「简爱 只能在每周一、四报单，请在11月5日（周四）填报」，
+       直接用；取不到（老后端 / 接口失败）才退到下面这句兜底 —— 兜底**不带日期**，
+       因为前端没有星期表，硬算出来的日期是第三种口径。 */
+    if (b.lock_msg) return b.lock_msg
     const cn = this._bwShort(item)
     const brand = String((item && item.brand) || '').trim()
     return (brand ? brand + '：' : '') + (cn ? cn + ' 才能报单' : '本期不可提报')
+  },
+
+  /* v765d：**填了不可报的商品 → 弹窗**（原来只是一条 2.6s 的 toast）。
+     用户原话：「如果用户没看到这个提示，还是去填报不能提报的商品，给一个弹窗提示：
+     本期不可报，请在某某日填报」。toast 消失太快，页面顶部那条横幅又在滚动区之外
+     —— 用户在小键盘弹起、列表滚到一半时根本看不到它。
+
+     🔴 必须节流：`+` 连点、手输「123」都会连发多次 `setQty`，而 `wx.showModal`
+        是**串行排队**的 —— 不节流会连弹 3~4 个一模一样的窗，用户只能一个个点掉。
+         按**品牌**节流（不是按商品）：同品牌下不同商品说的是同一句限制。 */
+  _bwLock(item, msg) {
+    const k = String((item && item.brand_key) || (item && item.brand) || '')
+    const now = Date.now()
+    if (this._bwLockKey === k && now - (this._bwLockAt || 0) < 4000) return
+    this._bwLockKey = k
+    this._bwLockAt = now
+    wx.showModal({
+      title: '本期不可提报',
+      content: msg || '这个商品本期不可提报',
+      showCancel: false,
+      confirmText: '知道了',
+      confirmColor: '#0F766E'
+    })
   },
 
   /* 一键带入 / 样单 / 草稿恢复的**清车后体检**：
@@ -2184,7 +2215,9 @@ Page({
        🔴 不能做成"点了没反应"：不可报**必须**说出可报时间，否则用户以为界面卡了
           （v761 扫码 `fail:()=>{}` 吞掉 auth deny 的同一个坑）。 */
     if (p.orderable === false) {
-      wx.showToast({ title: this._bwMsg(p), icon: 'none', duration: 2600 })
+      /* v765d：toast → 弹窗（理由见 `_bwLock`）。
+         🔴 这里**仍然 return**，不改数量：弹窗是"说清楚"，不是"允许填了再说"。 */
+      this._bwLock(p, this._bwMsg(p))
       return
     }
     const key = p.id + '|' + (p.unit || '件')
@@ -2597,8 +2630,11 @@ Page({
       const lines = Object.keys(bwByBrand).map(k => '· ' + bwByBrand[k]).join('\n')
       wx.showModal({
         title: '本期有商品不可提报',
-        content: '下面 ' + bwBad.length + ' 项商品的品牌，今天不在报单日：\n' + lines
-               + '\n\n请先把这几个商品的件数删掉再提交（本期清单里其它品牌不受影响）。',
+        /* v765d：明细行由 `_bwMsg()` 给**整句**（品牌 + 每周X、Y + 具体哪天再来）。
+           末尾不再写「其它品牌不受影响」—— 本期可能一个品牌都不可报（生产上就有），
+           那句话在全禁时是假的，而这正是用户最需要准确信息的时刻。 */
+        content: '下面 ' + bwBad.length + ' 项商品本期不可提报：\n' + lines
+               + '\n\n请先把这几项的件数删掉再提交。',
         showCancel: false, confirmText: '返回修改', confirmColor: '#0F766E'
       })
       return
