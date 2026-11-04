@@ -193,7 +193,7 @@
         </button>
         <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
         <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="saveDisabled"
-                :title="saveGateHint || (periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵'))" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+                :title="saveGateHint || (periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵')))" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
         <!-- v201：常驻的保存状态。保存成功只弹一条几秒即消失的提示，之后页面与保存前
              长得一模一样 ⇒ 用户无法确认「到底存进去了没有」。这里给一个**一直挂着**的答案
              （保存失败另有红色横幅，两者语义不重叠）。
@@ -1067,7 +1067,7 @@
                 </button>
                 <button class="btn btn-sm btn-ghost" title="在网格末尾新增一行商品（补录商品）" @click="addRow"><Icon name="plus"/> 补录商品</button>
                 <button class="btn btn-sm btn-primary" :class="{ 'btn-retry': !!saveFailed }" :disabled="saveDisabled"
-                :title="saveGateHint || (periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵'))" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
+                :title="saveGateHint || (periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (noOpenPeriod ? saveBlockedReason : '保存本期报单矩阵')))" @click="saveEdits">{{ savingEdit ? '保存中…' : (saveFailed ? '重试保存' : '保存') }}</button>
                 <!-- v201/v208：常驻保存状态。三态 see saveState；保存成功后已改为退出编辑态，
                      故本态是「正在编辑、准备再改一轮」的人的常驻答案。 -->
                 <span class="save-state" :class="saveState.cls"
@@ -1144,6 +1144,20 @@
             <div class="col-menu-reset">
               <button class="cm-btn" @click="resetColWidths" title="清除本地列宽记忆，恢复默认列宽">重置列宽</button>
             </div>
+          </div>
+          <!-- v756：**授权改单常驻提示条**（改单态、期次已关闭/已截止、当前角色有改单权限 = v305 通道）。
+               为什么必须有一条看得见的横幅：原实现只在「改单」「保存」两个按钮的 title 里说这件事，
+               而 title 要悬停才出、且用户在表格里改数时根本不会去悬停 —— 于是他看到的是
+               「关单了却还能改」，会怀疑系统是不是放错了行、存了算不算数。
+               本项目一条纪律：能做的事要让用户知道为什么能做（与「不能做要说清原因」同等重要）。
+               ⚠️ 文案里「销售照旧报不了」是有意写的 —— 用户最先担心的就是"会不会被销售看到又改一遍"，
+                 而后端 `save_matrix` 的 allow_closed 只给 SUMMARY_ROLES，销售那条路（小程序 POST）没开。 -->
+          <div v-if="closedEditMode" class="closed-edit-bar" role="status">
+            <Icon name="lock"/>
+            <span>
+              <b>{{ periodClosed ? '本期次已关闭（已定稿）' : '本期次已过报单截止日' }}</b>
+              · 你以管理者身份改单，保存后会覆盖系统记录并在「通知中心」留痕；销售在小程序那边照旧报不了这一期。
+            </span>
           </div>
           <div class="table-wrap edit-grid-wrap" :class="{ 'is-filling': fillDragging }" :style="editMaxH ? { maxHeight: editMaxH + 'px' } : null" @scroll="onEditScroll">
           <!-- v598（C2）：跳转框（Ctrl+G）。Teleport 到 body：全屏模式下 `.grid-area.is-fs`
@@ -2279,7 +2293,7 @@
             <span class="sf-time">{{ saveFailed.at }}</span>
             <!-- v335：按钮级门禁 —— 重试保存 = 同一次 POST /api/forecast-submissions/save-matrix ⇒ data/create -->
             <button class="btn btn-xs btn-primary" :disabled="saveDisabled"
-                    :title="saveGateHint || (periodDeadlinePassed ? lockHint : (noOpenPeriod ? saveBlockedReason : '重新提交本次保存'))" @click="saveEdits">重试保存</button>
+                    :title="saveGateHint || (periodLocked ? lockHint : (closedEditMode ? '本期次已关闭 · 你以管理者身份改单，保存后会在通知中心留痕' : (noOpenPeriod ? saveBlockedReason : '重新提交本次保存')))" @click="saveEdits">重试保存</button>
           </div>
           <!-- v603：快捷键说明入口已挪到页脚 `.edit-summary`（KbdHelp 组件）——
                原来在这里独占一行、展开还把表体顶上去，且全屏改单时被全屏层遮住。 -->
@@ -4889,8 +4903,12 @@ async function enterEdit() {
   }
   /* v244：没有进行中的期次时**不许进编辑态** —— 否则用户改半小时、点保存才被拒（白干）。
      既定方案的判据同向：「📌 禁用 + 说明好过『点了弹错误』」（§五 阶段 0）。
-     后端 `save_matrix` 的 v244 闸是最终约束，这里是同一判据的 UX 层提前拦。 */
-  if (noOpenPeriod.value) { toast(saveBlockedReason.value, 'warn'); return }
+     后端 `save_matrix` 的 v244 闸是最终约束，这里是同一判据的 UX 层提前拦。
+     🔴 v756：**授权角色例外** —— `canEditClosedPeriod`（管理员/老板/主管/财务文员）在
+        「当期没有 open 期次」时仍要能改**历史期次**的数（后端对这批人传 allow_closed=True）。
+        原实现无条件拦，导致主管明明能进已关闭期次（`periodLocked` 已豁免），却在这条线上
+        被挡回去 —— 三处闸门只有这一处没跟上 v305，表现就是"改单按钮亮着，点了弹一句没头没脑的话"。 */
+  if (noOpenPeriod.value && !canEditClosedPeriod.value) { toast(saveBlockedReason.value, 'warn'); return }
   /* v632：角色**没有写权限**时不许进编辑态 —— 与 noOpenPeriod 同族判据（改半天存不进去 = 白干）。
      判据 = 保存按钮同一条 `canDo('data','create')`（模板里的 `editPermBlocked`），
      不再看角色名（旧版主管被误伤，见该常量上方注释）。 */
@@ -5640,6 +5658,66 @@ function flashAt (r, c) {
   _flashTimer = setTimeout(() => { flashCell.value = { r: -1, c: -1, k: flashCell.value.k } }, 1400)
 }
 
+/* v756（2026-11-04）：**粘贴落点矩形高亮** —— 用户报障原话：
+   「粘贴完成后虽然能看到数据已进入系统，但整个反馈是静默的，视觉上无法感知数据粘贴到了哪个区域。」
+   现场：主管把汇总导到 Excel 改完，再整块粘回本表。原实现只有一条 toast（「已粘贴 8×5」），
+   而这张表 294 行 × 三十来列客户、常配 50% 缩放 ⇒ 落点经常在视口外，
+   用户看到的是"表格动了但不知道动在哪"，只能靠再数一遍确认（286 行里数 8 行）。
+
+   🔴 与 `flashCell`（单格闪烁）**分开**而不是复用它：
+      `flashCell` 是 {r,c} 单格语义，服务于「从错误清单跳到某一格」；
+      把它改成矩形会让那条路也亮一片，反而看不出是哪一格错。二者语义不同，各留一份。
+
+   ⚠️ 用 `k` 计数逼动画重放（同 `flashAt` 的教训）：连续粘两次到同一片区域时，
+      布尔不变 ⇒ CSS 动画不重放 ⇒ 第二次"没反应"，用户会以为没粘上。
+   ⚠️ 计时器结束时是**把 r0 置 -1**（= 清空），不是只改 class —— 若只改动画时长，
+      class 一直在，下次同一区域粘贴会因为"值没变"而不触发重渲染。 */
+const pasteLand = ref({ r0: -1, c0: -1, r1: -1, c1: -1, k: 0 })
+let _pasteLandTimer = null
+const PASTE_LAND_MS = 2600
+function inPasteLand (r, c) {
+  const p = pasteLand.value
+  return p.r0 >= 0 && r >= p.r0 && r <= p.r1 && c >= p.c0 && c <= p.c1
+}
+/* 返回该格的落点样式类：内部格只淡底、**边界格**描边 ⇒ 整片看起来是一个框，
+   而不是"每个格子各圈一道"的网格（后者在 8×5 以上的落点上会糊成一片）。 */
+function pasteLandCls (r, c) {
+  const p = pasteLand.value
+  if (p.r0 < 0 || r < p.r0 || r > p.r1 || c < p.c0 || c > p.c1) return ''
+  return (r === p.r0 || r === p.r1 || c === p.c0 || c === p.c1) ? 'paste-land edge' : 'paste-land'
+}
+function markPasteLand (r0, c0, r1, c1) {
+  if (_pasteLandTimer) clearTimeout(_pasteLandTimer)
+  // 先清空一次再置位：同一区域连续粘贴时靠这步触发重渲染 + 动画重放
+  pasteLand.value = { r0: -1, c0: -1, r1: -1, c1: -1, k: pasteLand.value.k + 1 }
+  nextTick(() => {
+    pasteLand.value = { r0, c0, r1, c1, k: pasteLand.value.k + 1 }
+  })
+  _pasteLandTimer = setTimeout(() => {
+    pasteLand.value = { r0: -1, c0: -1, r1: -1, c1: -1, k: pasteLand.value.k }
+    _pasteLandTimer = null
+  }, PASTE_LAND_MS)
+}
+/* 落点的「人话坐标」：**单一实现**供区块粘贴与交叉表粘贴共用（两条路各写一份必然漂移，
+   本项目铁律）。用商品名 / 客户名而不是「第 137 行第 9 列」—— 286 行的表里没人按行号定位。 */
+function pasteRowName (r) {
+  const rw = (cross.value.rows || [])[r]
+  const n = rw && String(rw.name || '').trim()
+  return n || ('第 ' + (r + 1) + ' 行')
+}
+function pasteColName (c) {
+  if (c < visibleCols.value.length) {
+    const col = visibleCols.value[c]
+    return (col && (col.label || col.key)) || ('第 ' + (c + 1) + ' 列')
+  }
+  const u = (cross.value.units || [])[c - visibleCols.value.length]
+  return (u && u.name) || ('第 ' + (c + 1) + ' 列')
+}
+/* 🔴 落点行是否已渲染：**直接复用既有的 `ensureRowsRendered(ri)`（见 v666 / editRenderCount 段）**，
+   不在这里另写一份 —— 它的语义就是"把渲染窗口撑到目标行"（会多撑 EDIT_BATCH 一批，返回是否刚撑开）。
+   曾经在本批里新写了一个同名函数，靠函数声明提升把旧的**静默覆盖**掉：编译不报错、行为却变成
+   "只撑到落点末行不多撑"，与 v666 的分批策略打架。教训：加函数前先 grep 同名。 */
+
 function gotoErr(it) {
   nextTick(() => {
     selectCell(it.ri, it.ci); focusCell(it.ri, it.ci, { select: true }); scrollRowIntoView(it.ri)
@@ -5875,8 +5953,14 @@ async function saveEdits(opts = {}) {
      放在**唯一的提交入口**上，与按钮 disabled 构成两层：按钮态只是提示，挡不住直接调用
      与将来新增的第三个入口。`!p.id` 兜住「拿到的是合成期次（今日报单，id=0）」这一形态
      —— 那时 noOpenPeriod 未必为真（可能只是当前视图没指到真实期次），文案单独兜底。 */
-  if (noOpenPeriod.value || !Number(p.id || 0)) {
-    toast(saveBlockedReason.value || '当前编辑的不是一个真实期次，无法保存：请先选择一个进行中的期次。', 'warn')
+  /* 🔴 v756：这道守卫原先写的是 `noOpenPeriod || !p.id` —— `noOpenPeriod` 会在
+     「系统里当期没有 open 期次」时把**授权角色在历史期次上的保存**一起拦掉，
+     与他能进编辑态（`periodLocked` 已豁免）自相矛盾。现在只对**非授权角色**拦 noOpenPeriod；
+     `!p.id`（合成期次「今日报单」）对所有人一律拦 —— 那写下去就是 period_id=0 的孤儿行。 */
+  if ((noOpenPeriod.value && !canEditClosedPeriod.value) || !Number(p.id || 0)) {
+    toast(noOpenPeriod.value && !canEditClosedPeriod.value
+      ? (saveBlockedReason.value || '当前没有进行中的期次，无法保存报单。')
+      : '当前编辑的不是一个真实期次，无法保存：请先选择一个期次。', 'warn')
     return
   }
   /* v2026-09-23 截止硬锁 UX 层提前拦：后端 `save_matrix` 已用 `forecast_period_writable`
@@ -6323,6 +6407,16 @@ function tryPasteCross(block) {
   if (!dataRows.length) return false
   snapshot()
   let added = 0, updated = 0, bad = 0, skipped = 0, blank = 0
+  /* v756：落点包围盒。这条路径按「商品名匹配行、列名匹配客户列」写 ⇒ 落点**不是**一个从剪贴板
+     左上角起算的矩形（客户列可能不连续、商品行也可能散落）。取所有实际写入格的包围盒：
+     视觉上就是"这批数据落进了这一片"，语义正确，也比逐个格闪烁更容易一眼看清范围。 */
+  let _minR = -1, _maxR = -1, _minC = -1, _maxC = -1
+  const _hit = (r, c) => {
+    if (_minR < 0 || r < _minR) _minR = r
+    if (r > _maxR) _maxR = r
+    if (_minC < 0 || c < _minC) _minC = c
+    if (c > _maxC) _maxC = c
+  }
   dataRows.forEach(cells => {
     const nm = String(cells[nameIdx] == null ? '' : cells[nameIdx]).trim()
     if (!nm) { skipped++; return }
@@ -6338,14 +6432,22 @@ function tryPasteCross(block) {
       if (pasteCellEmpty(v)) { blank++; return }
       writeCellVal(ri, c, v)
       if (cellInvalid(ri, c)) bad++
+      _hit(ri, c)
     })
   })
   toast(`已按客户列粘贴：新增 ${added} 个商品 · 更新 ${updated} 个商品`
+    + (_minR >= 0 ? ` → 落点「${pasteRowName(_minR)}」~「${pasteRowName(_maxR)}」第 ${_minC - visibleCols.value.length + 1}~${_maxC - visibleCols.value.length + 1} 个客户（已用主色框标出）` : '')
     + (skipped ? ` · 跳过 ${skipped} 行（无商品名称）` : '')
     + (blank ? ` · 跳过 ${blank} 个空格（原值保留）` : '')
     + (bad ? ` · ${bad} 格不合法（已标红）` : '')
     + (added && brandSel.value.length ? ' · 品牌筛选生效中，品牌为空的新行暂不显示' : '')
     + '（改完点「保存」）', bad || skipped || blank ? 'warn' : 'ok')
+  /* v756：与区块粘贴同款三件套（扩渲染 → 标落点 → 滚到眼前），顺序理由见 pasteRegion 注释。 */
+  if (_minR >= 0) {
+    ensureRowsRendered(_maxR)
+    markPasteLand(_minR, _minC, _maxR, _maxC)
+    scrollRowIntoView(_minR)
+  }
   return true
 }
 
@@ -9039,6 +9141,10 @@ function batchWrite(val) {
   let n = 0
   for (let ri = r0; ri <= r1; ri++)
     for (let ci = c0; ci <= c1; ci++) { if (writeCellVal(ri, ci, val)) n++ }
+  /* v756：单值铺满选区也是**粘贴的一条路**（剪贴板恰好 1×1 + 已框选一片，见 pasteRegion 的 v598 分支），
+     用户感受与区块粘贴完全一样 ⇒ 落点反馈必须同款，否则「有的粘贴有框、有的没有」更难理解。 */
+  ensureRowsRendered(r1)
+  markPasteLand(r0, c0, r1, c1)
   toast(`已批量写入 ${n} 个单元格`, 'ok')
 }
 // 批量清除：清空选区（或单格）内容（Delete / Backspace，非编辑态）
@@ -10323,9 +10429,25 @@ function pasteRegion(text) {
     writeCellVal(w.r, w.c, w.v)
     if (cellInvalid(w.r, w.c)) bad++
   }
-  toast(`已粘贴 ${rows}×${useCols}` + (truncated ? '（右侧列超出表格已截断）' : '')
+  /* v756：**把落点说出来** —— 坐标走 `pasteRowName/pasteColName`（与交叉表粘贴共用同一实现）。 */
+  const _rEnd = sr + rows - 1, _cEnd = sc + useCols - 1
+  const _span = (rows > 1 || useCols > 1)
+    ? `「${pasteRowName(sr)}」·「${pasteColName(sc)}」→「${pasteRowName(_rEnd)}」·「${pasteColName(_cEnd)}」`
+    : `「${pasteRowName(sr)}」·「${pasteColName(sc)}」`
+  toast(`已粘贴 ${rows} 行 × ${useCols} 列 → 落点 ${_span}（已用主色框标出）`
+    + (truncated ? '（右侧列超出表格已截断）' : '')
     + (skipped ? `，跳过 ${skipped} 个空格（原值保留）` : '')
     + (bad ? `，其中 ${bad} 格不合法（已标红，需修正后才能保存）` : ''), bad ? 'warn' : 'ok')
+  /* v756：**标出来 + 滚到眼前**（原来只有上面那条数字 toast）。
+     三件事缺一不可：
+       ① `ensureRowsRendered` —— 改单态分批挂载（v666），落点行没渲染时 DOM 里没有那个 td，
+          高亮与滚动都会"什么也没发生"（这正是"静默"的另一种成因）；
+       ② `markPasteLand` —— 贴住落点的矩形框（视觉锚点，2.6s 后自动淡出）；
+       ③ `scrollRowIntoView` —— 落点在视口外时把人带过去（286 行的表里滚错一屏就等于没提示）。
+     ⚠️ 顺序不能反：先扩渲染、再标、最后滚；先滚的话目标 td 还没挂载，滚了个空。 */
+  ensureRowsRendered(_rEnd)
+  markPasteLand(sr, sc, _rEnd, _cEnd)
+  scrollRowIntoView(sr)
 }
 /* v377：窗口失焦（切 App / 系统弹窗抢焦点）时 mouseup 收不到 ⇒ `dragging` 会永远停在 true，
    表现是「表格一直跟着鼠标选」。挂到 blur 上兜一次，共用同一个收尾函数。 */
@@ -12232,7 +12354,29 @@ const savePermHint = '当前角色没有「报单数据 · 新增」权限，不
 /** 保存类按钮的 tooltip：权限不足的说明优先于期次/截止日说明（越靠前的越先要解决）。 */
 const saveGateHint = computed(() => (canSaveMatrix.value ? ''
   : savePermHint))
-const saveDisabled = computed(() => !canSaveMatrix.value || noOpenPeriod.value || periodDeadlinePassed.value)
+/* 🔴 v756（2026-11-04）：保存按钮的禁用判据**必须与 `saveEdits` 内守卫、与后端 `save_matrix`
+   三处同源**。这里此前写的是 `noOpenPeriod || periodDeadlinePassed` 两条**硬判据**，
+   完全没有 v305 的授权改单豁免 ⇒ 出现"进得去、粘得进、存不下"的假封锁：
+
+   现场（老板原话，2026-11-04）：主管不适应在系统里改单，仍把汇总导到 Excel 改完粘回来；
+   11-04 那期当天关单后，第二天要按库存改「隔天才下单」的那部分品 ——
+   ① `periodDeadlinePassed`（order_end < 今天）= true ⇒ 保存灰；
+   ② 若系统里当期没有 open 期次，`noOpenPeriod` = true ⇒ 同样灰。
+   而 `periodLocked`（管"改单"按钮与 enterEdit 的那条）**早已**对
+   `canEditClosedPeriod`（= `FORECAST_SUMMARY_ROLES` 管理员/老板/主管/财务文员）豁免 ——
+   于是主管能进编辑态、能粘贴、能看见数据，**只有保存这一步被自己人拦死**。
+   后端 `save_matrix` 早就对这批人传 `allow_closed=True` 并写留痕（v305），
+   所以这不是"该不该放开"的问题，是前端**漏抄了同一份判据**。
+
+   ⚠️ 仍然保留的两道闸（不要一起删）：
+     · `!canSaveMatrix` —— 没有「报单数据·新增」权限的人，后端必 403；
+     · `noOpenPeriod && !canEditClosedPeriod` —— 期次全关时，**非授权角色**仍不许存
+       （他们该走小程序重新报单，v244 的孤儿行防线也在这里）。
+   ⚠️ 用 `periodLocked` 而不是再写一遍 `periodClosed || periodDeadlinePassed`：
+     第二份拷贝必然与 v305 的豁免逻辑漂移（本项目反复吃过这个亏）。 */
+const saveDisabled = computed(() => !canSaveMatrix.value
+  || periodLocked.value
+  || (noOpenPeriod.value && !canEditClosedPeriod.value))
 
 function openImport() {
   // v193 硬守卫：无论从哪个入口进来（含将来新增的第三个），先过闸。
@@ -13935,6 +14079,8 @@ const rowCtx = reactive({
   /* —— 状态（低频变化；变则全表重渲染，这是正确语义）—— */
   cross, visibleCols, selected, selAxis, selRange, editMode, condWarnOn, frozenExtra,
   hsMap, snapCompare, compareOn, showSuggest, showSpark, yoyOn, namePh, flashCell,
+  /* v756：粘贴落点矩形（低频变化：只在粘贴后置位、2.6s 后清空 —— 符合 ctx「不放会因别的行变化而变化的东西」铁律）。 */
+  pasteLand, pasteLandCls,
   softWarnCfg, prevUnitMap,
   C_EXTRA_INPUT, C_PRICE_INPUT, SEQ_CI,
   /* —— 行级判据（只读本行 / 只读低频全局）—— */
@@ -15219,6 +15365,25 @@ body.cust-col-dragging .cross-tbl tbody td{cursor:grabbing}
       不影响布局，也不改背景。 */
 :deep(td.flash), :deep(.qty-cell.flash){animation:cellFlash .45s ease-out 2}
 @keyframes cellFlash{0%{outline:2px solid var(--p-dark);outline-offset:-2px}100%{outline-color:transparent}}
+/* v756：**粘贴落点** —— 整片淡底 + 只有边界格描边（内部格不描边，否则一片格子各自圈框会糊成网格，
+   看不出"这是一整块"）。配合 `pasteLandCls()`：非边界格给 `paste-land`、边界格再多一个 `edge`。
+   🔴 用 `background-image` 而不是 `background`：选区（`.range-sel`，`background !important`）
+      与错误格（`td.invalid`，同上）都是背景色上的，而粘贴前用户**通常先框一片**再按 Ctrl+V ⇒
+      若这里也写 background，会被选区色整片顶掉，看起来像"根本没高亮"（本项目老病：判据对、优先级错）。
+      linear-gradient 走的是 background-image 轴，与它们的 background-color 正交。
+   🔴 不用虚线：50% 缩放下虚线会碎成点，实线仍是连续的一条（用户现场就配 50% 用）。 */
+:deep(td.paste-land), :deep(.qty-cell.paste-land){
+  background-image:linear-gradient(color-mix(in srgb, var(--p) 14%, transparent), color-mix(in srgb, var(--p) 14%, transparent));
+}
+:deep(td.paste-land.edge), :deep(.qty-cell.paste-land.edge){
+  outline:2px solid var(--p);
+  outline-offset:-2px;
+  animation:pasteLandPulse .5s ease-out 2;
+}
+@keyframes pasteLandPulse{
+  0%{outline-width:3px;outline-offset:-3px}
+  100%{outline-width:2px;outline-offset:-2px}
+}
 /* v219 打磨②：改动记录列表 */
 .undo-list{display:flex;flex-direction:column;gap:var(--sp-h2);max-height:320px;overflow-y:auto;margin:var(--sp-2) 0;border:1px solid var(--bd);border-radius:var(--radius-md)}
 .undo-item{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-h6) var(--sp-2);background:none;border:0;border-bottom:1px solid var(--bd);cursor:pointer;text-align:left;font-size:var(--fs-sm);color:var(--t1)}
@@ -15451,8 +15616,15 @@ body.cust-col-dragging .cross-tbl tbody td{cursor:grabbing}
 /* Q14：草稿恢复范围说明条 */
 .draft-banner{margin:var(--sp-h6) 0;padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);background:color-mix(in srgb,var(--war) 14%,var(--bg));color:var(--t1);font-size:var(--fs-sm);line-height:var(--lh-normal)}
 .draft-banner .link-btn{margin-left:var(--sp-1)}
-/* Q26/Q27：保存失败分流条 + 重试入口 */
+/* Q27/Q28：保存失败分流条 + 重试入口 */
 .save-fail-banner{margin:var(--sp-h6) 0;padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);background:color-mix(in srgb,var(--dan) 14%,var(--bg));color:var(--t1);font-size:var(--fs-sm);display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center}
+/* v756：授权改单提示条（期次已关闭/已截止，但你在 v305 通道里改单）。
+   🔴 用**主色**而不是警示黄/错误红 —— 这条横幅说的是「**允许**你做这件事」，不是出了问题。
+      用 --war/--dan 会让用户以为自己操作违法，反而不敢改（本项目反复强调"文案要给出路、不要制造恐慌"）。
+   同款底色写法对齐 .draft-banner（color-mix 掺底色，明暗模式下都不会糊成一片）。 */
+.closed-edit-bar{margin:var(--sp-h6) 0;padding:var(--sp-h6) var(--sp-h10);border-radius:var(--radius-sm);background:color-mix(in srgb,var(--p) 10%,var(--bg));border-left:3px solid var(--p);color:var(--t1);font-size:var(--fs-sm);line-height:var(--lh-normal);display:flex;align-items:flex-start;gap:var(--sp-h6);flex:0 0 auto}
+.closed-edit-bar svg{flex:0 0 auto;margin-top:1px;color:var(--p)}
+.closed-edit-bar b{font-weight:600}
 .save-fail-banner .sf-partial{color:var(--war);font-weight:600}
 .save-fail-banner .sf-msg{color:var(--t2)}
 .save-fail-banner .sf-time{color:var(--t2);opacity:.7}

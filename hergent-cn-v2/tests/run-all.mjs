@@ -577,6 +577,18 @@ if (has('skip-sfc')) {
   results.push({ name: '小程序撤回归属闸门', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊱ 已关闭期次可改单 + 粘贴落点（v756）────────────────────────
+/* 报障（主管）：Excel 改完粘回已关闭期次 ⇒ 保存按钮灰；粘贴完没有任何视觉反馈。
+   本块钉三组：① 三道闸（enterEdit / saveDisabled / saveEdits）必须带 v305 授权豁免；
+   ② 三条粘贴路径都要标落点 + 用商品名/客户名报坐标；③ 提示条与防同名函数覆盖。 */
+{
+  console.log('\n── ㊱ 已关闭期次可改单 + 粘贴落点（v756）──')
+  const r = run('forecast-closed-paste.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '关单改单+粘贴落点', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
