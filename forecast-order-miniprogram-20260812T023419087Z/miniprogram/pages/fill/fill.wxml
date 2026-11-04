@@ -106,10 +106,21 @@
     </view>
   </view>
 
-  <!-- 2026-09-06 跨期次沿用：本期已提交回执（绿色）
+  <!-- v759（2026-11-04 · 方案 B）：**服务端**的「本期已有单」—— 排在第一位。
+       它替代的不是"锦上添花"，而是把下面那条本机回执从"唯一真相"降为"兜底"：
+       本机回执换手机/清缓存就消失，而单还在库里；它也永远只会说"已报"，
+       撤回/驳回之后照样挂着（v758 只能靠一条跨页信号去清，边界仍在）。
+       🔴 两条横幅**互斥**（服务端在就只显示服务端）：一屏两条「本期已报」比一条都没有更糟。
+       🔴 这里只给按钮、不自动预填 —— 覆盖式预填会静默改掉用户已填的数。 -->
+  <view class="last-bar last-bar-srv {{serverSub.status === 'recalled' ? 'is-recall' : ''}}" wx:if="{{serverSub}}">
+    <text class="last-txt">{{serverSub.tip}}</text>
+    <text class="last-go" wx:if="{{serverSub.actLabel}}" bindtap="reviseServerSub">{{serverSub.actLabel}}</text>
+    <text class="last-go last-go-plain" bindtap="goSummary">我的报单</text>
+  </view>
+  <!-- 2026-09-06 跨期次沿用：本期已提交回执（绿色 · 本机兜底）
        v224：补上**单号** —— 这是用户在"我这一单到底报上没有"上最需要的那个凭据，
        而在此之前它只在"你重复提交了"的警告框里出现过一次（越需要越看不到）。 -->
-  <view class="last-bar last-bar-done" wx:if="{{submittedInfo}}">
+  <view class="last-bar last-bar-done" wx:elif="{{submittedInfo}}">
     <text class="last-txt">✓ 本期已报 {{submittedInfo.count}} 项 / {{submittedInfo.qty}} 件（{{submittedInfo.at}}）<text wx:if="{{submittedInfo.sid}}"> · 单号 {{submittedInfo.sid}}</text> · 内容已保留，可继续修改</text>
     <text class="last-go" bindtap="goSummary">查看我的报单</text>
   </view>

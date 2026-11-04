@@ -36,7 +36,18 @@ Page({
     pendingSubmit: false,      // M11: 存在未提交草稿（离线/失败），待联网补传
     // 2026-09-06 跨期次沿用：提交后不清空，记住「上次报了什么」，下期可一键带入
     lastOrder: null,           // { periodId, periodName, at, count, qty, items[] } 同门店上次报单快照
-    submittedInfo: null,       // { sid, count, qty, at } 当前门店 + 当前期次已提交（防重复提交）
+    submittedInfo: null,       // { sid, count, qty, at } 当前门店 + 当前期次已提交（本机回执，仅兜底）
+    /* v759（2026-11-04 · 方案 B）：**服务端**「本期已有单」—— { sid, status, count, qty, at,
+       writable, pid, items, tip, actLabel }。
+       为什么必须有它（而不是把上面那条 `submittedInfo` 修好就行）：
+       · `submittedInfo` 是**纯本机 Storage**（`fs_sub_<店>_<期次>`）⇒ 换手机 / 清缓存 /
+         换人登录 / 杀进程后重进，页面就退回「本期没报过」，而单其实好好躺在库里。
+         v758 给撤回补的 `_fsRecall` 信号只治「同一台手机同一次运行」，边界没消失。
+       · 更要紧的是它**只会有"已报"一种状态** —— 撤回后本机要么没键（看不见）、要么残留
+         （说错话）。"本期这单现在是什么状态"只有服务端答得准。
+       两条横幅**互斥渲染**（服务端优先）：一屏出现两条「本期已报」是最容易让人不信数字的
+       那种 UI 缺陷（v735 同族：同一语义两处显示，各自都对、合起来是错的）。 */
+    serverSub: null,
     /* v227（2026-09-21）：样单来源回执 —— { name, count, qty, outTip, outOfScope }。
        它回答的是"车里这些数从哪来、跟本期清单合不合"—— 而这个答案直接决定用户下一步
        是"直接提交"还是"先改几个"（需求原话：「如果无需修改，则可直接提交」）。
@@ -286,7 +297,15 @@ Page({
         wx.removeStorageSync(this._subKeyOf({ id: _recall.store_id, kind: _recall.store_kind },
                                             _recall.period_id))
       } catch (e) { console.warn('[fill] clear fs_sub after recall failed:', e) }
+      /* v759：撤回后必须让**服务端横幅**重拉一次 —— 否则它仍显示「✓ 本期已有单」（缓存 key
+         同店同期次，`refreshServerSub` 会直接返回）。本机回执清干净了、页面却从另一处
+         继续说着撤回前的话，是最典型的"修了一半"。 */
+      this._serverSubKey = ''
     }
+    /* v759（方案 B）：回到填报页 = 用户最想知道"本期我到底报没报"的时刻。
+       60 秒节流：足够覆盖"去别的页转一圈回来"，又不至于每次切 tab 都拉一遍带明细的列表
+       （一店最多十几单、单条最多几十行，不是可以随便刷的数据量）。 */
+    if (Date.now() - (this._serverSubAt || 0) > 60000) this._serverSubKey = ''
     this.restoreCart()       // M8: 恢复持久化购物车（跨页面销毁不丢）
     this.loadStores()        // P1-4: 内部带 5min 内存缓存
     // v215（2026-09-20）：期次必须**先于**商品定下来。
@@ -776,7 +795,98 @@ Page({
     } catch (e) { console.warn('[fill] refreshBanners failed:', e) }
     if (last && (!last.items || !last.items.length)) last = null
     this.setData({ lastOrder: last, submittedInfo: sub })
+    // v759：本机回执刷完就去问服务端「本期到底有没有单」—— 挂在 refreshBanners 里而不是
+    //   逐个调用点补，是因为它本来就在**所有**相关时机被调用（期次定案 / 切期次 / 门店定案 /
+    //   切门店 / 提交成功），少一处就少一次刷新，且将来加时机只改一处。
+    this.refreshServerSub()
   },
+
+  /* ============ v759（2026-11-04 · 方案 B）服务端「本期已有单」 ============
+     需求（承接 v758）：让用户**不需要先撤回**就能看到并改自己这一期报过的单。
+     用户原话：「已撤销的单子，如果用户想修改后再次提交，有没有便捷途径，现在是撤销后需全部重新填报」
+     —— v758 修的是"已经撤回了怎么救"，这一条修的是"压根不该想到撤回"。
+
+     🔴 为什么不自动带入：覆盖式预填会静默替换掉用户已填的数。与 v434 样单同一纪律 ——
+        **凡覆盖既有输入的动作，必须先让用户点、再确认**（`_applySample` 里已有确认弹窗）。
+        所以这里只给一条横幅 + 一个按钮。
+     🔴 期次能不能改由服务端 `period_writable` 决定（v758 同口径），前端不自己算日期：
+        前端自己判必然与后端 `forecast_period_writable` 分叉 ⇒「按钮亮着、点了报错」。
+     🔴 只按「当前门店 + 当前期次」取一条：一店一期一单（v224），不存在歧义。
+     🔴 失败一律**静默**：这是一条只读提示，绝不该因为它打断报单（后端 5xx / 断网时
+        页面照常可填可提交，退回本机回执兜底）。 */
+  refreshServerSub(force) {
+    const store = this.data.store || {}
+    const p = this.data.period || {}
+    if (!store.id || !p.id) { this.setData({ serverSub: null }); return }
+    // 同店同期次不重复请求（切店/切期次才换 key）；`force` 用于提交后刷新件数
+    const key = (this._objKey(store) || '0') + '_' + p.id
+    if (!force && key === this._serverSubKey) return
+    this._serverSubKey = key
+    request('/api/forecast-submissions/my?limit=100&store_id=' + store.id
+      + '&store_kind=' + encodeURIComponent(store.kind || 'store'))
+      .then((d) => {
+        // 请求在飞的时候用户又切了店/期次 ⇒ 结果已过期，丢弃（否则横幅说别家的单）
+        if (key !== this._serverSubKey) return
+        const rec = (d.records || []).find((r) => String(r.period_id) === String(p.id))
+        this._serverSubAt = Date.now()      // 供 onShow 的 60s 节流判断
+        this.setData({ serverSub: this._buildServerSub(rec, p.id) })
+      })
+      .catch(() => {
+        // 失败不缓存结论：清掉 key，下一次 refreshBanners（切店/改期/提交后）会重试
+        if (key === this._serverSubKey) this._serverSubKey = ''
+      })
+  },
+
+  /* 服务端单 → 横幅数据。`rec` 为空（本期确实没报过）返回 null。
+     🔴 文案在这里拼、不在 wxml 里做三元嵌套：五种组合（已报/已撤回/已驳回 × 期次开/关）
+        摊在模板里必漏一种，而漏掉的那种恰好是"期次关了还提示能改"这类假入口。 */
+  _buildServerSub(rec, pid) {
+    if (!rec) return null
+    // v362：空占位单（product_id=0 / 数量 0）后端已剔出列表；这里再按"有量"兜一次，
+    //   因为"有单但没有任何有效明细"对用户等于"没报过"（点进去只会得到空车）。
+    const items = (rec.items || []).filter((it) => it && Number(it.product_id) > 0 && Number(it.quantity) > 0)
+    if (!items.length) return null
+    const status = String(rec.status || 'pending')
+    const writable = !!rec.period_writable
+    const sid = rec.id
+    const n = items.length
+    const qty = items.reduce((s, it) => s + Number(it.quantity || 0), 0)
+    let tip = ''
+    let actLabel = ''
+    if (status === 'recalled') {
+      tip = '↩ 本期单号 ' + sid + ' 已撤回 · ' + n + ' 项 / ' + qty + ' 件还在'
+            + (writable ? '，可继续修改' : ' · 期次已关闭，改单请在电脑上')
+      actLabel = writable ? '继续修改' : ''
+    } else if (status === 'rejected') {
+      // v758 纪律：驳回是审批方否掉的，本人不能自己拉回来（且驳回带处理意见，绕过去就丢了）
+      tip = ('本期单号 ' + sid + ' 已被驳回 · ' + n + ' 项 / ' + qty + ' 件，请联系主管')
+    } else {
+      tip = '✓ 本期已有单号 ' + sid + ' · ' + n + ' 项 / ' + qty + ' 件'
+            + (writable ? '（改完提交即更新本单）' : ' · 期次已关闭')
+      actLabel = writable ? '继续修改' : ''
+    }
+    return {
+      sid, status, count: n, qty, writable, pid,
+      items,
+      tip, actLabel,
+    }
+  },
+
+  /* 横幅上的「继续修改」：把服务端这一单的明细带回填报页。
+     入口闸门三层：status 不是 recalled/pending ⇒ 没有按钮；writable=false ⇒ 没有按钮；
+     点了之后 `_applySample` 还有一道「覆盖当前已填？」确认。 */
+  reviseServerSub() {
+    const s = this.data.serverSub
+    if (!s || !s.actLabel) return
+    this._applySample({
+      name: '单号 ' + s.sid,
+      count: s.count, qty: s.qty,
+      pid: s.pid,
+      revise: true, sid: s.sid,
+      items: s.items,
+    })
+  },
+
   /* 一键把上次报单内容带入当前填报（可再改，也可直接提交） */
   applyLastOrder() {
     const last = this.data.lastOrder
@@ -2066,6 +2176,9 @@ Page({
         wx.setStorageSync(this._subKey(), { sid, count: kept.length, qty: total, at })
       } catch (e) { console.warn('[fill] save last order failed:', e) }
       this.refreshBanners()
+      // v759：刚提交完，服务端这一单的项数/件数变了 ⇒ **必须**强制重拉，不能走 key 去重
+      //   （同店同期次 key 没变，去重会让横幅一直报提交前那个件数）。
+      this.refreshServerSub(true)
       /* v224 **方案 A**：不再用 `wx.showModal` 报成功。
          为什么换掉 —— 弹窗按设计**会自己消失**，消失之后页面上剩下的还是一个
          「提交预报」按钮（数据有意不清空），于是"到底提交成功没有"重新变成不可知。

@@ -1100,3 +1100,24 @@ v493 真实缺陷：`ChartHbar` 的名称文本 `x = PAD.l - 10 = -2` 配 `text-
 
 
 ---
+
+---
+
+## 探针身份（v729）—— 最容易伪造出「0 缺陷」的一环
+
+🔴🔴 **登录态已迁 cookie（P0-4）⇒ 老探针会静默跳 `#/login`**：`get token()` **恒返回空串**，
+`localStorage.setItem('hergent_v2_token',…)` 完全无效。必须用 `routers/auth.py:284` 三枚 cookie：
+`erp_token` + `hergent_auth='1'` + `hergent_tenant`；顺序 `goto(BASE+'/')` 拿域 → `setCookie` →
+再 `goto('#/forecast')`。落 `#/login` 且有 `input[type=password]` = 凭证没进去（**不是 token 过期**）。
+
+🔴🔴 **`/root/probe_token.py` 是旧版、硬编码 user 1(admin)，命令行传 uid 无效**：`insert <tok> 2`
+之后 sessions 仍 `user_id=1` ⇒ 症状**不是 401**，而是**侧栏只渲染 7 个区**
+（`REPORT_VIEWER_ROLES=['boss','supervisor']` 滤掉整区）⇒ 报「数据报表未找到」，极易误判成
+「区被删了 / 图标 bug」。做法：直接 SQL 插 `sessions`（`user_id=2`=张俊峰/boss），三时间列
+`localtime`。**任何侧栏/权限探针的第一条断言必须是「侧栏区数 ≥ 11」**。
+
+token 过期 ⇒ **全部**页静默回 `#/workbench`、用户名变「我」；**权限不足 = 只有部分页回退**。
+🔴 **「探针归位」≠「sessions 回到 1」**（判据 `token LIKE sbxui-%` = 0）。抓图报
+「节点数仅 3 / 全屏差异」先当假差异重抓。截图必须走 `p.screenshot(path,{clip})`，别直发
+`Page.captureScreenshot`（返 `{result:{data}}` ⇒ `Buffer.from(undefined)` 抛错）。
+侧栏 DOM `.sidebar > .sb-nav > .sb-area`。

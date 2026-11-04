@@ -158,6 +158,22 @@
 .last-bar-done .last-txt{color:#047857}
 .last-go{font-size:26rpx;color:var(--brand);font-weight:600;flex:0 0 auto}
 .last-go-plain{color:#86868b;font-weight:400}
+/* v759（方案 B）：服务端「本期已有单」横幅。
+   🔴 不复用 `.last-bar` 的 `#ecfeff / #a5f3fc`（那是旧亮青一档）：同一个位置两种青并排
+      一眼就能看出（v736「一个语义位置出现第 2 个色值就是 bug」）。
+   🔴 底色写**实色**而不是 `rgba(15,118,110,.08)`：品牌色一旦带透明度，压在不同内容上
+      就是不同颜色（v748 那个 92% 的半透明按钮实测渲染成另一个值）。这里是白底页面，
+      所以直接把「主色 8% over 白」烘成 #ECF4F3（边框 30% ⇒ #B7D6D4），值可复现、也不触发
+      `check-miniprogram-brand` 的「rgba 绕过十六进制校验」。
+   🔴 撤回态用琥珀色 —— 它不是"已完成"（绿色会让人以为报上了），也不是"出错"。 */
+.last-bar-srv{background:#ECF4F3;border-color:#B7D6D4}
+/* 正文压到 7.22:1（`var(--brand)` 压这个底色只有 4.9:1）—— 横幅是用户判断"报没报上"的
+   唯一依据，它读不清就等于没有。撤回态 #9a3412 on #fff7ed = 6.88:1。 */
+.last-bar-srv .last-txt{color:#0a5a54}
+.last-bar-srv.is-recall{background:#fff7ed;border-color:#fed7aa}
+.last-bar-srv.is-recall .last-txt{color:#9a3412}
+/* 两个动作并排要留出呼吸；`.last-txt` 已 flex:1，这里只保证动作不被压成竖排 */
+.last-bar-srv .last-go{white-space:nowrap;margin-left:8rpx}
 
 /* P2-3: 断网横幅 */
 .offline-banner{margin:16rpx 32rpx 0;background:#fef3c7;border:1rpx solid #fde68a;border-radius:14rpx;padding:16rpx 24rpx;font-size:26rpx;color:#92400e;text-align:center}

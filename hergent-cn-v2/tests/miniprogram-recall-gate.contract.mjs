@@ -32,6 +32,8 @@ const MINI = path.join(PROJ, 'forecast-order-miniprogram-20260812T023419087Z/min
 const WXML = path.join(MINI, 'pages/mine/mine.wxml')
 const MJS = path.join(MINI, 'pages/mine/mine.js')
 const FILL = path.join(MINI, 'pages/fill/fill.js')
+const FILL_WXML = path.join(MINI, 'pages/fill/fill.wxml')
+const FILL_WXSS = path.join(MINI, 'pages/fill/fill.wxss')
 const ERP = path.join(PROJ, '.workbuddy/remote-erp/erp_db.py')
 const ROUTE = path.join(PROJ, '.workbuddy/remote-erp/routers/forecast_submissions.py')
 
@@ -239,6 +241,109 @@ console.log('F. 已撤回单「继续修改」（v758）：入口闸门 + 期次
     ok(!/d\["period_writable"\] = bool\(_writable\)/.test(badErp),
       '坏样本（写死 True）能被判否 —— 写死等于期次闸门不存在')
   }
+}
+
+/* G. v759（方案 B）：填报页顶部「本期已有单」必须是**服务端**的。
+ *
+ * 为什么 F 修完还得有 G：F 解决的是"已经撤回了怎么救"，而用户真正的动作是
+ *   **先撤回、再重填** —— 那一步本不该发生。要让它不发生，用户进填报页就得看见
+ *   「本期我已经报过 N 项，要改直接改」。
+ *
+ * 🔴 `submittedInfo`（v758 那条本机回执）治不了这件事，两个盲区都是硬伤：
+ *   ① 纯本机 Storage（`fs_sub_<店>_<期次>`）⇒ 换手机 / 清缓存 / 换人登录后消失，
+ *      而单还在库里 —— 用户看到"本期没报过"，就会重新报一遍或干脆不报；
+ *   ② 它**只有"已报"一种状态**：撤回后只能靠 v758 的跨页信号去清，杀进程再进就
+ *      照旧挂着"✓ 本期已报"（假状态 ⇒ 漏单）。
+ *
+ * 判据（缺一条就是假修）：
+ *   ① 横幅数据来自 `/api/forecast-submissions/my`，按 (门店,类型) 取、按 period_id 精确匹配；
+ *   ② **不自动预填**：只给按钮，`refreshServerSub` 体内不许调 `_applySample`
+ *      （覆盖式预填会静默改掉用户已填的数）；
+ *   ③ 两条横幅**互斥**（服务端 `wx:if` → 本机 `wx:elif`）—— 一屏两条「本期已报」比没有更糟；
+ *   ④ 期次可写才给「继续修改」（else 点进去必失败），rejected 一律不给；
+ *   ⑤ 四个刷新时机不能漏：挂进 `refreshBanners`、提交后 force、撤回后清 key、onShow 节流。
+ */
+console.log('G. 填报页「本期已有单」用服务端事实（v759）：互斥渲染 + 不自动预填 + 刷新时机')
+{
+  const fill = fs.existsSync(FILL) ? fs.readFileSync(FILL, 'utf8') : ''
+  ok(fill.length > 0, '找到 fill.js')
+  const fwxml = fs.existsSync(FILL_WXML) ? fs.readFileSync(FILL_WXML, 'utf8') : ''
+  const fwxss = fs.existsSync(FILL_WXSS) ? fs.readFileSync(FILL_WXSS, 'utf8') : ''
+  ok(fwxml.length > 0 && fwxss.length > 0, '找到 fill.wxml / fill.wxss')
+
+  // ① 数据来源与精确匹配
+  ok(/serverSub: null/.test(fill), 'data 里有 serverSub（服务端本期已有单）')
+  ok(/\/api\/forecast-submissions\/my\?limit=100&store_id=/.test(fill),
+    '横幅数据来自 /my（与「我的提交」「复制样单」同一接口，不另开一份读取口径）')
+  ok(/String\(r\.period_id\) === String\(p\.id\)/.test(fill),
+    '按 period_id 精确匹配当前期次（一店一期一单，不许"取最新一条"代替）')
+  const badMatch = fill.replace(/String\(r\.period_id\) === String\(p\.id\)/, 'true')
+  ok(!/String\(r\.period_id\) === String\(p\.id\)/.test(badMatch),
+    '坏样本（不比期次、取到哪条算哪条）能被判否 —— 会把上一期的单顶到本期横幅上')
+
+  // ② 不自动预填
+  const fn0 = fill.indexOf('refreshServerSub(force) {')
+  const fn1 = fill.indexOf('_buildServerSub(rec, pid) {')
+  ok(fn0 >= 0 && fn1 > fn0, '找到 refreshServerSub 函数体')
+  const body = fill.slice(fn0, fn1)
+  ok(!/_applySample\(/.test(body),
+    'refreshServerSub **不自动带入**（只 setData 横幅；覆盖式预填会静默改掉已填数量）')
+  ok(/_applySample\(\{/.test(fill.slice(fn1)), '「继续修改」入口单独调 _applySample（用户点了才带）')
+  const badAuto = body.replace('this.setData({ serverSub:', 'this.reviseServerSub(); this.setData({ serverSub:')
+  ok(/_applySample\(/.test(badAuto) === false,
+    '坏样本（拉取后就自动带入）能被判否 —— 那等于每次进页面都把用户的填写清掉')
+
+  // ③ 互斥渲染
+  ok(/wx:if="\{\{serverSub\}\}"/.test(fwxml), '模板里服务端横幅用 wx:if')
+  ok(/wx:elif="\{\{submittedInfo\}\}"/.test(fwxml), '本机回执降级为 wx:elif（服务端在就不显示它）')
+  const badChain = fwxml.replace(/wx:elif="\{\{submittedInfo\}\}"/, 'wx:if="{{submittedInfo}}"')
+  ok(!/wx:elif="\{\{submittedInfo\}\}"/.test(badChain),
+    '坏样本（改回 wx:if）能被判否 —— 两条"本期已报"同时出现，数字还不一定一样')
+  const iSrv = fwxml.indexOf('wx:if="{{serverSub}}"')
+  const iSub = fwxml.indexOf('wx:elif="{{submittedInfo}}"')
+  ok(iSrv >= 0 && iSub > iSrv, '服务端横幅排在前面（elif 链方向正确）')
+
+  // ④ 入口闸门
+  ok(/actLabel = writable \? '继续修改' : ''/.test(fill),
+    '「继续修改」只在期次可写时给出（关了就只显示单号、不给假入口）')
+  ok(/status === 'rejected'/.test(fill), '_buildServerSub 单独处理 rejected')
+  const rej0 = fill.indexOf("} else if (status === 'rejected') {")
+  const rej1 = fill.indexOf('} else {', rej0)
+  const rejBody = rej0 >= 0 && rej1 > rej0 ? fill.slice(rej0, rej1) : ''
+  ok(rejBody.length > 0 && !/actLabel\s*=/.test(rejBody),
+    'rejected 分支不给 actLabel（驳回是审批方否掉的，与 v758 纪律一致）')
+  ok(/wx:if="\{\{serverSub\.actLabel\}\}"/.test(fwxml), '模板按钮跟着 actLabel 走（没文案就没按钮）')
+
+  // ⑤ 刷新时机
+  ok(/this\.refreshServerSub\(\)\s*\n\s*\}\s*,\s*\n\s*\/\* ============ v759/.test(fill),
+    'refreshServerSub 挂在 refreshBanners 末尾（期次/门店/提交后全部覆盖，只改一处）')
+  ok(/this\.refreshServerSub\(true\)/.test(fill), '提交成功后 force 刷新（否则横幅一直报提交前的件数）')
+  ok(/this\._serverSubKey = ''/.test(fill), '有清 key 的路径（撤回后 / 失败重试）')
+  /* 锚点必须用**消费处**（`app.globalData._fsRecall` 那一行），不能用第一次出现的
+     `_fsRecall` —— 数据注释里也提到过它（"v758 给撤回补的 _fsRecall 信号"），
+     锚错位置就会截到一段说明文字，然后得出"没清 key"的假阴性。 */
+  const recallAt = fill.indexOf('app.globalData._fsRecall')
+  const recallSeg = recallAt >= 0 ? fill.slice(recallAt, recallAt + 900) : ''
+  ok(recallAt >= 0 && /this\._serverSubKey = ''/.test(recallSeg),
+    '撤回信号处理里清 key —— 本机回执清了、服务端横幅却继续说"已有单"是最典型的修一半')
+  ok(/_serverSubAt/.test(fill) && /Date\.now\(\) - \(this\._serverSubAt \|\| 0\) > 60000/.test(fill),
+    'onShow 有 60s 节流（回页面就刷新，但不每次切 tab 都拉一遍带明细的列表）')
+  const badForce = fill.replace('this.refreshServerSub(true)', 'this.refreshServerSub()')
+  ok(!/this\.refreshServerSub\(true\)/.test(badForce),
+    '坏样本（提交后不 force）能被判否 —— key 去重会让横幅停在提交前的数字')
+
+  // 配色：不把旧亮青带进来（v736/v748 同族：一个语义位置两个色值）
+  ok(/\.last-bar-srv\{/.test(fwxss), '新增 .last-bar-srv 样式')
+  const srvCss = (fwxss.match(/\.last-bar-srv[^{]*\{[^}]*\}/g) || []).join('\n')
+  ok(!/#06b6d4|#ecfeff|#a5f3fc/.test(srvCss),
+    '新横幅不用旧亮青底（#ecfeff/#a5f3fc）或旧品牌青 #06b6d4 —— 同一位置两种青并排一眼看出')
+  /* 🔴 品牌色**不许带 alpha**（`check-miniprogram-brand` 会判红，v748 实测 92% 的半透明按钮
+     渲染成另一个色值）。这里把「主色 8% over 白」烘成实色 #ECF4F3 ⇒ 判据是"它是实色十六进制"，
+     而不是"它调用了 var(--brand)"。 */
+  ok(/#ECF4F3/i.test(srvCss), '新横幅底色是烘好的实色 #ECF4F3（主色 8% over 白），不是 rgba')
+  ok(!/rgba\(15,\s*118,\s*110/.test(srvCss), '品牌色没写成 rgba（带 alpha 就不再是那个品牌色）')
+  const badCss = fwxss.replace(/#ECF4F3/g, '#ecfeff')
+  ok(!/#ECF4F3/i.test(badCss), '坏样本（底色退回旧亮青 #ecfeff）能被判否')
 }
 
 console.log('')
