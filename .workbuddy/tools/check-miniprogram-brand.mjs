@@ -38,6 +38,50 @@ const STALE = ['#06b6d4', '#0891b2', '#0e7490', '#0d9488', '#0a5a6d']
 /** var(--brand) 使用处下限（低于它说明有人绕过令牌写死） */
 const MIN_TOKEN_USES = 50
 
+/**
+ * tint 家族（v763）—— **背景语义**，不是"主色的第二个档"。
+ * 【为什么要这张表】v736/v751 只统一了前景主色，浅染底/描边/禁用实心底全靠各处自选，
+ * 结果"同一个主色浅染"在 6 个页面里长出 7 个值、跨 5 档色相（H166~H191）。
+ * 这里既校验"令牌存在且值正确"，也校验"没人再拿字面量绕过它"。
+ */
+const TINTS = [
+  ['--brand-bg', '#ecf4f3', '浅染底（主色 8% over 白）'],
+  ['--brand-border', '#b7d6d4', '浅描边（主色 30% over 白）'],
+  ['--brand-ink', '#0a5a54', '浅染底上的正文（压 --brand-bg 7.22:1）'],
+  ['--brand-mute', '#9fc8c5', '禁用态**实心**底（压白字，主色 40% over 白）'],
+]
+const TINT_HEXES = TINTS.map(([, h]) => h)
+const TINT_BY_HEX = new Map(TINTS.map(([name, h]) => [h, name]))
+
+/** v763 之前散落的旧亮青 tint —— 7 个值 5 档色相，全部废弃 */
+const STALE_TINT = ['#ecfeff', '#a5f3fc', '#e0f7fb', '#e6f7fb', '#f0fdfa', '#99f6e4', '#a8e0e6']
+
+/**
+ * 抽出 @keyframes 块（按大括号计数，不能靠正则非贪婪 —— 内层 `50%{...}` 会提前收尾）。
+ * 为什么要单独处理：关键帧内**不能**写 var()（部分基础库不解析，动画会静默失效），
+ * 所以那里必须留字面量。但又不能让"留字面量"变成漂移后门 ⇒ 这里把块抠出来，
+ * 主扫描看等长空格（行号不偏），块内单独做「值必须 ∈ tint 表」的交叉核对。
+ */
+function blankKeyframes(code) {
+  const blocks = []
+  const re = /@(?:-webkit-)?keyframes\s+[\w-]+\s*\{/g
+  let m
+  while ((m = re.exec(code))) {
+    let i = re.lastIndex - 1
+    let depth = 0
+    for (; i < code.length; i++) {
+      if (code[i] === '{') depth++
+      else if (code[i] === '}' && --depth === 0) break
+    }
+    blocks.push(code.slice(m.index, i + 1))
+    re.lastIndex = i + 1
+  }
+  /* 非换行字符逐个换成空格：长度 1:1 ⇒ 行号不偏移（连 \n 一起换掉会让所有报错行号错位） */
+  let blanked = code
+  for (const b of blocks) blanked = blanked.replace(b, b.replace(/[^\n]/g, ' '))
+  return { blocks, blanked }
+}
+
 const errs = []
 const notes = []
 
@@ -76,8 +120,12 @@ for (const f of files) {
   if (f === APP_WXSS) continue
 
   const raw = fs.readFileSync(f, 'utf8')
-  const code = stripComments(raw, ext)
-  const all = [...STALE, BRAND].join('|')
+  const stripped = stripComments(raw, ext)
+  /* keyframes 块内的字面量是**合法**的（吃不到 var()），抠出去后单独交叉核对，
+     否则要么漏掉漂移、要么把合法写法误判成 bug —— 两头都是错。 */
+  const { blocks: kfBlocks, blanked } = blankKeyframes(stripped)
+  const code = blanked
+  const all = [...STALE, ...STALE_TINT, ...TINT_HEXES, BRAND].join('|')
   const re = new RegExp(`(${all.replace(/#/g, '#')})`, 'gi')
 
   let m
@@ -85,6 +133,21 @@ for (const f of files) {
     const hit = m[1].toLowerCase()
     const ln = lineOf(code, m.index)
     const ctx = code.slice(Math.max(0, m.index - 60), m.index + 40).replace(/\s+/g, ' ')
+    /* tint 家族：报「应写哪个令牌」，不能笼统说 var(--brand)（那是主色，职责不同） */
+    const tintToken = TINT_BY_HEX.get(hit)
+    if (tintToken) {
+      errs.push(
+        `${rel(f)}:${ln} 写死了 tint 色 ${hit}（应写 var(${tintToken})）—— ${ctx.trim()}`
+      )
+      continue
+    }
+    if (STALE_TINT.includes(hit)) {
+      errs.push(
+        `${rel(f)}:${ln} 出现 v763 前的旧亮青 tint ${hit}（7 个值跨 H166~H191，` +
+          `同一个"主色浅染"长出 7 个值）—— 应写 var(--brand-bg) / var(--brand-border) / var(--brand-mute) —— ${ctx.trim()}`
+      )
+      continue
+    }
     // 原生载体是豁免位（吃不到 CSS 变量），单独由 ④ 校验值
     const isNativeCarrier =
       (ext === '.json' && /"(navigationBarBackgroundColor|selectedColor)"\s*:/.test(ctx)) ||
@@ -100,6 +163,22 @@ for (const f of files) {
       `${rel(f)}:${ln} 出现品牌色字面量 ${hit}（应写 var(--brand)）—— ${ctx.trim()}`
     )
   }
+
+  /* keyframes 块内：只许出现 tint 令牌的**同值**字面量（中性色如 #fff 放行）。
+     挡的是「改了 --brand-bg、忘了同步动画帧」—— 那会让定位闪烁高亮成另一种青，
+     而且没有人会去点开动画看，属于最难发现的一类残色。 */
+  for (const blk of kfBlocks) {
+    for (const h of blk.match(/#[0-9a-fA-F]{3,8}/g) || []) {
+      const lh = h.toLowerCase()
+      if (TINT_HEXES.includes(lh)) continue
+      if (STALE_TINT.includes(lh) || STALE.includes(lh) || lh === BRAND) {
+        errs.push(
+          `${rel(f)} @keyframes 里的 ${h} 不是 tint 令牌的值 —— 关键帧内不能写 var()，` +
+            `所以这里必须写字面量且与 app.wxss 的 --brand-bg 严格同值（现应为 ${TINT_HEXES[0]}）`
+        )
+      }
+    }
+  }
 }
 
 /* ── ①b 换个写法（rgb/rgba 数值）也算品牌色字面量 ──────────────────────────
@@ -111,7 +190,12 @@ for (const f of files) {
    顺带把「带 alpha 的品牌色」一并挡掉 —— 品牌色只要混了透明度，压在不同内容上
    就是不同颜色（同一按钮压在商品行上 vs 白卡片上是两个色），那已经不是品牌色
    而是「品牌色 × 背后内容」。要"浮起来"用阴影，不用透明度。 */
-const BRAND_FAMILY = new Map([...STALE.map((h) => [h, '旧值']), [BRAND, '品牌色']])
+const BRAND_FAMILY = new Map([
+  ...STALE.map((h) => [h, '旧值']),
+  ...STALE_TINT.map((h) => [h, '旧亮青 tint（v763 废弃）']),
+  [BRAND, '品牌色'],
+  ...TINTS.map(([n, h]) => [h, `tint 令牌 ${n}`]),
+])
 const rgbToHex = (r, g, b) =>
   '#' +
   [r, g, b]
@@ -134,10 +218,13 @@ for (const f of files) {
     const alpha = m[4]
     const translucent = alpha !== undefined && alpha.replace('%', '') !== '1'
     const ctx = code.slice(Math.max(0, m.index - 60), m.index + 40).replace(/\s+/g, ' ')
+    const hint = /tint/.test(kind) || /旧值/.test(kind)
+      ? '应写 var(--brand-bg) / var(--brand-border) / var(--brand-mute)'
+      : '应写 var(--brand)'
     errs.push(
       `${rel(f)}:${ln} 用 rgb()/rgba() 写法绕过了十六进制校验：${m[0]} = ${hex}（${kind}）` +
         (translucent ? `，还带透明度 ${alpha} ⇒ 压在不同内容上是不同颜色` : '') +
-        `（应写 var(--brand)）—— ${ctx.trim()}`
+        `（${hint}）—— ${ctx.trim()}`
     )
   }
 }
@@ -151,11 +238,24 @@ if (fs.existsSync(APP_WXSS)) {
   } else if (m[1].toLowerCase() !== BRAND) {
     errs.push(`app.wxss 的 --brand = ${m[1]}，应为 ${BRAND}`)
   }
-  // 令牌不许改名/加档：只许一个 --brand
+  /* 主色只许一个档（`--brand-light` / `--brand-dark` 这类"再来一档主色"正是要挡的）；
+     tint 家族是**背景语义**、不是第二个档，走 TINTS 白名单。 */
   const extra = [...code.matchAll(/(--brand[-a-z0-9]*)\s*:/g)].map((x) => x[1])
-  const unexpected = extra.filter((n) => n !== '--brand')
+  const TINT_NAMES = TINTS.map(([n]) => n)
+  const unexpected = extra.filter((n) => n !== '--brand' && !TINT_NAMES.includes(n))
   if (unexpected.length) {
-    errs.push(`app.wxss 出现了额外的品牌令牌 ${unexpected.join(', ')} —— 品牌色只留一个档`)
+    errs.push(
+      `app.wxss 出现了额外的品牌令牌 ${unexpected.join(', ')} —— 主色只留 --brand 一个档；` +
+        `tint 只能叫 ${TINT_NAMES.join(' / ')}`
+    )
+  }
+  /* 四个 tint 令牌必须都在且值精确：少一个，页面就会退回字面量（v763 之前就是这个状态） */
+  for (const [name, want, label] of TINTS) {
+    const mm = code.match(new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{3,8})\\s*;`))
+    if (!mm) errs.push(`app.wxss 没声明 tint 令牌 ${name}（${label}）—— 页面会退回硬编码`)
+    else if (mm[1].toLowerCase() !== want)
+      errs.push(`app.wxss 的 ${name} = ${mm[1]}，应为 ${want}（${label}）`)
+    else notes.push(`${name} = ${want}  ${label}`)
   }
 }
 
@@ -174,7 +274,7 @@ function ratio(a, b) {
 const BASES = [
   ['#ffffff', '白卡片'],
   ['#f5f5f7', '页面底'],
-  ['#ecfeff', '浅青底（msg-bar / 标签）'],
+  ['#ecf4f3', '浅染底 --brand-bg（msg-bar / 标签 / 回执横幅）'],
   ['#f2f2f7', '灰底（+/− 按钮）'],
 ]
 for (const [bg, label] of BASES) {
@@ -185,6 +285,14 @@ for (const [bg, label] of BASES) {
 const onBrand = ratio('#ffffff', BRAND)
 if (onBrand < 4.5) errs.push(`白字压在 ${BRAND} 只有 ${onBrand.toFixed(2)}:1，低于 AA 4.5`)
 else notes.push(`#ffffff on ${BRAND} = ${onBrand.toFixed(2)}  实心底白字`)
+
+/* tint 上的正文：--brand 压 --brand-bg 只有 4.90（刚过 AA），而横幅正文是"读不清就
+   等于没有"的那类信息 ⇒ --brand-ink 必须 ≥ 7:1，改浅了当场挂。 */
+const inkOnTint = ratio('#0a5a54', '#ecf4f3')
+if (inkOnTint < 7)
+  errs.push(`--brand-ink #0a5a54 压在 --brand-bg #ecf4f3 只有 ${inkOnTint.toFixed(2)}:1，低于 7:1（横幅正文要求）`)
+else notes.push(`--brand-ink on --brand-bg = ${inkOnTint.toFixed(2)}  横幅正文`)
+notes.push(`#ffffff on --brand-mute #9fc8c5 = ${ratio('#ffffff', '#9fc8c5').toFixed(2)}  禁用态（WCAG 对 disabled 豁免）`)
 
 /* ── ④ 原生载体逐项核对（吃不到 CSS 变量，最容易被漏） ─────────────────── */
 function requireMatch(file, regex, what) {
@@ -317,6 +425,25 @@ if (tokenUses < MIN_TOKEN_USES) {
   notes.push(`var(--brand) 共 ${tokenUses} 处（下限 ${MIN_TOKEN_USES}）`)
 } else {
   notes.push(`var(--brand) 共 ${tokenUses} 处（下限 ${MIN_TOKEN_USES}）`)
+}
+
+/* ── ⑦ tint 令牌被真正使用（只定义不用 = 空白支票） ───────────────────────
+   v763 的病根是"只统一前景、不统一背景"：定义了 --brand 却仍有人在每处长出新的浅青。
+   所以 tint 令牌不仅要存在，还必须真的被各处引用 —— 数量掉下去就说明有人绕回字面量。 */
+const TINT_MIN_USES = { '--brand-bg': 12, '--brand-border': 9, '--brand-ink': 2, '--brand-mute': 1 }
+for (const [name, min] of Object.entries(TINT_MIN_USES)) {
+  let n = 0
+  for (const f of files) {
+    if (path.extname(f) !== '.wxss') continue
+    const code = stripComments(fs.readFileSync(f, 'utf8'), '.wxss')
+    n += (code.match(new RegExp(`var\\(${name}\\)`, 'g')) || []).length
+  }
+  if (n < min)
+    errs.push(
+      `${name} 只被用了 ${n} 处，少于下限 ${min} —— 令牌定义了却没人用，` +
+        `说明有人绕回去写字面量了（v763 之前就是这个病：7 个浅青值跨 5 档色相）`
+    )
+  else notes.push(`${name} 共 ${n} 处（下限 ${min}）`)
 }
 
 /* ── 输出 ──────────────────────────────────────────────────────────────── */

@@ -14,5 +14,5 @@
 .legal-li-2{font-size:27rpx;color:#6b7280;line-height:1.8;margin:8rpx 0 8rpx 28rpx;padding-left:28rpx;position:relative}
 .legal-li-2::before{content:"—";position:absolute;left:0;color:#c7c7cc}
 .legal-b{color:#1d1d1f;font-weight:600}
-.legal-note{background:#f0fdfa;border:1rpx solid #99f6e4;border-radius:12rpx;padding:20rpx 24rpx;font-size:26rpx;color:var(--brand);line-height:1.7;margin:20rpx 0}
+.legal-note{background:var(--brand-bg);border:1rpx solid var(--brand-border);border-radius:12rpx;padding:20rpx 24rpx;font-size:26rpx;color:var(--brand);line-height:1.7;margin:20rpx 0}
 .legal-foot{margin-top:48rpx;padding-top:24rpx;border-top:1rpx solid #e5e5ea;font-size:24rpx;color:#a1a1a6;line-height:1.7;text-align:center}

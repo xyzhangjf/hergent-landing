@@ -338,12 +338,17 @@ console.log('G. 填报页「本期已有单」用服务端事实（v759）：互
   ok(!/#06b6d4|#ecfeff|#a5f3fc/.test(srvCss),
     '新横幅不用旧亮青底（#ecfeff/#a5f3fc）或旧品牌青 #06b6d4 —— 同一位置两种青并排一眼看出')
   /* 🔴 品牌色**不许带 alpha**（`check-miniprogram-brand` 会判红，v748 实测 92% 的半透明按钮
-     渲染成另一个色值）。这里把「主色 8% over 白」烘成实色 #ECF4F3 ⇒ 判据是"它是实色十六进制"，
-     而不是"它调用了 var(--brand)"。 */
-  ok(/#ECF4F3/i.test(srvCss), '新横幅底色是烘好的实色 #ECF4F3（主色 8% over 白），不是 rgba')
+     渲染成另一个色值）。v763 起「主色 8% over 白」烘成实色并收进 --brand-bg 令牌 ——
+     所以判据从"字面量是 #ECF4F3"改为"走令牌"，令牌的值由品牌护栏 ⑦d/⑦e 钉死。
+     意图（不用 rgba、不用旧亮青）完全不变。 */
+  ok(/var\(--brand-bg\)/.test(srvCss), '新横幅底色走 --brand-bg 令牌（实色烘值，不是 rgba）')
   ok(!/rgba\(15,\s*118,\s*110/.test(srvCss), '品牌色没写成 rgba（带 alpha 就不再是那个品牌色）')
-  const badCss = fwxss.replace(/#ECF4F3/g, '#ecfeff')
-  ok(!/#ECF4F3/i.test(badCss), '坏样本（底色退回旧亮青 #ecfeff）能被判否')
+  /* 坏样本必须走**同一个提取逻辑**（先换值、再按 .last-bar-srv 切段），
+     否则自证是空转的 —— 直接对全文 replace 再断言"没有 var(--brand-bg)"永远成立。 */
+  const badFwxss = fwxss.replace(/var\(--brand-bg\)/g, '#ecfeff')
+  const badSrv = (badFwxss.match(/\.last-bar-srv[^{]*\{[^}]*\}/g) || []).join('\n')
+  ok(!/var\(--brand-bg\)/.test(badSrv) && /#ecfeff/.test(badSrv),
+    '坏样本（底色退回旧亮青字面量）能被判否')
 }
 
 console.log('')

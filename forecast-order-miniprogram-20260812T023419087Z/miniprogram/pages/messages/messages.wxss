@@ -20,7 +20,7 @@
 .msg-hd{display:flex;align-items:center}
 .dot{width:14rpx;height:14rpx;border-radius:50%;background:#ff3b30;flex:none;margin-right:10rpx}
 .tag{font-size:22rpx;line-height:1.6;padding:2rpx 12rpx;border-radius:8rpx;flex:none;margin-right:10rpx}
-.tag-add{color:var(--brand);background:#e0f7fb}
+.tag-add{color:var(--brand);background:var(--brand-bg)}
 .tag-cut{color:#b45309;background:#fdf1de}
 .tag-sys{color:#5a5a60;background:#f2f2f7}
 .msg-title{font-size:28rpx;font-weight:600;color:#1d1d1f;flex:1;min-width:0;

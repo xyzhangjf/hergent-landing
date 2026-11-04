@@ -3,7 +3,7 @@
 .store-sel{display:flex;align-items:center}
 .store-name{font-size:32rpx;font-weight:600;color:#1d1d1f}
 /* v294：本人仓标识 —— 与门店区分（两者报的是不同的单：自提 vs 调拨） */
-.store-kind-tag{font-size:20rpx;font-weight:500;color:var(--brand);background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:6rpx;padding:2rpx 10rpx;margin-left:12rpx}
+.store-kind-tag{font-size:20rpx;font-weight:500;color:var(--brand);background:var(--brand-bg);border:1rpx solid var(--brand-border);border-radius:6rpx;padding:2rpx 10rpx;margin-left:12rpx}
 .store-arrow{font-size:24rpx;color:var(--brand);margin-left:12rpx}
 .store-count{font-size:26rpx;color:#86868b}
 .search-bar{display:flex;align-items:center;padding:24rpx 32rpx 0}
@@ -16,7 +16,7 @@
 /* 图标 20×20 / 触控区 42×44 —— 小于 44 的触控区在真机上点不准（且与 iOS 规范冲突） */
 .scan-btn{width:84rpx;height:88rpx;display:flex;align-items:center;justify-content:center;
   flex:0 0 auto;border-left:1rpx solid #e5e5ea}
-.scan-btn-hover{background:#ECF4F3}
+.scan-btn-hover{background:var(--brand-bg)}
 /* 四角 + 中线全部 CSS 画：不依赖图片资源，也不依赖字体里有没有某个字形
    （部分安卓机缺字会显成豆腐块，而这是**唯一**的扫码入口，不能有一台机器显不出来）。 */
 .scan-ic{width:40rpx;height:40rpx;position:relative}
@@ -31,11 +31,11 @@
    · is-box  定位到了但可能填错数量（琥珀）—— 整箱码扫出来这一行是按瓶报的
    · is-nf   没定位到（中性灰，不用品牌绿：绿色会被读成"成功了"） */
 .scan-res{display:flex;align-items:center;gap:12rpx;margin:16rpx 32rpx 0;
-  padding:18rpx 20rpx;border-radius:14rpx;border:1rpx solid #B7D6D4;background:#ECF4F3}
+  padding:18rpx 20rpx;border-radius:14rpx;border:1rpx solid var(--brand-border);background:var(--brand-bg)}
 .scan-res.is-box{background:#fff7ed;border-color:#fed7aa}
 .scan-res.is-nf{background:#f5f5f7;border-color:#e5e5ea}
 .scan-res-body{flex:1;min-width:0}
-.scan-res-t{display:block;font-size:26rpx;font-weight:600;color:#0a5a54;line-height:1.35;
+.scan-res-t{display:block;font-size:26rpx;font-weight:600;color:var(--brand-ink);line-height:1.35;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scan-res.is-box .scan-res-t{color:#9a3412}
 .scan-res.is-nf .scan-res-t{color:#3c3c43}
@@ -55,7 +55,7 @@
 /* 品牌选中态：靛蓝（与 .recent-chip 同族）—— 品牌维度只能选中一个 */
 .fchip-on{background:#4338ca;border-color:#4338ca;color:#fff;font-weight:600}
 /* 「我的常报」用**青色系**与品牌区分：两者可叠加（品牌 ∧ 常报），同色会被读成单选 */
-.fchip-freq{background:#ecfeff;border-color:#a5f3fc;color:var(--brand);font-weight:600}
+.fchip-freq{background:var(--brand-bg);border-color:var(--brand-border);color:var(--brand);font-weight:600}
 .fchip-freq-on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
 /* chip 上的条数：比"品牌名"淡一档，不抢主要信息 */
 .fchip-n{font-size:22rpx;opacity:.72;margin-left:6rpx}
@@ -83,7 +83,7 @@
 .reported-note{margin:16rpx 32rpx 0;background:#fffbeb;border:1rpx solid #fde68a;border-radius:14rpx;padding:18rpx 24rpx;font-size:26rpx;color:#92400e;line-height:1.6}
 /* 2026-10-17：分享到群条 —— 青色系（与 .fchip-freq-on / .store-arrow 同族），
    区别于 amber 的 pending / red 的 warn；提供常驻「分享到群」入口。 */
-.share-bar{display:flex;align-items:center;justify-content:space-between;margin:16rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
+.share-bar{display:flex;align-items:center;justify-content:space-between;margin:16rpx 32rpx 0;background:var(--brand-bg);border:1rpx solid var(--brand-border);border-radius:14rpx;padding:18rpx 24rpx}
 .share-tip{flex:1;font-size:24rpx;color:var(--brand);line-height:1.5;margin-right:16rpx}
 .share-btn{margin:0;background:var(--brand);color:#fff;font-size:24rpx;line-height:1.6;padding:8rpx 28rpx;border-radius:24rpx}
 .share-btn::after{border:none}
@@ -100,20 +100,20 @@
    但**换成青色系**：两条可能同屏（"该报单" 与 "有人改了我的量"），
    同色会被读成同一件事的两个状态；青色 = 品牌主色（与 .sample-bar / .store-kind-tag 同族），
    琥珀 = 待办紧迫感。颜色分工是这套样式唯一的表达职责，别改。
-   ⚠️ 文字色必须与底色同族（--brand 配 #ecfeff 浅青底；v736 前这里是
+   ⚠️ 文字色必须与底色同族（--brand 配 --brand-bg 浅染底；v736 前这里是
       #0e7490 标题 + #0891b2 副标题两档青，后者压浅青底只有 3.4:1，已并回一档）：直接沿用 .pending-title 的
       橙字会导致"青底橙字"，看起来像渲染错误。 */
-.msg-bar{display:flex;align-items:center;margin:16rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;overflow:hidden}
+.msg-bar{display:flex;align-items:center;margin:16rpx 32rpx 0;background:var(--brand-bg);border:1rpx solid var(--brand-border);border-radius:14rpx;overflow:hidden}
 .msg-accent{width:6rpx;align-self:stretch;background:var(--brand);flex:none}
 .msg-text{display:flex;flex-direction:column;padding:18rpx 24rpx;min-width:0;flex:1}
 .msg-title{font-size:26rpx;color:var(--brand);font-weight:600;line-height:1.5}
 .msg-sub{font-size:22rpx;color:var(--brand);line-height:1.5;margin-top:4rpx}
 .msg-go{font-size:36rpx;color:var(--brand);flex:none;padding:0 24rpx 0 8rpx;line-height:1}
 /* v227（2026-09-21）：复制生成样单 —— 入口条 + 来源回执 */
-.sample-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:#fff;border:1rpx dashed #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
+.sample-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:#fff;border:1rpx dashed var(--brand-border);border-radius:14rpx;padding:18rpx 24rpx}
 .sample-txt{font-size:24rpx;color:#86868b;flex:1;line-height:1.5}
 .sample-go{font-size:26rpx;color:var(--brand);font-weight:600;flex:0 0 auto}
-.sample-info{display:flex;flex-direction:column;gap:6rpx;margin:12rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx;position:relative}
+.sample-info{display:flex;flex-direction:column;gap:6rpx;margin:12rpx 32rpx 0;background:var(--brand-bg);border:1rpx solid var(--brand-border);border-radius:14rpx;padding:18rpx 24rpx;position:relative}
 .sample-info-t{font-size:24rpx;color:var(--brand);font-weight:600;line-height:1.5;padding-right:70rpx}
 .sample-info-s{font-size:22rpx;color:var(--brand);line-height:1.5}
 .sample-info-warn{color:#b45309}
@@ -123,7 +123,7 @@
 .no-store-lnk{display:block;margin-top:12rpx;color:var(--brand);font-weight:600}
 .prod-list{padding:16rpx 32rpx 0}
 .prod-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx;border:2rpx solid transparent}
-.prod-row-on{background:#ecfeff;border-color:#a5f3fc}
+.prod-row-on{background:var(--brand-bg);border-color:var(--brand-border)}
 .prod-info{flex:1;min-width:0;padding-right:16rpx}
 .prod-name-row{display:flex;align-items:flex-start}
 .prod-name{font-size:30rpx;color:#1d1d1f;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
@@ -149,7 +149,7 @@
    商品名（#1d1d1f 30rpx）> 规格（#86868b）> 库存/日均（#94a3b8）> 本行（最轻）。
    为什么不做成徽章/加粗：它是**参考值**，不是警告；抢眼了会让人误以为必须照它报。 */
 .prod-avg{display:inline-block;margin-top:6rpx;padding:2rpx 10rpx;border-radius:8rpx;
-  background:#ecfeff;color:var(--brand);font-size:22rpx;line-height:1.5}
+  background:var(--brand-bg);color:var(--brand);font-size:22rpx;line-height:1.5}
 /* 行内填报：− / 输入框 / +（P2-6: 触控目标 60→76rpx≈38px，减少手抖误触） */
 .qty-ctl{display:flex;align-items:center;gap:12rpx;flex:0 0 auto}
 .qty-ctl .qty-btn{width:76rpx;height:76rpx;font-size:44rpx}
@@ -203,24 +203,25 @@
       它现在的能力由底部结果卡（方案 A）承担。 */
 
 /* 2026-09-06 跨期次沿用：上次报单快照 / 本期已提交回执 */
-.last-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:14rpx;padding:18rpx 24rpx}
+/* v763：`.last-bar` 与 `.last-bar-svr` 现在**同底同边**（都走 --brand-bg/--brand-border）。
+   这是刻意的 —— 两者是同一语义位置（期次回执），v736 判据「一个语义位置出现第 2 个
+   色值就是 bug」。区分靠的是**文字色深浅**和文案，不再靠色相（旧版一个 H183 一个 H172，
+   并排一眼能看出两种青）。 */
+.last-bar{display:flex;align-items:center;justify-content:space-between;gap:16rpx;margin:16rpx 32rpx 0;background:var(--brand-bg);border:1rpx solid var(--brand-border);border-radius:14rpx;padding:18rpx 24rpx}
 .last-bar-done{background:#ecfdf5;border-color:#a7f3d0}
 .last-txt{font-size:24rpx;color:var(--brand);flex:1;line-height:1.5}
 .last-bar-done .last-txt{color:#047857}
 .last-go{font-size:26rpx;color:var(--brand);font-weight:600;flex:0 0 auto}
 .last-go-plain{color:#86868b;font-weight:400}
-/* v759（方案 B）：服务端「本期已有单」横幅。
-   🔴 不复用 `.last-bar` 的 `#ecfeff / #a5f3fc`（那是旧亮青一档）：同一个位置两种青并排
-      一眼就能看出（v736「一个语义位置出现第 2 个色值就是 bug」）。
-   🔴 底色写**实色**而不是 `rgba(15,118,110,.08)`：品牌色一旦带透明度，压在不同内容上
-      就是不同颜色（v748 那个 92% 的半透明按钮实测渲染成另一个值）。这里是白底页面，
-      所以直接把「主色 8% over 白」烘成 #ECF4F3（边框 30% ⇒ #B7D6D4），值可复现、也不触发
-      `check-miniprogram-brand` 的「rgba 绕过十六进制校验」。
+/* v759（方案 B）：服务端「本期已有单」横幅。v763 起底色改走 tint 令牌（原来写死
+   #ECF4F3/#B7D6D4 —— 值是对的，但它成了全站第 8 个浅青值，现在收敛进 --brand-bg）。
+   🔴 底色必须是**实色**：品牌色一旦带透明度，压在不同内容上就是不同颜色
+      （v748 那个 92% 的半透明按钮实测渲染成另一个值），见 app.wxss 令牌区口径。
    🔴 撤回态用琥珀色 —— 它不是"已完成"（绿色会让人以为报上了），也不是"出错"。 */
-.last-bar-srv{background:#ECF4F3;border-color:#B7D6D4}
-/* 正文压到 7.22:1（`var(--brand)` 压这个底色只有 4.9:1）—— 横幅是用户判断"报没报上"的
-   唯一依据，它读不清就等于没有。撤回态 #9a3412 on #fff7ed = 6.88:1。 */
-.last-bar-srv .last-txt{color:#0a5a54}
+.last-bar-srv{background:var(--brand-bg);border-color:var(--brand-border)}
+/* 正文压到 7.22:1（`var(--brand)` 压在 --brand-bg 上只有 4.90:1，刚过 AA）——
+   横幅是用户判断"报没报上"的唯一依据，它读不清就等于没有。撤回态 #9a3412 on #fff7ed = 6.88:1。 */
+.last-bar-srv .last-txt{color:var(--brand-ink)}
 .last-bar-srv.is-recall{background:#fff7ed;border-color:#fed7aa}
 .last-bar-srv.is-recall .last-txt{color:#9a3412}
 /* 两个动作并排要留出呼吸；`.last-txt` 已 flex:1，这里只保证动作不被压成竖排 */
@@ -331,7 +332,11 @@
 .cf-go{position:absolute;right:18rpx;top:50%;transform:translateY(-50%);color:var(--brand);font-size:22rpx}
 /* v420：主列表被定位到的商品行：高亮闪烁 3 次，引导用户填数量 */
 .prod-row-flash{animation:cfRowFlash 1s ease 3;box-shadow:0 0 0 3rpx var(--brand) inset;border-radius:14rpx}
-@keyframes cfRowFlash{0%,100%{background:#fff}50%{background:#ecfeff}}
+/* 🔴 v763：@keyframes 里**不能**写 var(--brand-bg) —— 小程序部分基础库在关键帧内不解析
+   CSS 变量，写 var() 会让整段闪烁动画失效（表现是"定位到了但行没闪"，静默退化）。
+   所以这里保留字面量，但值必须恒等于 --brand-bg：`check-miniprogram-brand` 会交叉核对，
+   改品牌色时忘了同步这一处会当场报错。 */
+@keyframes cfRowFlash{0%,100%{background:#fff}50%{background:#ECF4F3}}
 .cf-body{min-height:0;max-height:calc(78vh - 560rpx);padding:8rpx 32rpx 0}
 .cf-row{display:flex;align-items:center;gap:16rpx;padding:20rpx 0;border-bottom:1rpx solid #f0f0f2}
 .cf-row-low{background:#fffafa}

@@ -114,7 +114,75 @@ if (anchorHits === 1) {
   ok(/rgba\(0,\s*0,\s*0\s*,/.test(shadow || ''), '⑥ .back-top 用中性黑阴影表达"浮起"', `实际=${shadow || '无'}`)
 }
 
-/* ---------------- 收尾 ---------------- */
+/* ---------------- ⑦ tint 家族（v763）：浅染底必须走令牌 ----------------
+ * 报障背景：v736/v751 只统一了**前景**主色，浅染底/描边/禁用实心底全靠各处自选，
+ * 于是"同一个主色浅染"在 6 个页面里长出 7 个值、跨 5 档色相（H166~H191），
+ * fill 页两个相邻条块一屏之内并排两种青。这一段的四类坏样本分别对应四种复发路径。
+ * ---------------------------------------------------------------- */
+const TINT_ANCHOR = 'background:var(--brand-bg);color:var(--brand);font-size:22rpx'
+const tintHits = targetSrc.split(TINT_ANCHOR).length - 1
+ok(tintHits === 1, '⑦ 注入锚点唯一（.prod-avg 的 var(--brand-bg) 底）', `命中 ${tintHits} 次`)
+
+if (tintHits === 1) {
+  /* ⑦a 从令牌改回**旧亮青 tint** —— 换色那一批最典型的漏网写法 */
+  fs.writeFileSync(target, targetSrc.replace(TINT_ANCHOR, 'background:#ecfeff;color:var(--brand);font-size:22rpx'))
+  const a = runGuard(tmp)
+  ok(a.code === 1, '⑦a 副本注入旧 tint #ecfeff ⇒ 校验报红', `exit=${a.code}`)
+  ok(/旧亮青 tint/.test(a.out) && /--brand-bg/.test(a.out), '⑦a 报错点明"旧亮青 tint"并指向 --brand-bg')
+
+  /* ⑦b 值**对了**但没走令牌 —— 最隐蔽的一种：所有色值检查都过，只有这一条能抓 */
+  fs.writeFileSync(target, targetSrc.replace(TINT_ANCHOR, 'background:#ECF4F3;color:var(--brand);font-size:22rpx'))
+  const b = runGuard(tmp)
+  ok(b.code === 1, '⑦b 副本写死 tint 值 #ECF4F3（值对、没走令牌）⇒ 校验也报红', `exit=${b.code}`)
+  ok(/var\(--brand-bg\)/.test(b.out), '⑦b 报错指出应写 var(--brand-bg)（不是笼统的 var(--brand)）')
+  fs.writeFileSync(target, targetSrc)
+}
+
+/* ⑦c keyframes 内回旧值 —— 关键帧不能写 var()，所以它是唯一允许写字面量的地方，
+ *     也正因如此最容易在改品牌色时被忘掉（症状是"定位到了但行没闪/闪成另一种青"，没人看得见）。 */
+const KF_ANCHOR = '50%{background:#ECF4F3}'
+const kfHits = targetSrc.split(KF_ANCHOR).length - 1
+ok(kfHits === 1, '⑦c 注入锚点唯一（@keyframes cfRowFlash 的 50% 帧）', `命中 ${kfHits} 次`)
+if (kfHits === 1) {
+  fs.writeFileSync(target, targetSrc.replace(KF_ANCHOR, '50%{background:#ecfeff}'))
+  const r = runGuard(tmp)
+  ok(r.code === 1, '⑦c @keyframes 回旧 tint ⇒ 校验报红（证明关键帧被单独核对，没被跳过）', `exit=${r.code}`)
+  ok(/@keyframes/.test(r.out), '⑦c 报错点名 @keyframes（否则没人知道该改哪）')
+  fs.writeFileSync(target, targetSrc)
+}
+
+/* ⑦d/e 令牌本身：少一个 / 值被改 ⇒ 都必须红（否则"定义错了"比"没定义"更难发现） */
+const appWxssPath = path.join(tmp, 'app.wxss')
+const appSrc = fs.readFileSync(appWxssPath, 'utf8')
+{
+  const decl = '--brand-bg:#ECF4F3;'
+  const dHits = appSrc.split(decl).length - 1
+  ok(dHits === 1, '⑦d app.wxss 里 --brand-bg 声明唯一', `命中 ${dHits} 次`)
+  if (dHits === 1) {
+    fs.writeFileSync(appWxssPath, appSrc.replace(decl, ''))
+    const r1 = runGuard(tmp)
+    ok(r1.code === 1, '⑦d 删掉 --brand-bg 声明 ⇒ 校验报红', `exit=${r1.code}`)
+    ok(/没声明 tint 令牌/.test(r1.out), '⑦d 报错说明"页面会退回硬编码"')
+
+    fs.writeFileSync(appWxssPath, appSrc.replace(decl, '--brand-bg:#ecfeff;'))
+    const r2 = runGuard(tmp)
+    ok(r2.code === 1, '⑦e --brand-bg 被改成旧 tint ⇒ 校验报红', `exit=${r2.code}`)
+    ok(/#ecfeff/.test(r2.out), '⑦e 报错点名了错误的值')
+
+    fs.writeFileSync(appWxssPath, appSrc)
+  }
+}
+
+/* ⑦f 令牌定义了却没人用（"只定义不接线"就是空白支票）—— 把 fill.wxss 的 tint 引用
+ *     全换成中性色，模拟"页面被改回不依赖令牌"的状态，用量下限必须报红。 */
+{
+  fs.writeFileSync(target, targetSrc.replace(/var\(--brand-bg\)/g, '#f5f5f7'))
+  const r = runGuard(tmp)
+  ok(r.code === 1, '⑦f tint 引用被抽走 ⇒ 用量下限报红', `exit=${r.code}`)
+  fs.writeFileSync(target, targetSrc)
+}
+
+
 fs.rmSync(tmp, { recursive: true, force: true })
 if (failed) {
   console.log(`\n❌ miniprogram-brand: ${failed} 条不通过`)

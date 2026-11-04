@@ -234,7 +234,12 @@ console.log('')
 console.log('I. 配色：三档语义各自成立，不带旧亮青')
 {
   const css = ruleOf('.scan-res')
-  ok(/#ECF4F3/.test(css), '已定位态用品牌浅染实色 #ECF4F3（品牌色带 alpha 就不是品牌色）')
+  /* v763：浅染底统一进 --brand-bg 令牌（原来的判据是"字面量必须等于 #ECF4F3"，
+     那会挡住令牌化本身）。判据的**意图**不变 —— 品牌色不许带 alpha，底色必须是实色 ——
+     只是把"实色值"从字面量挪进令牌，由 `check-miniprogram-brand` ⑦d/⑦e 钉住
+     令牌的值必须精确等于 #ECF4F3。 */
+  ok(/var\(--brand-bg\)/.test(css), '已定位态走 --brand-bg 令牌（实色烘值，不是 rgba）')
+  ok(!/rgba\(/.test(css), '已定位态不用 rgba（品牌色带 alpha 就不再是品牌色）')
   ok(/\.scan-res\.is-box\{[^}]*#fff7ed/.test(wxss), '整箱/多匹配态用琥珀（提示风险，不是"成功"）')
   ok(/\.scan-res\.is-nf\{[^}]*#f5f5f7/.test(wxss), '未定位态用中性灰（品牌绿会被读成"成功了"）')
   const all = ruleOf('.scan-res') + ruleOf('.scan-res.is-box') + ruleOf('.scan-res.is-nf') +

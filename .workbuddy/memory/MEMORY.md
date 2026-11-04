@@ -1,10 +1,10 @@
 # Hergent 记忆索引（判据首句 + 去哪查；细节全在 `topics/*.md` / `.workbuddy/memory/YYYY-MM-DD.md`）
 
-**前端最新 v762**（小程序扫码「认不出」：首次引导+fail 分流）｜v761 扫码报单｜v760 条码+名称可展开｜v759 服务端「本期已有单」｜v758 撤回单「继续修改」。唯一开发源 `main`。
-🔴🔴 **「撤回后要全部重新填报」= 数据没丢，是入口被关了**（v758，小程序）：`forecast_submission_recall` 只 `UPDATE status='recalled'`（**明细一行不删**，生产 2453 撤回后 23 行/300 件全在），而 `rec-copy` 与 `genSample` 都把 `recalled` 排除 ⇒ 23 行只能手打。**「继续修改」≠「复制样单」不许合并**：复制=拿别期有效单当模板（排除作废单是对的）；继续修改=把这一单拉回来（提交命中幂等键 `(店,期次)` 原单、单号不变、`status` 复位 pending）。**rejected 仍禁**（驳回是审批方否掉的）。
+**前端最新 v763**（小程序浅染底统一：4 令牌+21 处替换+护栏）｜v762 扫码「认不出」｜v761 扫码报单｜v760 条码+名称可展开｜v759 服务端「本期已有单」｜v758 撤回单「继续修改」。唯一开发源 `main`。
+🔴🔴 **「撤回后要全部重新填报」= 数据没丢，是入口被关了**（v758，小程序）：`forecast_submission_recall` 只 `UPDATE status='recalled'`（**明细一行不删**），而 `rec-copy` 与 `genSample` 都把 `recalled` 排除 ⇒ 只能手打。**「继续修改」≠「复制样单」不许合并**：复制=拿别期有效单当模板（排除作废单是对的）；继续修改=把这一单拉回来（幂等键 `(店,期次)` 原单、单号不变、复位 pending）。**rejected 仍禁**（驳回是审批方否掉的）。
 🔴🔴 **`_applyCopySample` 只切门店不切期次**（v434 前提是"样单落到当前选中期次"）⇒ "改这一单"必须**两层对齐期次**：`_applyPeriods` 优先选中 `_pendingCopy.period_id` + `_applyCopySample` 再校验不一致就明确拒绝。否则 23 行整批报到错的期次、**零报错**（数量合法、商品都在清单内），最难发现。
 🔴 **入口是否出现第三次必须由服务端给**（v259 `can_delete` → v755 `can_recall` → v758 `period_writable`）：期次一关就改不了（路由层 `forecast_period_writable` 硬锁），前端自己判必然再造「按钮亮着、点了报错」。
-🔴🔴 **「本期报没报」必须问服务端，本机回执只是兜底**（v759）：`submittedInfo` 是纯本机 Storage（`fs_sub_<店>_<期次>`）—— ① 换手机/清缓存/换人登录就消失（单还在库里）⇒ 重报或**漏单**；② 只有"已报"一种状态，撤回后靠 `_fsRecall` 去清，杀进程再进照旧挂「✓ 本期已报」。修法：`/my?store_id+store_kind` 取回按 `period_id` 精确匹配，文案在 `_buildServerSub` 拼（五组合摊在 wxml 必漏一种）。🔴 两条横幅 **`wx:if`/`wx:elif` 互斥**（一屏两条比没有更糟）。🔴 **不自动预填**，只给按钮 + `_applySample` 覆盖确认。🔴 刷新时机四条缺一即陈旧：`refreshBanners` 末尾 / 提交后 `force` / 撤回后清 `_serverSubKey` / `onShow` 60s 节流；键名收敛单点 `_subKeyOf(o,pid)`。
+🔴🔴 **「本期报没报」必须问服务端，本机回执只是兜底**（v759）：`submittedInfo` 是纯本机 Storage（`fs_sub_<店>_<期次>`）—— ① 换手机/清缓存/换人登录就消失（单还在库里）⇒ 重报或**漏单**；② 只有"已报"一种状态，撤回后靠 `_fsRecall` 去清，杀进程再进照旧挂「✓ 本期已报」。修法：`/my?store_id+store_kind` 取回按 `period_id` 精确匹配，文案在 `_buildServerSub` 拼（五组合摊在 wxml 必漏一种）。🔴 两条横幅 **`wx:if`/`wx:elif` 互斥**（一屏两条比没有更糟）。🔴 **不自动预填**，只给按钮 + `_applySample` 覆盖确认。🔴 刷新时机四条缺一即陈旧（`refreshBanners`/提交 `force`/撤回清 `_serverSubKey`/`onShow` 60s）；键名单点 `_subKeyOf`（清单见 `topics/frontend-ui.md`）。
 🔴🔴 **后端仍零版本管理**：生产 `/opt/hergent-erp/` 是 FastAPI+`routers/` 新架构（非 git 仓、有 `.env`），本仓 `server/` 是旧单文件架构、无 `routers/` ⇒ 本地无副本。判据 `grep -c 主管调整 server/erp_db.py`==0 而生产有 ⇒ **"提交了前端" ≠ "后端也入库了"**。靠 `.workbuddy/remote-erp/` 手工回拉。
 
 ## 🔴🔴 部署（错一步=假部署）
@@ -47,7 +47,7 @@
 🔴 **`created_at` 默认 `CURRENT_TIMESTAMP` = UTC，比本地早 8 小时**：曾把 10:11 的导入读成"凌晨 02:11"。判「今天/先后」一律减 8 小时或改用 `updated_at`（`localtime`）。
 
 ## 🔴 UI 判据（全文 `topics/frontend-ui.md`）
-🔴 **「两边品牌色不一样」先数色值个数，别比色相**：一个语义位置出现第 2 个色值就是 bug。唯一源 `miniprogram/app.wxss` 的 `page{--brand}`；**吃不到 CSS 变量必须同批手改**：`app.json` nav/tabBar、`showModal.confirmColor`、`<switch color>`、**`tab-*-active.png`（色烘在像素里）**。
+🔴 **「两边品牌色不一样」先数色值个数，别比色相**：一个语义位置出现第 2 个色值就是 bug。唯一源 `miniprogram/app.wxss` 的 `page{--brand}`；**吃不到 CSS 变量必须同批手改**：`app.json` nav/tabBar、`showModal.confirmColor`、`<switch color>`、**`tab-*-active.png`（色烘在像素里）**。🔴 v763：**只统一前景不统一背景必漂**（浅染底曾 7 值跨 5 档）⇒ tint 四令牌 `--brand-bg/-border/-ink/-mute`；**禁用底不许套 bg**（白字消失）；**`@keyframes` 吃不到 `var()`** ⇒ 字面量+交叉核对。
 🔴🔴 **「品牌色统一过了」先问「护栏在跑吗、认几种写法」**（v748）：只认 `#hex` 的校验**看不见 `rgba(6,182,212,.92)`**（数值上就是旧亮青）⇒ 必须按数值判；**带 alpha 就不再是品牌色**（白字掉到 2.55:1）⇒ 要"浮起来"用阴影不用透明度，浅染底色直接**烘成实色**（主色 8% over 白 = `#ECF4F3`）。`miniprogram-brand.contract.mjs`。
 🔴 **焦点环两层必须同时守**（v749/v750）：一层治「组框已画环、框内又画一层」，一层治「控件画环、与边框隔 2px」。根因 **`:focus-visible` 对文本类控件鼠标点击也成立** ⇒「只有 Tab 才出圈」对 input/select/textarea 永不成立；`:focus-within` 必须紧贴容器右括号；判有没有环看 `outline-style` 别看宽度。`focus-ring-takeover`。
 🔴 **排版/令牌**：**字号归并 ≠ 行高归并**（行高只影响垂直，字号改**宽度**⇒换行/截断/列宽）；最难发现的债是**「同值两个名字」**；**一个令牌两语义**只能**拆名**+护栏防合回；`rule.style.fontSize` 读 `var()` 返**空串**。**间距归一「收大留小」**：判据是**这 2px 人眼看不出**，方向**往上取整**。「用行高当高度」≠行距。余 → `topics/frontend-ui.md`。
