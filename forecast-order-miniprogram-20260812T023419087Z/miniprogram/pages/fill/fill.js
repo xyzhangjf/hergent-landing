@@ -180,6 +180,82 @@ Page({
     return parts.length ? parts.join(' · ') : '暂无库存与销量数据'
   },
 
+  /* v760：名称截断判定 —— **不按字数、按「字宽」估**。
+     🔴 为什么不直接数 length：名称是全角/半角混排（`230g*24瓶`、`PET瓶185ml`），
+        一个 ASCII 字符只占半个字宽；按字数算会把"明明放得下"的判成截断、
+        把"真的超了"漏掉 —— 两种错都直接表现成箭头该有不有 / 不该有却有。
+     🔴 为什么不量 DOM（`scrollHeight`）：小程序的 SelectorQuery 拿不到文本节点的
+        `scrollHeight`（只有 scroll-view 给），187 行逐行量既贵也量不准。
+     ⇒ 用字宽模型估：ASCII 记 0.56 字宽，其余记 1 字宽。实测本期 187 个商品，
+        0.50 / 0.56 / 0.60 三种假设得出**同一个** 89% 结论（名字里的 ASCII 段都短，
+        不吃边界），说明这个模型在真实数据上是稳的。
+     ⚠️ 阈值 10.2 = `.prod-info` 可用宽 308rpx（334 减箭头 26）÷ 30rpx 字号，
+        **特意取略低值**：多挂一个箭头只是点了没变化，少挂一个就是"这行看不清也没法展开"。 */
+  _nameUnits(s) {
+    let u = 0
+    const str = String(s || '')
+    for (let i = 0; i < str.length; i++) u += str.charCodeAt(i) < 128 ? 0.56 : 1
+    return u
+  },
+  _nameMore(s) { return this._nameUnits(s) > 10.2 },
+
+  /* v760：搜索命中的关键词分段（供 wxml 逐段渲染高亮）。
+     🔴 为什么必须高亮：命中词常落在**第 20 字**，而一行只显示 11 字 ⇒ 截断后
+        用户看到的是"这行跟我搜的词毫无关系"，会以为搜索坏了。
+        所以搜索态一律展开 + 命中词标黄，一眼看出为什么匹配。 */
+  _nameSegs(name, kw) {
+    const s = String(name || '')
+    const k = String(kw || '').trim()
+    if (!k) return [{ i: 0, t: s, hit: false }]
+    const low = s.toLowerCase()
+    const kl = k.toLowerCase()
+    const out = []
+    let i = 0
+    while (i < s.length) {
+      const j = low.indexOf(kl, i)
+      if (j < 0) break
+      if (j > i) out.push({ i: out.length, t: s.slice(i, j), hit: false })
+      out.push({ i: out.length, t: s.slice(j, j + k.length), hit: true })
+      i = j + k.length
+    }
+    if (i < s.length) out.push({ i: out.length, t: s.slice(i), hit: false })
+    return out.length ? out : [{ i: 0, t: s, hit: false }]
+  },
+
+  /* v760：展开状态的存放处。
+     🔴 **不能存在商品对象上**：`loadProducts` 每次重铺都用 `Object.assign` 重建行对象，
+        存在 item 上的展开标记会被整批冲掉（表现：展开了一个、上下滚动回来又收起来）。
+        所以状态放实例属性（按 id 存），渲染时再回填到行上。 */
+  _nmOpenSet() {
+    if (!this._nmOpen) this._nmOpen = new Set()
+    return this._nmOpen
+  },
+  toggleName(e) {
+    const id = String((e.currentTarget.dataset || {}).id || '')
+    if (!id) return
+    const idx = (this._prodIndex || {})[id]
+    if (idx === undefined) return
+    const p = this.data.products[idx]
+    if (!p || !p.nameMore) return      // 放得下就没有可展开的，不做无意义重渲染
+    const set = this._nmOpenSet()
+    const open = !set.has(id)
+    if (open) set.add(id); else set.delete(id)
+    const patch = {}
+    patch['products[' + idx + '].nmOpen'] = open
+    this.setData(patch)
+    if (open) { try { wx.vibrateShort({ type: 'light' }) } catch (err) {} }
+  },
+  /* v760：长按复制条码 —— 条码的价值有一半在"能被抄走"：
+     手机里对着实物抄后 4 位去搜索框一搜就定位（搜索已支持条码片段匹配）。 */
+  copyBarcode(e) {
+    const code = String((e.currentTarget.dataset || {}).code || '')
+    if (!code) return
+    wx.setClipboardData({
+      data: code,
+      success: () => wx.showToast({ title: '条码已复制', icon: 'none' })
+    })
+  },
+
   /* v370：销量数据新鲜度提示文案（老板选项 B）。
      🔴 这条提示的价值全在「**说清那个日均是哪段时间的**」：
        后端 `sales_freshness` 带的 `window_start/window_end` 才是日均的真实区间
@@ -1336,9 +1412,21 @@ Page({
          🔴 必须在数据构造时算，不能事后 patch 数组 —— `my_stock` 是后端按**本人仓**
          算的，换账号 / 换仓范围后旧文案会留在界面上，零报错地显示着别人的库存。 */
       const hasMyWh = (d.my_warehouses || []).length > 0
+      /* v760：名称的「截断 / 展开 / 命中高亮」三件事都必须在**这里**重算，
+         与 v370 的 metaText 同一条纪律：换账号、换关键词后旧文案若留在界面上，
+         会零报错地显示着错的内容（这里表现为"搜新词、高亮还停在旧词"）。 */
+      const _kw = String(keyword || '').trim()
+      const _open = this._nmOpenSet()
       const list = (d.items || []).map(it => Object.assign({}, it, {
         qty: qm[it.id] || 0,
-        metaText: this._metaText(it, hasMyWh)
+        // hasMyWh 仍下发：`_metaText()` 口径保留着（`库存/日均` 这一行 v760 起不渲染）
+        metaText: this._metaText(it, hasMyWh),
+        // v760：条码原样下发（空串 = 真的没有 ⇒ 模板整节点不渲染，不拿 0 冒充）
+        barcode: String(it.barcode || '').trim(),
+        nameSegs: this._nameSegs(it.name, _kw),
+        nameMore: this._nameMore(it.name),
+        // 搜索态一律展开：命中词常落在被截掉的后半段，不展开等于没高亮
+        nmOpen: !!_kw || _open.has(String(it.id))
       }))
       const total = typeof d.total === 'number' ? d.total : list.length
       const products = append ? this.data.products.concat(list) : list

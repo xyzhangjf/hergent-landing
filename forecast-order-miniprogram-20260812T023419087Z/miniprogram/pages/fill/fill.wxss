@@ -91,8 +91,25 @@
 .prod-row{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:16rpx;padding:20rpx 24rpx;margin-bottom:16rpx;border:2rpx solid transparent}
 .prod-row-on{background:#ecfeff;border-color:#a5f3fc}
 .prod-info{flex:1;min-width:0;padding-right:16rpx}
-.prod-name{font-size:30rpx;color:#1d1d1f;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prod-name-row{display:flex;align-items:flex-start}
+.prod-name{font-size:30rpx;color:#1d1d1f;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+/* v760：展开态 —— 只放开换行，字号/颜色/字重**一律不动**。
+   187 行满屏「链接色 + 下划线」会花，且会让人以为名称可点进商品详情（本页没有详情页）。
+   `overflow-wrap:anywhere` 而不是 `break-all`：英文/数字段只在必要时才断开，
+   否则 `250g*24瓶` 会被切成 `250` + `g*24瓶`。 */
+.prod-name-open{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+/* v760：展开指示器 —— CSS 画的 V 形箭头，不依赖字体里有没有 ⌄ 这个字形（部分安卓机缺字） */
+.nm-chev{flex:0 0 auto;width:26rpx;height:42rpx;display:flex;align-items:center;justify-content:center}
+.nm-chev::after{content:'';width:10rpx;height:10rpx;border-right:2rpx solid #86868b;border-bottom:2rpx solid #86868b;transform:rotate(45deg);transition:transform .15s}
+.nm-chev-open::after{transform:rotate(-135deg)}
+/* v760：搜索命中词 —— 命中常落在被截断的后半段，标出来用户才知道"为什么这行匹配" */
+.nm-hit{background:#fef3c7;color:#92400e;border-radius:3rpx}
+/* v760：商品条码 —— 等宽字体 + 更浅的颜色做层级，**不靠缩小字号**
+   （缩到 20rpx 的 13 位数字对着实物核不动）。24rpx × 13 位 ≈ 187rpx，可用宽 334rpx 放得下。 */
+.prod-code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:24rpx;line-height:1.25;color:#8e8e93;letter-spacing:1rpx;margin-top:4rpx;white-space:nowrap}
 .prod-spec{font-size:24rpx;color:#86868b;margin-top:6rpx}
+/* v760：`库存/日均` 那一行的样式**保留**（wxml 里已注掉）。
+   留着是为了"恢复只需取消一行注释"，不是忘删 —— 删了它，恢复时那行会变成无样式裸文字。 */
 .prod-meta{font-size:22rpx;color:#94a3b8;margin-top:6rpx}
 /* v264c（2026-09-24）：均单目标浅色提示 —— 淡淡的青底 + 青字，与品牌色同族但**不抢眼**：
    商品名（#1d1d1f 30rpx）> 规格（#86868b）> 库存/日均（#94a3b8）> 本行（最轻）。

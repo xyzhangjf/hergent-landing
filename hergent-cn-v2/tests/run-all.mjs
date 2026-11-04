@@ -589,6 +589,18 @@ if (has('skip-sfc')) {
   results.push({ name: '关单改单+粘贴落点', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊲ 填报页商品行（条码 + 名称可展开，v760）──────────────────────
+/* 需求（2026-11-04）：商品名下方展示条码；名称超长省略号 + 点击展开；库存/日均那行撤掉。
+   本块钉四组：① 条码空值不渲染且整串不截断；② 截断交 CSS 不按字数切；
+   ③ 展开按字宽判、短名不给假入口、状态不挂商品对象；④ 库存行的"一行恢复"路径。 */
+{
+  console.log('\n── ㊲ 填报页商品行（条码 + 名称可展开，v760）──')
+  const r = run('miniprogram-fill-prod-row.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '商品行条码+名称展开', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
