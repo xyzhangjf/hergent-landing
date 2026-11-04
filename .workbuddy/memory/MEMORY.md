@@ -1,10 +1,10 @@
 # Hergent 记忆索引（判据首句 + 去哪查；细节全在 `topics/*.md` / `.workbuddy/memory/YYYY-MM-DD.md`）
 
-**前端最新 v759**（小程序「本期已有单」服务端横幅）｜v758 撤回单「继续修改」｜v756 关单可保存+粘贴落点｜v755 撤回闸门/新增客户列｜v754 品牌筛选｜v752 删列回读｜v751 品牌焕新｜v750/v749 焦点环｜v747 侧栏图标｜v746/v745 缩放留白｜v744 副驾下载。唯一开发源 `main`。
+**前端最新 v761**（小程序扫码报单）｜v760 条码+名称可展开｜v759 服务端「本期已有单」｜v758 撤回单「继续修改」｜v756 关单可保存+粘贴落点｜v755 撤回闸门。唯一开发源 `main`。
 🔴🔴 **「撤回后要全部重新填报」= 数据没丢，是入口被关了**（v758，小程序）：`forecast_submission_recall` 只 `UPDATE status='recalled'`（**明细一行不删**，生产 2453 撤回后 23 行/300 件全在），而 `rec-copy` 与 `genSample` 都把 `recalled` 排除 ⇒ 23 行只能手打。**「继续修改」≠「复制样单」不许合并**：复制=拿别期有效单当模板（排除作废单是对的）；继续修改=把这一单拉回来（提交命中幂等键 `(店,期次)` 原单、单号不变、`status` 复位 pending）。**rejected 仍禁**（驳回是审批方否掉的）。
 🔴🔴 **`_applyCopySample` 只切门店不切期次**（v434 前提是"样单落到当前选中期次"）⇒ "改这一单"必须**两层对齐期次**：`_applyPeriods` 优先选中 `_pendingCopy.period_id` + `_applyCopySample` 再校验不一致就明确拒绝。否则 23 行整批报到错的期次、**零报错**（数量合法、商品都在清单内），最难发现。
 🔴 **入口是否出现第三次必须由服务端给**（v259 `can_delete` → v755 `can_recall` → v758 `period_writable`）：期次一关就改不了（路由层 `forecast_period_writable` 硬锁），前端自己判必然再造「按钮亮着、点了报错」。
-🔴🔴 **「本期报没报」必须问服务端，本机回执只是兜底**（v759 方案 B —— 让用户**根本不需要撤回**）：`submittedInfo` 是纯本机 Storage（`fs_sub_<店>_<期次>`），两个硬伤治不了 —— ① 换手机 / 清缓存 / 换人登录就消失（单还在库里）；② **只有"已报"一种状态**，撤回后只能靠 `_fsRecall` 跨页信号去清，杀进程再进照旧挂「✓ 本期已报」⇒ **漏单**。修法：`/my?store_id+store_kind` 取回后按 `period_id` **精确匹配**，文案在 `_buildServerSub` 里拼（五种组合摊在 wxml 必漏一种）。🔴 两条横幅 **`wx:if`/`wx:elif` 互斥**（一屏两条「本期已报」比没有更糟）。🔴 **不自动预填**（覆盖式预填会静默改掉已填数），只给按钮 + `_applySample` 的覆盖确认。🔴 刷新时机四条缺一即陈旧：挂 `refreshBanners` 末尾 / 提交后 `force` / 撤回后清 `_serverSubKey` / `onShow` 60s 节流。键名构造收敛单点 `_subKeyOf(o,pid)`。
+🔴🔴 **「本期报没报」必须问服务端，本机回执只是兜底**（v759）：`submittedInfo` 是纯本机 Storage（`fs_sub_<店>_<期次>`）—— ① 换手机/清缓存/换人登录就消失（单还在库里）⇒ 重报或**漏单**；② 只有"已报"一种状态，撤回后靠 `_fsRecall` 去清，杀进程再进照旧挂「✓ 本期已报」。修法：`/my?store_id+store_kind` 取回按 `period_id` 精确匹配，文案在 `_buildServerSub` 拼（五组合摊在 wxml 必漏一种）。🔴 两条横幅 **`wx:if`/`wx:elif` 互斥**（一屏两条比没有更糟）。🔴 **不自动预填**，只给按钮 + `_applySample` 覆盖确认。🔴 刷新时机四条缺一即陈旧：`refreshBanners` 末尾 / 提交后 `force` / 撤回后清 `_serverSubKey` / `onShow` 60s 节流；键名收敛单点 `_subKeyOf(o,pid)`。
 🔴🔴 **后端仍零版本管理**：生产 `/opt/hergent-erp/` 是 FastAPI+`routers/` 新架构（非 git 仓、有 `.env`），本仓 `server/` 是旧单文件架构、无 `routers/` ⇒ 本地无副本。判据 `grep -c 主管调整 server/erp_db.py`==0 而生产有 ⇒ **"提交了前端" ≠ "后端也入库了"**。靠 `.workbuddy/remote-erp/` 手工回拉。
 
 ## 🔴🔴 部署（错一步=假部署）
@@ -36,11 +36,14 @@
 🔴🔴 **同一个留白在改单态还有第二份实现**（v746）：改用「首批 N 行 + 每批补齐」(v666)，`EDIT_FIRST_BATCH=24` 按 100% 一屏定的死值 ⇒ 缩小只铺半屏。**报障形态是「一直挂着」不是「闪一下」**：「击键让路」在最前、`_lastGridTypeAt` 只在 `.cell-qty` 更新 ⇒ 数量格连打 ⇒ 补齐被无限期挡回。两件缺一即假生效：首批按 `ceil(editMaxH/(ROW_H*z))`（**z≥1 回退 24**）／**`needFloor` 放在击键让路之前**。`forecast-edit-batch-zoom`。
 🔴 **A/B 对照**（v746）整页回退 / 留白量法 / 探针打 `.cell-qty` —— 三个坑全文 `topics/frontend-ui.md` 末节。
 
+## 🔴 小程序 · 扫码（v761）
+🔴🔴 **加 `wx.scanCode` 必须同批改隐私申报，否则真机「点了没反应」**：`privacy.wxml` 原写「不获取相册、摄像头」，而扫描属**需申报接口**，后台指引未声明就被隐私校验静默拦下（不报错）。三处同批：隐私页正文＋`隐私保护指引.md`（逐句同源）＋`miniprogram-legal-consistency-check.py`（禁用词表加窄豁免「同句含扫码+条码」＋正向「调了 scanCode 就必须有申报句」）。🔴 该校验连 `最近更新` 日期都比对；🔴 **后台仍要手动补**申报。
+🔴🔴 **「一个条码一个商品」是错觉**：本期 6 组同码（`…（福宝下单）`、`*10瓶*6组` vs `*24瓶`）⇒ 只"定位第 1 个"会把数量填进**另一个渠道那行**、零报错。必须 `filter(barcode===code)` 后**点名「同条码还有 B」**。🔴 `rows[0]` 永不等于命中（期次分支 `order_by` 是模板行序，不是相关度）。
+🔴 整串是 URL 时先抽 8–14 位（优先 13）再搜，否则假「不在清单里」；扫码**绝不写 `_qtyMap`**（冲掉已填数＝静默损失）；结果条文案全在 js、wxml 只留一个 `wx:if`。
+
 ## 🔴 小程序撤回 / 归属闸门（后端已生效，小程序待发版）
-🔴🔴 **「点撤回提示仅本人或管理员可撤回，点的人就是本人」= 按钮缺归属闸门**（v755）：模板只判 `status==='pending'` 不看归属，而列表范围是「我报的 OR 我负责门店的」⇒ 混进别人的单（删除早有 `can_delete`，撤回漏了同一个）。修法：服务端逐条给 `can_recall`、`/my` 传 `role`。🔴 期次可写闸不能省（`recall` 函数内不判、硬锁在路由层）⇒ 否则又造「点了就报错」；判「UI ⊆ 后端放行」须手工补闸，直调 db 层会假绿。
-🔴 **字段白名单静默丢字段**：`mine.js` 必须 `...r` 展开。护栏 `miniprogram-recall-gate`；跨仓断言要**切片到 `/my` 函数体**，全文级会被其他路由救成假绿。
-🔴🔴 **v757：「报了单却撤不了」的第二形态 —— 单子名义上从来不是她的**（导购马耀秀，期次还开着按钮仍不出现）：主管先导入（`role='导入'`/`user_id=老板`），员工小程序提交**原位替换到那一行**（v224 键 `(store,period)`，`replace` **有意不动 `user_id`/`role`**）⇒「本人」判据**恒不成立**；主管再 `save-matrix` 又按 `FORECAST_IMPORT_SCOPE_SQL` 删建 ⇒ `updated_by` 也没了。**修法不是补字段，是加第三条通路：该单的 `(store_id,kind)` ∈ 我的报单范围**（与提交越权校验共用 `report_subject_stores`），收敛成单点 `forecast_recall_allowed()`，列表与写入口**都调它**。撤回是软删、`can_delete` 不动；生产 `report_mapping` 20 对象**全部一店一人**。
-🔴🔴 **判据函数收「范围」必须两种形状都吃**：列表传 `(id,kind)` **元组**、路由传 `{id,kind}` **字典**；只认一种不报错，而是 `int(元组)` 抛错被 `continue` 吞成**静默 False** ⇒ 按钮照样不亮（v757 第一版自己又造了一遍原 bug）。`v757-recall-scope-harness.py`（`/tmp` 副本、生产零写）。
+🔴🔴 **撤回按钮缺归属闸门**（v755→v757）：模板只看 `status==='pending'`，而列表范围是「我报的 OR 我负责门店的」⇒ 混进别人的单。修法=服务端逐条给 `can_recall`，收敛单点 `forecast_recall_allowed()` 三条通路：本人 / 角色 / **该单 `(store_id,kind)` ∈ 我的报单范围**。🔴 为什么要第三条：主管先导入（`role='导入'`/`user_id=老板`）、员工提交**原位替换那一行**（v224 键 `(store,period)`，`replace` 有意不动 `user_id`/`role`）⇒「本人」恒不成立。🔴 期次可写闸不能省（`recall` 内不判、硬锁在路由层）⇒ 否则「点了就报错」；直调 db 层会假绿。
+🔴 **判据函数收「范围」必须两种形状都吃**：列表传 `(id,kind)` 元组、路由传 `{id,kind}` 字典；只认一种不报错，而是 `int(元组)` 抛错被 `continue` 吞成静默 False ⇒ 按钮照样不亮。🔴 `mine.js` 记录必须 `...r` 展开（白名单静默丢 `can_recall`）。
 🔴 **`created_at` 默认 `CURRENT_TIMESTAMP` = UTC，比本地早 8 小时**：曾把 10:11 的导入读成"凌晨 02:11"。判「今天/先后」一律减 8 小时或改用 `updated_at`（`localtime`）。
 
 ## 🔴 UI 判据（全文 `topics/frontend-ui.md`）

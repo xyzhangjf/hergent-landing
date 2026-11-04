@@ -11,7 +11,7 @@
 <view class="legal-page">
   <view class="legal-card">
     <view class="legal-h1">隐私政策</view>
-    <view class="legal-meta">小赫智体报单助手 · 微信小程序　|　生效日期：2026-08-30　|　最近更新：2026-09-22</view>
+    <view class="legal-meta">小赫智体报单助手 · 微信小程序　|　生效日期：2026-08-30　|　最近更新：2026-11-04</view>
 
     <view class="legal-lead">本政策说明「小赫智体报单助手」微信小程序（以下简称「本程序」）如何收集、使用、存储与保护你的个人信息。使用本程序前请仔细阅读。点击「同意并继续」即表示你理解并同意本政策。</view>
     <view class="legal-note">运营主体：湖北省小赫智体数字科技有限公司（统一社会信用代码：91420606MAKF1YPG5Y）　|　联系邮箱：postmaster@hergent.cn</view>
@@ -27,12 +27,15 @@
     <view class="legal-li"><text class="legal-b">预报商品、规格、单位、数量</text>：即你在程序中填报的商品与数量预报数据。</view>
     <view class="legal-li"><text class="legal-b">报单期次、报单日期</text>：用于对齐到货窗口与历史记录。</view>
 
-    <view class="legal-h3">3. 剪切板（仅写入）</view>
+    <view class="legal-h3">3. 摄像头与相册（仅扫码识别条码时调用）</view>
+    <view class="legal-li"><text class="legal-b">摄像头 / 相册（仅扫码时调用）</text>：仅当你主动点击搜索框内的「扫码」图标时，调用微信扫码能力识别商品包装上的条码。图像由微信在<text class="legal-b">设备本地</text>识别，我们<text class="legal-b">不上传、不存储</text>照片，也不读取相册中的其它内容。</view>
+
+    <view class="legal-h3">4. 剪切板（仅写入）</view>
     <view class="legal-li"><text class="legal-b">剪切板（写入）</text>：仅当你主动点击「汇总总表 → 复制」时，把汇总结果写入剪切板，便于你粘贴到微信或 Excel。我们<text class="legal-b">不读取</text>剪切板中的其它内容。</view>
 
     <view class="legal-h2">二、我们不收集的信息</view>
     <view class="legal-li"><text class="legal-b">不使用微信一键登录</text>，因此不获取微信 OpenID / UnionID、昵称、头像，也未通过微信获取手机号；</view>
-    <view class="legal-li">不获取位置、相册、摄像头、麦克风、通讯录、蓝牙；</view>
+    <view class="legal-li">不获取位置、麦克风、通讯录、蓝牙；</view>
     <view class="legal-li">不收集设备型号、系统版本与崩溃日志；</view>
     <view class="legal-li">不接入任何第三方统计 / 广告 SDK。</view>
 

@@ -6,9 +6,43 @@
 .store-kind-tag{font-size:20rpx;font-weight:500;color:var(--brand);background:#ecfeff;border:1rpx solid #a5f3fc;border-radius:6rpx;padding:2rpx 10rpx;margin-left:12rpx}
 .store-arrow{font-size:24rpx;color:var(--brand);margin-left:12rpx}
 .store-count{font-size:26rpx;color:#86868b}
-.search-bar{display:flex;align-items:center;gap:16rpx;padding:24rpx 32rpx 0}
-.search-ipt{flex:1;background:#fff;border-radius:16rpx;height:88rpx;padding:0 28rpx;font-size:30rpx;border:1rpx solid #e5e5ea}
-.search-clear{font-size:30rpx;color:#86868b;padding:0 8rpx}
+.search-bar{display:flex;align-items:center;padding:24rpx 32rpx 0}
+/* v761：输入框 + ✕ + 扫一扫 合成一个"盒子" —— 扫码图标必须在**框内**，
+   所以白底/圆角/描边从 input 挪到外层容器，input 本体透明无边框。 */
+.search-box{flex:1;display:flex;align-items:center;height:88rpx;background:#fff;
+  border-radius:16rpx;border:1rpx solid #e5e5ea;padding-left:28rpx;overflow:hidden}
+.search-ipt{flex:1;height:88rpx;font-size:30rpx;background:transparent;border:0;padding:0}
+.search-clear{font-size:30rpx;color:#86868b;padding:0 10rpx;flex:0 0 auto}
+/* 图标 20×20 / 触控区 42×44 —— 小于 44 的触控区在真机上点不准（且与 iOS 规范冲突） */
+.scan-btn{width:84rpx;height:88rpx;display:flex;align-items:center;justify-content:center;
+  flex:0 0 auto;border-left:1rpx solid #e5e5ea}
+.scan-btn-hover{background:#ECF4F3}
+/* 四角 + 中线全部 CSS 画：不依赖图片资源，也不依赖字体里有没有某个字形
+   （部分安卓机缺字会显成豆腐块，而这是**唯一**的扫码入口，不能有一台机器显不出来）。 */
+.scan-ic{width:40rpx;height:40rpx;position:relative}
+.scan-f{position:absolute;width:13rpx;height:13rpx;border:3rpx solid var(--brand)}
+.scan-tl{top:0;left:0;border-right:0;border-bottom:0;border-top-left-radius:5rpx}
+.scan-tr{top:0;right:0;border-left:0;border-bottom:0;border-top-right-radius:5rpx}
+.scan-bl{bottom:0;left:0;border-right:0;border-top:0;border-bottom-left-radius:5rpx}
+.scan-br{bottom:0;right:0;border-left:0;border-top:0;border-bottom-right-radius:5rpx}
+.scan-line{position:absolute;left:7rpx;right:7rpx;top:19rpx;height:2rpx;background:var(--brand)}
+/* v761：扫码结果条。三档语义各自不同色，不用一个色打天下：
+   · is-ok   已定位（品牌浅染，7.22:1）
+   · is-box  定位到了但可能填错数量（琥珀）—— 整箱码扫出来这一行是按瓶报的
+   · is-nf   没定位到（中性灰，不用品牌绿：绿色会被读成"成功了"） */
+.scan-res{display:flex;align-items:center;gap:12rpx;margin:16rpx 32rpx 0;
+  padding:18rpx 20rpx;border-radius:14rpx;border:1rpx solid #B7D6D4;background:#ECF4F3}
+.scan-res.is-box{background:#fff7ed;border-color:#fed7aa}
+.scan-res.is-nf{background:#f5f5f7;border-color:#e5e5ea}
+.scan-res-body{flex:1;min-width:0}
+.scan-res-t{display:block;font-size:26rpx;font-weight:600;color:#0a5a54;line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scan-res.is-box .scan-res-t{color:#9a3412}
+.scan-res.is-nf .scan-res-t{color:#3c3c43}
+.scan-res-sub{display:block;font-size:22rpx;color:#6e6e73;margin-top:4rpx;line-height:1.35}
+.scan-res-act{font-size:26rpx;font-weight:600;color:var(--brand);flex:0 0 auto;padding:0 6rpx}
+.scan-res.is-box .scan-res-act{color:#9a3412}
+.scan-res-x{font-size:26rpx;color:#8e8e93;flex:0 0 auto;padding:0 6rpx}
 /* ===== v266（2026-09-27）：筛选 chips（品牌 + 我的常报）=====
    放在搜索栏与列表标题之间 —— 与搜索同属"缩小范围"，且都在列表上方。
    ⚠️ 横向滚动用「nowrap 容器 + inline-flex 内容」这一经典组合，不用 `enable-flex`：

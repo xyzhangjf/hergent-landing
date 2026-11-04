@@ -601,6 +601,18 @@ if (has('skip-sfc')) {
   results.push({ name: '商品行条码+名称展开', ok: r.code === 0, code: r.code })
 }
 
+/* v761（2026-11-04）：填报页搜索框「扫一扫」。
+   这一版最容易出的错**一个都不会抛异常**：拿整串 URL 去搜（假"没找到"）、
+   带着品牌筛选去扫（假"不在清单里"）、取第一行当命中（定位到别的商品）、
+   扫码顺手写数量（冲掉用户已填的数）。所以本块钉的是这四条 + 入口在框内。 */
+{
+  console.log('\n── ㊳ 填报页搜索框扫码报单（v761）──')
+  const r = run('miniprogram-scan-fill.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '扫码报单', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

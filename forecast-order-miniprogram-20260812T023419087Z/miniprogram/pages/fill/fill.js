@@ -31,6 +31,11 @@ Page({
     freqOn: false,           // 「我的常报」开关
     filterEmpty: false,      // 筛选后为空 —— 与「本期没配清单」是两个完全不同的空态
     filterHint: '',          // 空态里点名「是哪个条件挡住了」（只说"没有商品"会把用户支使去找管理员）
+    /* v761（2026-11-04）：扫码结果条 —— null = 不显示。
+       形状 { kind, tip, sub, act, actKind }，五种 kind：ok / box / multi / notfound / bad。
+       🔴 文案全部在 `_scanTip()` 里拼，**不在 wxml 里做分支**：五种组合摊在模板上必漏一种
+          （v759 的教训 —— 文案与状态机必须同处一地，才可能一眼看出有没有漏）。 */
+    scanRes: null,
     offline: false,          // P2-3/5: 断网提示（顶部横幅 + 恢复自动补传）
     recentStores: [],          // M10: 最近报单门店快捷入口
     pendingSubmit: false,      // M11: 存在未提交草稿（离线/失败），待联网补传
@@ -682,7 +687,9 @@ Page({
     this.setData({
       submitResult: null, submitError: null, sampleInfo: null,
       brandFacets: [], brandSel: '', freqReady: false, freqOn: false,
-      filterEmpty: false, filterHint: ''
+      filterEmpty: false, filterHint: '',
+      // v761：扫码结果条说的是**上一个期次**的商品，留着会把人指向一个本期不存在的行
+      scanRes: null
     })
     this.refreshBanners()                // 期次变了，重新判断「本期是否已报」
     // 二期: 已填数量切到新期次 → 轻提示（数据保留可沿用，但别提交错期次）
@@ -1343,7 +1350,7 @@ Page({
     const label = (e.currentTarget.dataset.label || '')
     this.setData({
       brandSel: (this.data.brandSel === label) ? '' : label,
-      filterEmpty: false
+      filterEmpty: false, scanRes: null
     })
     this.loadProducts(this.data.kw, false)
   },
@@ -1351,7 +1358,7 @@ Page({
   toggleFreq() {
     // 防御：chip 不渲染时不该被触发，但真机上事件仍可能命中（见 `_applyFacets` ①②）
     if (!this.data.freqReady) return
-    this.setData({ freqOn: !this.data.freqOn, filterEmpty: false })
+    this.setData({ freqOn: !this.data.freqOn, filterEmpty: false, scanRes: null })
     this.loadProducts(this.data.kw, false)
   },
 
@@ -1362,7 +1369,7 @@ Page({
   clearFilters() {
     if (this._searchTimer) clearTimeout(this._searchTimer)
     this._lastKw = ''
-    this.setData({ brandSel: '', freqOn: false, kw: '', filterEmpty: false, filterHint: '' })
+    this.setData({ brandSel: '', freqOn: false, kw: '', filterEmpty: false, filterHint: '', scanRes: null })
     /* v421：**返回 Promise**（原来丢弃返回值）。v420 的定位链靠 `setTimeout(600ms)` 猜
        "网络回没回"，猜早了就查不到、退化成一个"自己找"的提示 —— 那正是用户报的故障。
        现在调用方 `await` 它，等这次重铺真的落地（`products` 已换、`_prodIndex` 已重建）
@@ -1467,6 +1474,10 @@ Page({
       //   再贴到刚渲染的行上 —— 「目标先到 / 商品先到」两种时序都能收敛。
       this.loadAvgTargets(pid)
       this.applyAvgToRows()
+      /* v761：返回**这次重铺到底成没成**。扫码链路必须知道 —— 请求失败时 `products`
+         还是上一次的旧列表，若照旧往下比对，会把"网络失败"说成"这个条码不在本期清单里"
+         （一个看起来很有说服力的假结论）。既有调用方一律忽略返回值，行为不变。 */
+      return true
     } catch (e) {
       // v215：首屏失败要让「已按本期铺开」的标记失效，否则重进页面时
       // `syncProductsForPeriod` 会认为"铺过了"而不再重试 ⇒ 一直空列表。
@@ -1478,6 +1489,7 @@ Page({
       } else {
         wx.showToast({ title: e.message || '加载失败', icon: 'none' })
       }
+      return false
     }
   },
 
@@ -1670,7 +1682,8 @@ Page({
      未达阈值不请求，只有从"有效搜索"退回时才恢复全量，避免每敲一键都拉一次全表 */
   onSearch(e) {
     const kw = (e.detail.value || '').trim()
-    this.setData({ kw })
+    // v761：一旦开始手打关键词，上一条扫码结果就不再有意义（留着会说"已定位：别的东西"）
+    this.setData({ kw, scanRes: null })
     if (this._searchTimer) clearTimeout(this._searchTimer)
     const minLen = /^\d+$/.test(kw) ? 3 : 2
     const wasSearching = this._lastKw != null && this._lastKw.length >= minLen
@@ -1683,10 +1696,161 @@ Page({
   },
 
   clearSearch() {
-    this.setData({ kw: '' })
+    this.setData({ kw: '', scanRes: null })
     this._lastKw = ''
     if (this._searchTimer) clearTimeout(this._searchTimer)
     this.loadProducts('', false)
+  },
+
+  /* ══════════ v761（2026-11-04）：扫一扫报单 ══════════
+     需求原话：「搜索框内新增扫码图标，点击后通过扫描商品条码完成报单」。
+
+     🔴 扫码**不新建任何东西**。它只是把该条码对应的那一行滚到眼前、光标放进数量框；
+        扫 1 件与手点「+」1 件走**同一条写路径**、同一张单的同一个格子（`_qtyMap` / `setQty`）
+        ⇒ 不存在"扫码记录"与"手填记录"两套数据要合并，也就不存在对账问题。
+     🔴 绝不覆盖已填数量：全程不碰 `_qtyMap`。扫一次把用户已报的数冲掉，是这个功能
+        唯一能造成的**静默数据损失**（数量合法、无报错）。
+     🔴 必须先清品牌/常报筛选：两者是 AND 叠加，带着"椰果"品牌去扫一个"纯甄"的码会返回空
+        ⇒ 弹出「不在本期清单里」这个**假结论**（用户据此以为这商品本期不用报）。 */
+  onScanTap() {
+    wx.scanCode({
+      /* 一维码 + 二维码都认：包装上两种都有，只开一种等于随机失效一半 */
+      scanType: ['barCode', 'qrCode'],
+      /* 允许相册：有人存了商品图/整箱标签，只给相机等于少一条路 */
+      onlyFromCamera: false,
+      success: (res) => { this._onScanResult(res) },
+      /* 用户主动取消：不提示、不打点。取消是正常动作，弹「扫码失败」是冤枉他 */
+      fail: () => {}
+    })
+  },
+
+  /* 从扫码结果里抽商品条码。
+     🔴 二维码内容常是 `https://xxx.com/p/6934665094026` 或 `条码:6934…`，
+        直接拿整串去搜**必然空**（后端是对条码列做 LIKE，不做 URL 解析）。
+     抽法：纯数字直接认；否则在串里找 8–14 位连续数字段，优先 13 位（本期条码全是 EAN-13）。
+     抽不出 ⇒ 返回 ''，由调用方明说"这不是商品条码" —— 绝不拿整串去搜，
+     那会搜出一个假的"不在本期清单里"。 */
+  _pickCode(raw) {
+    const s = String(raw || '').trim()
+    if (!s) return ''
+    if (/^\d+$/.test(s)) return s.length >= 8 ? s : ''
+    const seg = s.match(/\d{8,14}/g) || []
+    if (!seg.length) return ''
+    return seg.find(x => x.length === 13) || seg.sort((a, b) => b.length - a.length)[0]
+  },
+
+  /* 扫码结果 → 搜索 → 定位。四种落点各自说自己的话（见 `_scanTip`）。 */
+  async _onScanResult(res) {
+    const raw = String((res && (res.result || res.rawData)) || '').trim()
+    const code = this._pickCode(raw)
+    if (!code) {
+      this.setData({ scanRes: this._scanTip('bad', { raw: raw.slice(0, 24) }) })
+      return
+    }
+    if (this._searchTimer) clearTimeout(this._searchTimer)
+    this._lastKw = code
+    /* 扫码值**留在搜索框里**：用户要看得见"刚扫的是哪个码"，也要能手动删掉重来。
+       清筛选与写 kw 在同一次 setData 里 —— 分两次会出现"用旧筛选 + 新关键词"的中间态请求。 */
+    this.setData({
+      kw: code, brandSel: '', freqOn: false, filterEmpty: false, filterHint: '', scanRes: null
+    })
+    const loaded = await this.loadProducts(code, false)
+    /* 取数失败（或被更新的请求顶掉，此时返回 undefined）：`products` 还是**上一次的旧列表**，
+       照旧往下比对就会把"网络失败"说成"这个条码不在本期清单里" —— 一个看起来很有说服力的
+       假结论，用户据此就漏报了这一个商品。所以这一支必须单独说"没取到"。 */
+    if (loaded !== true) {
+      this.setData({ scanRes: this._scanTip('error', { code }) })
+      return
+    }
+    const rows = this.data.products || []
+    /* 🔴 必须**逐行比对条码**，不能直接取第一行：期次分支的 `order_by` 是模板行序
+       （不是相关度），片段命中时会混进别的商品，第一行不一定是精确命中那一行。
+     🔴 而且**精确命中可能不止一个**。生产实测本期有 6 组商品共用同一个条码：
+        `蒙牛红枣酸牛奶1000g*10桶` 与 `蒙牛红枣酸牛奶1000g*10桶（福宝下单）` 同码、
+        `蒙牛果纤维芭乐菠萝200g*10瓶*6组` 与 `…*24瓶` 同码（同品不同装箱）。
+        同一实物不同渠道/装箱，条码天然相同。此时"静默定位第 1 个"会让用户把数量
+        填进**另一个渠道的那一行** —— 数量合法、零报错、对账才发现。所以必须点名。 */
+    const hits = rows.filter(r => String(r.barcode || '') === code)
+    let kind = 'ok'
+    let target = hits[0] || null
+    let others = []
+    if (!rows.length) {
+      kind = 'notfound'
+    } else if (hits.length > 1) {
+      kind = 'dup'
+      others = hits.slice(1, 3).map(r => r.name)     // 最多点两个，多了反而看不清
+    } else if (!hits.length) {
+      /* 搜到了但主条码一个都对不上 ⇒ 扫的是整箱/中包/厂家编码（后端 code_fields 含这三个）。 */
+      target = rows[0]
+      kind = rows.length === 1 ? 'box' : 'fuzzy'
+    }
+    if (!target) {
+      this.setData({ scanRes: this._scanTip('notfound', { code }) })
+      return
+    }
+    const patch = this._scanTip(kind, {
+      code, name: target.name, n: hits.length || rows.length, others, othersN: hits.length - 1,
+      qty: Number(target.qty) || 0, unit: target.unit || '件'
+    })
+    /* 先 setData 再滚：`_scrollTo` 要靠 `#prod-<id>` 查节点，列表还没渲染完就查必然查不到
+       （此时"点了没反应"，且不报错）。 */
+    this.setData({ scanRes: patch }, () => {
+      if (this._hasRow(target.id)) this._scrollTo(target.id)
+    })
+  },
+
+  /* 结果条上的主按钮：`all` = 看本期全部（清空搜索），其余 = 继续扫下一个。 */
+  onScanAct() {
+    const r = this.data.scanRes || {}
+    if (r.actKind === 'all') { this.clearSearch(); return }   // clearSearch 里已清 scanRes
+    this.onScanTap()
+  },
+
+  closeScanRes() {
+    if (this.data.scanRes) this.setData({ scanRes: null })
+  },
+
+  /* 五种结果的全部文案。放一处的好处：加一种状态时，能一眼看到五种都写全了没有
+     （拆在 wxml 里做 wx:if 分支，必漏一种 —— v759 同一条纪律）。 */
+  _scanTip(kind, o) {
+    const d = o || {}
+    if (kind === 'bad') {
+      return { kind: kind, tip: '这不是商品条码', act: '重扫', actKind: 'scan',
+               sub: d.raw ? '扫到的内容是「' + d.raw + '」' : '请对准包装上的条码再扫一次' }
+    }
+    if (kind === 'notfound') {
+      return { kind: kind, tip: '这个条码不在本期清单里', act: '看全部', actKind: 'all',
+               sub: '条码 ' + d.code + ' · 可按名称搜，或看清本期全部商品' }
+    }
+    if (kind === 'error') {
+      return { kind: kind, tip: '扫到了，但没能取到商品数据', act: '重扫', actKind: 'scan',
+               sub: '可能是网络问题（条码 ' + d.code + '），稍后重试或按名称搜' }
+    }
+    if (kind === 'ok') {
+      return { kind: kind, tip: '已定位：' + (d.name || ''), act: '继续扫', actKind: 'scan',
+               sub: d.qty > 0
+                 ? ('本期已填 ' + d.qty + ' ' + d.unit + '（未改动，直接改数量即可）')
+                 : '在下方数量框填件数即可' }
+    }
+    if (kind === 'box') {
+      /* 琥珀 + 说清单位：整箱码扫出来，这一行填的是**按瓶/盒**报的数量。
+         不说，用户会把 2 箱填成 2，差一整箱的量 —— 这是本功能唯一可能造成真实损失的地方。 */
+      return { kind: kind, tip: '扫到的不是单瓶条码（可能是整箱码）', act: '继续扫', actKind: 'scan',
+               sub: (d.name || '') + ' · 这一行填的是按「' + d.unit + '」报的数量' }
+    }
+    if (kind === 'dup') {
+      /* 同条码多行（本期实测 6 组：不同渠道 / 不同装箱的同一实物）。
+         🔴 必须把"还有哪几个"直接写出来：只说"已定位第 1 个"，用户没有理由去怀疑，
+            数量就填进了另一个渠道的那一行 —— 数量合法、零报错、对账才发现。 */
+      const oth = (d.others || []).filter(Boolean)
+      const more = d.othersN > oth.length ? ' 等 ' + d.othersN + ' 个' : ''
+      return { kind: kind, tip: '这个条码本期对应 ' + d.n + ' 个商品', act: '继续扫', actKind: 'scan',
+               sub: '已定位「' + (d.name || '') + '」' +
+                    (oth.length ? ' · 同条码还有「' + oth.join('」「') + '」' + more : '') +
+                    ' · 请核对名称再填' }
+    }
+    return { kind: kind, tip: '这个条码匹配到 ' + d.n + ' 个商品', act: '继续扫', actKind: 'scan',
+             sub: '已定位「' + (d.name || '') + '」· 若不是这个，直接按名称搜更准' }
   },
 
   /* M10: 拉取我的历史报单，提取最近报单门店作为快捷入口
@@ -1730,7 +1894,7 @@ Page({
     const cur = this.data.store || {}
     if (store.id === cur.id && (store.kind || 'store') === (cur.kind || 'store')) return
     this.flushCart()                 // 旧店的已填数量先落盘（fs_cart_<旧 id 键>）
-    this.setData({ store, storeIdx: i, cartOpen: false, pendingSubmit: false, submitResult: null, submitError: null, sampleInfo: null })
+    this.setData({ store, storeIdx: i, cartOpen: false, pendingSubmit: false, submitResult: null, submitError: null, sampleInfo: null, scanRes: null })
     // v294：连类型一起存（对象而非裸 id）。读取端 _applyStores 兼容旧裸 id。
     wx.setStorageSync('fs_store_id', { id: store.id, kind: store.kind || 'store' })
     this.restoreCart(true)           // 切店：无条件载入新店的购物车（fs_cart_<新 id 键>）

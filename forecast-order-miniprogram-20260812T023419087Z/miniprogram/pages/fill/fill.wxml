@@ -143,9 +143,38 @@
   <view class="offline-banner" wx:if="{{offline}}">网络已断开，数据已存本机，恢复后自动补传</view>
 
   <!-- 搜索（仅用于对已铺开列表做过滤定位，不改变原搜索逻辑） -->
+  <!-- v761（2026-11-04）：搜索框内右端加「扫一扫」。
+       🔴 图标用 CSS 画（四角 + 中线），**不引图片资源** —— 发版漏传一张图就是白方块，
+          而这套图形纯 CSS 零依赖，也与品牌色变量同步（`var(--brand)`）。
+       🔴 分隔线只在有 ✕ 时出现（无搜索词时图标紧贴输入区，不留一段悬空的竖线）。 -->
   <view class="search-bar">
-    <input class="search-ipt" placeholder="搜商品名 / 条码（后 4 位也行）" value="{{kw}}" bindinput="onSearch" focus="{{autoFocus}}" />
-    <text class="search-clear" wx:if="{{kw}}" bindtap="clearSearch">✕</text>
+    <view class="search-box">
+      <input class="search-ipt" placeholder="搜商品名 / 条码（后 4 位也行）" value="{{kw}}" bindinput="onSearch" focus="{{autoFocus}}" />
+      <text class="search-clear" wx:if="{{kw}}" bindtap="clearSearch">✕</text>
+      <view class="scan-btn" hover-class="scan-btn-hover" bindtap="onScanTap">
+        <view class="scan-ic">
+          <view class="scan-f scan-tl"></view>
+          <view class="scan-f scan-tr"></view>
+          <view class="scan-f scan-bl"></view>
+          <view class="scan-f scan-br"></view>
+          <view class="scan-line"></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- v761：扫码结果条 —— 五种结果各有自己的话（文案全在 js 的 `_scanTip()` 里拼）。
+       🔴 单一 `wx:if="{{scanRes}}"`，不在模板里分支判定：五种组合摊在 wxml 必漏一种
+          （v759 同一条纪律）。`.is-box` 琥珀 = 定位成功但有填错风险（整箱码/多个匹配），
+          `.is-nf` 中性灰 = 没定位到（别用品牌绿，那会读成"成功了"）。 -->
+  <view class="scan-res {{scanRes.kind === 'ok' ? 'is-ok' : (scanRes.kind === 'notfound' || scanRes.kind === 'error' || scanRes.kind === 'bad' ? 'is-nf' : 'is-box')}}"
+        wx:if="{{scanRes}}">
+    <view class="scan-res-body">
+      <text class="scan-res-t">{{scanRes.tip}}</text>
+      <text class="scan-res-sub" wx:if="{{scanRes.sub}}">{{scanRes.sub}}</text>
+    </view>
+    <text class="scan-res-act" wx:if="{{scanRes.act}}" bindtap="onScanAct">{{scanRes.act}}</text>
+    <text class="scan-res-x" bindtap="closeScanRes">✕</text>
   </view>
 
   <!-- ================= v266（2026-09-27）：筛选 chips（品牌 + 我的常报）=================

@@ -221,6 +221,17 @@ FORBIDDEN = [
 # 否定句豁免词：出现这些词的句子是在"声明不做什么"，不是在"申报做什么"
 NEG = ['不收集', '不使用', '不获取', '不接入', '不上传', '不存储', '不读取', '不向', '不会', '未使用']
 
+# v761（2026-11-04）：小程序新增「扫一扫报单」(`wx.scanCode`) ⇒ 摄像头/相册从
+#   "不做的事"变成了**真的要做的事**，如实申报反而会被上面这张禁用词表打红。
+#   修法不是把词删掉（那样以后有人多申报摄像头就没人拦），而是给一个**窄豁免**：
+#   只有当句子同时说到「扫码」和「条码」——即明确了用途与范围——才允许出现这两个词。
+#   另由 `group_d` 末尾的正向断言兜底：代码里调了 wx.scanCode 就必须有这条申报。
+CAMERA_WORDS = ('相册', '摄像头')
+
+
+def _is_scan_scope(sent):
+    return '扫码' in sent and '条码' in sent
+
 
 def scan_overclaim(path):
     text = norm(read(path))
@@ -229,6 +240,9 @@ def scan_overclaim(path):
         if not sent:
             continue
         if any(n in sent for n in NEG):
+            continue
+        # v761 窄豁免：明确写了"扫码识别条码"的句子，申报摄像头/相册是**合规**的
+        if _is_scan_scope(sent):
             continue
         for w in FORBIDDEN:
             if w in sent:
@@ -266,6 +280,29 @@ def group_d():
     must_hit = scan_text(pos_sample)
     check(g, '扫描器对真实多申报有判别力（正样本必须命中）',
           len(must_hit) >= 4, '仅命中 %d 项: %s' % (len(must_hit), must_hit))
+
+    # ---- v761 正向断言：代码只要调了 wx.scanCode，隐私页就必须有**明确用途**的申报句 ----
+    # 为什么要有这一条：`FORBIDDEN` 那张表是"小程序不做这些"的清单，它的盲区正是
+    #   「功能加了、文档没跟上」—— 后台《用户隐私保护指引》没声明摄像头时，
+    #   真机上 wx.scanCode 会被隐私校验直接拦下（用户看到的是"点了没反应"，不是报错）。
+    uses_scan = False
+    for root, _dirs, files in os.walk(MINI):
+        for fn in files:
+            if fn.endswith('.js') and 'wx.scanCode' in read(os.path.join(root, fn)):
+                uses_scan = True
+    priv = norm(read(os.path.join(PAGES, 'legal', 'privacy.wxml')))
+    declared = any(_is_scan_scope(s) and '摄像头' in s and '相册' in s
+                   for s in re.split(r'[。；;]', priv))
+    check(g, '调用了 wx.scanCode ⇒ 隐私页申报摄像头/相册（用途限定扫码识别条码）',
+          (not uses_scan) or declared,
+          '代码里调了 wx.scanCode，但隐私页没有「扫码识别条码 + 摄像头/相册」的申报句'
+          '（真机会被隐私校验拦；后台指引不同步还会构成未申报）')
+
+    # 同一条纪律反向：申报了摄像头就必须真有扫码入口，否则是"多申报"
+    ok_scan_entry = 'onScanTap' in read(os.path.join(PAGES, 'fill', 'fill.wxml'))
+    check(g, '申报了摄像头 ⇒ 填报页确实有扫码入口（反之即多申报）',
+          (not declared) or ok_scan_entry,
+          '隐私页申报了摄像头，但 fill.wxml 里找不到 onScanTap 入口')
 
 
 # ========================= E PIPL 第 17 条要素 ===============================
