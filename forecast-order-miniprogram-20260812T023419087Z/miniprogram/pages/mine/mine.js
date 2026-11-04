@@ -206,7 +206,7 @@ Page({
     }
   },
 
-  // 撤回（仅本人 pending 可撤回，后端二次校验）——loading 按单条 id 防整页闪烁
+  // 撤回（按钮只在服务端 can_recall 为真时渲染，后端仍二次校验）——loading 按单条 id 防整页闪烁
   async recall(e) {
     const id = +e.currentTarget.dataset.id
     if (this.data.recallingId) return

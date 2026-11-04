@@ -472,7 +472,7 @@
              完全不可达，用户被迫先点「改单」才能看到表。现改为「表头保留 + 表体内一行引导」，
              见下方 tbody 里的 .empty-row。 -->
         <div v-else-if="!editMode" class="grid-area" :class="{ 'is-fs': gridFullscreen }">
-          <div class="grid-ctl-row" @contextmenu.prevent="openTbCtx">
+          <div class="grid-ctl-row">
             <!-- v621：视图切换（汇总表 / 逐单补录）从独立一行并入本行首位，紧跟其后就是「缩放」。
                  它本来就是"这一张表怎么看 / 怎么填"的开关，和缩放同族，放这里比单独占一行合理。
                  组件里自带那段"两条填报路径"的提示浮层（悬停 / 聚焦才出），这里不再有常显长文案。
@@ -889,7 +889,7 @@
 
         <!-- 编辑模式：Excel 式可编辑矩阵（选中/方向键/右键行列菜单/填充柄 + 列配置 + 复制） -->
         <div v-else class="grid-area" :class="{ 'is-fs': gridFullscreen }">
-          <div class="grid-ctl-row" @contextmenu.prevent="openTbCtx">
+          <div class="grid-ctl-row">
             <label class="tb-toggle"><input type="checkbox" v-model="hideZeroReport"> 仅显示有报单</label>
             <!-- v602：徽标只留文字（原 v209 的 badge-slim 全屏收图标形态已废 —— 图标删了，再收就是空框）。
                  文案常显；行宽不足时由 .grid-ctl-row 的 flex-wrap 自然折行，不裁切。 -->
@@ -1032,7 +1032,7 @@
                  且回车在碰过表格后静默失效）。与品牌筛选用完全同构的 .tb-pop + positionTbPop()，
                  零新增定位代码；面板内回车即可提交，弹层常显故不再有"看不见"的问题。 -->
             <div class="tb-pop">
-              <span ref="addColBtn" class="tb-pop-anchor"></span>
+              <button ref="addColBtn" class="btn btn-sm btn-ghost" :class="{on:addColPopOpen}" @click="toggleAddColPop" title="新增一个客户报单列（本期临时列，不改客户档案）"><Icon name="plus"/> 新增客户列 <Icon name="chevron-down"/></button>
               <Teleport to="body">
               <div v-if="addColPopOpen" class="tb-pop-panel addcol-pop" :style="popStyle" @click.stop>
                 <div class="ac-head">新增客户列</div>
@@ -2252,16 +2252,6 @@
               </div>
             </template>
           </div>
-
-        <!-- v753：工具行（表头区域）右键菜单 —— 承接从工具行撤下的「品牌筛选 / 新增客户」两个常驻按钮。
-             复用现有 .ctx-menu / .ctx-overlay 结构与样式（与列头右键 hdrCtx 同源、但独立实例，
-             避免把"整表级品牌筛选 / 加客户列"和"列头针对单列的筛选… / 插入主档列"混在同一菜单造成语义混淆）。
-             菜单项直接调用既有的 toggleBrandPop() / toggleAddColPop()，业务逻辑与校验完全不变。 -->
-        <div v-if="tbCtx.show" class="ctx-overlay" @click="closeTbCtx" @contextmenu.prevent="closeTbCtx"></div>
-        <div v-if="tbCtx.show" class="ctx-menu" :style="tbCtxStyle">
-          <button @click="onTbCtxFilter"><Icon name="filter"/> 筛选（按品牌）</button>
-          <button v-if="editMode" @click="onTbCtxAddCol"><Icon name="plus"/> 新增客户列</button>
-        </div>
 
         <!-- v584：底部汇总条（.pin）已移入上方的 `.grid-area` 内部，全屏时也可见。 -->
 
@@ -6557,8 +6547,6 @@ const ctxClearLabel = computed(() => {
 })
 // 表头右键菜单状态（隐藏/冻结/排序）
 const hdrCtx = ref({ show: false, x: 0, y: 0, key: '', type: 'master', ui: -1, mode: 'menu' })
-/* v753：工具行（表头区域）右键菜单状态 —— 与 hdrCtx 同源结构、独立实例，仅承载 x/y 锚点。 */
-const tbCtx = ref({ show: false, x: 0, y: 0 })
 const hdrRenameVal = ref('')
 const hdrAddName = ref('')
 const hdrAddType = ref('text')
@@ -6993,16 +6981,6 @@ const hdrCtxStyle = computed(() => {
   return {
     top: Math.max(8, Math.min(hdrCtx.value.y, wh - h)) + 'px',
     left: Math.max(8, Math.min(hdrCtx.value.x, ww - w)) + 'px',
-  }
-})
-/* v753：工具行右键菜单定位 —— 与 hdrCtxStyle 同源（视口边界钳制）。 */
-const tbCtxStyle = computed(() => {
-  const wh = typeof window !== 'undefined' ? window.innerHeight : 800
-  const ww = typeof window !== 'undefined' ? window.innerWidth : 400
-  const w = 200, h = 120
-  return {
-    top: Math.max(8, Math.min(tbCtx.value.y, wh - h)) + 'px',
-    left: Math.max(8, Math.min(tbCtx.value.x, ww - w)) + 'px',
   }
 })
 // ===== 右键增强状态 =====
@@ -7891,18 +7869,6 @@ function openHdrCtx(e, key, type, ui = -1) {
     mode: 'menu' }
 }
 function closeHdrCtx() { hdrCtx.value.show = false; hdrCtx.value.mode = 'menu' }
-/* v753：工具行右键菜单 —— 右键点工具行（表头区域）即弹出，提供「筛选（按品牌）/ 新增客户列」入口。
-   打开时先关掉任何已开的工具行弹层与单元格/列头菜单，避免浮层叠浮层；菜单项直接复用既有
-   toggleBrandPop() / toggleAddColPop()，业务逻辑与校验完全不变。 */
-function openTbCtx(e) {
-  _closePopPanes('')
-  ctx.value.show = false
-  hdrCtx.value.show = false
-  tbCtx.value = { show: true, x: e.clientX, y: e.clientY }
-}
-function closeTbCtx() { tbCtx.value.show = false }
-function onTbCtxFilter() { closeTbCtx(); toggleBrandPop() }
-function onTbCtxAddCol() { closeTbCtx(); toggleAddColPop() }
 /* v740：只读态菜单里的「去改单」入口。走 enterEdit 本身（不另起一套进编辑逻辑）——
    期次已关闭 / 无权限 / 无开放期次这些闸门都由它自己 toast 说明，这里不要重复判断，
    否则两处判据迟早漂移（一半能进、一半不能，用户完全猜不到规律）。 */
@@ -14623,7 +14589,6 @@ body.cust-col-dragging .cross-tbl tbody td{cursor:grabbing}
    🔴 这条修过一次却复发了（源码线被整体回退）⇒ 已配静态护栏
    `tests/zorder-trigger-below-panel.guard.mjs`，改这两个值前先跑它。 */
 .tb-pop{position:relative;display:inline-flex;z-index:var(--z-page-trigger)}/* > .pop-overlay(1100)：弹层开着时仍可直接点触发按钮做互斥切换；< 面板本体 */
-.tb-pop-anchor{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}/* v753：承接从工具行撤下的按钮，仅作 positionTbPop 定位锚点（零尺寸、不可见、不占布局；绝不用 display:none，否则 getBoundingClientRect 返回零矩形会令面板定位失效） */
 .tb-pop-panel{position:fixed;z-index:var(--z-page-pop);background:var(--bg);border:1px solid var(--bd);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-h10);min-width:220px;max-height:calc(100vh - 16px);overflow-y:auto}/* max-height/overflow：兜底，矮视口下宁可内部滚动，也不许溢出视口到点不到 */
 .zp-sep{height:1px;background:var(--bd);margin:var(--sp-h2) 0}
 .zp-hd{font-size:var(--fs-sm);font-weight:600;color:var(--t3);margin-top:var(--sp-h2)}

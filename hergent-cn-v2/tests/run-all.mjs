@@ -491,15 +491,16 @@ if (has('skip-sfc')) {
   results.push({ name: '改单态首批行数随缩放', ok: r.code === 0, code: r.code })
 }
 
-// ── ㉜ 预报页工具行右键菜单（v753）────────────────────────────
-/* 工具行「品牌筛选 / 新增客户」两个常驻按钮改为右键 .ctx-menu 入口、原按钮撤下。
-   护栏钉：原 button 触发已移除、换成 .tb-pop-anchor 锚点、两个工具行都挂右键、
-   复用既有 .ctx-menu/.ctx-overlay、菜单项调用既有 toggleBrandPop/toggleAddColPop（逻辑不变）。 */
+// ── ㉞ 预报页工具行按钮（v755）────────────────────────────────
+/* v753 曾把「品牌筛选 / 新增客户列」两个常驻按钮撤成右键菜单；v754 品牌按钮恢复，
+   v755 新增客户列按钮也恢复、右键菜单整体撤除。
+   护栏钉：两个按钮都是可见 button 且各自调用既有 toggleBrandPop/toggleAddColPop；
+   工具行无 @contextmenu、无 openTbCtx/tbCtx；🔴 表体单元格右键 onTbCtx 不受影响。 */
 {
-  const r = run('forecast-toolbar-rightclick.contract.mjs', [], { timeout: 60000 })
+  const r = run('forecast-toolbar-buttons.contract.mjs', [], { timeout: 60000 })
   const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
   console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
-  results.push({ name: '工具行右键菜单（v753）', ok: r.code === 0, code: r.code })
+  results.push({ name: '工具行按钮（v755）', ok: r.code === 0, code: r.code })
 }
 
 // ── ㉛ 护栏注册自检（防「写了但没人跑」的孤儿护栏）──────────────
@@ -561,6 +562,19 @@ if (has('skip-sfc')) {
   const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
   console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
   results.push({ name: '组框接管焦点环', ok: r.code === 0, code: r.code })
+}
+
+// ── ㉟ 小程序撤回按钮归属闸门（v755）──────────────────────────────
+/* 报障：「员工点撤回提示仅本人或管理员能撤回，但点的就是员工本人」。
+   「我的提交」含「我负责门店报过的」别人的单（v224），而撤回按钮当时只判 status==pending
+   ⇒ 员工点了别人的单被后端挡回。本块钉：按钮必须吃服务端的 can_recall、字段不许被白名单丢掉、
+   后端判据与 recall 同源且 /my 真的把 role 传下去了。 */
+{
+  console.log('\n── ㉟ 小程序撤回归属闸门（can_recall 服务端判定）──')
+  const r = run('miniprogram-recall-gate.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '小程序撤回归属闸门', ok: r.code === 0, code: r.code })
 }
 
 // ── 汇总 ────────────────────────────────────────────────────

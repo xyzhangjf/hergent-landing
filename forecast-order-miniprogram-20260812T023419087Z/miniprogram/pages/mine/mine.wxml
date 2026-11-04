@@ -99,7 +99,17 @@
             <!-- v434：把这一期复制到当前填报（快速填报）。作废单（已撤回/已驳回）不给入口 ——
                  与填报页「复制生成样单」同一条纪律：拿作废的量再报一次会误导用户。 -->
             <button class="rec-copy" wx:if="{{item.status !== 'recalled' && item.status !== 'rejected'}}" size="mini" bindtap="copyRecord" data-id="{{item.id}}">复制</button>
-            <button class="recall-btn" wx:if="{{item.status === 'pending'}}" size="mini" loading="{{recallingId === item.id}}" bindtap="recall" data-id="{{item.id}}">撤回</button>
+            <!-- v755（2026-11-04 员工实报）：撤回按钮改由**服务端** `can_recall` 决定是否渲染。
+                 此前只判 `item.status === 'pending'` ⇒ 与本列表范围打架：本列表是
+                 「我报的 OR 我负责门店报的」（v224），员工会看到老板/督导**导入或代改**的
+                 pending 单；按钮照样亮，一点就被后端回「仅本人或管理员可撤回」，而员工
+                 坚信自己点的是本人的单 —— 典型「入口在、操作被拒」的假入口（与 v259 给
+                 删除按钮加 can_delete 同一族缺陷，撤回漏了这道闸）。
+                 `can_recall` 判据与 `forecast_submission_recall` **逐条同源**：
+                 pending 且（本人 或 管理员/老板/督导）且 期次仍可写。
+                 ⚠️ 期次可写必须带上：撤回路由层有 forecast_period_writable 硬锁，
+                    漏了它就会在「期次已截止」时再造一个假入口。 -->
+            <button class="recall-btn" wx:if="{{item.can_recall}}" size="mini" loading="{{recallingId === item.id}}" bindtap="recall" data-id="{{item.id}}">撤回</button>
             <text class="rec-expand" wx:if="{{expandedId !== item.id}}" bindtap="toggleExpand" data-id="{{item.id}}">展开</text>
             <text class="rec-expand" wx:else bindtap="toggleExpand" data-id="{{item.id}}">收起</text>
           </view>
