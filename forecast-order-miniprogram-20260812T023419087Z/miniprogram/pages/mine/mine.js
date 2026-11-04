@@ -212,7 +212,11 @@ Page({
     if (this.data.recallingId) return
     const ok = await new Promise(res => wx.showModal({
       title: '撤回预报单',
-      content: '撤回后该预报单将不再进入本期汇总，确定撤回？',
+      /* v758（2026-11-04）：撤回 ≠ 修改，这一步被当成"改数量的前置动作"了（用户实报：
+         「撤销后需全部重新填报」）。文案要把两条路分开说清楚，否则用户永远走"撤回→重填"。
+         🔴 第二句是**事实**而非安慰话：v224 幂等键 = (门店, 期次)，再提交一次走
+         `forecast_submission_replace` 原位替换 ⇒ 单号不变、只改数量。 */
+      content: '撤回后该单不再进入本期汇总。\n\n如果只是想改数量，不用撤回：直接进填报页重新提交，会更新这一张单，单号不变。',
       confirmText: '撤回', cancelText: '取消',
       success: r => res(r.confirm)
     }))
@@ -221,6 +225,18 @@ Page({
     try {
       await request(`/api/forecast-submissions/${id}/recall`, 'POST', {})
       track(EVENTS.RECALL, { id })
+      /* v758：给填报页留个信号，让它把本机那条「✓ 本期已报 …」回执清掉。
+         不清就是假状态：单已撤回、不计入本期汇总，而填报页顶部还在说"已报 300 件"。
+         走 globalData 而不是直接清 Storage：键名构造的唯一实现在 fill 页（`_subKeyOf`），
+         在这儿照抄一遍字符串 = 两处实现，将来改键格式必有一处漏改。 */
+      const rec = (this.data.records || []).find(r => r.id === id)
+      if (rec && app.globalData) {
+        app.globalData._fsRecall = {
+          store_id: rec.store_id,
+          store_kind: rec.store_kind || 'store',
+          period_id: rec.period_id || 0
+        }
+      }
       wx.showToast({ title: '已撤回', icon: 'success' })
       this.setData({ expandedId: 0 })
       this.load()
@@ -234,15 +250,26 @@ Page({
   /* v434：把某一期历史报单**复制到当前填报**（快速填报）。
      🔴 跨页送达：fill 是 tabBar 页，`switchTab` **不带参数** ⇒ 源数据经
         `app.globalData._fsCopy` 传递，由 fill.onShow 消费一次。
-     🔴 作废单不做源（已撤回 / 已驳回）—— 与 fill 页「复制生成样单」同一条纪律：
-        拿作废的量再报一次会误导用户以为在沿用有效的单。
+     🟢 v758（2026-11-04）：**已撤回**的单也走本方法，但语义是「继续修改这一单」而非「复制样单」
+        （由 `revise` 标志区分，fill 页据此换文案/换提示）：
+          · 数据没丢 —— 撤回是 `UPDATE status='recalled'`，**明细一行都没删**
+            （生产核实：单号 2453 撤回后 23 行 / 300 件全在）。所以"撤回后重填"不必从零填；
+          · 提交后会命中原单（幂等键 = 门店+期次，`forecast_submission_replace`），
+            单号不变、`status` 复位 pending ⇒ 不是"又报一单"，是"把这单改回去"。
+     🔴 已驳回（rejected）**仍禁** —— 驳回是审批方否掉的单，不是本人可以自己拉回来的东西；
+        且驳回单可能带着「为什么要退」的处理意见，绕过驳回重新报会丢掉那层语义。
      🔴 只带**有效明细**（product_id>0 且 quantity>0），与服务端列表口径一致（v362 已剔空占位单）。 */
   copyRecord(e) {
     const id = +e.currentTarget.dataset.id
     const rec = (this.data.records || []).find(r => r.id === id)
     if (!rec) return
-    if (rec.status === 'recalled' || rec.status === 'rejected') {
-      wx.showToast({ title: '已撤回 / 已驳回的单不能复制', icon: 'none' }); return
+    const revise = rec.status === 'recalled'
+    if (rec.status === 'rejected') {
+      wx.showToast({ title: '已驳回的单不能复制', icon: 'none' }); return
+    }
+    if (revise && !rec.period_writable) {
+      // 与按钮的 wx:if 同源（服务端 period_writable）；这里再兜一次，防旧包/竞态下点进来
+      wx.showToast({ title: '该期次已关闭，不能再改这张单', icon: 'none' }); return
     }
     const items = (rec.items || []).filter(it =>
       it && Number(it.product_id) > 0 && Number(it.quantity) > 0 && it.product_name !== '__列占位__')
@@ -250,6 +277,8 @@ Page({
     app.globalData._fsCopy = {
       store_id: rec.store_id, store_kind: rec.store_kind || 'store', store_name: rec.store_name || '',
       period_id: rec.period_id || 0,
+      // v758：单号与 revise 标志 —— fill 页要用单号告诉用户「改的是哪一单」
+      sid: rec.id, revise: revise,
       name: (rec.order_date || '') + (rec.store_name ? ' · ' + rec.store_name : ''),
       items: items.map(it => ({
         product_id: it.product_id, product_name: it.product_name || '',

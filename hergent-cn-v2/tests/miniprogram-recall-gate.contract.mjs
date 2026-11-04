@@ -31,6 +31,7 @@ const PROJ = path.resolve(ROOT, '..')
 const MINI = path.join(PROJ, 'forecast-order-miniprogram-20260812T023419087Z/miniprogram')
 const WXML = path.join(MINI, 'pages/mine/mine.wxml')
 const MJS = path.join(MINI, 'pages/mine/mine.js')
+const FILL = path.join(MINI, 'pages/fill/fill.js')
 const ERP = path.join(PROJ, '.workbuddy/remote-erp/erp_db.py')
 const ROUTE = path.join(PROJ, '.workbuddy/remote-erp/routers/forecast_submissions.py')
 
@@ -155,6 +156,88 @@ console.log('E. 撤回许可单点判据（v757）：三条通路 + 两种入参
     const badRoute = rSeg.replace(/,\s*store_scopes=_scopes/, '')
     ok(!/store_scopes=_scopes/.test(badRoute),
       '坏样本（路由不传范围）能被判否 —— 传了不判/判了不传都是同一个假入口')
+  }
+}
+
+/* F. v758：已撤回单的「继续修改」—— 撤回只需一行 UPDATE，明细全在，别让用户重填
+ *
+ * 报障原话（2026-11-04）：「已撤销的单子，如果用户想修改后再次提交，有没有便捷途径，
+ *                          现在是撤销后需全部重新填报」
+ *
+ * 事实（生产核实）：`forecast_submission_recall` 只 `UPDATE status='recalled'`，
+ *   **明细一行都没删**（单号 2453 撤回后仍是 23 行 / 300 件）。所以"撤回后重填"不是
+ *   数据没了，是两个入口都被关掉了：`rec-copy` 按钮对 recalled 不渲染、`genSample`
+ *   也把作废单排除 —— 于是 23 行只能手打。
+ *
+ * 🔴 「继续修改」≠「复制样单」，不能合并（合并就退回到"拿作废量当模板"的旧风险）：
+ *      · 复制   = 拿**别的期次**的有效单当模板 → 只认非作废单；
+ *      · 继续修改 = 把**这一单**拉回来改 → 提交命中原单（幂等键 门店+期次），单号不变。
+ *   故只放开 recalled、**rejected 仍禁**（驳回是审批方否掉的，不是本人能拉回来的）。
+ *
+ * 判据（缺一条就是假修）：
+ *   ① 模板：recalled 且**期次可写**才给按钮；`period_writable` 由服务端逐条算；
+ *   ② mine.js：recalled 放行且带 `revise`/`sid`，rejected 仍拦；
+ *   ③ fill.js：**期次必须对齐**（只切门店不切期次 = 23 行整批报到错的期次、零报错）；
+ *   ④ 文案：说清"改的是哪一单、单号不变"，不能沿用"生成样单"；
+ *   ⑤ 撤回后清本机「本期已报」回执（不清就是假状态：单已撤、页面还说报过了 ⇒ 漏单）。
+ */
+console.log('F. 已撤回单「继续修改」（v758）：入口闸门 + 期次对齐 + 回执清理')
+{
+  const fill = fs.existsSync(FILL) ? fs.readFileSync(FILL, 'utf8') : ''
+  ok(fill.length > 0, '找到 fill.js')
+
+  // ① 模板闸门
+  ok(/class="rec-copy"[^>]*wx:if="\{\{item\.status === 'recalled' && item\.period_writable\}\}"/.test(wxml),
+    '「继续修改」按钮 = recalled **且** 服务端 period_writable')
+  const badWxml = wxml.replace(
+    /wx:if="\{\{item\.status === 'recalled' && item\.period_writable\}\}"/,
+    'wx:if="{{item.status === \'recalled\'}}"')
+  ok(!/wx:if="\{\{item\.status === 'recalled' && item\.period_writable\}\}"/.test(badWxml),
+    '坏样本（去掉期次闸门）能被判否 —— 期次一关就是"点了必报错"的假入口')
+  const copies = (wxml.match(/<button[^>]*class="rec-copy"/g) || []).length
+  ok(copies === 2, '「复制」与「继续修改」是两个按钮、各带各的条件', `实测 ${copies}`)
+  ok(/class="rec-copy"[^>]*wx:if="\{\{item\.status !== 'recalled' && item\.status !== 'rejected'\}\}"/.test(wxml),
+    '「复制」仍排除 recalled/rejected（旧的"作废单不作源"纪律不许回退）')
+
+  // ② mine.js
+  ok(/const revise = rec\.status === 'recalled'/.test(mjs), 'mine.js 识别 recalled → revise')
+  ok(/if \(rec\.status === 'rejected'\)/.test(mjs), 'rejected 仍被拦（驳回单不能自己拉回来）')
+  ok(/sid: rec\.id, revise: revise/.test(mjs), '跨页带出单号 + revise 标志（文案要靠单号对上号）')
+  const badMjs = mjs.replace(/if \(rec\.status === 'rejected'\)/, 'if (false)')
+  ok(!/if \(rec\.status === 'rejected'\)/.test(badMjs), '坏样本（放行 rejected）能被判否')
+
+  // ③④ fill.js：期次对齐 + 拒绝分支 + 文案
+  ok(/this\._pendingCopy\.revise && this\._pendingCopy\.period_id/.test(fill),
+    '_applyPeriods 会为「继续修改」优先选中源单期次')
+  ok(/String\(curP\.id\) !== String\(p\.period_id\)/.test(fill),
+    '期次对不上时**明确拒绝**带入（绝不就近塞进别的期次）')
+  ok(/revise: !!p\.revise, sid: p\.sid \|\| 0/.test(fill), '_applyCopySample 透传 revise/sid')
+  ok(/continue.*修改单号|继续修改单号/.test(fill) || /继续修改单号/.test(
+    fs.readFileSync(path.join(MINI, 'pages/fill/fill.wxml'), 'utf8')),
+    '文案出现「继续修改单号 N」而不是「样单来自」')
+  const badFill = fill.replace(/String\(curP\.id\) !== String\(p\.period_id\)/, 'false')
+  ok(!/String\(curP\.id\) !== String\(p\.period_id\)/.test(badFill),
+    '坏样本（不校验期次）能被判否 — 这是最难发现的错数据：数量全对、期次全错')
+
+  // ⑤ 回执清理：键名必须单点构造
+  ok(/app\.globalData\._fsRecall/.test(mjs), 'mine.js 撤回成功后发出 _fsRecall 信号')
+  ok(/app\.globalData\._fsRecall/.test(fill), 'fill.js onShow 消费该信号')
+  ok(/_subKeyOf\(/.test(fill), '回执键由 _subKeyOf 单点构造（不照抄字符串）')
+  const badFill2 = fill.replace(/_subKeyOf\(/g, '_subKeyLegacy(')
+  ok(!/    return this\._subKeyOf\(/.test(badFill2),
+    '坏样本（键构造被改回第二份实现）能被判否')
+
+  // 后端：period_writable 必须真的算出来，而不是写死
+  if (!fs.existsSync(ERP)) {
+    skip('period_writable 跨仓检查', '本地缺 .workbuddy/remote-erp/erp_db.py')
+  } else {
+    const erp = fs.readFileSync(ERP, 'utf8')
+    ok(/d\["period_writable"\] = bool\(_writable\)/.test(erp),
+      '后端 d["period_writable"] 来自同一个 _writable（与 can_delete/can_recall 同口径）')
+    const badErp = erp.replace(/d\["period_writable"\] = bool\(_writable\)/,
+      'd["period_writable"] = True')
+    ok(!/d\["period_writable"\] = bool\(_writable\)/.test(badErp),
+      '坏样本（写死 True）能被判否 —— 写死等于期次闸门不存在')
   }
 }
 

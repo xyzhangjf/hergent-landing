@@ -76,7 +76,10 @@
   <!-- 样单来源回执：说清「这些数从哪来」+「跟本期清单合不合」——
        后者直接决定用户下一步是"直接提交"还是"先改几个"。 -->
   <view class="sample-info" wx:if="{{sampleInfo}}">
-    <text class="sample-info-t">样单来自「{{sampleInfo.name}}」· {{sampleInfo.count}} 项 / {{sampleInfo.qty}} 件</text>
+    <!-- v758：两种来源说两句话 —— 「样单」是拿别处的内容来铺，用户需要知道来源；
+         「继续修改」改的是手里这一单，用户需要知道**改的是哪一单**（单号要能对上「我的提交」）。 -->
+    <text class="sample-info-t" wx:if="{{sampleInfo.revise}}">继续修改单号 {{sampleInfo.sid}} · {{sampleInfo.count}} 项 / {{sampleInfo.qty}} 件（提交后更新这一单，单号不变）</text>
+    <text class="sample-info-t" wx:else>样单来自「{{sampleInfo.name}}」· {{sampleInfo.count}} 项 / {{sampleInfo.qty}} 件</text>
     <text class="sample-info-s {{sampleInfo.outOfScope ? 'sample-info-warn' : ''}}">{{sampleInfo.outTip}}</text>
     <text class="sample-info-x" bindtap="dismissSample">收起</text>
   </view>

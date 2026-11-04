@@ -274,6 +274,19 @@ Page({
        那条链会同步跑完，晚一步就赶不上带入。取出即清 globalData，保证只消费一次。 */
     this._pendingCopy = (app.globalData && app.globalData._fsCopy) || null
     if (this._pendingCopy) app.globalData._fsCopy = null
+    /* v758（2026-11-04）：刚在「我的提交」里撤回过的单，**必须清掉本机「本期已报」回执**。
+       不清的后果是假状态横幅：页面顶部照样挂「✓ 本期已报 23 项 / 300 件 · 内容已保留，可继续修改」，
+       而那张单其实已经撤回、不计入本期汇总 ⇒ 用户以为报过了、不再提交 ⇒ **漏单**。
+       （`submittedInfo` 是纯本机 Storage，服务端撤回不会回写它，只能靠这条信号带过来。）
+       ⚠️ 键用 `_subKeyOf` 构造，不在这里照抄字符串 —— 见该方法注释。 */
+    const _recall = (app.globalData && app.globalData._fsRecall) || null
+    if (_recall) {
+      app.globalData._fsRecall = null
+      try {
+        wx.removeStorageSync(this._subKeyOf({ id: _recall.store_id, kind: _recall.store_kind },
+                                            _recall.period_id))
+      } catch (e) { console.warn('[fill] clear fs_sub after recall failed:', e) }
+    }
     this.restoreCart()       // M8: 恢复持久化购物车（跨页面销毁不丢）
     this.loadStores()        // P1-4: 内部带 5min 内存缓存
     // v215（2026-09-20）：期次必须**先于**商品定下来。
@@ -480,6 +493,16 @@ Page({
       const si = periods.findIndex(p => String(p.id) === this._sharedPeriodId)
       if (si >= 0 && periods[si].in_window !== false) idx = si
       this._sharedPeriodId = ''
+    } else if (this._pendingCopy && this._pendingCopy.revise && this._pendingCopy.period_id) {
+      /* v758（2026-11-04）「继续修改已撤回单」：**期次必须对齐**，否则一律不带入。
+         为什么不能省：下面 `_applyCopySample` 只切门店、不切期次（v434 的设计前提是
+         "样单落到用户当前选中的期次"）。对"改这一单"来说这个前提是错的 ——
+         源单在 11-04 期、用户当前停在 11-02 期时，23 行会整批报到 11-02，
+         而且**没有任何报错**（数量都合法、商品都在清单内），是最难发现的一类错数据。
+         ⚠️ 期次已关闭/不在 open 列表 ⇒ 不选中；由 `_applyCopySample` 明确拒绝并说明，
+            绝不"就近塞进别的期次"。 */
+      const ci = periods.findIndex(p => String(p.id) === String(this._pendingCopy.period_id))
+      if (ci >= 0 && periods[ci].in_window !== false) idx = ci
     } else if (savedId !== '' && savedId != null && savedId !== undefined) {
       const found = periods.findIndex(p => String(p.id) === String(savedId))
       if (found >= 0 && periods[found].in_window !== false) idx = found
@@ -734,10 +757,16 @@ Page({
     const k = this._objKey(this.data.store)
     return 'fs_last_cart_' + (k || '0')
   },
+  /* v758（2026-11-04）：键名构造收敛成**一处** —— `_subKey()` 与本文件里「撤回后清回执」
+     都调它。原来只有一个调用方，第二处若照抄 `'fs_sub_' + k + '_' + pid`，将来改格式
+     （v294 就给键加过 kind 前缀）必然漏改一处 ⇒ 清了 A 键、页面读 B 键，回执照样挂着。 */
+  _subKeyOf(o, pid) {
+    const k = this._objKey(o)
+    return 'fs_sub_' + (k || '0') + '_' + (pid != null ? pid : '0')
+  },
   _subKey() {
-    const k = this._objKey(this.data.store)
     const p = this.data.period
-    return 'fs_sub_' + (k || '0') + '_' + (p && p.id != null ? p.id : '0')
+    return this._subKeyOf(this.data.store, p && p.id != null ? p.id : '0')
   },
   refreshBanners() {
     let last = null, sub = null
@@ -907,13 +936,20 @@ Page({
         : '提交时系统会核对本期清单，不在的会自动跳过'
       this.setData({
         sampleInfo: { name: src.name, count: src.count, qty: src.qty,
+                      // v758：revise/sid 决定 wxml 用哪一句文案（"样单来自" vs "继续修改单号 N"）
+                      revise: !!src.revise, sid: src.sid || 0,
                       outTip: outTip, outOfScope: outside.length }
       })
       wx.showToast({
-        title: '已生成样单（' + src.count + ' 项 / ' + src.qty + ' 件）',
+        title: src.revise
+          ? ('已带回单号 ' + (src.sid || '') + '（' + src.count + ' 项 / ' + src.qty + ' 件）')
+          : ('已生成样单（' + src.count + ' 项 / ' + src.qty + ' 件）'),
         icon: 'none', duration: 2200
       })
-      track(EVENTS.SUBMIT, { action: 'gen_sample', pid: src.pid, count: src.count, qty: src.qty })
+      track(EVENTS.SUBMIT, {
+        action: src.revise ? 'revise_recalled' : 'gen_sample',
+        pid: src.pid, count: src.count, qty: src.qty
+      })
     }
     if (this.data.cartCount) {
       wx.showModal({
@@ -967,6 +1003,23 @@ Page({
         找不到（该门店已不在报单范围）就**明确拒绝**，绝不硬塞进当前门店。 */
   _applyCopySample(p) {
     if (!p) return
+    /* v758：先对期次，再谈明细。
+       `_applyPeriods` 已尽力把期次切到源单所在期；走到这里仍不一致 ⇒ 那个期次
+       已经不在「可报期次」里（关闭/删除）⇒ **明确拒绝**。
+       这就是「期次已关闭的撤回单不能继续修改」的唯一拦截点（服务端另有
+       forecast_period_writable 硬锁兜底，前端这层只是为了给出人话的解释）。 */
+    if (p.revise) {
+      const curP = this.data.period || {}
+      if (String(curP.id) !== String(p.period_id)) {
+        wx.showModal({
+          title: '无法继续修改',
+          content: '这张单所在的期次（' + (p.name || '该期次') + '）已经关闭，不能再改动。'
+            + '如果需要调整数量，请找主管在电脑上改单。',
+          showCancel: false
+        })
+        return
+      }
+    }
     const items = (p.items || []).filter(it => it && Number(it.product_id) > 0 && Number(it.quantity) > 0)
     if (!items.length) { wx.showToast({ title: '这条单没有可复制的商品', icon: 'none' }); return }
     const sid = p.store_id, skd = p.store_kind || 'store'
@@ -990,6 +1043,8 @@ Page({
       count: items.length,
       qty: items.reduce((s, it) => s + Number(it.quantity || 0), 0),
       pid: p.period_id || 0,
+      // v758：原样透传「这是改某一单」的标志 + 单号（文案要靠单号让用户对上号）
+      revise: !!p.revise, sid: p.sid || 0,
       items: items,
     })
   },

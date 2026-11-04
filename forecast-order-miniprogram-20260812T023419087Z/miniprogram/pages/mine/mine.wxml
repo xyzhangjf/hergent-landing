@@ -99,6 +99,20 @@
             <!-- v434：把这一期复制到当前填报（快速填报）。作废单（已撤回/已驳回）不给入口 ——
                  与填报页「复制生成样单」同一条纪律：拿作废的量再报一次会误导用户。 -->
             <button class="rec-copy" wx:if="{{item.status !== 'recalled' && item.status !== 'rejected'}}" size="mini" bindtap="copyRecord" data-id="{{item.id}}">复制</button>
+            <!-- v758（2026-11-04 用户实报「撤销后要全部重新填报」）：**已撤回**的单补一个
+                 「继续修改」入口，把原明细原样带回填报页 —— 撤回只是 `UPDATE status='recalled'`、
+                 **明细一行都没删**（生产核实：单号 2453 撤回后 23 行 / 300 件全在），所以
+                 "撤回后重填"本来不必从零开始。
+                 🔴 与上面「复制」不是同一件事，不要合并：
+                    · 「复制」= 拿**别的期次**的有效单当模板 → 只认同期次以外/正常单；
+                    · 「继续修改」= 把**这一单**拉回来改 → 提交时会命中原单（幂等键 门店+期次），
+                      单号不变、`status` 复位 pending（`forecast_submission_replace`）。
+                 当初「作废单不作源」是为了防"把已作废的量当有效单再报一次"；本人主动
+                 恢复自己这一单不属于那个风险，故只放开 recalled、**rejected 仍禁**。
+                 ⚠️ `period_writable` 由服务端逐条算（与 `can_delete`/`can_recall` 同一处、
+                    同一口径）：期次一关就改不了（路由层 forecast_period_writable 硬锁），
+                    前端自己判必然再造一个「点了就报错」的假入口。 -->
+            <button class="rec-copy" wx:if="{{item.status === 'recalled' && item.period_writable}}" size="mini" bindtap="copyRecord" data-id="{{item.id}}">继续修改</button>
             <!-- v755（2026-11-04 员工实报）：撤回按钮改由**服务端** `can_recall` 决定是否渲染。
                  此前只判 `item.status === 'pending'` ⇒ 与本列表范围打架：本列表是
                  「我报的 OR 我负责门店报的」（v224），员工会看到老板/督导**导入或代改**的
