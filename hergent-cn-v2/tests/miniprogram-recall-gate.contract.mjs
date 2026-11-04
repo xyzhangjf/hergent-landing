@@ -82,9 +82,6 @@ console.log('D. 后端算出了 can_recall，且 /my 把 role 传下去（跨仓
     const erp = fs.readFileSync(ERP, 'utf8')
     const route = fs.readFileSync(ROUTE, 'utf8')
     ok(/d\["can_recall"\]\s*=/.test(erp), 'erp_db.py 里真的写了 d["can_recall"]')
-    ok(/_recaller\s*=\s*role in \("admin", "boss", "supervisor"\)/.test(erp),
-      '管理员元组与 forecast_submission_recall 一致（admin/boss/supervisor）')
-    ok(/_owner or _recaller/.test(erp), '判据含「本人 OR 管理员」（不是只看角色）')
     ok(/d\.get\("status"\) == "pending"/.test(erp), '判据含 pending（已撤回/已驳回不给按钮）')
     ok(/_writable and d\.get\("status"\)/.test(erp),
       '判据含期次可写（撤回路由层有 forecast_period_writable 硬锁，漏了就是假入口）')
@@ -98,6 +95,66 @@ console.log('D. 后端算出了 can_recall，且 /my 把 role 传下去（跨仓
       '/my 路由把 role 传进 forecast_submission_list（不传 ⇒ 管理员看不到撤回按钮）')
     const bad = myCall.replace(/role=u\.get\("role", ""\)/, '')
     ok(!/role=u\.get\("role", ""\)/.test(bad), '坏样本（/my 不传 role）能被判否')
+  }
+}
+
+/* E. v757：撤回许可收敛成**单点判据**，三条通路缺一不可
+ *
+ * 报障（2026-11-04 导购马耀秀）：她报了本期民发门店的单，期次还开着，
+ * 撤回按钮却不出现。真实链路 —— 主管先导入一版（role='导入'/user_id=老板），
+ * 她 09:18 在小程序提交 ⇒ 原位替换到那一行（`forecast_submission_replace`
+ * **有意不动 user_id/role**）⇒ 这单名义上永远是「导入单」；
+ * 主管 10:11 再保存一次，连 updated_by 都被清掉。
+ * ⇒ 只按「本人 user_id」判，「能报这单的人」永远撤不了自己的单。
+ *
+ * 判据：撤回许可 = 单点函数 `forecast_recall_allowed()`，列表与写入口共用；
+ * 通路三条 = 本人 ／ 管理员元组 ／ **该单在我的报单范围**。
+ * ⚠️ 入参必须同时吃 dict 与 (id,kind) 元组 —— 列表传元组、路由传 dict，
+ *    只认一种不会报错，而是 int(元组) 抛错被 continue 吞成**静默 False**
+ *    （v757 第一版补丁自己就栽在这里，按钮照样不亮）。
+ */
+console.log('E. 撤回许可单点判据（v757）：三条通路 + 两种入参形状')
+{
+  if (!fs.existsSync(ERP) || !fs.existsSync(ROUTE)) {
+    skip('撤回判据单点化检查', '本地缺 .workbuddy/remote-erp/')
+  } else {
+    const erp = fs.readFileSync(ERP, 'utf8')
+    const route = fs.readFileSync(ROUTE, 'utf8')
+
+    const i0 = erp.indexOf('def forecast_recall_allowed(')
+    const i1 = erp.indexOf('def forecast_submission_list(', i0)
+    const fn = (i0 >= 0 && i1 > i0) ? erp.slice(i0, i1) : ''
+    ok(fn.length > 0, '判据函数 forecast_recall_allowed 存在')
+    ok(/int\(row\["user_id"\] or 0\) == int\(user_id or 0\)/.test(fn), '通路① 本人（user_id 相等）')
+    ok(/role in \("admin", "boss", "supervisor"\)/.test(fn), '通路② 管理员元组（与 recall 同源）')
+    ok(/_norm_store_kind\(_kd\) == kind/.test(fn), '通路③ 该单在我的报单范围（v757 核心）')
+    ok(/isinstance\(s, \(tuple, list\)\) and len\(s\) == 2/.test(fn),
+      '两种入参形状都吃（列表传元组 / 路由传 dict）')
+    const badTuple = fn.replace(/elif isinstance\(s, \(tuple, list\)\) and len\(s\) == 2:[\s\S]{0,80}?else:/, 'else:')
+    ok(!/isinstance\(s, \(tuple, list\)\) and len\(s\) == 2/.test(badTuple),
+      '坏样本（只认 dict）能被判否 —— 只认一种会静默变 False')
+
+    // 两处必须都调它，否则「按钮亮、点了报错」的假入口会以另一种形状回来
+    const listSeg = erp.slice(erp.indexOf('def forecast_submission_list('),
+      erp.indexOf('def _forecast_product_cached(', erp.indexOf('def forecast_submission_list(')))
+    ok(/forecast_recall_allowed\(d,/.test(listSeg), '列表 can_recall 调的是这个函数')
+    const rc0 = erp.indexOf('def forecast_submission_recall(')
+    const rc1 = erp.indexOf('def forecast_submission_delete(', rc0)
+    const rcSeg = erp.slice(rc0, rc1)
+    ok(/forecast_recall_allowed\(row,/.test(rcSeg), '写入口 recall 调的也是这个函数（不是各判一套）')
+    ok(/store_scopes/.test(rcSeg), 'recall 接受 store_scopes（不接 ⇒ 范围通路走不到）')
+
+    // 路由必须真的把范围算出来并传下去
+    const r0 = route.indexOf('def recall_submission(')
+    const r1 = route.indexOf('@router.post("/{sid}/delete")', r0)
+    const rSeg = (r0 >= 0 && r1 > r0) ? route.slice(r0, r1) : ''
+    ok(rSeg.length > 0, '找到 recall 路由实现体')
+    ok(/report_subject_stores\(/.test(rSeg),
+      'recall 路由用 report_subject_stores 算范围（与提交越权校验同一函数）')
+    ok(/store_scopes=_scopes/.test(rSeg), 'recall 路由把范围传给判据')
+    const badRoute = rSeg.replace(/,\s*store_scopes=_scopes/, '')
+    ok(!/store_scopes=_scopes/.test(badRoute),
+      '坏样本（路由不传范围）能被判否 —— 传了不判/判了不传都是同一个假入口')
   }
 }
 
