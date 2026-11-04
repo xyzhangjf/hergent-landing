@@ -3,7 +3,15 @@
 .brand-ic{width:128rpx;height:128rpx;border-radius:32rpx;overflow:hidden;margin-bottom:24rpx;display:block}
 .brand-name{font-size:40rpx;font-weight:600;color:#1d1d1f}
 .brand-sub{font-size:24rpx;color:#86868b;margin-top:12rpx}
-.scope-note{font-size:24rpx;color:#c45500;background:#fff3e8;border:1rpx solid #ffd9b3;border-radius:24rpx;padding:8rpx 24rpx;margin-top:20rpx}
+/* 使用范围说明（「体验范围特定」类小程序的审核硬要求，见 miniprogram-legal-consistency-check.py）。
+   🔴 文案不许删、不许并回 .brand-sub、不许降成最浅灰：微信《账号登录规范》要求「首页有明显
+      的使用范围说明」，官方合规案例原话即「一进入页面即说明提示仅限内部员工可使用」。
+      2026-09-22 就是从副标题里把它「捞」出来做成独立胶囊才满足「明显」的，退回灰小字等于自找驳回。
+   🔴 颜色从橙（#c45500/#fff3e8/#ffd9b3）改为品牌 tint：橙色在本系统是「撤回/待办」语义色
+      （fill.wxss 用了 15 处），拿它做中性的使用范围说明＝把合规声明画成警告框，语义错位。
+      换色**不改形态**：仍是独立一行带边框的胶囊 ⇒ 视觉上依然「明显」，过审保障不变。
+      保留胶囊而不用纯文字行，就是为了不牺牲「明显」这一条。 */
+.scope-note{font-size:24rpx;color:var(--brand-ink);background:var(--brand-bg);border:1rpx solid var(--brand-border);border-radius:24rpx;padding:8rpx 24rpx;margin-top:20rpx}
 .card{width:100%;background:#fff;border-radius:24rpx;padding:48rpx 40rpx;box-shadow:0 4rpx 24rpx rgba(0,0,0,.05)}
 .ipt{height:96rpx;border:1rpx solid #e5e5ea;border-radius:16rpx;padding:0 28rpx;font-size:30rpx;margin-bottom:24rpx}
 /* v252：记住账号 —— 自绘复选框（不用原生 checkbox，避免各端样式不一致） */

@@ -9,17 +9,22 @@ miniprogram-legal-consistency-check.py
 两者口径不一致 = 「双版本」问题，是高频驳回点。同时，小程序与网页端是**两个不同产品**，
 把网页端政策照搬过来会声明本程序不具备的处理行为 = 「多申报」。
 
-本脚本核对六组共 26 项：
+本脚本核对八组（A–H）：
   A 协议页存在性 + app.json 注册
   B 登录页常驻入口（关键：入口不得位于隐私弹窗内部）+ 弹窗样式是否真的定义
   C 协议页正文 vs 平台申报版 md 同源（逐句包含）
   D 多申报检测（否定句豁免，否则「不收集设备型号」这类句子会误报）
   E PIPL 第 17 条必告知要素
   F 非必要项是否真的可控（开关 + 撤回同意）
+  G 全部 wxml 标签配平
+  H 登录页「使用范围说明」（微信《账号登录规范》对「体验范围特定」类小程序的硬要求）
 
 用法：
     python3 .workbuddy/tools/miniprogram-legal-consistency-check.py
-退出码：0 = 全绿；1 = 有失败项
+    python3 .workbuddy/tools/miniprogram-legal-consistency-check.py --self-test
+        （H 组坏样本自证：往副本注入 8 种错误写法，每种必须被判红。
+          「真源码全绿」不等于「断言在检查」——本仓已多次踩过空白支票。）
+退出码：0 = 全绿 / 自检通过；1 = 有失败项 / 自检失败
 """
 import json
 import os
@@ -377,10 +382,225 @@ def group_g():
     check(g, '全部 %d 个 wxml 标签配平' % len(files), not bad, ' | '.join(bad[:4]) if bad else '')
 
 
-def main():
-    for fn in (group_a, group_b, group_c, group_d, group_e, group_f, group_g):
-        fn()
+# ============ H 登录页「使用范围说明」（微信登录规范硬要求） ==================
+# 依据：微信《小程序帐号登录规范要求与修改指引》把小程序分两类，本程序属
+#   **「体验范围特定」**（仅给本企业员工用、对外无开放注册流程），其整改建议第①条 =
+#   「首页有明显的使用范围（特定范围）说明」。官方给出的**合规案例原话**即
+#   「一进入页面即说明提示仅限内部员工可使用，并已进行账号鉴权」。
+# 反面：社区置顶驳回回复「小程序为服务范围特定类，但页面无相关说明以及使用范围提示，
+#   暂未符合登录规范要求」；2026-05-25 真人申诉「我的小程序是内部使用的，不需要公开的」
+#   仍被要求按登录规范整改 ⇒ **「内部使用」不是豁免理由，恰恰是必须写说明的理由**。
+# 🔴 本组存在的理由：这条文案在此前**没有任何护栏**。删掉它 `npm test` 照样全绿，
+#    要等提审被驳回才发现 —— 与「判据缺失 = 空白支票」同族。
+def _css_hex_map(wxss_path):
+    """从 app.wxss 抽 `--name:#hex` 映射，用于把 var(--x) 还原成可算对比度的值。"""
+    txt = re.sub(r'/\*.*?\*/', '', read(wxss_path), flags=re.S)
+    return {n.lower(): v.lower() for n, v in re.findall(r'(--[\w-]+)\s*:\s*(#[0-9a-fA-F]{6})\b', txt)}
 
+
+def _resolve_paint(val, tokens):
+    """把 `var(--brand-bg)` / `#ECF4F3` 统一成小写 `#rrggbb`；取不到返回 None。"""
+    if not val:
+        return None
+    m = re.search(r'var\(\s*(--[\w-]+)\s*\)', val)
+    if m:
+        return tokens.get(m.group(1).lower())
+    m = re.search(r'#[0-9a-fA-F]{6}\b', val)
+    return m.group(0).lower() if m else None
+
+
+def _lum(hex6):
+    h = hex6.lstrip('#')
+    ch = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+    ch = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in ch]
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2]
+
+
+def _contrast(a, b):
+    la, lb = _lum(a), _lum(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+
+
+def group_h():
+    g = 'H 使用范围说明'
+    login_wxml = os.path.join(PAGES, 'login', 'login.wxml')
+    src = read(login_wxml)
+    css = re.sub(r'/\*.*?\*/', '', read(os.path.join(PAGES, 'login', 'login.wxss')), flags=re.S)
+
+    # ① 必须是**真实元素**。本仓注释极多，只查原始字符串会被注释里的一句话骗过
+    #    （v762 就踩过：护栏锚点截到注释文字 ⇒ 假阴性）。
+    el = re.search(r'<view[^>]*class="[^"]*\bscope-note\b[^"]*"[^>]*>(.*?)</view>', src, re.S)
+    check(g, '登录页存在独立的「使用范围说明」元素 .scope-note', bool(el),
+          '未找到 <view class="scope-note"> —— 微信要求该类别小程序「首页有明显使用范围说明」')
+
+    text = norm(el.group(1)) if el else ''
+    # ② 文案必须真的在限定范围。官方合规案例是「仅限内部员工可使用」；
+    #    弱化成「欢迎使用」就等于没有说明。
+    strong = bool(re.search(r'(仅限|仅面向|只面向|仅供)', text)) and \
+             bool(re.search(r'(内部|本企业|本单位|本公司)', text))
+    check(g, '文案含范围限定词（仅限/仅面向 + 内部/本企业）', strong,
+          '当前文案「%s」不符合官方合规案例表述' % text)
+
+    # ③ 不能在隐私弹窗里（未同意隐私时首页就看不到说明），也不能带条件渲染
+    inside = probe(login_wxml).class_pos.get('scope-note')
+    check(g, '说明位于隐私弹窗之外（首页静态可见）', inside is False,
+          '未找到' if inside is None else '落在 showPrivacy 弹窗块内 ⇒ 首屏看不到说明')
+    check(g, '说明元素自身不带 wx:if / wx:elif / wx:for',
+          bool(el) and not re.search(r'wx:(if|elif|for)=', el.group(0)),
+          '带条件渲染 ⇒ 某些状态下首页无使用范围说明')
+
+    # ④ 样式存在且未被隐藏（元素在但 display:none = 等于没有）
+    rule = re.search(r'\.scope-note\s*\{([^}]*)\}', css)
+    check(g, '.scope-note 已定义样式', bool(rule), 'login.wxss 无该规则 ⇒ 元素在但无任何外观')
+    body = rule.group(1) if rule else ''
+    hidden = re.search(r'display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?!\.\d*[1-9])|font-size\s*:\s*0\b', body)
+    check(g, '.scope-note 未被样式隐藏', not hidden,
+          '出现「%s」⇒ 违反「首页有明显的使用范围说明」' % (hidden.group(0) if hidden else ''))
+
+    # ⑤ 把「明显」拆成三个可量化代理：字号够读 / 有视觉容器 / 文字对比度 ≥ 4.5
+    #    判据来源：2026-09-22 曾因「只有副标题里'内部使用'四个字算不算明显存疑」，
+    #    才把它从副标题里拆出来做成独立胶囊。退回浅灰小字 = 回到被质疑的形态。
+    fs = re.search(r'font-size\s*:\s*(\d+)rpx', body)
+    fsz = int(fs.group(1)) if fs else 0
+    check(g, '说明字号 ≥ 20rpx', fsz >= 20, '当前 %drpx：低于此审核员一瞥即判「不明显」' % fsz)
+
+    tokens = _css_hex_map(os.path.join(MINI, 'app.wxss'))
+    fg_m = re.search(r'(?<![-\w])color\s*:\s*([^;}]+)', body)
+    bg_m = re.search(r'background(?:-color)?\s*:\s*([^;}]+)', body)
+    fg = _resolve_paint(fg_m.group(1) if fg_m else '', tokens)
+    bg = _resolve_paint(bg_m.group(1) if bg_m else '', tokens)
+    check(g, '说明有视觉容器（底色或边框），与副标题可区分',
+          bool(bg) or bool(re.search(r'border\s*:', body)),
+          '既无底色也无边框 ⇒ 会与 .brand-sub 混成一行，「明显」不成立')
+
+    if fg and bg:
+        ratio = _contrast(fg, bg)
+        check(g, '文字对比度 ≥ 4.5:1（%s on %s = %.2f）' % (fg, bg, ratio), ratio >= 4.5,
+              '对比度 %.2f 过低 ⇒ 视觉上等同浅灰小字' % ratio)
+    else:
+        check(g, '文字色与底色可解析（供对比度校验）', False,
+              '解析失败 fg=%s bg=%s —— 若改用新 var 令牌，确保 app.wxss 里有 #hex 定义' % (fg, bg))
+
+    # ⑥ 不许回退到孤立橙：橙色在本系统是「撤回/待办」语义色（fill.wxss 15 处），
+    #    拿它做中性的使用范围说明 = 把合规声明渲染成警告框（用户会以为页面出错）。
+    orange = re.search(r'#c45500|#fff3e8|#ffd9b3', body, re.I)
+    check(g, '未使用警示橙（#c45500/#fff3e8/#ffd9b3）', not orange,
+          '橙色是「待办/撤回」语义色，用在说明上语义错位（v764 已改为品牌 tint）')
+
+
+def self_test():
+    """H 组坏样本自证（`--self-test`）。
+
+    真源码 10/10 只能证明「通过」，不能证明「在检查」。本函数把三件文件复制到临时目录，
+    注入 8 种错误写法，每种必须让**指定那条**断言变红；另设 1 组「原样不改」对照，
+    证明副本机制本身没有把所有结果搞成全红（否则"全红"也能骗过自检）。
+    """
+    import shutil
+    import tempfile
+
+    global MINI, PAGES
+    orig_mini, orig_pages = MINI, PAGES
+    work = tempfile.mkdtemp(prefix='lc-hb-')
+    try:
+        os.makedirs(os.path.join(work, 'pages', 'login'))
+        shutil.copy(os.path.join(MINI, 'app.wxss'), os.path.join(work, 'app.wxss'))
+        for f in ('login.wxml', 'login.wxss'):
+            shutil.copy(os.path.join(MINI, 'pages', 'login', f),
+                        os.path.join(work, 'pages', 'login', f))
+        MINI, PAGES = work, os.path.join(work, 'pages')
+
+        wxml = os.path.join(work, 'pages', 'login', 'login.wxml')
+        wxss = os.path.join(work, 'pages', 'login', 'login.wxss')
+        orig = {p: read(p) for p in (wxml, wxss)}
+
+        def restore():
+            for p, s in orig.items():
+                with open(p, 'w', encoding='utf-8') as fh:
+                    fh.write(s)
+
+        def patch(path, old, new):
+            s = read(path)
+            if old not in s:
+                raise LookupError('锚点未命中，自检需要随样式更新：%r' % old[:48])
+            with open(path, 'w', encoding='utf-8') as fh:
+                fh.write(s.replace(old, new, 1))
+
+        def run_h():
+            del RESULTS[:]
+            group_h()
+            return {n: ok for _g, n, ok, _d in RESULTS}
+
+        bad = []
+        restore()
+        base = run_h()
+        if len(base) != 10 or any(not ok for ok in base.values()):
+            bad.append('对照组异常：%d 项，红 %s' % (len(base), [n for n, o in base.items() if not o]))
+        print('对照组（原样不改）  %d 项 / 红 %d  %s'
+              % (len(base), sum(1 for o in base.values() if not o), 'OK' if not bad else 'FAIL'))
+
+        # ⚠️ 锚点一律带上下文：login.wxss 里 `.brand-sub{font-size:24rpx;…}` 更靠前，
+        #    只写 'font-size:24rpx' 会改到副标题上 ⇒ 坏样本改错对象 = 空白支票。
+        cases = [
+            ('删掉整行说明元素',
+             lambda: patch(wxml, '<view class="scope-note">仅限本企业员工内部使用</view>', ''),
+             '存在独立的「使用范围说明」元素'),
+            ('文案弱化成「欢迎使用」',
+             lambda: patch(wxml, '仅限本企业员工内部使用', '欢迎使用小赫智体'),
+             '文案含范围限定词'),
+            ('元素加 wx:if 条件',
+             lambda: patch(wxml, '<view class="scope-note">', '<view wx:if="{{ready}}" class="scope-note">'),
+             '不带 wx:if'),
+            ('样式加 display:none',
+             lambda: patch(wxss, '.scope-note{font-size:24rpx;', '.scope-note{display:none;font-size:24rpx;'),
+             '未被样式隐藏'),
+            ('文字改成最浅灰 #c7c7cc',
+             lambda: patch(wxss, 'color:var(--brand-ink)', 'color:#c7c7cc'),
+             '文字对比度 ≥ 4.5:1'),
+            ('颜色回退到警示橙',
+             lambda: patch(wxss,
+                           'color:var(--brand-ink);background:var(--brand-bg);'
+                           'border:1rpx solid var(--brand-border)',
+                           'color:#c45500;background:#fff3e8;border:1rpx solid #ffd9b3'),
+             '未使用警示橙'),
+            ('字号降到 12rpx',
+             lambda: patch(wxss, '.scope-note{font-size:24rpx', '.scope-note{font-size:12rpx'),
+             '说明字号 ≥ 20rpx'),
+            ('去掉底色与边框（只剩纯文字）',
+             lambda: patch(wxss, 'background:var(--brand-bg);border:1rpx solid var(--brand-border);', ''),
+             '说明有视觉容器'),
+        ]
+
+        for label, mutate, target in cases:
+            restore()
+            try:
+                mutate()
+            except LookupError as e:
+                bad.append('%s：%s' % (label, e))
+                print('坏样本 %-30s 锚点失效 <<<' % label)
+                continue
+            res = run_h()
+            red = [n for n, ok in res.items() if not ok]
+            hit = [n for n in red if target in n]
+            print('坏样本 %-30s 红 %d 项  %s' % (label, len(red), 'OK' if hit else '未检出 <<<'))
+            if not hit:
+                bad.append('%s：期望含「%s」的断言变红，实际红=%s' % (label, target, red))
+
+        restore()
+        print('')
+        if bad:
+            print('SELF-TEST: FAIL')
+            for b in bad:
+                print('  - ' + b)
+            return 1
+        print('SELF-TEST: OK（对照全绿 + %d 个坏样本全部被检出）' % len(cases))
+        return 0
+    finally:
+        MINI, PAGES = orig_mini, orig_pages
+
+
+def main():
+    for fn in (group_a, group_b, group_c, group_d, group_e, group_f, group_g, group_h):
+        fn()
     groups = {}
     for grp, name, ok, detail in RESULTS:
         groups.setdefault(grp, []).append((name, ok, detail))
@@ -412,4 +632,6 @@ def main():
 
 
 if __name__ == '__main__':
+    if '--self-test' in sys.argv:
+        sys.exit(self_test())
     sys.exit(main())

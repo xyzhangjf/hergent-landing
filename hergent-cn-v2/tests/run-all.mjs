@@ -613,6 +613,21 @@ if (has('skip-sfc')) {
   results.push({ name: '扫码报单', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊴ 登录页「使用范围说明」审核合规（v764）─────────────────────────
+/* 用户问「这行字是合规必须的吗，能否去掉」。查证结论：是。微信《小程序账号登录规范》
+   对「体验范围特定」类（仅内部人员用、对外无注册）要求「首页有明显的使用范围说明」，
+   官方合规案例原话即「仅限内部员工可使用」，内部使用不是豁免理由而是必须写说明的理由。
+   🔴 顺带发现两层问题：`miniprogram-legal-consistency-check.py` 的 38 项**从没有 runner
+   在跑**（一直靠手敲命令看 ALL GREEN）；而这条文案本身**零断言**，删掉照样全绿。
+   本块把它接进 `npm test`，并强制 `--self-test` 往副本注入 8 种错误写法逐一必红。 */
+{
+  console.log('\n── ㊴ 登录页使用范围说明（合规硬要求，v764）──')
+  const r = run('miniprogram-legal.contract.mjs', [], { timeout: 180000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '登录页使用范围说明', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
