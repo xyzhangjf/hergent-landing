@@ -79,16 +79,22 @@ ok(rows > 0, `剪贴板拿到 ${rows} 行（点到的确实是"复制"，不是�
 ok((await p.locator('.cycle-pop').count()) === 0, '没有误开到货周期筛选弹层')
 ok((await p.locator(EXPORT_OPEN).count()) === 0, '导出面板已自动关闭')
 
-console.log('\n=== ⑥ 反向：面板外点「品牌」仍能互斥切换（1120→1101 不许把这条弄坏）===')
+console.log('\n=== ⑥ 反向：面板外点「品牌」仍能互斥切换（v753 起品牌入口改为工具行右键菜单，这里改用右键触发）===')
+// v753：品牌筛选入口不再常驻按钮，改为右键工具行 → 点「筛选（按品牌）」；菜单项调 toggleBrandPop，开关同效
+const openBrandCtx = async () => {
+  await p.locator('.grid-ctl-row').first().click({ button: 'right' })
+  await sleep(400)
+  await p.locator('.ctx-menu button', { hasText: '筛选' }).first().click()
+  await sleep(900)
+}
 await exportBtn.click()
 await sleep(600)
 ok((await p.locator(EXPORT_OPEN).count()) === 1, '导出面板已打开')
-await p.locator('.grid-ctl-row .tb-pop > button', { hasText: '品牌' }).first().click()
-await sleep(900)
-ok((await p.locator('.brand-pop').count()) === 1, '品牌弹层开了（触发按钮 1101 > 遮罩 1100 ⇒ 仍可直接点）')
+await openBrandCtx()  // 右键工具行 → 点「筛选（按品牌）」：开品牌弹层
+ok((await p.locator('.brand-pop').count()) === 1, '品牌弹层开了（右键菜单项触发，面板 z-index 仍压住触发器）')
 ok((await p.locator(EXPORT_OPEN).count()) === 0, '导出面板被互斥关掉')
-// 关掉品牌弹层：点它自己的触发按钮（工具栏弹层不监听 ESC，ESC 只服务 Modal，别拿它当"关闭"）
-await p.locator('.grid-ctl-row .tb-pop > button', { hasText: '品牌' }).first().click()
+// 关掉品牌弹层：再右键工具行 → 点「筛选（按品牌）」即 toggle 关闭（工具栏弹层不监听 ESC）
+await openBrandCtx()
 await sleep(500)
 
 console.log('\n=== ⑦ 任何视口下：面板矩形与自己的触发按钮不许相交 ===')

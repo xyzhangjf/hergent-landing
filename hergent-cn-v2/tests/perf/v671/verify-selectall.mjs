@@ -99,6 +99,23 @@ try {
     await S('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 })
     await S('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 })
   }
+  const realRightClick = async (x, y) => {
+    await S('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none', clickCount: 0 })
+    await S('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', clickCount: 1 })
+    await S('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', clickCount: 1 })
+  }
+  // v753：品牌筛选入口改为工具行右键菜单，这里改用「右键工具行 → 点筛选菜单项」触发（toggle 开关）
+  const toggleBrandViaCtx = async () => {
+    const row = await evalJS(`(() => { const r = document.querySelector('.grid-ctl-row'); if (!r) return { error: '找不到工具行' }; const b = r.getBoundingClientRect(); return { cx: Math.round(b.left + 28), cy: Math.round(b.top + b.height / 2) } })()`)
+    if (row.error) return row
+    await realRightClick(row.cx, row.cy)
+    await sleep(400)
+    const item = await evalJS(`(() => { const b = [...document.querySelectorAll('.ctx-menu button')].find(el => el.offsetParent && /筛选/.test(el.textContent || '')); if (!b) return { error: '右键菜单里没有「筛选」项' }; const r = b.getBoundingClientRect(); return { cx: Math.round(r.left + r.width / 2), cy: Math.round(r.top + r.height / 2) } })()`)
+    if (item.error) return item
+    await realClick(item.cx, item.cy)
+    await sleep(900)
+    return {}
+  }
   const go = async (hash) => {
     await evalJS(`location.hash = ${JSON.stringify(hash)}`, false)
     await sleep(3500)
@@ -344,17 +361,10 @@ try {
     return b
   }
 
-  // 真正点一次品牌筛选里的全选
-  const brandBtn = await evalJS(`(() => {
-    const b = [...document.querySelectorAll('button')].find(el => el.offsetParent && /品牌/.test(el.textContent||'') && el.querySelector('svg'))
-    if (!b) return { error: '找不到品牌筛选按钮' }
-    const r = b.getBoundingClientRect()
-    return { cx: Math.round(r.left+r.width/2), cy: Math.round(r.top+r.height/2) }
-  })()`)
-  if (brandBtn.error) skipped(brandBtn.error)
+  // 真正点一次品牌筛选里的全选（v753：品牌入口改为工具行右键菜单，用 toggleBrandViaCtx 触发并打开面板）
+  const brandBtn = await toggleBrandViaCtx()
+  if (brandBtn.error) skipped(brandBtn.error + '（v753 起品牌入口在工具行右键菜单内）')
   else {
-    await realClick(brandBtn.cx, brandBtn.cy)
-    await sleep(800)
     const bh = await evalJS(`window.__hdr('.brand-pop .bp-acts')`)
     if (bh.error) skipped('品牌面板里没找到全选框：' + bh.error)
     else {
@@ -374,7 +384,7 @@ try {
       ok(tips.length > 0 && tips.every(t => /不勾|不过滤|全选/.test(t)),
         '提示文案写明了"不勾 = 不过滤"（否则未勾会被读成"一个都没选"）')
     }
-    await evalJS(`(() => { const b = [...document.querySelectorAll('button')].find(el => el.offsetParent && /品牌/.test(el.textContent||'') && el.querySelector('svg')); if (b) b.click(); return true })()`)
+    await toggleBrandViaCtx()  // 再右键工具行 → 点「筛选」即 toggle 关闭品牌面板（v753）
     await sleep(500)
   }
 
