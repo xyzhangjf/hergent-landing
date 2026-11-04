@@ -163,10 +163,10 @@
     </view>
   </view>
 
-  <!-- v761：扫码结果条 —— 五种结果各有自己的话（文案全在 js 的 `_scanTip()` 里拼）。
-       🔴 单一 `wx:if="{{scanRes}}"`，不在模板里分支判定：五种组合摊在 wxml 必漏一种
-          （v759 同一条纪律）。`.is-box` 琥珀 = 定位成功但有填错风险（整箱码/多个匹配），
-          `.is-nf` 中性灰 = 没定位到（别用品牌绿，那会读成"成功了"）。 -->
+  <!-- v761：扫码结果条 —— 每种结果各有自己的话（文案全在 js 的 `_scanTip()` 里拼）。
+       🔴 单一 `wx:if="{{scanRes}}"`，不在模板里分支判定：这么多种组合摊在 wxml 必漏一种
+          （v759 同一条纪律）。`.is-box` 琥珀 = 定位成功但有填错风险（整箱码/多个匹配/
+          **v765 品牌不在报单日**），`.is-nf` 中性灰 = 没定位到（别用品牌绿，那会读成"成功了"）。 -->
   <view class="scan-res {{scanRes.kind === 'ok' ? 'is-ok' : (scanRes.kind === 'notfound' || scanRes.kind === 'error' || scanRes.kind === 'bad' ? 'is-nf' : 'is-box')}}"
         wx:if="{{scanRes}}">
     <view class="scan-res-body">
@@ -197,6 +197,29 @@
     </scroll-view>
   </view>
 
+  <!-- v765（2026-11-04）：**本期品牌报单日汇总**。
+       用户原话：「在填报页顶部横幅汇总展示本期可报单品牌提醒」。
+       · 只在「确有不许报的品牌」时渲染（`bwBanner` 空串 = 整条不占位）；
+       · 默认**单行**，点开才展开逐品牌明细 —— 填报页顶部已有 5 条横幅类信息
+         （period-warn / pending / msg / sample / serverSub），再来一条三行的会把
+         商品列表推到首屏之外，那是"提醒"变成"障碍"；
+       · 文案（含可报星期）全部由后端拼，本文件不出现任何"周X"字样 ——
+         2 天/期 与 7 天/周 互质，星期映射只许有一份实现。
+       ⚠️ 位置刻意放在 `.prod-head` 之上、与「本期已报」那两条分开：语义不同
+          （"哪些不能报" vs "报过没有"），挤在一起会互相削弱（v759 的互斥纪律）。 -->
+  <view class="bw-bar" wx:if="{{bwBanner}}" bindtap="toggleBw">
+    <view class="bw-accent"></view>
+    <view class="bw-body">
+      <text class="bw-title">{{bwBanner}}</text>
+      <text class="bw-sub" wx:if="{{bwOpen}}">{{bwDetail || '这些品牌的商品仍会显示，但今天不能填数量'}}</text>
+      <!-- v765b：副句只在「还有可报品牌」时出现（后端给空串 ⇒ 整行不渲染）。
+           全禁时这一行不能有 —— 用户一个都报不了的时刻被告知「其余品牌可正常报单」
+           会比不说更糟，而这类反话最难在测试里发现（界面上看起来"信息很全"）。 -->
+      <text class="bw-sub" wx:if="{{bwOpen && bwSub}}">{{bwSub}}</text>
+    </view>
+    <text class="bw-go">{{bwOpen ? '收起' : '详情'}}</text>
+  </view>
+
   <!-- 可预报商品：v215 起 = **本期报单清单**（与 Web 端同源同序），滚动到底分页加载 -->
   <view class="prod-head">
     <text class="prod-head-t">本期可报商品</text>
@@ -223,7 +246,7 @@
 
   <view class="prod-list">
     <!-- 行内填报：直接在这一行填数量，已填行高亮；库存/日均辅助判断 -->
-    <view class="prod-row {{item.qty ? 'prod-row-on' : ''}} {{item.id === flashId ? 'prod-row-flash' : ''}}" id="prod-{{item.id}}" wx:for="{{products}}" wx:key="id">
+    <view class="prod-row {{item.qty ? 'prod-row-on' : ''}} {{item.id === flashId ? 'prod-row-flash' : ''}} {{item.orderable === false ? 'prod-row-lock' : ''}}" id="prod-{{item.id}}" wx:for="{{products}}" wx:key="id">
       <view class="prod-info">
         <!-- v760：名称一行截断 + 点开看全名。
              🔴 截断交给 CSS（nowrap + ellipsis），**不按字数切字符串** ——
@@ -240,6 +263,12 @@
              ⚠️ 空串 = 真的没有条码 ⇒ 整节点不渲染，不留空行、也不写"无条码"。 -->
         <view class="prod-code" wx:if="{{item.barcode}}" data-code="{{item.barcode}}" bindlongpress="copyBarcode">{{item.barcode}}</view>
         <view class="prod-spec">{{item.spec || ''}} · {{item.unit || '件'}}</view>
+        <!-- v765：品牌报单日 —— **不隐藏，只禁用**（老板拍板）。
+             看见了才知道"这商品不是本期没它、是这天不能报"；隐藏会让人以为清单漏了。
+             星期文案来自后端 `lock_cn`（形如 `周一、四`），本页不做 1..7 → 中文的映射。
+             ⚠️ 取不到 `lock_cn` 时退到通用句，绝不空着 —— 一个禁用了却说不出原因的行，
+                用户只会认为界面坏了。 -->
+        <view class="prod-lock" wx:if="{{item.orderable === false}}">{{item.lock_cn ? item.lock_cn + ' 才能报单' : '本期不可提报'}}</view>
         <!-- v760：`库存 / 日均` 这一行已按需求撤掉（省一行，正好抵消条码行的高度）。
              `_metaText()` 的口径与计算都保留着（本人仓 / 全公司库存 / 不拿 0 冒充），
              要恢复只需把下面这行加回来，不用碰 js。 -->

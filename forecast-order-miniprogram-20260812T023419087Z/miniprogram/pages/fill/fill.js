@@ -32,8 +32,9 @@ Page({
     filterEmpty: false,      // 筛选后为空 —— 与「本期没配清单」是两个完全不同的空态
     filterHint: '',          // 空态里点名「是哪个条件挡住了」（只说"没有商品"会把用户支使去找管理员）
     /* v761（2026-11-04）：扫码结果条 —— null = 不显示。
-       形状 { kind, tip, sub, act, actKind }，五种 kind：ok / box / multi / notfound / bad。
-       🔴 文案全部在 `_scanTip()` 里拼，**不在 wxml 里做分支**：五种组合摊在模板上必漏一种
+       形状 { kind, tip, sub, act, actKind }；kind 全集见 `_scanTip()`：
+       ok / box / dup / fuzzy / notfound / error / bad / **locked（v765：品牌不在报单日）**。
+       🔴 文案全部在 `_scanTip()` 里拼，**不在 wxml 里做分支**：这么多种组合摊在模板上必漏一种
           （v759 的教训 —— 文案与状态机必须同处一地，才可能一眼看出有没有漏）。 */
     scanRes: null,
     offline: false,          // P2-3/5: 断网提示（顶部横幅 + 恢复自动补传）
@@ -53,6 +54,23 @@ Page({
        两条横幅**互斥渲染**（服务端优先）：一屏出现两条「本期已报」是最容易让人不信数字的
        那种 UI 缺陷（v735 同族：同一语义两处显示，各自都对、合起来是错的）。 */
     serverSub: null,
+    /* v765（2026-11-04）：**品牌报单日窗口** —— 本期哪些品牌"今天不能报"。
+       数据来自 `GET /api/forecast/brand-window?period_id=`，逐品牌给
+       `{ orderable, weekdays_short, tip }`；前端只做三件事：行内短标签 / 行禁用 /
+       顶部汇总横幅。**一个星期的推算都不在这里做**（2 天/期 与 7 天/周 互质 ⇒
+       星期以 7 期为周期循环，这条算法只许有一份实现，在后端 `domain/brand_order_window.py`）。
+       · `bwBrands` = 归一化品牌 label -> { orderable, cn, tip }（空对象 = 全放行）
+       · `bwBanner` = 汇总句（空串 ⇒ 整条不渲染，不占界面）
+       · `bwDetail` = 展开后的逐品牌明细
+       取不到 / 接口失败 / 老板没开开关 ⇒ 三项都空 ⇒ 行为与 v764 一字不差。 */
+    bwBrands: {},
+    bwBanner: '',
+    /* v765b：主句只报数量，品牌名与星期都进 `bwDetail`（展开区第一行）；
+       副句 `bwSub` 由后端在「还有可报品牌」时下发，全禁时是空串 —— 
+       横幅自己**不判**这件事，否则又多一份「谁算可报」的实现。 */
+    bwSub: '',
+    bwDetail: '',
+    bwOpen: false,
     /* v227（2026-09-21）：样单来源回执 —— { name, count, qty, outTip, outOfScope }。
        它回答的是"车里这些数从哪来、跟本期清单合不合"—— 而这个答案直接决定用户下一步
        是"直接提交"还是"先改几个"（需求原话：「如果无需修改，则可直接提交」）。
@@ -981,9 +999,21 @@ Page({
       const key = it.id + '|' + unit
       this.cartMap[key] = { key, id: it.id, name: it.name, spec: it.spec || '', unit, qty: it.qty }
     }
+    /* v765：上次报单里的商品，这一期可能正落在「不在报单日」的品牌里 ⇒ 先剔再进车。
+       🔴 这一条不能省着"反正 setQty 会挡"：这里**根本不走 setQty**（直接建 cartMap），
+          不剔就等于给了一个绕过闸门的后门 —— 填的时候进不去、一键带进来却能提交。 */
+    const purged = this._bwPurgeCart()
     this.syncCart()
     this.applyQtyToRows()
-    wx.showToast({ title: `已带入 ${last.count} 项 / ${last.qty} 件`, icon: 'none' })
+    if (purged.n) {
+      wx.showToast({
+        title: '已带入 ' + this.data.cartCount + ' 项，跳过 ' + purged.n + ' 项（'
+               + purged.brands.join('、') + '本期不可报）',
+        icon: 'none', duration: 3000
+      })
+    } else {
+      wx.showToast({ title: `已带入 ${last.count} 项 / ${last.qty} 件`, icon: 'none' })
+    }
     track(EVENTS.SUBMIT, { action: 'apply_last_order', count: last.count, qty: last.qty })
   },
 
@@ -1104,6 +1134,11 @@ Page({
           spec: it.spec || '', unit, qty: Number(it.quantity) || 0
         }
       }
+      /* v765：样单/继续修改同样**绕过 setQty** ⇒ 同一道剔除，见 `_bwPurgeCart()`。
+         与"越界预检"（下面的 `outside`）是**两件事**，不许合并：
+           · outside  = 不在本期清单 → 提交时后端会自动跳过（`skipped_out_of_scope`）；
+           · 本批剔除 = 在清单内、但该品牌今天不能报 → 前后端都会拒，必须当场剔。 */
+      const purged = this._bwPurgeCart()
       this.syncCart()
       this.applyQtyToRows()
       /* 越界预检：**只在本期清单完整可见时**才下结论。两条前提缺一不可：
@@ -1127,17 +1162,26 @@ Page({
             ? (outside.length + ' 项不在本期清单，提交时会被自动跳过')
             : '全部商品都在本期清单内')
         : '提交时系统会核对本期清单，不在的会自动跳过'
+      /* v765：被品牌报单日挡住的那几项**必须留在回执条上**（不能只靠 toast）——
+         toast 两秒就没了，而用户会盯着这行数去核对"为什么少了 3 项"、
+         甚至直接提交一个已经少了货的单。 */
+      const lockNote = purged.n
+        ? ('；另有 ' + purged.n + ' 项因「' + purged.brands.join('、') + '」本期不在报单日，已跳过')
+        : ''
       this.setData({
-        sampleInfo: { name: src.name, count: src.count, qty: src.qty,
+        sampleInfo: { name: src.name,
+                      // 剔过之后以车里实际数量为准，不拿"源单数量"冒充（否则回执条自己说谎）
+                      count: purged.n ? this.data.cartCount : src.count,
+                      qty: purged.n ? this.data.cartQty : src.qty,
                       // v758：revise/sid 决定 wxml 用哪一句文案（"样单来自" vs "继续修改单号 N"）
                       revise: !!src.revise, sid: src.sid || 0,
-                      outTip: outTip, outOfScope: outside.length }
+                      outTip: outTip + lockNote, outOfScope: outside.length }
       })
       wx.showToast({
         title: src.revise
-          ? ('已带回单号 ' + (src.sid || '') + '（' + src.count + ' 项 / ' + src.qty + ' 件）')
-          : ('已生成样单（' + src.count + ' 项 / ' + src.qty + ' 件）'),
-        icon: 'none', duration: 2200
+          ? ('已带回单号 ' + (src.sid || '') + '（' + this.data.cartCount + ' 项 / ' + this.data.cartQty + ' 件）')
+          : ('已生成样单（' + this.data.cartCount + ' 项 / ' + this.data.cartQty + ' 件）'),
+        icon: 'none', duration: purged.n ? 3200 : 2200
       })
       track(EVENTS.SUBMIT, {
         action: src.revise ? 'revise_recalled' : 'gen_sample',
@@ -1386,6 +1430,102 @@ Page({
      - keyword 非空：在**本期清单内**做过滤定位（只过滤、不改序，与 Excel 筛选同体验）
      - append=true 时追加到已有列表末尾（滚动加载）
      原「按 is_active 商品档案全量铺开」的口径已废弃（实测某期 Web 端 154 / 小程序 285）。 */
+  /* ══════════════════ v765（2026-11-04）：品牌报单日窗口 ══════════════════════
+     需求（用户原话）：「当某期次不属于某品牌的报单日时，该品牌商品可选择隐藏或展示但
+     禁止提交，并提示『该商品可报单时间为每周X、Y，本期不可提报』；同时在填报页顶部横幅
+     汇总展示本期可报单品牌提醒。」老板拍板：**展示但禁用**（不隐藏）。
+
+     三条实现纪律（缺一条这个功能就会"说谎"）：
+       ① **判定只在后端**。星期与期次的映射不是"今天星期几"这么简单：期次是 2 天一期、
+          星期是 7 天一循环，两者互质 ⇒ 某个品牌配「周一、四」时是**每 14 天命中 2 期**，
+          不是每周两次。这套算法已在 `domain/brand_order_window.py` 过 71 项断言，
+          小程序再算一遍就是第二份实现（本项目为"两份实现"付过多轮学费）。
+       ② **行级只认服务端下发的 `orderable === false`**。字段缺失（老后端 / 判定异常）
+          ⇒ 按可报处理，与后端 fail-safe 同向：误判成"不能报"的代价是全员报不了单。
+       ③ **所有写入口一起挡**。`setQty` 只是其中之一：`applyLastOrder`（一键带入上次）、
+          `_applySample`（样单 / 继续修改）、离线草稿补传都是**绕过 setQty** 的第二条写入口。
+          只挡 setQty 的后果是"填不进去、但带上来的却提交了"，且零报错。 */
+
+  /* 按 pid 拉一次（同期次不重复请求；失败清 key 以便下次重试） */
+  loadBrandWindows(pid) {
+    const p = (pid === undefined || pid === null || pid === '') ? '' : String(pid)
+    if (!p) {
+      // 没期次 ⇒ 一定没有任何限制（判定依赖期次的报单截止日）
+      this._bwPid = ''
+      if (this.data.bwBanner || Object.keys(this.data.bwBrands || {}).length) {
+        this.setData({ bwBrands: {}, bwBanner: '', bwSub: '', bwDetail: '', bwOpen: false })
+      }
+      return Promise.resolve()
+    }
+    if (this._bwPid === p) return Promise.resolve()
+    this._bwPid = p
+    return request('/api/forecast/brand-window?period_id=' + p)
+      .then(d => {
+        if (this._bwPid !== p) return          // 竞态：回来时已切走（与 loadProducts 的 _seq 同理）
+        const brands = {}
+        const parts = []
+        for (const k of Object.keys((d && d.brands) || {})) {
+          const b = (d.brands || {})[k] || {}
+          brands[k] = {
+            orderable: b.orderable !== false,
+            cn: String(b.weekdays_label || ''),
+            tip: String(b.tip || '')
+          }
+          if (brands[k].orderable === false) {
+            parts.push(k + (brands[k].cn ? '（' + brands[k].cn + '）' : ''))
+          }
+        }
+        this.setData({
+          bwBrands: brands,
+          bwBanner: String((d && d.banner) || ''),
+          bwSub: String((d && d.banner_sub) || ''),
+          bwDetail: parts.join(' · '),
+          bwOpen: false
+        })
+      })
+      .catch(e => {
+        /* 🔴 静默降级，且**不阻塞报单**：这是装饰性信息（与 pending / avg-target 同族）。
+           但要清掉 `_bwPid` —— 否则一次网络抖动会让本期次永久停在"没有限制"上。 */
+        this._bwPid = ''
+        console.warn('[fill] 品牌报单日拉取失败（按全放行）:', e && e.message)
+      })
+  },
+
+  toggleBw() { this.setData({ bwOpen: !this.data.bwOpen }) },
+
+  /* 行内短标签：`周一、四可报`。取不到（还没拉到 / 没配）⇒ 空串，模板退到通用句。 */
+  _bwShort(item) {
+    const k = String((item && item.brand_key) || '')
+    const b = (this.data.bwBrands || {})[k]
+    return (b && b.cn) || String((item && item.lock_cn) || '')
+  },
+
+  /* 统一拦截句（setQty / 扫码 / 提交前共用一处文案，三处各拼一句必然漂） */
+  _bwMsg(item) {
+    const cn = this._bwShort(item)
+    const brand = String((item && item.brand) || '').trim()
+    return (brand ? brand + '：' : '') + (cn ? cn + ' 才能报单' : '本期不可提报')
+  },
+
+  /* 一键带入 / 样单 / 草稿恢复的**清车后体检**：
+     把"本期不该报的品牌"从车里剔掉，并返回被剔的品牌名（供 toast 点名）。
+     🔴 静默剔除＝丢数：用户填了 23 行，进去只剩 20 行而不说，比报错更糟。 */
+  _bwPurgeCart() {
+    const blocked = {}
+    let n = 0
+    for (const k of Object.keys(this.cartMap || {})) {
+      const c = this.cartMap[k]
+      const i = (this._prodIndex || {})[String(c && c.id)]
+      if (i === undefined) continue                 // 不在已加载行里 ⇒ 无判据，放行（同 fail-open）
+      const p = this.data.products[i]
+      if (!p || p.orderable !== false) continue
+      blocked[String(p.brand || '未分类')] = 1
+      delete this.cartMap[k]
+      n++
+    }
+    return { n: n, brands: Object.keys(blocked) }
+  },
+
   async loadProducts(keyword, append) {
     // F3 修复：请求序号，响应返回时若已不是最新请求则丢弃，避免竞态覆盖
     const seq = (this._seq = (this._seq || 0) + 1)
@@ -1398,6 +1538,11 @@ Page({
       //    那正是「Web 端 154 个、小程序 285 个」的成因。
       const pid = (this.data.period || {}).id
       if (pid !== undefined && pid !== null && pid !== '') q += `&period_id=${pid}`
+      /* v765：与商品**同一期次**拉一次品牌窗口（横幅/短标签用）。
+         为什么挂在这里而不是 onShow：期次一变就要重拉，而 `loadProducts` 正是
+         「期次已落地」之后唯一必走的那一步；同期次由 `_bwPid` 短路，翻页不重复请求。
+         ⚠️ 与 `loadProducts` **不 await**：横幅是装饰信息，等它就是让报单慢一拍。 */
+      this.loadBrandWindows(pid)
       if (keyword) q += `&q=${encodeURIComponent(keyword)}`
       /* v266：筛选参数（品牌 / 我的常报）—— 与 `q` 同属**过滤**语义，三者 AND 叠加：
          · `brand` 必须 encodeURIComponent：品牌名含中文，哨兵 `__blank__` 也在其中；
@@ -1840,6 +1985,20 @@ Page({
       this.setData({ scanRes: this._scanTip('notfound', { code }) })
       return
     }
+    /* v765：扫到的商品**本期不能报**（品牌不在报单日）—— 必须是单独一种结果。
+       不能沿用「已定位」那条绿色回执：绿色等于告诉用户"可以填"，
+       而实际填了会被 setQty 挡回 ⇒ 提示说能填、填了没反应（v761 同族坑）。
+       仍然滚到那一行：用户要能看见"就是这一行"，才知道是品牌限制而不是扫错码。 */
+    if (target.orderable === false) {
+      this.setData({
+        scanRes: this._scanTip('locked', {
+          code, name: target.name, brand: target.brand, cn: this._bwShort(target)
+        })
+      }, () => {
+        if (this._hasRow(target.id)) this._scrollTo(target.id)
+      })
+      return
+    }
     const patch = this._scanTip(kind, {
       code, name: target.name, n: hits.length || rows.length, others, othersN: hits.length - 1,
       qty: Number(target.qty) || 0, unit: target.unit || '件'
@@ -1863,7 +2022,7 @@ Page({
     if (this.data.scanRes) this.setData({ scanRes: null })
   },
 
-  /* 五种结果的全部文案。放一处的好处：加一种状态时，能一眼看到五种都写全了没有
+  /* 全部结果类型的文案。放一处的好处：加一种状态时，能一眼看到几种都写全了没有
      （拆在 wxml 里做 wx:if 分支，必漏一种 —— v759 同一条纪律）。 */
   _scanTip(kind, o) {
     const d = o || {}
@@ -1882,6 +2041,15 @@ Page({
     if (kind === 'error') {
       return { kind: kind, tip: '扫到了，但没能取到商品数据', act: '重扫', actKind: 'scan',
                sub: '可能是网络问题（条码 ' + d.code + '），稍后重试或按名称搜' }
+    }
+    /* v765：第六种 —— 「扫到了、但它本期不能报」。
+       🔴 与 `notfound`（不在清单里）**必须分开**：两者用户的下一步动作完全不同 ——
+          notfound = 这条码没录/不是本期商品，去找管理员；locked = 商品在、只是今天不能报，
+          等可报那天再说。合成一句「不在本期清单里」就是让用户去查一个不存在的错。 */
+    if (kind === 'locked') {
+      return { kind: kind, tip: '这个商品本期不能报单', act: '看全部', actKind: 'all',
+               sub: (d.brand || '该品牌') + (d.cn ? ('：' + d.cn + ' 才能报单') : '：本期不在报单日')
+                    + ' · 「' + (d.name || '') + '」' }
     }
     if (kind === 'ok') {
       return { kind: kind, tip: '已定位：' + (d.name || ''), act: '继续扫', actKind: 'scan',
@@ -2008,6 +2176,17 @@ Page({
     if (i === undefined) return
     const p = this.data.products[i]
     if (!p) return
+    /* v765：**唯一写入口的第一道闸**。`+` / `−` / 手输 / 扫码全都落到这里
+       （`onQtyPlus` / `onQtyMinus` / `onQtyInput` / `_pickCode` 的填数都转调它），
+       所以闸放在这里，不需要在四个手势里各写一遍。
+       🔴 判据是 `=== false` 不是 `!p.orderable`：老后端没有这个字段（`undefined`），
+         真值判断会把「字段缺失」当成「不许报」⇒ 一次后端降级就让全员报不了单。
+       🔴 不能做成"点了没反应"：不可报**必须**说出可报时间，否则用户以为界面卡了
+          （v761 扫码 `fail:()=>{}` 吞掉 auth deny 的同一个坑）。 */
+    if (p.orderable === false) {
+      wx.showToast({ title: this._bwMsg(p), icon: 'none', duration: 2600 })
+      return
+    }
     const key = p.id + '|' + (p.unit || '件')
     if (qty > 0) {
       if (this.cartMap[key]) this.cartMap[key].qty = qty
@@ -2394,6 +2573,34 @@ Page({
     }
     if (!period || !period.id) {
       wx.showToast({ title: '请先选择报单期次', icon: 'none' })
+      return
+    }
+    /* v765：**提交前最后一道品牌报单日检查**。
+       为什么 setQty 挡过了还要再挡一次 —— 车里的数量有不走 setQty 的来路：
+         · 切期次保留已填（数量跟着商品走，期次一换判定就变了）；
+         · 离线草稿补传（`restoreCart` 直接回填 cartMap）；
+         · 样单里超出「已加载页」的商品（`_bwPurgeCart` 只判得到已铺开的行）。
+       这些都不报错，只会让"本期不该报的品牌"混进单里 → 后端整单拒 → 用户从头重填。
+       🔴 这里**绝不自动剔**：不打招呼地删掉几行数量，比拒绝提交更糟（用户以为提交了 23 项）。
+       🔴 文案点名**品牌 + 可报星期**，不说"有 3 项不合法" —— 后者用户无法行动。 */
+    const bwBad = []
+    const bwByBrand = {}
+    for (const c of cart) {
+      const i = (this._prodIndex || {})[String(c.id)]
+      if (i === undefined) continue
+      const p = this.data.products[i]
+      if (!p || p.orderable !== false) continue
+      bwBad.push(c.name)
+      bwByBrand[String(p.brand || '未分类')] = this._bwMsg(p)
+    }
+    if (bwBad.length) {
+      const lines = Object.keys(bwByBrand).map(k => '· ' + bwByBrand[k]).join('\n')
+      wx.showModal({
+        title: '本期有商品不可提报',
+        content: '下面 ' + bwBad.length + ' 项商品的品牌，今天不在报单日：\n' + lines
+               + '\n\n请先把这几个商品的件数删掉再提交（本期清单里其它品牌不受影响）。',
+        showCancel: false, confirmText: '返回修改', confirmColor: '#0F766E'
+      })
       return
     }
     /* v264c（2026-09-24）/ v298（2026-09-27）：**未达标**（含「完全未填」）的商品 —— 提交前提醒一次。
