@@ -1,6 +1,6 @@
 # Hergent 记忆索引（只留判据首句＋去哪查；细节在 `topics/*.md` / `memory/YYYY-MM-DD.md`）
 
-**前端 v770**｜v780 我的提交两处日期文案改短「报单/到货」（**小程序已上传、待发布**）｜v779 简爱周五被拦＝拦截层没读「可提前天数」（**后端已上线**）｜v778 我的提交「数量+单位」不折行（小程序代码已改、**未发版**）｜v777 我的提交去掉商品规格显示（小程序代码已改、**未发版**）｜v776 外部账号定向催单（后端已上线）｜v775 管理兜底广播拆独立 event_key（后端已上线）｜v773→v774 导购受众先补后收紧｜v772 横幅改本期清单口径｜v771 我的提交到货日期｜v769 返利率可留空｜v768 GoLink/useGoPage｜**小程序 v758–v780 已上传微信平台开发版、待后台审核发布**。唯一源 `main`。
+**前端 v770**｜v783 反转 v379：粘贴空白/0 也覆盖清空（改单从 Excel 清空某商品不再静默跳过，Web 端 Forecast.vue，**已部署 2026-11-06**）｜v781 修纯数字列粘贴被当商品名新增的静默错误（Web 端 Forecast.vue，**已部署 2026-11-06**）｜v780 我的提交两处日期文案改短「报单/到货」（**小程序已上传、待发布**）｜v779 简爱周五被拦＝拦截层没读「可提前天数」（**后端已上线**）｜v778 我的提交「数量+单位」不折行（小程序代码已改、**未发版**）｜v777 我的提交去掉商品规格显示（小程序代码已改、**未发版**）｜v776 外部账号定向催单（后端已上线）｜v775 管理兜底广播拆独立 event_key（后端已上线）｜v773→v774 导购受众先补后收紧｜v772 横幅改本期清单口径｜v771 我的提交到货日期｜v769 返利率可留空｜v768 GoLink/useGoPage｜**小程序 v758–v780 已上传微信平台开发版、待后台审核发布**。唯一源 `main`。
 🔴🔴 **中文标签进 flex 行 ⇒ 改文案＝改断行点**（v780）：裸日期只能在连字符断，前面加「报单」后「汉字后可断」⇒ 必须 `nowrap`（v770 同族）。但**两端都 nowrap 又会让日期组不可压缩** ⇒ 长门店名 + 窄屏把「到货」挤出卡片（实测 320px/门店 10 字溢出 17px，改前 0）⇒ 必须给容器 `flex-wrap:wrap` 兜底。判据＝生产真实尺寸下 wrap 永不触发（高度/行数/宽度 Δ0）。**口径变了要反转旧坏样本**：㊽ 原来把「改成到货」当坏样本，v780 起改成「退回『到货日期』」，否则护栏拿旧标准判错正确修改（v769 同族）。改结构后 `probe()` 的 `indexOf` 锚点也要跟着改，否则判据恒假。→ `memory/2026-11-05.md`
 🔴🔴 **同一个「能不能报」不许写两份口径**（v779）：编排层 `match_brands_to_periods` 用窗口 `[C-E, C]`（E=`order_max_early_days`），拦截层 v765 只判截止日当天星期 ∈ `order_weekdays` ⇒ 编排层排进去、小程序弹不可报（生产 24 期里 14 条被误拦，含报障的 43 期简爱）。判定统一走 `window_hit(order_end, ws, early)`，E 缺键/坏值/缺列 ⇒ 0（零误伤老租户），上限复用 `MAX_EARLY_LIMIT`。**弹窗日期只认真实期次表**（`next_period_date` 查 `_future_periods`），日历推算的 `next_order_date` 已废弃 —— 生产 43 期之后零未来期次，旧文案「请在 11月7日填报」是虚构日期；查不到 ⇒ 空串 ⇒「本期已无可报日」。`load_rules`/`_future_periods` 一律 `SELECT *` 取后加列。→ `memory/2026-11-05.md`
 🔴 **「去掉某字段显示」≠「删数据层」**（v777）：`mine.js::copyRecord` 的 `spec` 仍要带回填报页；更不许全仓替换 `spec`（填报 `.prod-spec`/`.cart-spec`、汇总 `.pspec`、隐私协议都还在用）。护栏须**剥注释后**判结构（本次注释逐字抄了 `spec` 会自撞空白支票）。→ `memory/2026-11-05.md`
@@ -58,3 +58,7 @@
 主体：`hergent-cn-v2`(`laozhangai-product`)＋`hergent-erp`(FastAPI+SQLite)。脱敏红线：返利率/进货价/客户名/区域销量/厂家政策。
 本机坑：🔴 `grep "A\|B"` 静默失效⇒一律 `-e`｜BSD grep 无 `\s`｜`| head -N`/`| tail -N` 会截掉决定性命中｜`grep -rl X *.py` 只搜顶层｜`grep "X-…"` 会命中更长名字⇒加边界｜`git commit -m` 含 `{}`/反引号静默失败⇒`-F`。🔴「搜不到」先排除「搜错范围/被截断」再当事实。
 🔴 微信开发者工具 CLI 被「服务端口」挡住：`cli upload`/`open`/`islogin` 全报 `IDE service port disabled`，`--port` 绕不过；须人工在 IDE「设置→安全设置→打开服务端口」一次。
+
+## 版本线（速查）
+- **v783b（2026-11-05 已部署）**：填报页提醒条对 5 个分销商（唐成/朱青峰/黄家伟/易胜玲/胡奎奎）永不渲染的根因修复。`pending-summary` 把登录 `users.id` 当 `my_external_uid` 传入；`forecast_pending_summary` 新增 external 分支复用 v776 的 `_forecast_external_account_map()`（双键 report_alias+system_name）按 `users.id ≡ external_user_id` 匹配 `my_missing`。员工分支原样不动（回归 14/14）。生产 `/opt/hergent-erp/` scp+restart，双侧 md5 一致。详见 `memory/2026-11-05.md`。
+- **v784（2026-11-05 待部署）**：Excel 粘贴报单行数"不完整"（易胜玲99→76/唐成99→54）根因＝品牌筛选（`brandSel`）藏行，数据未真丢（save 不过滤品牌，隐藏行照样落库）。`brandSel` 写 localStorage 跨会话自动恢复（v243b），非技术用户易踩。修法：新增 `relaxBrandFilterForPaste(touchedRows)`，粘贴写入后若品牌筛选会藏住任何被粘贴行则自动取消筛选并提示；接进 `pasteRegion`+`tryPasteCross`（Forecast.vue）。`npm run build` 通过，待 commit+部署。详见 `memory/2026-11-05.md`。

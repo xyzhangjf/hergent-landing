@@ -6421,6 +6421,7 @@ function tryPasteCross(block) {
      左上角起算的矩形（客户列可能不连续、商品行也可能散落）。取所有实际写入格的包围盒：
      视觉上就是"这批数据落进了这一片"，语义正确，也比逐个格闪烁更容易一眼看清范围。 */
   let _minR = -1, _maxR = -1, _minC = -1, _maxC = -1
+  const _touched = new Set()   // v784：粘贴触及的行，用于粘贴后放松品牌筛选
   const _hit = (r, c) => {
     if (_minR < 0 || r < _minR) _minR = r
     if (r > _maxR) _maxR = r
@@ -6437,6 +6438,7 @@ function tryPasteCross(block) {
       ri = cross.value.rows.length - 1
       added++
     } else updated++
+    _touched.add(ri)
     map.forEach(({ bi, c }) => {
       /* v783（反转 v379）：客户列空格也覆盖清空（qty→0、文本→空），不再原值保留。
          新商品行默认已是 0，跳过不计入「清空」。 */
@@ -6447,12 +6449,14 @@ function tryPasteCross(block) {
       _hit(ri, c)
     })
   })
+  /* v784：粘贴触及的行若被品牌筛选藏住，自动取消筛选（数据其实已落库，这里只是让人"看得见"）。 */
+  const _relaxed = relaxBrandFilterForPaste([..._touched])
   toast(`已按客户列粘贴：新增 ${added} 个商品 · 更新 ${updated} 个商品`
     + (_minR >= 0 ? ` → 落点「${pasteRowName(_minR)}」~「${pasteRowName(_maxR)}」第 ${_minC - visibleCols.value.length + 1}~${_maxC - visibleCols.value.length + 1} 个客户（已用主色框标出）` : '')
     + (skipped ? ` · 跳过 ${skipped} 行（无商品名称）` : '')
     + (cleared ? ` · 清空 ${cleared} 个空白格` : '')
     + (bad ? ` · ${bad} 格不合法（已标红）` : '')
-    + (added && brandSel.value.length ? ' · 品牌筛选生效中，品牌为空的新行暂不显示' : '')
+    + (_relaxed ? '；已自动取消品牌筛选以便查看全部' : '')
     + '（改完点「保存」）', bad || skipped || cleared ? 'warn' : 'ok')
   /* v756：与区块粘贴同款三件套（扩渲染 → 标落点 → 滚到眼前），顺序理由见 pasteRegion 注释。 */
   if (_minR >= 0) {
@@ -10427,6 +10431,23 @@ function doJump() {
   function pasteCellEmpty(v) { return v === '' || v === null || v === undefined }
 
 // 区块单元格粘贴：从选中格（或选区左上角）起逐格写入，行超界自动补空商品行、列超界截断
+/* v784（粘贴可见性修复）：粘贴是「把一批报单数据灌进表」的操作。
+   🔴 若此刻品牌筛选（brandSel）生效，被筛掉的粘贴行会"看不见"，用户误以为没粘进去 ——
+      但数据其实已落库（save 走 `liveRows`/`usable`，两条都不过滤品牌）。非技术用户尤其容易踩：
+      brandSel 会写进 localStorage 并**跨会话自动恢复**（v243b），常常"看不见但筛选已开"。
+   这里在粘贴写入后，若受影响行里有被品牌筛选隐藏的，直接取消品牌筛选，保证"粘贴即所见、所见即所存"。
+   ⚠️ 只在"确实会藏"时才动，避免无辜清掉用户有意设的筛选（例如他只想看某一品牌、又顺手粘了几行）。 */
+function relaxBrandFilterForPaste(touchedRows) {
+  if (!brandSel.value.length || !touchedRows || !touchedRows.length) return false
+  const hides = touchedRows.some(r => {
+    const rw = cross.value.rows[r]
+    return rw && !brandSelSet.value.has(rowBrand(rw))
+  })
+  if (!hides) return false
+  brandSel.value = []
+  return true
+}
+
 function pasteRegion(text) {
   const block = parseTSV(text)
   if (!block.length || !block[0].length) return
@@ -10484,6 +10505,11 @@ function pasteRegion(text) {
   for (const k of clears) {
     if (k.r < cross.value.rows.length) { writeCellVal(k.r, k.c, ''); cleared++ }
   }
+  /* v784：受粘贴影响的行若是被品牌筛选藏住的，自动取消筛选，避免"看得见才以为粘进去了"。 */
+  const _touched = []
+  for (const w of writes) _touched.push(w.r)
+  for (const k of clears) _touched.push(k.r)
+  const _relaxed = relaxBrandFilterForPaste(_touched)
   /* v756：**把落点说出来** —— 坐标走 `pasteRowName/pasteColName`（与交叉表粘贴共用同一实现）。 */
   const _rEnd = sr + rows - 1, _cEnd = sc + useCols - 1
   const _span = (rows > 1 || useCols > 1)
@@ -10492,7 +10518,8 @@ function pasteRegion(text) {
   toast(`已粘贴 ${rows} 行 × ${useCols} 列 → 落点 ${_span}（已用主色框标出）`
     + (truncated ? '（右侧列超出表格已截断）' : '')
     + (cleared ? `，清空 ${cleared} 个空白格` : '')
-    + (bad ? `，其中 ${bad} 格不合法（已标红，需修正后才能保存）` : ''), bad ? 'warn' : 'ok')
+    + (bad ? `，其中 ${bad} 格不合法（已标红，需修正后才能保存）` : '')
+    + (_relaxed ? '；已自动取消品牌筛选以便查看全部' : ''), bad ? 'warn' : 'ok')
   /* v756：**标出来 + 滚到眼前**（原来只有上面那条数字 toast）。
      三件事缺一不可：
        ① `ensureRowsRendered` —— 改单态分批挂载（v666），落点行没渲染时 DOM 里没有那个 td，
