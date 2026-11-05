@@ -84,12 +84,16 @@
             <text class="rec-store">{{item.store_name}}</text>
             <!-- v771：报单日期与到货日期并成一组，.rec-hd 仍是「门店｜日期组｜状态」三段 ⇒
                  原有报单日期的位置／样式／交互一字未动；空值时日期组宽度与改前完全一致。
-                 🔴 标签统一写「到货日期」（与 Web 端 ForecastHistory 表头同源）；日期原样用
-                    服务端给的 YYYY-MM-DD，前端不再格式化 ⇒ 与报单日期格式必然一致。
+                 🔴 v780（2026-11-05）用户口径：两个日期都只留**两个字的短标签** ——
+                    「报单 2026-11-05」/「到货 2026-11-07」。原来报单日期是**裸日期**（无标签），
+                    到货那段写的是「到货日期」。两处一起改：标签 到货日期→到货、报单侧补「报单」。
+                    🔴 总宽几乎不变（到货侧减 2 个汉字、报单侧加 2 个汉字），但**断行点变了**：
+                       裸日期只能在连字符处断，加了汉字标签后「报单」后可断 ⇒ 必须 nowrap（v770）。
+                 🔴 日期原样用服务端给的 YYYY-MM-DD，前端不格式化 ⇒ 两者格式必然一致。
                  🔴 空值（后端没给／期次被删／脏数据）整段不渲染，不留孤零零的标签。 -->
             <view class="rec-dates">
-              <text class="rec-date">{{item.order_date}}</text>
-              <text class="rec-date rec-arrival" wx:if="{{item.arrivalDate}}">到货日期 {{item.arrivalDate}}</text>
+              <text class="rec-date rec-order">报单 {{item.order_date}}</text>
+              <text class="rec-date rec-arrival" wx:if="{{item.arrivalDate}}">到货 {{item.arrivalDate}}</text>
             </view>
             <text class="rec-status status-{{item.status}}">{{item.statusText}}</text>
           </view>

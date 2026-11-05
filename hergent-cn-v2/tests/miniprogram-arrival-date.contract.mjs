@@ -1,9 +1,17 @@
-/* ㊽ v771 契约：小程序「我的预报提交」在报单日期旁展示到货日期。
+/* ㊽ v771 契约（v780 改口径）：小程序「我的预报提交」记录行两处日期文案。
  *
- * 用户口径（2026-11-05）：「在每条预报提交记录现有『报单日期』旁增加对应的『到货日期』展示，
- *   字段标签统一为『到货日期』。保持原有报单日期、页面布局、交互和现有功能不变；
- *   到货日期的日期格式、间距和样式与报单日期保持一致。当到货日期为空或暂无数据时，
- *   界面应保持整洁且不报错。」
+ * 用户口径（v771 / 2026-11-05）：「在每条预报提交记录现有『报单日期』旁增加对应的『到货日期』
+ *   展示。保持原有报单日期、页面布局、交互和现有功能不变；到货日期的日期格式、间距和样式
+ *   与报单日期保持一致。当到货日期为空或暂无数据时，界面应保持整洁且不报错。」
+ *
+ * 🔴 v780（2026-11-05）**用户第二次改口径**：「报单日期前面加上『报单』两字，『到货日期』
+ *   改为『到货』」。⇒ 记录行两个日期都只留两个字的短标签：
+ *       `报单 2026-11-05` / `到货 2026-11-07`。
+ *   ⚠️ 本条**推翻了 v771 的「标签统一为『到货日期』」**，所以旧坏样本「标签改成『到货』」
+ *      必须反转成「退回『到货日期』」—— 否则护栏会拿旧口径把正确修改判错（v769 同族教训：
+ *      口径变了而判据没跟着变，护栏就从保护变成阻力）。
+ *   ⚠️ 报单侧**原来没有标签**（裸日期），加「报单」后有汉字断行点 ⇒ 必须 nowrap（v770）；
+ *      两端都 nowrap 后日期组不可压缩 ⇒ 另加 flex-wrap 兜底，防门店名很长时挤出卡片。
  *
  * 🔴 为什么字段必须由**服务端**给：records 来自 `forecast_submissions`（只有 period_id /
  *    order_date），小程序能调的 `/open-periods` 只返回 status='open' 的期次 ⇒ 生产 24 期里
@@ -48,7 +56,9 @@ function probe({ wxml, mjs, wxss, erp, route }) {
 
   const iStore = w.indexOf('<text class="rec-store"')
   const iDates = w.indexOf('<view class="rec-dates"')
-  const iOrder = w.indexOf('<text class="rec-date">')
+  /* v780：报单段多了 rec-order 类，锚点跟着改 —— 旧锚点 indexOf('<text class="rec-date">')
+     会恒返回 -1，让「三段顺序」这条判据恒假（同时把「移出日期组」坏样本也带成检不出）。 */
+  const iOrder = w.indexOf('class="rec-date rec-order"')
   const iArr = w.indexOf('class="rec-date rec-arrival"')
   const iStatus = w.indexOf('<text class="rec-status')
 
@@ -68,17 +78,19 @@ function probe({ wxml, mjs, wxss, erp, route }) {
   c['rec-hd 仍是「门店｜日期组｜状态」三段且顺序不变'] =
     iStore >= 0 && iDates > iStore && iOrder > iDates && iArr > iOrder && iStatus > iArr
   c['恰好 1 个 .rec-dates 容器'] = (w.match(/<view class="rec-dates"/g) || []).length === 1
-  c['原有报单日期仍逐字是 <text class="rec-date">{{item.order_date}}</text>'] =
-    (w.match(/<text class="rec-date">\{\{item\.order_date\}\}<\/text>/g) || []).length === 1
-  c['到货日期恰好 1 段且标签逐字为「到货日期」'] =
-    (w.match(/到货日期 \{\{item\.arrivalDate\}\}<\/text>/g) || []).length === 1 &&
-    !/到货 \{\{item\.arrivalDate\}\}|预计到货|到货日 \{\{item/.test(w)
+  c['报单日期逐字是「报单 {{item.order_date}}」（v780 补短标签）'] =
+    (w.match(/<text class="rec-date rec-order">报单 \{\{item\.order_date\}\}<\/text>/g) || []).length === 1 &&
+    !/<text class="rec-date">\{\{item\.order_date\}\}<\/text>/.test(w)
+  c['到货侧恰好 1 段且标签逐字为「到货」（不是「到货日期」）'] =
+    (w.match(/到货 \{\{item\.arrivalDate\}\}<\/text>/g) || []).length === 1 &&
+    !/到货日期 \{\{item\.arrivalDate\}\}|预计到货|到货日 \{\{item/.test(w)
   c['到货日期段复用 .rec-date（同字号同色）'] =
     (w.match(/class="rec-date rec-arrival"/g) || []).length === 1
   c['空值整段不渲染（wx:if 绑 arrivalDate）'] =
     /class="rec-date rec-arrival" wx:if="\{\{item\.arrivalDate\}\}"/.test(w)
   c['日期原样输出、前端不再格式化'] =
-    /到货日期 \{\{item\.arrivalDate\}\}/.test(w) && !/\{\{item\.arrivalDate[^}]*(slice|substr|replace|split)/.test(w)
+    /到货 \{\{item\.arrivalDate\}\}/.test(w) && !/\{\{item\.arrivalDate[^}]*(slice|substr|replace|split)/.test(w) &&
+    /报单 \{\{item\.order_date\}\}/.test(w) && !/\{\{item\.order_date[^}]*(slice|substr|replace|split)/.test(w)
 
   // ── C mine.js：透传 + 归一 ────────────────────────────────────
   c['mine.js 引入归一函数'] = /require\('\.\.\/\.\.\/utils\/arrivalDate'\)/.test(j)
@@ -92,6 +104,12 @@ function probe({ wxml, mjs, wxss, erp, route }) {
   c['.rec-dates 为 flex 容器'] = /\.rec-dates\{[^}]*display:flex/.test(x)
   c['到货日期间距 12rpx（与 .rec-status 同节奏）'] = /margin-left:12rpx/.test(arrRule)
   c['中文标签 nowrap 防逐字竖排（v770）'] = /white-space:nowrap/.test(arrRule)
+  /* v780：报单侧也变成「汉字 + 日期」，同一条断行风险 ⇒ 同一条判据。 */
+  const ordRule = (x.match(/\.rec-order\s*\{[^}]*\}/) || [''])[0]
+  c['报单侧 nowrap 防逐字竖排（v780）'] = /white-space:nowrap/.test(ordRule)
+  /* 两端 nowrap ⇒ 日期组不可压缩，窄屏 + 长门店名会把「到货」挤出卡片（实测 17px）。
+     兜底必须是「整段掉第二行」而不是被裁掉。 */
+  c['日期组有 flex-wrap 兜底（v780）'] = /\.rec-dates\{[^}]*flex-wrap:wrap/.test(x)
   return c
 }
 
@@ -162,7 +180,7 @@ console.log('\nF. 记录映射仿真：三态呈现 + 原有字段/功能不受�
     // wx:if="{{item.arrivalDate}}" 的等价语义：非空串才渲染整段
     const shown = (r) => !!r.arrivalDate
     ok(rows.length === 3, '三条记录都能映射、不抛错')
-    ok(shown(rows[0]) && rows[0].arrivalDate === '2026-11-10', '有值 ⇒ 渲染「到货日期 2026-11-10」')
+    ok(shown(rows[0]) && rows[0].arrivalDate === '2026-11-10', '有值 ⇒ 渲染「到货 2026-11-10」')
     ok(!shown(rows[1]) && !shown(rows[2]), '空值 / 缺键 ⇒ 整段不渲染（不留孤标签，界面整洁）')
     ok(rows[0].statusText === '已提交' && rows[1].statusText === '已撤回', 'statusText 原映射未变')
     ok(rows[0].can_recall === true && rows[0].can_delete === true && rows[0].items.length === 1,
@@ -174,10 +192,15 @@ console.log('\nF. 记录映射仿真：三态呈现 + 原有字段/功能不受�
 console.log('\nG. 坏样本自证（每个都必须至少判否一条，证明护栏不是空转）')
 const bads = [
   ['删掉 wx:if（空值会留下孤零零的标签）', 'wxml', (s) => s.replace(' wx:if="{{item.arrivalDate}}"', '')],
-  ['标签改成「到货」（不统一）', 'wxml', (s) => s.replace('到货日期 {{item.arrivalDate}}', '到货 {{item.arrivalDate}}')],
+  ['到货侧退回旧口径「到货日期」（v780 已要求改短）', 'wxml', (s) => s.replace('到货 {{item.arrivalDate}}', '到货日期 {{item.arrivalDate}}')],
+  ['报单侧漏掉「报单」二字（退回裸日期）', 'wxml', (s) => s.replace(
+    '<text class="rec-date rec-order">报单 {{item.order_date}}</text>',
+    '<text class="rec-date">{{item.order_date}}</text>')],
+  ['wxss 删掉 .rec-order 的 nowrap（报单与日期折成两行）', 'wxss', (s) => s.replace('.rec-order{white-space:nowrap}', '')],
+  ['wxss 删掉 flex-wrap 兜底（长门店名把到货挤出卡片）', 'wxss', (s) => s.replace(';flex-wrap:wrap', '')],
   ['把报单日期移出日期组（布局被重排）', 'wxml', (s) => s.replace(
-    '<view class="rec-dates">\n              <text class="rec-date">{{item.order_date}}</text>',
-    '<text class="rec-date">{{item.order_date}}</text>\n            <view class="rec-dates">')],
+    '<view class="rec-dates">\n              <text class="rec-date rec-order">报单 {{item.order_date}}</text>',
+    '<text class="rec-date rec-order">报单 {{item.order_date}}</text>\n            <view class="rec-dates">')],
   ['到货日期改用服务端原字段（脏值会显示出来）', 'wxml', (s) => s.replace(/\{\{item\.arrivalDate\}\}/g, '{{item.arrival_date}}')],
   ['mine.js 改成字段白名单（静默丢字段）', 'mjs', (s) => s.replace(/const records = \(d\.records \|\| \[\]\)\.map\(r => \(\{ \.\.\.r,/, 'const records = (d.records || []).map(r => ({ id: r.id,')],
   ['mine.js 不做归一（undefined 会渲染）', 'mjs', (s) => s.replace('normalizeArrivalDate(r.arrival_date)', 'r.arrival_date')],
