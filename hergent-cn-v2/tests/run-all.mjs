@@ -758,14 +758,16 @@ if (has('skip-sfc')) {
   results.push({ name: '到货日期展示', ok: r.code === 0, code: r.code })
 }
 
-// ── ㊾ 导购通知受众补全（v773）─────────────────────────────────
+// ── ㊾ 导购通知受众分流（v773 补全 / v774 修订）─────────────────
 /* v330 收口受众时导购还是 web 端，v333 才收紧成 mini ⇒ 生产 5 个在职导购里
-   3 个可见 0 条通知（含马耀秀，本人会话实测 total=0）。只补报单线 8 条规则，
-   经营/账务/洞察类一概不动；定向优先不许拆。
-   15 条静态判据 + 规则表仿真 + 6 个坏样本（含「只补精确键、漏前缀」假修复）自证。
+   3 个可见 0 条通知（含马耀秀，本人会话实测 total=0）。v773 补 guide 修好「漏给」，
+   但 8 条规则一锅端，把「预报催单」兜底广播（无 recipients、正文含别人单元名＋
+   金额）也放给了导购 ⇒ 可见 0→31。v774 只撤 3 条催单规则、保留 5 条开放类 ⇒ 31→20；
+   定向催单靠 recipients 定向优先，不依赖受众表。经营/账务/洞察类一概不动。
+   16 条静态判据 + 规则表仿真 + 9 个坏样本（含「兜底广播加回 guide」复发）自证。
    🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs（v748 起连踩三轮）。 */
 {
-  console.log('\n── ㊾ 导购通知受众补全（v773）──')
+  console.log('\n── ㊾ 导购通知受众分流（v774）──')
   const r = run('notification-guide-audience.contract.mjs', [], { timeout: 120000 })
   const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
   console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)

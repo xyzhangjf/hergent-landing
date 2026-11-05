@@ -1742,19 +1742,30 @@ _AUDIENCE_EXACT = {
     "库存预警": "admin,boss,accountant,supervisor,staff",
     "效期预警·紧急": "admin,boss,accountant,supervisor,staff",
     "效期预警·提醒": "admin,boss,accountant,supervisor,staff",
-    # —— 报单线：**小程序那批人都要收到**（这是他们自己的活）——
-    #    🔴 受众必须覆盖 `sales/staff/distributor/supervisor/guide` 五个角色 ——
-    #       它们正是 `core.ROLE_LOGIN_SCOPE` 里能在小程序登录的**报单角色**
+    # —— 报单线：按「谁该看」分两类，**不许用一个前缀一锅端**（v774 修正）——
+    #    ① 面向全体报单人的广播（期次开放 / 新期次 / 加单减单）⇒ 含 `guide`。
+    #       受众覆盖 `sales/staff/distributor/supervisor/guide` 五个报单角色 ——
+    #       它们正是 `core.ROLE_LOGIN_SCOPE` 里能在小程序登录的角色
     #       （`staff/distributor/sales/guide`=mini、`supervisor`=both）。
-    #       🔴 v773（2026-11-05）补 `guide`：v330 收口受众时导购还是 `web` 端，
+    #       v773（2026-11-05）补 `guide`：v330 收口受众时导购还是 `web` 端，
     #       v333 才收紧成 `mini`（老板原话「导购报单要用小程序」）—— 两条改动没对上，
     #       结果生产 5 个在职导购里 3 个在 21,704 条通知中**可见 0 条**（含马耀秀）。
-    #       只补报单线这 8 条规则；经营结果 / 账务 / 洞察类一概不动 —— 那些正文含
-    #       客户名与欠款金额，放开就是重演 v330 修掉的泄密。
-    #       漏掉任一报单角色 = 有人**该报单却收不到催报**，与"错发"是同一枚硬币的
-    #       两面（一个多给、一个少给，都静默、零报错）。
+    #       经营结果 / 账务 / 洞察类一概不动 —— 那些正文含客户名与欠款金额，
+    #       放开就是重演 v330 修掉的泄密。
+    #    ② 催单类**不放 guide**，两条独立理由：
+    #       · 定向催单 `forecast_remind_emp_<id>` 落库带 `recipients=<账号id>`，
+    #         `message_visible` 定向优先 ⇒ 受众表根本不参与判定，写 guide 纯属
+    #         冗余且误导（看起来像「给了导购权限」，其实一行都不生效）。
+    #       · 「预报催单」还有一类**广播兜底**：未绑定负责人 / 账号停用的单元，
+    #         写端发 `recipients=''` 的行（生产实测「唐成」`report_mapping.employee_id=0`
+    #         ⇒ 每期都走兜底），本意只给管理端，正文含**别人的单元名＋本期订量/金额**。
+    #         v773 把 8 条规则一锅端补 guide ⇒ 导购可见 0→31，其中 11 条正是这类
+    #         兜底广播（马耀秀看到了「唐成」的催单）。v774 只撤这 3 条 ⇒ 31→20。
+    #    🔴 纪律：同一 event_key 前缀不许同时服务「定向」与「管理兜底」两种意图；
+    #       真要拆干净，给兜底单独一个 event_key（如 `forecast_reminder_unbound`）
+    #       再登记受众，别靠改这张表绕过。漏给与错发是同一枚硬币的两面，都静默零报错。
     "本期报单已开放": "admin,boss,sales,supervisor,distributor,staff,guide",
-    "预报催单": "admin,boss,sales,supervisor,distributor,staff,guide",
+    "预报催单": "admin,boss,sales,supervisor,distributor,staff",
     "预报·新期次": "admin,boss,sales,supervisor,distributor,staff,guide",
 }
 
@@ -1767,8 +1778,10 @@ _AUDIENCE_PREFIX_RAW = {
     "定时任务·": "admin,boss",                       # 兜底；正常靠 recipients 定向给创建者
     "经营卡简报": "admin,boss,accountant",           # v352：仅服务存量行（新行走精确键）
     "预报·新期次": "admin,boss,sales,supervisor,distributor,staff,guide",
-    "预报催单": "admin,boss,sales,supervisor,distributor,staff,guide",
-    "forecast_remind_emp_": "admin,boss,sales,supervisor,distributor,staff,guide",
+    # v774：下面 2 条是催单类，导购不进受众（理由见上方精确键注释 ②）。
+    #   `预报催单` 前缀还吃 `预报催单 · 报单期次` —— 那条是兜底广播，正文含金额。
+    "预报催单": "admin,boss,sales,supervisor,distributor,staff",
+    "forecast_remind_emp_": "admin,boss,sales,supervisor,distributor,staff",
     "forecast_period_open_": "admin,boss,sales,supervisor,distributor,staff,guide",
     "forecast_extra_alloc": "admin,boss,sales,supervisor,distributor,staff,guide",
 }
