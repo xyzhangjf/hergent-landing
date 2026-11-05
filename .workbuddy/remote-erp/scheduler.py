@@ -1843,6 +1843,73 @@ def _forecast_store_owner_map():
     return out
 
 
+def _forecast_external_account_map():
+    """报单单元名 → **外部报单账号**（v776 / D 方案）。取不到一律返回空 dict。
+
+    🔴 key 必须同时收 `report_alias` **和** `system_name`：汇总表
+       `forecast_submissions.store_name` 实测两种写法都在用 ——「易胜玲」这行
+       `system_name='易胜玲'` 但 `report_alias='易胜琳'`（异字），只取别名会
+       **静默漏掉这个人**（又是「零报错、就是少一个人」的同一类坑）。
+    🔴 账号有效性：`users.is_active=1` ＋ 按 `user_tenants` 收口到当前租户。
+       账号在**主库** `users`、`report_mapping` 在**租户库**，两库 id 会撞号 ——
+       不收口就是跨租户发错人（同 `erp_db.employee_account_map()` 的既有防线）。
+    ⚠️ 只读、fail-safe：缺表 / 缺列 / 异常都不许把催单主流程带崩 ——
+       返回空 dict ⇒ 这些单元继续走管理兜底广播，绝不静默丢弃。
+    """
+    out = {}
+    try:
+        with db.get_db() as c:
+            if not c.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='report_mapping'"
+            ).fetchone():
+                return out
+            # `external_user_id` 是后加列（tenant_10 就缺过）⇒ 硬引用会整段抛错被吞成
+            # 「全放行/全不放行」；先 PRAGMA 判列再查，与 v765 的 `order_end_date` 同款。
+            cols = {r[1] for r in c.execute("PRAGMA table_info(report_mapping)")}
+            if "external_user_id" not in cols:
+                return out
+            rows = c.execute(
+                "SELECT report_alias, system_name, external_user_id FROM report_mapping "
+                "WHERE is_active=1 AND CAST(COALESCE(external_user_id,'') AS TEXT) NOT IN ('','0')"
+            ).fetchall()
+        pairs = []
+        for r in rows:
+            r = dict(r)
+            try:
+                uid = int(r.get("external_user_id") or 0)
+            except (TypeError, ValueError):
+                continue
+            if uid <= 0:
+                continue
+            for k in ((r.get("report_alias") or "").strip(),
+                      (r.get("system_name") or "").strip()):
+                if k:
+                    pairs.append((k, uid))
+        if not pairs:
+            return out
+        from core import _master_db
+        ids = sorted({u for _, u in pairs})
+        sql = ("SELECT u.id, u.username, u.display_name, u.role, u.is_active "
+               "FROM users u WHERE u.id IN (%s) AND u.is_active=1" % ",".join("?" * len(ids)))
+        args = list(ids)
+        tid = get_tenant_context()
+        if tid:
+            sql += " AND u.id IN (SELECT user_id FROM user_tenants WHERE tenant_id=?)"
+            args.append(int(tid))
+        conn = _master_db()
+        try:
+            accts = {int(r["id"]): dict(r) for r in conn.execute(sql, args).fetchall()}
+        finally:
+            conn.close()
+        for name, uid in pairs:
+            if uid in accts:
+                out[name] = accts[uid]
+    except Exception as e:
+        print(f"[Scheduler] forecast external account map error: {e}")
+        return {}
+    return out
+
+
 def forecast_pending_summary(my_employee_id=0):
     """给前端「本期还差谁没报」用的精简结构（v304 · 小程序首页提醒条）。
 
@@ -2027,6 +2094,20 @@ def _in_quiet_hours(now, quiet):
 #    （已查到 `report_mapping.external_user_id` 现成可定向，等单独拍板，不夹带进 B）。
 FORECAST_REMINDER_UNBOUND_EVENT = "forecast_reminder_unbound"
 
+# ── v776（2026-11-05，D 方案）：**外部报单账号**的定向催单前缀 ───────────────────
+# 🔴 与 v775 是两件不同的事，别混：v775 修的是「兜底广播被谁看见」（可见性），
+#    v776 修的是「唐成自己一条催单都收不到」（**发送目标**）。
+#    生产 tenant_1 实测：`report_mapping` 27 行里 5 行分销商单元 `employee_id=0`
+#    却有 `external_user_id`（唐成 999908 / 朱青峰 999944 / 黄家伟 999945 /
+#    易胜玲 999946 / 胡奎奎 999952，全部 `distributor,mini,在职` 且属 tenant 1）。
+#    `_forecast_store_owner_map()` 跳过 `employee_id<=0` ⇒ 这 5 个单元每期全落进
+#    `unbound`，只发管理兜底广播；本人账号历史**催单 0 条**。
+# 🔴 前缀与 `db/queries/finance.py::_AUDIENCE_PREFIX_RAW` 的同名键是同一口径 ——
+#    护栏 ㊾ 有「写端常量 == 受众表键」判据，改这里必须同步改受众表。
+#    这些行**始终带 `recipients`**，走定向优先；登记受众只为「recipients 万一丢失」
+#    的异常态兜底，绝不能落 DEFAULT 或含一线角色。
+FORECAST_REMIND_EXT_PREFIX = "forecast_remind_ext_"
+
 
 def push_forecast_reminder_current(respect_open_notice=False, node="", ignore_quiet=False):
     """在当前租户上下文下计算+推送催单提醒。无开放周期/无候选/无未报 → 不推。返回 bool。
@@ -2124,6 +2205,43 @@ def push_forecast_reminder_current(respect_open_notice=False, node="", ignore_qu
         except Exception as e:
             print(f"[Scheduler] forecast reminder 定向发送失败 (emp={eid}): {e}")
             unbound.extend(stores)  # 发送失败也退化为广播兜底
+
+    # ── ①b v776（D 方案）：未绑定员工、但有外部账号的单元 ⇒ 定向催到本人 ──────────
+    #    🔴 **纯增量**：不清空、不改动 `unbound`（管理兜底广播照旧，管理端可见 Δ0），
+    #       也不动 `by_emp` 与企微广播。只在原链路之外，让这 5 个分销商本人各自
+    #       收到一条「只列自己单元」的催单 —— 这才是「唐成漏催」的解药。
+    #    🔴 正文**不带** `tot` 里的本期总订量 / 总金额，也不带别人的单元名：
+    #       兜底广播里那句 `¥…` 是管理视角，下发给外部角色就是泄密（v330 / v775）。
+    #    🔴 刻意不受 `per_sales` 约束：那个开关管的是「按负责销售拆人头」，
+    #       这里是「报单主体本人」的人级定向；让一个分组开关把外部账号的催单
+    #       静默关掉，就是又一处「零报错、就是少一个人」。仅受 `channels.inapp`
+    #       约束（关掉站内信时不许再发站内信，v305 纪律）。
+    #    ⚠️ 位置：必须在 ① 的 `for` **之后** —— 定向发送失败会 `unbound.extend(stores)`，
+    #       放在前面就漏掉这批 fail-closed 单元。
+    if _inapp:
+        ext_map = _forecast_external_account_map()
+        by_uid = {}                 # uid(字符串) -> [该账号名下未报单元名]
+        for s in unbound:
+            acct = ext_map.get(s)
+            if acct:
+                uid = str(acct["id"])
+                lst = by_uid.setdefault(uid, [])
+                if s not in lst:
+                    lst.append(s)
+        for uid, stores in by_uid.items():
+            lines = [
+                f"你名下以下 {len(stores)} 个报单单元本期尚未报单，请于 {oe or '截止日'} 前完成报单：",
+                "、".join(stores[:15]) + (" 等" if len(stores) > 15 else ""),
+                f"报单窗口 {os_} ~ {oe}",
+            ]
+            try:
+                db.message_send(title, "\n".join(lines), "warning", "经营副驾",
+                                recipients=uid,
+                                event_key=FORECAST_REMIND_EXT_PREFIX + uid)
+                sent_any = True
+            except Exception as e:
+                # 定向失败 ⇒ 这些单元仍在 `unbound` 里，下面管理兜底照发（fail-closed）
+                print(f"[Scheduler] forecast reminder 外部账号定向发送失败 (uid={uid}): {e}")
 
     # fail-closed：未绑定 / 账号停用 / 发送失败的门店，广播给管理链，绝不静默丢弃
     # v305：`channels.inapp` 关掉时这一段一并跳过（否则"关站内信"关不干净）。

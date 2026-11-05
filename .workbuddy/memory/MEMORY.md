@@ -1,6 +1,6 @@
 # Hergent 记忆索引（只留判据首句＋去哪查；细节在 `topics/*.md` / `memory/YYYY-MM-DD.md`）
 
-**前端 v770**｜v775 管理兜底广播拆独立 event_key（后端已上线）｜v773→v774 导购受众先补后收紧｜v772 横幅改本期清单口径｜v771 我的提交到货日期｜v769 返利率可留空｜v768 GoLink/useGoPage｜**小程序 v758–v772 已提交、未发版**。唯一源 `main`。
+**前端 v770**｜v776 外部账号定向催单（后端已上线）｜v775 管理兜底广播拆独立 event_key（后端已上线）｜v773→v774 导购受众先补后收紧｜v772 横幅改本期清单口径｜v771 我的提交到货日期｜v769 返利率可留空｜v768 GoLink/useGoPage｜**小程序 v758–v772 已提交、未发版**。唯一源 `main`。
 🔴🔴 **后端零版本管理**：生产 `/opt/hergent-erp/`（FastAPI+`routers/`、非 git 仓、有 `.env`），本仓 `server/` 是旧单文件 ⇒「提交了前端」≠「后端也入库」；靠 `.workbuddy/remote-erp/` 回拉镜像（v765c 起入库）。
 
 ## 🔴🔴 部署（错一步＝假部署）
@@ -46,7 +46,7 @@
 - 🔴🔴 改角色权限必须走 `POST /api/role-permissions`（直写库绕过 `reload_perms`＋不留 `audit_logs`），「未列出＝移除」⇒ 传完整清单。`roles` 与 `module` 是两条独立轴。
 - 🔴🔴 副驾产物 403「不在可访问范围内」＝允许根只认了一半 home（`_host_home(1)` vs `home_for(1)`）⇒ 取并集。
 - **域**：预报 `forecast-order-domain`｜返利 `rebate-domain`｜成本容量 `cost-and-capacity`｜账务 `accounting-gl-v716-v717`｜条码小程序 `miniprogram-and-brand-data`｜副驾租户 `copilot-tenant-memory`｜本机坑 `local-machine-pitfalls`｜库存 `inventory-psi`｜通知 `notification-center`。
-🔴🔴 **通知「某人收不到 / 不该收到」先查角色受众表**：v330 收口时 `guide` 一条没写，v333 才把导购收紧成 `mini` ⇒ 5 个在职导购里 3 个判 False（马耀秀 0 条）。版本线：v773 报单线 8 条一锅端补 guide ⇒ 0→31，误把「唐成」兜底广播（无 recipients、含别人单元名＋金额）发给导购；v774 撤 3 条催单规则 ⇒ 31→20；**v775 从写端拆 `forecast_reminder_unbound` 独立键 + 管理链 `admin,boss,supervisor` 受众，旧 `预报催单` 精确/前缀只为存量 11 行保留且受众必须一模一样** ⇒ 一线 sales/staff/distributor 各 −11、guide 稳定 20、管理链 Δ0。🔴 同一 event_key 前缀不许同时服务「定向」与「管理兜底」；写端不传 event_key 会被 `norm_event_key(title)` 归一回 `预报催单 · 报单期次`（真踩）。定向类不看角色只看 `recipients`。判据＝真实 `message_visible` 全表扫 + 内存改规则反证 + 本人 session 实测 total；护栏 ㊾（23 判据 / 15 坏样本）+ `v773-guide-notice-check.py`。探活端口 **8700**（写 8000 得 `000` 假故障）。→ `memory/2026-11-05.md`
+🔴🔴 **通知「某人收不到 / 不该收到」先查角色受众表**：v330 收口时 `guide` 一条没写，v333 才把导购收紧成 `mini` ⇒ 5 个在职导购里 3 个判 False（马耀秀 0 条）。版本线：v773 报单线 8 条一锅端补 guide ⇒ 0→31，误把「唐成」兜底广播（无 recipients、含别人单元名＋金额）发给导购；v774 撤 3 条催单规则 ⇒ 31→20；**v775 从写端拆 `forecast_reminder_unbound` 独立键 + 管理链 `admin,boss,supervisor` 受众，旧 `预报催单` 精确/前缀只为存量 11 行保留且受众必须一模一样** ⇒ 一线 sales/staff/distributor 各 −11、guide 稳定 20、管理链 Δ0。🔴 同一 event_key 前缀不许同时服务「定向」与「管理兜底」；写端不传 event_key 会被 `norm_event_key(title)` 归一回 `预报催单 · 报单期次`（真踩）。定向类不看角色只看 `recipients`。**🔴 v776 另修「发送目标」，不是可见性**：`report_mapping` 5 行 `employee_id=0` 但有 `external_user_id` ⇒ 每期只发兜底广播、本人 0 条催单，**改受众表永远修不好**；按 uid 人级定向 `forecast_remind_ext_<uid>`（正文只列本人单元、无金额），受众同名前缀仅异常态兜底，纯增量 ⇒ 管理端 Δ0。映射须双收 `report_alias`+`system_name`（易胜玲/易胜琳异字）+ `is_active`/`user_tenants` 收口 + PRAGMA 判后加列。🔴 静态判据查全文 `user_tenants` 被 docstring 自撞成空白支票（m20 实测检出 0 条）⇒ 必须锚代码行。验证用**生产副本库真跑**（`ERP_DB_PATH` 指副本 + python 先灌 `.env` 的 `ERP_SECRET`），零生产数据改动。判据＝真实 `message_visible` 全表扫 + 内存改规则反证 + 本人 session 实测 total；护栏 ㊾（35 判据 / 27 坏样本）+ `v773-guide-notice-check.py`。探活端口 **8700**（写 8000 得 `000` 假故障）。→ `memory/2026-11-05.md`
 
 ## 实现 / 进度 / 主体 / 本机
 实现：加列先吃「名称列」宽度、长文本列 `width+min-width` 同写｜分页条在滚动容器外｜加字段 4 处｜`ui_col_prefs` 租户级｜跨组件覆盖写在目标组件自己文件｜Bearer 免 CSRF，权限端点要 `X-Tenant-Id`。

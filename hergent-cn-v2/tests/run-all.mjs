@@ -758,7 +758,7 @@ if (has('skip-sfc')) {
   results.push({ name: '到货日期展示', ok: r.code === 0, code: r.code })
 }
 
-// ── ㊾ 导购通知受众分流 / 管理兜底拆分（v773 → v774 → v775）──────
+// ── ㊾ 导购通知受众分流 / 管理兜底拆分 / 外部账号定向（v773→v774→v775→v776）──
 /* v330 收口受众时导购还是 web 端，v333 才收紧成 mini ⇒ 生产 5 个在职导购里
    3 个可见 0 条通知（含马耀秀，本人会话实测 total=0）。v773 补 guide 修好「漏给」，
    但 8 条规则一锅端，把「预报催单」兜底广播（无 recipients、正文含别人单元名＋
@@ -766,11 +766,18 @@ if (has('skip-sfc')) {
    v775（B 方案）从写端拆出独立 event_key `forecast_reminder_unbound`，兜底广播
    连同存量行一并收窄到管理链，一线/外部角色不再看到金额。定向催单靠 recipients
    定向优先，不依赖受众表。经营/账务/洞察类一概不动。
-   23 条静态判据 + 规则表仿真 + 15 个坏样本（含「写端漏传 event_key」「新键受众
-   改回六角色」「两处键名漂移」）自证；另有运行态真判据脚本真跑 message_visible。
+   v776（D 方案）修的是**发送目标**而非可见性：`report_mapping` 5 行分销商
+   `employee_id=0` 但有 `external_user_id` ⇒ 每期只发兜底广播、本人 0 条催单
+   （唐成实测）。写端加人级定向 `forecast_remind_ext_<uid>`，正文只列自己单元、
+   不带本期总金额；账号映射两个名字都收（易胜玲别名「易胜琳」）、在职 + 租户
+   收口、缺列防护，且是纯增量（管理端 Δ0）。受众表同名前缀仅作异常态兜底。
+   35 条静态/仿真判据 + 27 个坏样本（含「漏传 recipients」「正文塞金额」
+   「只取别名漏人」「删租户收口」「破坏纯增量」）自证；另有运行态真判据脚本
+   真跑 message_visible。🔴 静态判据必须锚在代码行上 —— 查全文 `user_tenants`
+   会被 docstring 自撞成空白支票（本轮 m20 实测检出 0 条后修正）。
    🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs（v748 起连踩三轮）。 */
 {
-  console.log('\n── ㊾ 导购通知受众 / 管理兜底拆分（v775）──')
+  console.log('\n── ㊾ 导购通知受众 / 兜底拆分 / 外部定向（v776）──')
   const r = run('notification-guide-audience.contract.mjs', [], { timeout: 120000 })
   const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
   console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)

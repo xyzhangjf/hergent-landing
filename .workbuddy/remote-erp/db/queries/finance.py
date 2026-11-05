@@ -1754,6 +1754,10 @@ _AUDIENCE_EXACT = {
     #       放开就是重演 v330 修掉的泄密。
     #    ② 定向催单 `forecast_remind_emp_<id>`：落库带 `recipients=<账号id>`，
     #       `message_visible` 定向优先 ⇒ 受众表根本不参与判定，写 guide 纯属冗余。
+    #    ②b v776（D 方案）`forecast_remind_ext_<uid>`：`report_mapping` 里
+    #       `employee_id=0` 但有 `external_user_id` 的 5 个分销商单元（唐成等），
+    #       写端按外部账号**人级定向**，正文只列他自己的单元、不带本期总金额。
+    #       同样带 `recipients` ⇒ 受众表不参与；登记管理链只为异常态兜底。
     #    ③ 管理兜底广播（v775 起独立 event_key `forecast_reminder_unbound`）：
     #       未绑定负责人 / 账号停用的单元，写端发 `recipients=''`，正文含
     #       **别人的单元名 ＋ 本期订量/金额**（生产实测「唐成」11 条）。
@@ -1786,6 +1790,11 @@ _AUDIENCE_PREFIX_RAW = {
     "预报催单": "admin,boss,supervisor",
     # 定向催单：recipients 非空走定向优先，受众表不参与；保留原六角色作异常态兜底。
     "forecast_remind_emp_": "admin,boss,sales,supervisor,distributor,staff",
+    # v776（D 方案）：外部报单账号的定向催单。始终带 `recipients`（定向优先），
+    #   这里登记管理链**只作异常态兜底** —— 万一 recipients 丢失，也不能落 DEFAULT
+    #   把「别人的单元名」广播出去，更不能含一线/外部角色。
+    #   🔴 与写端 `scheduler.FORECAST_REMIND_EXT_PREFIX` 同名，护栏 ㊾ 有判据。
+    "forecast_remind_ext_": "admin,boss,supervisor",
     "forecast_period_open_": "admin,boss,sales,supervisor,distributor,staff,guide",
     "forecast_extra_alloc": "admin,boss,sales,supervisor,distributor,staff,guide",
 }

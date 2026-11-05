@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""v773 建立 / v774 修订 / v775（B 方案）拆分：导购只进「面向全体报单人的广播」。
+"""v773 建立 / v774 修订 / v775（B 方案）拆分 / v776（D 方案）外部账号定向。
 
 被测代码 = 磁盘真源码（AST 抠出受众常量与判定函数 → exec，不 import 后端包）。
 默认读本地回拉镜像；生产复跑时传 V773_FINANCE=/opt/hergent-erp/db/queries/finance.py，
@@ -15,8 +15,12 @@
   v774 只撤 3 条催单规则 ⇒ 31→20；定向催单靠 `recipients` 定向优先，不受受众表影响。
   v775 写端把管理兜底广播拆成独立 event_key `forecast_reminder_unbound`，受众登记
         管理链 `admin,boss,supervisor`；旧 `预报催单` 精确/前缀键只为存量 11 行保留、
-        受众必须一模一样。写端结构判据在 hergent-cn-v2/tests 的 ㊾ 契约里（本脚本
-        只管 finance.py 的判定内核，分工不重叠）。
+        受众必须一模一样。
+  v776 修的是**发送目标**而非可见性：`report_mapping` 5 行分销商 `employee_id=0`
+        但有 `external_user_id` ⇒ 每期只发兜底广播、本人 0 条催单。写端给这 5 人
+        加人级定向 `forecast_remind_ext_<uid>`（正文只列自己单元、无金额），受众表
+        同名前缀只登记管理链作异常态兜底。写端结构判据在 hergent-cn-v2/tests 的
+        ㊾ 契约里（本脚本只管 finance.py 的判定内核，分工不重叠）。
 """
 import ast
 import os
@@ -41,13 +45,14 @@ SEVEN = 'admin,boss,sales,supervisor,distributor,staff,guide'
 SIX = 'admin,boss,sales,supervisor,distributor,staff'
 MGMT = 'admin,boss,supervisor'
 UNBOUND = 'forecast_reminder_unbound'
+EXT = 'forecast_remind_ext_'
 # 导购该看的（期次开放类广播）
 GUIDE_VISIBLE_KEYS = [
     '本期报单已开放', '预报·新期次', 'forecast_period_open_43', 'forecast_extra_alloc|43|1',
 ]
 # 🔴 必须含生产真实落库的存量兜底 event_key **和 v775 新键**
 UNBOUND_KEYS = ['预报催单', '预报催单 · 报单期次', UNBOUND]
-GUIDE_HIDDEN_KEYS = UNBOUND_KEYS + ['forecast_remind_emp_23']
+GUIDE_HIDDEN_KEYS = UNBOUND_KEYS + ['forecast_remind_emp_23', EXT + '999908']
 SENSITIVE_KEYS = [
     '盈亏快报', '经营日报', '经营卡简报', '应收逾期提醒', '异常支出预警', '合同到期提醒',
     'AI 经营洞察', '今日经营洞察', '档案健康检查', '客户流失预警',
@@ -88,13 +93,17 @@ def checks(src):
 
     all_rules = list(exact.items()) + list(pref.items())
     ok(sum(1 for _, v in all_rules if 'guide' in v) == 5, '恰好 5 条报单线规则含 guide')
-    ok(sum(1 for _, v in all_rules if v == MGMT) == 3, '恰好 3 条管理兜底规则是管理链名单')
+    # v776 新增 1 条管理链前缀（外部定向异常态兜底）⇒ 3 → 4
+    ok(sum(1 for _, v in all_rules if v == MGMT) == 4, '恰好 4 条管理链名单（3 兜底 + 1 外部）')
     ok(sum(1 for _, v in all_rules if v == SIX) == 1, '恰好 1 条定向催单规则是原六角色名单')
     # 存在性：只查上限不查存在 = 空白支票（删键也能凑出「恰好 N 条」）
-    ok(len(exact) >= 4 and len(pref) >= 5, '两张受众表结构完整（不许删键凑数）')
-    ok(exact.get(UNBOUND) == MGMT, '新键已登记且受众恰为管理链')
-    ok(pref.get('预报催单') == exact.get(UNBOUND), '存量前缀与新键受众同口径（不许漂移）')
-    ok(UNBOUND not in pref, '前缀表没有冗余的新键副本')
+    ok(len(exact) >= 4 and len(pref) >= 6, '两张受众表结构完整（不许删键凑数）')
+    ok(exact.get(UNBOUND) == MGMT, 'v775 新键已登记且受众恰为管理链')
+    ok(pref.get('预报催单') == exact.get(UNBOUND), '存量前缀与 v775 新键受众同口径（不许漂移）')
+    ok(UNBOUND not in pref, '前缀表没有 v775 新键的冗余副本')
+    # v776：外部定向前缀只登记一次、受众只管理链
+    ok(pref.get(EXT) == MGMT, 'v776 外部定向前缀受众恰为管理链（异常态兜底）')
+    ok(EXT not in exact, 'v776 外部定向键只在前缀表，精确表无副本')
     # 🔴 真跑归一化：证明「写端漏传 event_key ⇒ 退回存量键」这条结构病根不是猜的
     ok(ns['norm_event_key'](UNBOUND_TITLE) == '预报催单 · 报单期次',
        '归一标题确实落回存量兜底键（写端必须显式传新键）')
@@ -121,6 +130,7 @@ def checks(src):
     for r in ALL_ROLES:
         for k in GUIDE_VISIBLE_KEYS:
             ok(mv('x', k, '', [r], set()) is True, '%s 仍可见开放类 %s' % (r, k))
+
     # 定向优先：点名给本人的催单照收，不依赖受众表
     ok(mv('预报催单', 'forecast_remind_emp_23', '999943', ['guide'], {'999943'}) is True,
        '定向命中可见（不依赖受众表）')
@@ -128,6 +138,26 @@ def checks(src):
        '定向未命中不可见')
     ok(mv('x', UNBOUND, '999918', ['guide'], {'999943'}) is False,
        '兜底行若被人级定向，也不因受众表外泄')
+
+    # ── v776 核心：唐成（999908 / distributor）本人的定向催单 ──
+    EXT_KEY = EXT + '999908'
+    ok(mv('预报催单', EXT_KEY, '999908', ['distributor'], {'999908'}) is True,
+       'v776 真判据：唐成可见点名自己的催单（漏催已解）')
+    # `message_visible` 的口径：rc 只需落在 `{str(id), str(username)}` 里。
+    #   写端若哪天把 recipients 落成了 username，本人 user_ids 仍同时含两种 ⇒ 照收。
+    ok(mv('预报催单', EXT_KEY, '15391599966', ['distributor'], {'999908', '15391599966'}) is True,
+       'v776 真判据：recipients 落 username 也认（写端口径历史两种都认）')
+    ok(mv('预报催单', EXT_KEY, '999908', ['guide'], {'999943'}) is False,
+       'v776 真判据：马耀秀看不到唐成的催单')
+    ok(mv('预报催单', EXT_KEY, '999908', ['supervisor'], {'999900'}) is False,
+       'v776 真判据：定向优先，主管也不看别人的催单')
+    ok(mv('x', EXT_KEY, '', ['supervisor'], set()) is True,
+       'v776 真判据：recipients 万一丢失，异常态只给管理链')
+    ok(mv('x', EXT_KEY, '', ['distributor'], set()) is False,
+       'v776 真判据：recipients 万一丢失，也不广播给外部角色')
+    ok(mv('x', EXT_KEY, '', ['guide'], set()) is False,
+       'v776 真判据：recipients 万一丢失，也不给导购')
+
     ok(mv('x', '应收逾期提醒', '', ['accountant'], set()) is True, 'accountant 仍可见应收逾期')
     ok(mv('x', '应收逾期提醒', '', ['driver'], set()) is False, 'driver 仍不可见应收逾期')
     return bad
@@ -143,11 +173,11 @@ def set_rule_value(src, key, old, new):
 
 def main():
     src = open(FINANCE, encoding='utf-8').read()
-    print('[v775] 被测源码 =', os.path.abspath(FINANCE))
+    print('[v776] 被测源码 =', os.path.abspath(FINANCE))
     bad = checks(src)
     for b in bad:
         print('  ❌', b)
-    print('[v775] 主检查：%s' % ('ALL PASS' if not bad else 'FAILED %d 条' % len(bad)))
+    print('[v776] 主检查：%s' % ('ALL PASS' if not bad else 'FAILED %d 条' % len(bad)))
     if bad:
         return 1
 
@@ -161,24 +191,34 @@ def main():
         ('把 DEFAULT_AUDIENCE 改成含 guide（未登记事件全放行）',
          src.replace('DEFAULT_AUDIENCE = "admin,boss"',
                      'DEFAULT_AUDIENCE = "admin,boss,guide"')),
-        ('拆掉定向优先（别人的催单会广播给所有导购）',
+        ('拆掉定向优先（别人的催单会广播给所有导购 / 唐成催单外泄）',
          src.replace('    if rc:\n        return rc in user_ids',
                      '    if rc and False:\n        return rc in user_ids')),
         ('前缀「预报催单」加回 guide（v773 误伤复发）',
          set_rule_value(src, '预报催单', MGMT, SEVEN)),
         ('`forecast_remind_emp_` 加回 guide（冗余规则复发）',
          set_rule_value(src, 'forecast_remind_emp_', SIX, SEVEN)),
-        # ── v775 新增 ──
-        ('新键受众改回原六角色（一线又看到金额）',
+        # ── v775 ──
+        ('v775 新键受众改回原六角色（一线又看到金额）',
          set_rule_value(src, UNBOUND, MGMT, SIX)),
-        ('新键受众含 guide（v773 误伤换个键复发）',
+        ('v775 新键受众含 guide（v773 误伤换个键复发）',
          set_rule_value(src, UNBOUND, MGMT, SEVEN)),
-        ('存量前缀与新键受众漂移（两套口径）',
+        ('存量前缀与 v775 新键受众漂移（两套口径）',
          set_rule_value(src, '预报催单', MGMT, SIX)),
-        ('删掉新键（落 DEFAULT，主管少看兜底）',
+        ('删掉 v775 新键（落 DEFAULT，主管少看兜底）',
          src.replace('    "%s": "%s",  # v775 管理兜底（新行）\n' % (UNBOUND, MGMT), '')),
+        # ── v776 ──
+        ('v776 外部前缀改成含 guide（外部催单泄给导购）',
+         set_rule_value(src, EXT, MGMT, SEVEN)),
+        ('v776 外部前缀改成原六角色（外部催单泄给一线）',
+         set_rule_value(src, EXT, MGMT, SIX)),
+        ('删掉 v776 外部前缀（异常态落 DEFAULT，主管少看）',
+         src.replace('    "%s": "%s",\n' % (EXT, MGMT), '')),
+        ('v776 外部前缀登记进精确表（两处副本，口径漂移）',
+         src.replace('    "本期报单已开放": "' + SEVEN + '",',
+                     '    "%s": "%s",\n    "本期报单已开放": "%s",' % (EXT, MGMT, SEVEN))),
     ]
-    print('[v775] 坏样本自证（每条都必须被检出）')
+    print('[v776] 坏样本自证（每条都必须被检出）')
     failed = 0
     for label, mutant in mutants:
         assert mutant != src, '坏样本没改动源码：' + label
@@ -187,7 +227,7 @@ def main():
         if not hit:
             print('      🔴 判据没有牙齿，护栏是空白支票')
             failed += 1
-    print('[v775] 判定：%s' % ('ALL PASS' if not failed else 'FAILED %d' % failed))
+    print('[v776] 判定：%s' % ('ALL PASS' if not failed else 'FAILED %d' % failed))
     return 1 if failed else 0
 
 
