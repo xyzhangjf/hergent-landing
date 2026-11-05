@@ -3,6 +3,7 @@ const { request } = require('../../utils/api')
 const { track, pageView, EVENTS } = require('../../utils/track')
 const { isApprover, roleText } = require('../../utils/roles')
 const { logout: doLogout } = require('../../utils/session')
+const { normalizeArrivalDate } = require('../../utils/arrivalDate')
 
 // 2026-09-07：审批模块下线后，pending 不再表示「等人审批」，而是「已提交并计入本期汇总」
 const STATUS_TEXT = {
@@ -61,7 +62,8 @@ Page({
   async load() {
     try {
       const d = await request('/api/forecast-submissions/my?limit=50')
-      const records = (d.records || []).map(r => ({ ...r, statusText: STATUS_TEXT[r.status] || r.status || '' }))
+      // v771：到货日期由服务端按 period_id 补；键不存在 / 空值 ⇒ 归一为 '' ⇒ WXML 整段不渲染
+      const records = (d.records || []).map(r => ({ ...r, statusText: STATUS_TEXT[r.status] || r.status || '', arrivalDate: normalizeArrivalDate(r.arrival_date) }))
       // 重新拉列表时一并收起左滑：列表可能整体变了（删/撤/新增），
       // 留着 swipeId 会指向一条已经不在列表里的单据（下次滑动就"对不上号"）。
       this.setData({ records, swipeId: 0, swipeX: 0 })

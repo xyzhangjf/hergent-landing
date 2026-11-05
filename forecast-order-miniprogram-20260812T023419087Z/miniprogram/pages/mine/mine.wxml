@@ -82,7 +82,15 @@
         <view class="rec">
           <view class="rec-hd" bindtap="toggleExpand" data-id="{{item.id}}">
             <text class="rec-store">{{item.store_name}}</text>
-            <text class="rec-date">{{item.order_date}}</text>
+            <!-- v771：报单日期与到货日期并成一组，.rec-hd 仍是「门店｜日期组｜状态」三段 ⇒
+                 原有报单日期的位置／样式／交互一字未动；空值时日期组宽度与改前完全一致。
+                 🔴 标签统一写「到货日期」（与 Web 端 ForecastHistory 表头同源）；日期原样用
+                    服务端给的 YYYY-MM-DD，前端不再格式化 ⇒ 与报单日期格式必然一致。
+                 🔴 空值（后端没给／期次被删／脏数据）整段不渲染，不留孤零零的标签。 -->
+            <view class="rec-dates">
+              <text class="rec-date">{{item.order_date}}</text>
+              <text class="rec-date rec-arrival" wx:if="{{item.arrivalDate}}">到货日期 {{item.arrivalDate}}</text>
+            </view>
             <text class="rec-status status-{{item.status}}">{{item.statusText}}</text>
           </view>
           <view class="rec-items" wx:if="{{expandedId === item.id}}">

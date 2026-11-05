@@ -745,6 +745,19 @@ if (has('skip-sfc')) {
   results.push({ name: '短文案禁止竖排', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊽ 我的预报提交「到货日期」（v771）──────────────────────────
+/* 报单日期旁新增到货日期展示：后端按期次 id 补字段（/open-periods 只给未关闭期次，
+   前端自己拼会大面积空白）；标签统一「到货日期」；空值/缺键整段不渲染。
+   真跑归一纯函数 12 态 + records map 仿真三态 + 10 个坏样本自证。
+   🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs（v748 起连踩三轮）。 */
+{
+  console.log('\n── ㊽ 我的预报提交到货日期（v771）──')
+  const r = run('miniprogram-arrival-date.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '到货日期展示', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

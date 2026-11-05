@@ -24,6 +24,11 @@
 .rec-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:16rpx}
 .rec-store{font-size:30rpx;font-weight:600;color:#1d1d1f}
 .rec-date{font-size:24rpx;color:#86868b}
+/* v771：报单日期 + 到货日期并排成一组。空值时组内只剩原来的 .rec-date ⇒ 宽高与改前一致。 */
+.rec-dates{display:flex;align-items:center;min-width:0}
+/* 复用 .rec-date 的字号／颜色；间距沿用本行 12rpx 节奏（.rec-status 同值）。
+   🔴 中文短标签在 flex 里被压会逐字竖排（v770），必须 nowrap。 */
+.rec-arrival{margin-left:12rpx;white-space:nowrap}
 .rec-status{font-size:24rpx;padding:4rpx 16rpx;border-radius:20rpx;margin-left:12rpx}
 .status-pending{color:#ff9500;background:#fff4e6}
 .status-approved{color:#34c759;background:#e8f9ee}
