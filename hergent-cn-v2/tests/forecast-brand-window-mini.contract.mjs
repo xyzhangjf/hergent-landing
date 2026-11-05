@@ -102,14 +102,19 @@ function audit(src) {
 
   /* ── 6. 模板：横幅 + 行内禁用态，且横幅只有一条 ── */
   A((wxml.match(/class="bw-bar"/g) || []).length === 1, '🔴 品牌横幅只有一条（不重复渲染）')
-  A(wxml.includes('bwOpen'), '横幅可展开（默认单行，不把商品列表挤出首屏）')
-  /* v765d：横幅改成**正向句**（只说本期能报什么，不说哪些不能报）。
-     三条必须一起锁：① 取后端 `banner`；② 明细只收可报品牌；③ `bwSub` 彻底撤销。
-     🔴 只锁 ③（"没有 bwSub"）的话，把整条横幅删掉也全绿 —— 那正是本文件最该防的。 */
-  A(js.includes("bwBanner: String((d && d.banner) || '')"), '横幅取后端 banner')
-  A(/if \(brands\[k\]\.orderable !== false\) \{\s*\n\s*parts\.push/.test(js),
-    '🔴 明细只列可报品牌（不点名不可报）')
-  A(!/bwSub/.test(js) && !/bwSub/.test(wxml), '🔴 副句机制已撤销（一件事只留一套语义）')
+  /* v772：主句已是**本期清单的完整可报品牌清单**，不再点开明细、不再有兜底句。
+     四条一起锁：① 整句取后端 banner；② 空串整条不渲染；③ 旧展开机制彻底撤销；
+     ④ 旧兜底话术不再出现。
+     🔴 只锁「没有旧字样」的话，把整条横幅删掉也全绿 —— 必须同时锁正向存在判据。 */
+  A(js.includes("bwBanner: String((d && d.banner) || '')"), '横幅整句取后端 banner')
+  A(wxml.includes('wx:if="{{bwBanner}}"'), '🔴 空值整条不渲染（不留孤立标签）')
+  A(!/\bbwDetail\b/.test(js) && !/\bbwDetail\b/.test(wxml),
+    '🔴 展开明细已撤销（主句已列全，再展开就是重复）')
+  A(!/\bbwOpen\b/.test(js) && !/\bbwOpen\b/.test(wxml) && !/toggleBw/.test(js),
+    '🔴 展开状态与入口已撤销')
+  A(!/其它品牌均可报/.test(js) && !/其它品牌均可报/.test(wxml),
+    '🔴 旧兜底话术已撤销（一件事只留一套语义）')
+  A(!/bwSub/.test(js) && !/bwSub/.test(wxml), '副句机制已撤销')
   A(wxml.includes('prod-row-lock'), '不可报行有专用类')
   A(wxml.includes('class="prod-lock"'), '行内显示"哪天才能报"')
   A(/\{\{item\.orderable === false\}\}/.test(wxml) || wxml.includes('item.orderable === false'),
@@ -124,13 +129,20 @@ function audit(src) {
 
   /* ── 8. 样式：复用既有琥珀三色，不新造色值 ── */
   A(wxss.includes('.bw-bar{') && wxss.includes('.prod-row-lock{'), '有 .bw-bar / .prod-row-lock 样式')
+  /* v772：主句要**列全**本期清单品牌，5 个品牌时实测会自然折成 2 行（33px→51px）。
+     两行可接受；为了压回单行去截断才是错的 —— 省略号会静默藏掉品牌名，
+     等于又回到「白名单漏项 = 少报」。这两条锁死不许截断。 */
+  A(!/\.bw-title\{[^}]*white-space:\s*nowrap/.test(wxss),
+    '🔴 品牌名不许被压成单行（会溢出隐藏）')
+  A(!/\.bw-title\{[^}]*(text-overflow|line-clamp)/.test(wxss),
+    '🔴 品牌名不许省略号 / 行数截断（列全变列不全）')
   for (const c of ['#fff7ed', '#fed7aa', '#9a3412']) {
     A(wxss.includes(c), `琥珀色 ${c} 被复用（不是新造的值）`)
   }
   A(!/\.bw-[a-z]+\{[^}]*rgba\(/.test(wxss), '🔴 .bw-* 不用 rgba（品牌色带 alpha 会漂）')
 
   /* ── 9. 模板引用的 data 键必须都在 data 里声明（小程序不报错，只是永远假） ── */
-  for (const k of ['bwBrands', 'bwBanner', 'bwDetail', 'bwOpen']) {
+  for (const k of ['bwBrands', 'bwBanner']) {
     A(new RegExp('\\b' + k + ':').test(js), `data 里声明了 ${k}`)
   }
 
@@ -182,15 +194,27 @@ try {
     ['m4', 'fill.wxml',
       'class="bw-bar"',
       'class="bw-bar-x"',
-      '横幅整条被改名（用户再也看不到"本期哪些品牌不能报"）'],
+      '横幅整条被改名（用户再也看不到本期可报品牌）'],
     ['m5', 'fill.js',
       'if (this._bwLockKey === k',
       'if (false',
       '节流被抹掉（+ 连点会叠 3~4 个一模一样的弹窗）'],
-    ['m6', 'fill.js',
-      'if (brands[k].orderable !== false) {',
-      'if (true) {',
-      '明细把不可报品牌也列进去（用户又被塞回一份黑名单）'],
+    ['m6', 'fill.wxml',
+      'wx:if="{{bwBanner}}"',
+      'wx:if="{{true}}"',
+      '空值也渲染横幅（没清单/接口失败时留一条孤立标签）'],
+    ['m7', 'fill.js',
+      '  _bwShort(item) {',
+      "  _bwShort(item) {\n    const bwDetail = '其它品牌均可报'",
+      '旧兜底话术 + 展开明细又回来了（两段式白名单）'],
+    ['m8', 'fill.js',
+      "          bwBanner: String((d && d.banner) || '')",
+      "          bwBanner: '本期可报品牌：其它品牌均可报'",
+      '前端写死兜底句（不再用后端按本期清单给的整句）'],
+    ['m9', 'fill.wxss',
+      '.bw-title{display:block;',
+      '.bw-title{display:block;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;',
+      '品牌名被压成单行 + 省略号（列全变列不全，白名单又漏项）'],
   ]
   for (const [tag, file, from, to, desc] of samples) {
     const src = mutate(tag, file, from, to)
@@ -207,4 +231,4 @@ if (failed) {
   console.log(`❌ 失败 ${failed} 项`)
   process.exit(1)
 }
-console.log('✓ v765 小程序品牌报单日闸门契约全部通过')
+console.log('✓ v772 小程序品牌报单日闸门契约全部通过')

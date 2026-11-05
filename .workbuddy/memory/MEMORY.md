@@ -1,6 +1,6 @@
 # Hergent 记忆索引（只留判据首句＋去哪查；细节在 `topics/*.md` / `memory/YYYY-MM-DD.md`）
 
-**前端 v770**｜v771 我的提交到货日期｜v769 返利率可留空｜v768 GoLink/useGoPage｜v765d 品牌报单日正向横幅｜**小程序 v758–v771 已提交、未发版**。唯一源 `main`。
+**前端 v770**｜v772 横幅改本期清单口径｜v771 我的提交到货日期｜v769 返利率可留空｜v768 GoLink/useGoPage｜**小程序 v758–v772 已提交、未发版**。唯一源 `main`。
 🔴🔴 **后端零版本管理**：生产 `/opt/hergent-erp/`（FastAPI+`routers/`、非 git 仓、有 `.env`），本仓 `server/` 是旧单文件 ⇒「提交了前端」≠「后端也入库」；靠 `.workbuddy/remote-erp/` 回拉镜像（v765c 起入库）。
 
 ## 🔴🔴 部署（错一步＝假部署）
@@ -34,7 +34,8 @@
 🔴 zoom 两套坐标系（v745/v746）：容器 `scrollTop/scrollHeight` 是缩放后、`ROW_H` 未缩放 ⇒ 窗口只覆盖 1/z 屏（判据：50% 渲染行数 > 100%）；改单态留白有第二份实现 `EDIT_FIRST_BATCH=24`，报障形态是「一直挂着」。
 🔴 列／斑马纹／冻结列：列可拖四件缺一即假生效（按存的顺序排／合计按列名取／≥5px 不抢选列手势／落位写 `cfg.cust`，用 pointer）；冻结列 `td` 写死底会盖父级斑马纹（修法下发 `--row-bg`）；撤常驻入口必问发现性靠什么补。判库存只认 `inventory`；`inventory_balance` 是空表。
 🔴 返利目标配置（v769）：**「返利率留空」≠「这一格不写」** —— `resolve_month_rate` 向前找最近有值的月 ⇒ 留空被静默套上月费率（零报错多算返利）。修法＝有目标金额的月份**显式落 0**；只删前端硬拦是假修复（后端 `_is_num_like` 也拦）。→ `topics/rebate-domain.md`
-🔴 v765 品牌报单日（v765d）：只认 `order_weekdays`，绝不依赖 `order_first_date`/`order_mode`；2 天/期与 7 天/周互质 ⇒ 星期以 7 期循环。**`order_end_date` 是后加列**（tenant_10 缺）⇒ SQL 硬引用会整段抛错被吞成「全放行」，开关打开也永远不生效。横幅只说可报品牌、不点名不可报；还有未配星品牌必须追加「，其它品牌均可报」（白名单漏项＝少报）。拦截＝弹窗不是 toast，正文由后端 `lock_msg` 整句给，按品牌 4 秒节流，`next_order_date` 从明天起算。→ `topics/forecast-order-domain.md`
+🔴🔴 **v772 横幅口径（覆盖 v765d）**：范围＝**本期预报清单** `forecast_import_products`，不是全商品档案（全档案 18 品牌、本期清单只 5 个）。没配 `order_weekdays` 的品牌自动算可报、主句一次列全 ⇒「，其它品牌均可报」/`free`/`has_unrestricted_brand`/可展开明细整套撤销。清单空⇒`''`、全被挡⇒「本期暂无可报品牌」、全可报也列全。🔴 判定闸门 `brands` 仍只含配了规则的品牌、**结构一字未动**（提交/行内禁用零改动）。`period_brands` 复用 `erp_db.forecast_period_scope_sql`，导入失败降级精确命中、绝不退化成全表；PRAGMA 判 `brand` 列防缺列租户整段抛错。🔴 品牌名**不许 nowrap/省略号**：5 个品牌实测自然折 2 行（33→51px），截断＝白名单漏项。→ `topics/forecast-order-domain.md`
+🔴 v765 品牌报单日（判定内核不变）：只认 `order_weekdays`，绝不依赖 `order_first_date`/`order_mode`；2 天/期与 7 天/周互质 ⇒ 星期以 7 期循环。**`order_end_date` 是后加列**（tenant_10 缺）⇒ SQL 硬引用会整段抛错被吞成「全放行」，开关打开也永远不生效。横幅只说可报品牌、不点名不可报。拦截＝弹窗不是 toast，正文由后端 `lock_msg` 整句给，按品牌 4 秒节流，`next_order_date` 从明天起算。→ `topics/forecast-order-domain.md`
 🔴 小程序扫码（v761）：`wx.scanCode` 三件 —— 同批隐私申报／`fail:()=>{}` 吞掉 auth deny／无 `prompt` 参数；一维码贴太近必糊，相册是绕法。**一个条码可能对应多个商品** ⇒ `filter(barcode===code)` 后点名同码其它行；扫码绝不写 `_qtyMap`。
 🔴 小程序撤回归属闸门（后端已生效、待发版）：列表范围是「我报的 OR 我负责门店的」⇒ 服务端逐条给 `can_recall`（本人／角色／该单 `(store_id,kind)` ∈ 我的范围；第三条必需：主管导入后员工原位替换不动 `user_id`）。判据函数收「范围」须两种形状都吃；`created_at` 是 UTC 比本地早 8 小时。
 🔴 **新增展示字段先问「前端拿不拿得到全量」**（v771）：`/my` 的 records 只有 `period_id`，而 `/open-periods` **只返回未关闭期次**（生产 24 期里 23 期 closed）⇒ 前端自己拼期次字段必然大面积空白且静默。修法＝服务端批量补，SQL 用 `SELECT *` 按列名取（v765c 缺列教训）。空值 `wx:if` **整段不渲染** ⇒ 卡片与改前逐像素一致；中文标签 nowrap（v770）。`normalizeArrivalDate` 只归一不格式化（前端再格式化＝第二份口径）。护栏 ㊽。

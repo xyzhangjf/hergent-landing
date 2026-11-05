@@ -54,27 +54,15 @@ DEFAULTS = {"enabled": False}
 #（v759 教训：五种组合摊在 wxml 里必然漏一种）。
 TIP_TMPL = "该商品可报单时间为每周{wd}，本期不可提报"
 
-# 顶部横幅（v765d）：**只说「本期能报什么」，不说「哪些不能报」**。
-#    用户原话：「只需要告知本期可报品牌，不需要告知哪些品牌不能提报」。
-#    报单是"我要填什么"的场景，用户扫一眼要拿到的答案是白名单；
-#    「有 2 个品牌不可提报」需要他再点开明细才知道能填哪些 —— 多一步、且默认是坏消息。
+# 顶部横幅（v772）：**列全「本期预报清单里可报的品牌」**，不点名不可报品牌。
+#    用户口径（2026-11-05）：「不要搞那么绕，把没设规则的品牌自动归为本期可报品牌」
+#    +「你要看本期预报里有哪些品牌，而不是看整个系统有几个品牌」。
+#    ⇒ 范围是**本期清单**（生产 43 期只有 5 个品牌），不是商品档案（18 个）。
+#    清单里没配 `order_weekdays` 的品牌天然可报，直接进白名单；
+#    不再需要「，其它品牌均可报」这种把白名单拆成两段的兜底话术。
 BANNER_TMPL = "本期可报品牌：{brands}"
 
-# 🔴 白名单必须交代「没说到的品牌怎么办」。
-#    `window` 里只有**配了 `order_weekdays` 的品牌**，其余品牌（生产上还有
-#    蒙牛低温 / 蒙牛鲜奶等几百个商品）**随时可报**。横幅若只写「本期可报品牌：简爱」，
-#    用户会读成"今天只有简爱能报"，然后整个蒙牛低温都不填了 ——
-#    白名单漏项比黑名单更危险：黑名单漏掉的品牌用户照样填得进去（还能提交），
-#    白名单漏掉的品牌用户**不敢填**，直接少报一期。
-BANNER_FREE_SUFFIX = "，其它品牌均可报"
-
-# 全部「配了报单日」的品牌本期都不可报，但还有不受限的品牌（生产常态：周四既非
-# 简爱（三/六）也非新希望（一/五）的报单日）。
-BANNER_FREE_ONLY = "本期可报品牌：其它品牌均可报"
-
-# 所有活跃品牌都配了报单日，且一个都不在报单日（客户把品牌配齐了的极端态）。
-# 🔴 此时**必须**说一句：横幅整条消失，用户会以为「这期没有限制」，
-#    然后每一行都被挡、页面顶部找不到任何解释。这句话不点名任何品牌。
+# 本期清单里的品牌全被报单日挡住（极端态）⇒ 必须说一句，不点名任何品牌。
 BANNER_NONE_TMPL = "本期暂无可报品牌"
 
 # 拦截弹窗（填了不可报的商品时）：「本期不可报 + 哪天再来」。
@@ -254,28 +242,31 @@ def window_map(order_end, rules, enabled=True, today=None):
     }
 
 
-def banner_for(window, free=False):
-    """顶部横幅：**只列本期可报的品牌**（v765d 用户口径）。
+def banner_for(window, period_brands=None):
+    """横幅：**列全本期清单里可报的品牌**（v772）。
 
-    `free` = 还存在「有活跃商品、但没配 `order_weekdays`」的品牌（不受限）。
+    `period_brands` = 本期预报清单内的品牌全集（有序，来自 `period_brands()`）。
+    `window` = 只含「配了 `order_weekdays`」品牌的判定结果（判定闸门结构不变）。
 
-    四种状态，缺一即说谎：
-      · 无规则 ⇒ 空串（一条限制都没有，谈不上"本期可报"）
-      · 全可报 ⇒ 空串。**没有限制时列白名单就是误导**
-      · 部分可报 ⇒ 「本期可报品牌：A、B」(+ 「，其它品牌均可报」)
-      · 全部不可报 ⇒ 「本期暂无可报品牌」；若 `free` 则改说「其它品牌均可报」
-        —— 此时说"没有可报品牌"是**假的**（不受限的品牌一大堆能报）
+    🔴 没设规则的品牌**不在 `window` 里**，因此天然落进 `ok` —— 这就是
+       「自动归为本期可报品牌」，不需要 `free` 布尔、不需要补一句「其它品牌均可报」。
+    🔴 范围是本期清单，不是全商品档案：列的是**这张单上的品牌**，
+       所以「全可报也列全」不会误导（旧口径按全档案算，才需要靠空串回避）。
+
+    三态：
+      · 清单为空 / 期次无清单 ⇒ 空串（不显示，绝不把"没导入"说成"暂无可报品牌"）
+      · 清单品牌全被挡 ⇒ 「本期暂无可报品牌」
+      · 否则 ⇒ 「本期可报品牌：A、B、C」（没设规则的与放行的一起列）
     """
-    brands = window or {}
-    if not brands:
+    all_brands = [b for b in (period_brands or []) if b]
+    if not all_brands:
         return ""
-    ok = [k for k, v in brands.items() if v.get("orderable")]
-    tail = BANNER_FREE_SUFFIX if free else ""
+    blocked = {k for k, v in (window or {}).items()
+               if v.get("orderable") is False}
+    ok = [b for b in all_brands if b not in blocked]
     if not ok:
-        return BANNER_FREE_ONLY if free else BANNER_NONE_TMPL
-    if len(ok) == len(brands):
-        return ""            # 配了星的都可报 ⇒ 这一期没有任何限制，无需横幅
-    return BANNER_TMPL.format(brands="、".join(ok)) + tail
+        return BANNER_NONE_TMPL
+    return BANNER_TMPL.format(brands="、".join(ok))
 
 
 def preview(rules, periods, limit=8):
@@ -388,28 +379,51 @@ def load_rules(conn=None):
     return rules_from_rows(rows)
 
 
-def has_unrestricted_brand(conn, rules):
-    """是否存在「有活跃商品、但没配 `order_weekdays`」的品牌 —— 即不受报单日限制的品牌。
+def period_brands(conn, period_id, order_start="", order_end=""):
+    """本期预报清单内的品牌（归一、去重、按清单商品数降序）。
 
-    🔴 这个布尔值只影响横幅**敢不敢只说白名单**（见 `banner_for` 的 `free`）：
-       `window` 里只有配了星期的品牌，其余品牌随时可报。漏说这一句，用户会把
-       「本期可报品牌：简爱」读成"今天只有简爱能报"，整个蒙牛低温都不填了。
-       **白名单漏项 = 少报**，比黑名单漏项更危险（后者用户照样填得进去）。
-
-    fail 方向 = **当作有**（`True`）：多说一句"其它品牌均可报"最坏是用户去试一下
-    发现被挡（有弹窗解释）；少说一句则是用户默默少报一期，且零报错、无从发现。
+    🔴 范围 = **本期清单**（`forecast_import_products`），不是全商品档案。
+       用户口径（2026-11-05）：「你要看本期预报里有哪些品牌，而不是看整个系统有几个品牌」。
+       生产 43 期清单 187 项只有 5 个品牌，全档案却有 18 个 —— 按全档案算才需要
+       「其它品牌均可报」这种兜底，按本期清单算可以直接把名字列全。
+    🔴 期次归属条件复用 `erp_db.forecast_period_scope_sql`：与小程序铺开、提交闸门、
+       Web 汇总同一条；自己抄一份 WHERE 就是第二份口径（本项目反复栽过）。
+    🔴 品牌列按 PRAGMA 判存在（老租户库可能缺 `brand`）：硬写不存在的列会整段抛错，
+       被外层 except 吞成空清单 ⇒ 横幅静默消失且零报错，最难查的一类。
+    fail 方向 = 空清单 ⇒ `banner_for` 返回空串 ⇒ 横幅不显示（绝不阻塞报单）。
     """
     try:
+        try:
+            import erp_db as db       # 延迟导入：与 routers/data.py 同源，不形成循环
+            if order_start and order_end:
+                cond, args = db.forecast_period_scope_sql("r"), (period_id, order_start, order_end)
+            else:
+                cond, args = "r.period_id=?", (period_id,)
+        except Exception:
+            # 拿不到唯一口径（例如本地镜像缺 erp_db 的间接依赖）⇒ 退化为精确命中，
+            # 与 `forecast_period_product_ids` 的降级同款；**绝不退化成"全表"**。
+            # 🔴 必须降级而不是让外层 except 吞成空清单：空清单 = 横幅静默消失、零报错。
+            cond, args = "r.period_id=?", (period_id,)
+        rcols = {x[1] for x in conn.execute(
+            "PRAGMA table_info(forecast_import_products)").fetchall()}
+        pcols = {x[1] for x in conn.execute("PRAGMA table_info(products)").fetchall()}
+        bp = "NULLIF(TRIM(p.brand),'')" if "brand" in pcols else "NULL"
+        br = "NULLIF(TRIM(r.brand),'')" if "brand" in rcols else "NULL"
         rows = conn.execute(
-            "SELECT DISTINCT brand FROM products WHERE is_active=1"
+            "SELECT COALESCE(%s, %s, '') AS b, COUNT(*) AS n "
+            "FROM forecast_import_products r LEFT JOIN products p ON p.id=r.product_id "
+            "WHERE (%s) AND r.product_id>0 GROUP BY b" % (bp, br, cond), args
         ).fetchall()
-    except Exception:
-        return True
-    for row in rows:
-        k = normalize_brand(row[0] if row else "")
-        if k and k not in (rules or {}):
-            return True
-    return False
+        seen = []
+        for b, n in rows:
+            k = normalize_brand(b)
+            if k and k not in [x[0] for x in seen]:
+                seen.append((k, n))
+        seen.sort(key=lambda x: (-x[1], x[0]))
+        return [k for k, _ in seen]
+    except Exception as e:
+        log.warning("本期清单品牌读取失败（横幅不显示）: %s", e)
+        return []
 
 
 def period_brand_windows(period_id=None, conn=None, today=None):
@@ -419,11 +433,15 @@ def period_brand_windows(period_id=None, conn=None, today=None):
         {"enabled": bool, "period_id", "order_end", "weekday_cn",
          "banner": str, "brands": {brandKey: judge(...)}, "rules": [...]}
 
+    🔴 v772：`banner` 的品牌范围是**本期预报清单**（`period_brands()`），
+       而 `brands` 仍只含「配了报单日规则」的品牌 —— 判定闸门（提交 / 行内禁用）
+       消费的是 `brands`，结构一字未改，本轮只换横幅口径。
+
     期次不存在 / 已被删 ⇒ `brands={}`、`banner=""`、`enabled` 照常返回。
     调用方据 `brands.get(品牌, {}).get("orderable", True)` 判定 —— **取不到就是可报**。
     """
     ctx = {"enabled": False, "period_id": period_id, "order_end": "",
-           "weekday_cn": "", "banner": "", "free": False, "brands": {}, "rules": []}
+           "weekday_cn": "", "banner": "", "brands": {}, "rules": []}
     try:
         cfg = get_config()
         ctx["enabled"] = bool(cfg.get("enabled"))
@@ -438,20 +456,22 @@ def period_brand_windows(period_id=None, conn=None, today=None):
             #    故按列名取值：缺列 = 空串 = 该期次不下发限制（fail-open 方向不变）。
             cur = c.execute("SELECT * FROM forecast_periods WHERE id=?", (period_id,))
             r = cur.fetchone()
-            oe = ""
+            oe, os_ = "", ""
             if r:
                 d = dict(zip([x[0] for x in (cur.description or [])], r))
                 oe = ((d.get("order_end") or "").strip()
                       or (d.get("order_end_date") or "").strip())
-            # counts 已不需要：主句只报可报品牌名（v765d），排序责任在明细。
+                os_ = ((d.get("order_start") or "").strip()
+                       or (d.get("order_start_date") or "").strip())
             rules = load_rules(c)
-            return oe, rules, has_unrestricted_brand(c, rules)
+            # v772：横幅品牌范围 = 本期预报清单，不是全商品档案。
+            return oe, os_, rules, period_brands(c, period_id, os_, oe)
 
         if conn is not None:
-            oe, rules, free = _collect(conn)
+            oe, os_, rules, pbrands = _collect(conn)
         else:
             with get_db() as c2:
-                oe, rules, free = _collect(c2)
+                oe, os_, rules, pbrands = _collect(c2)
 
         oe = oe or ""
         wd = weekday_of(oe)
@@ -461,14 +481,16 @@ def period_brand_windows(period_id=None, conn=None, today=None):
         #    「有规则、只是本期都放行」，日后排查会被这条假信号误导。
         if wd is None:
             ctx["order_end"] = oe
+            # 截止日缺失 ⇒ 判定不可用 ⇒ 本期清单里的品牌全部可报，照常列全。
+            # （fail-open 方向不变：宁可列全，不可误说"暂无可报品牌"。）
+            ctx["banner"] = banner_for({}, pbrands)
             return ctx
         wm = window_map(oe, rules, True, today)
         ctx.update({
             "order_end": oe,
             "weekday_cn": ("周" + WEEKDAY_LABELS[wd]) if wd else "",
             "brands": wm,
-            "banner": banner_for(wm, free),
-            "free": bool(free),
+            "banner": banner_for(wm, pbrands),
             "rules": [
                 {"brand": k, "weekdays": v.get("weekdays"),
                  "weekdays_cn": weekdays_full(v.get("weekdays") or []),
@@ -479,7 +501,7 @@ def period_brand_windows(period_id=None, conn=None, today=None):
     except Exception as e:
         log.warning("period_brand_windows 失败，按「全放行」处理: %s", e)
         return {"enabled": False, "period_id": period_id, "order_end": "",
-                "weekday_cn": "", "banner": "", "free": False, "brands": {}, "rules": []}
+                "weekday_cn": "", "banner": "", "brands": {}, "rules": []}
     return ctx
 
 
@@ -495,8 +517,6 @@ def spec():
         "tip_tmpl": TIP_TMPL,
         "banner_tmpl": BANNER_TMPL,
         "banner_none_tmpl": BANNER_NONE_TMPL,
-        "banner_free_only_tmpl": BANNER_FREE_ONLY,
-        "banner_free_suffix": BANNER_FREE_SUFFIX,
         "lock_tmpl": LOCK_TMPL,
         "lock_tmpl_no_date": LOCK_TMPL_NO_DATE,
     }

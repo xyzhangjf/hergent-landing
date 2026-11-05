@@ -87,6 +87,19 @@ def build_db(path, with_rules=True, rules_weekdays='', with_periods=True,
               "id INTEGER PRIMARY KEY, brand TEXT, is_active INTEGER)")
     for i, b in enumerate(['简爱'] * 71 + ['蒙牛低温'] * 162 + ['蒙牛鲜奶'] * 39, start=1):
         c.execute("INSERT INTO products VALUES(?,?,1)", (i, b))
+    # v772：全档案有、本期清单没有的品牌 —— 用来反证「横幅不按全档案算」。
+    c.execute("INSERT INTO products VALUES(273,'君乐宝',1)")
+    # v772：横幅口径 = **本期预报清单**，夹具必须真的有这张表。
+    #   清单里 3 个品牌项数刻意不同（3/2/1）⇒ 横幅按项数降序列全，顺序可被断言锁死。
+    c.execute("CREATE TABLE forecast_import_products("
+              "id INTEGER PRIMARY KEY, period_id INTEGER, order_date TEXT, "
+              "product_id INTEGER, brand TEXT)")
+    if with_periods:
+        for pid, oe in PERIODS:
+            for product_id, n in [(72, 3), (234, 2), (1, 1)]:   # 蒙牛低温 / 蒙牛鲜奶 / 简爱
+                for _ in range(n):
+                    c.execute("INSERT INTO forecast_import_products VALUES(NULL,?,?,?,NULL)",
+                              (pid, oe, product_id))
     c.commit()
     c.close()
 
@@ -116,7 +129,7 @@ def main():
             from domain.brand_order_window import (
                 normalize_brand, weekday_of, weekdays_short, weekdays_full, tip_for,
                 rules_from_rows, judge, window_map, banner_for, preview,
-                next_order_date, lock_msg_for, has_unrestricted_brand,
+                next_order_date, lock_msg_for, period_brands,
             )
         except Exception as e:
             print('\u274c 判定内核无法导入：%r' % (e,))
@@ -174,34 +187,32 @@ def main():
         ok(weekdays_full([1, 4]) == '周一、周四', 'E2 full')
         ok(tip_for([7]) == '该商品可报单时间为每周日，本期不可提报', 'E3 单星期周日')
 
-        print('=== F 横幅（v765d：只报可报品牌，不点名不可报）===')
-        # 🔴 判据方向变了：v765b 锁的是「主句不列品牌名」，现在锁的是
-        #    「主句**只**列可报品牌、且绝不出现不可报品牌名」。
-        #    这两条必须一起断言 —— 只锁前者，把 old 实现换回来也全绿。
-        ok(banner_for({}) == '', 'F1 无规则 → 空串')
-        ok(banner_for({'简爱': {'orderable': True}}) == '', 'F2 全可报 → 空串（列白名单＝误导）')
-        b3 = banner_for({'简爱': {'orderable': False}, '蒙牛低温': {'orderable': True}})
-        ok(b3 == '本期可报品牌：蒙牛低温', 'F3 🔴 正向句只列可报品牌：' + b3)
+        print('=== F 横幅（v772：按本期清单一列全可报品牌）===')
+        # 🔴 三态判据：范围只认本期清单 / 没规则的自动算可报 / 全被挡才说"暂无"。
+        #   旧口径按全商品档案算，才需要「其它品牌均可报」和 free 布尔；
+        #   本期清单只有几个品牌，直接列全即可，两段式白名单整套撤销。
+        P5 = ['蒙牛低温', '蒙牛鲜奶', '友芝友', '新希望', '简爱']
+        ok(banner_for({}, []) == '', 'F1 清单为空 → 空串（不把"没导入"说成"暂无可报"）')
+        ok(banner_for({}, P5) ==
+           '本期可报品牌：蒙牛低温、蒙牛鲜奶、友芝友、新希望、简爱',
+           'F2 🔴 一条规则都没有 ⇒ 本期清单品牌全部可报、直接列全')
+        b3 = banner_for({'新希望': {'orderable': True}, '简爱': {'orderable': False}}, P5)
+        ok(b3 == '本期可报品牌：蒙牛低温、蒙牛鲜奶、友芝友、新希望',
+           'F3 只剔除被挡品牌：' + b3)
         ok('简爱' not in b3, 'F4 🔴 绝不点名不可报品牌')
-        b5 = banner_for({'简爱': {'orderable': False}})
-        ok(b5 == '本期暂无可报品牌', 'F5 🔴 全禁必须留一句（整条消失＝用户以为没限制）')
-        ok('简爱' not in b5, 'F6 全禁那句同样不点名品牌')
-        # 🔴 free=True（还有没配报单日的品牌）—— 生产就是这个形态：
-        #    只有简爱/新希望配了星期，蒙牛低温等几百个商品随时可报。
-        #    这时只说「本期可报品牌：简爱」会让用户以为别的都不能报 ⇒ 整片少报。
-        ok(banner_for({'简爱': {'orderable': False}, '新希望': {'orderable': True}}, True)
-           == '本期可报品牌：新希望，其它品牌均可报', 'F7 🔴 有 free 品牌必须交代兜底')
-        ok(banner_for({'简爱': {'orderable': False}}, True) == '本期可报品牌：其它品牌均可报',
-           'F8 🔴 受限品牌全禁 + 有 free ⇒ 不能说"暂无可报品牌"（那是假话）')
-        ok(banner_for({'简爱': {'orderable': True}}, True) == '',
-           'F9 全可报仍然不渲染（有没有 free 都一样）')
+        ok('其它' not in b3, 'F5 🔴 不再有把白名单拆成两段的兜底句')
+        b6 = banner_for({'简爱': {'orderable': False}}, ['简爱'])
+        ok(b6 == '本期暂无可报品牌', 'F6 🔴 清单品牌全被挡 ⇒ 留一句')
+        ok('简爱' not in b6, 'F7 全禁那句同样不点名品牌')
+        ok(banner_for({'简爱': {'orderable': None}}, ['简爱']) == '本期可报品牌：简爱',
+           'F8 🔴 orderable 缺失（老后端）按可报，不许真值判断')
 
         _fc = sqlite3.connect(db_main)
-        ok(has_unrestricted_brand(_fc, {}) is True, 'F10 一条规则都没有 ⇒ 有 free')
-        ok(has_unrestricted_brand(_fc, {'简爱': {}, '蒙牛低温': {}, '蒙牛鲜奶': {}}) is False,
-           'F11 🔴 品牌配齐（归一后比对）⇒ 无 free，横幅不许再提"其它品牌"')
-        ok(has_unrestricted_brand(_fc, {'简爱': {}, '蒙牛低温': {}}) is True,
-           'F12 漏一个品牌就算 free')
+        pb = period_brands(_fc, 42, '', '2026-11-04')
+        ok(pb == ['蒙牛低温', '蒙牛鲜奶', '简爱'],
+           'F9 🔴 本期清单品牌（按清单项数降序）: %r' % (pb,))
+        ok(len(pb) == 3 and '君乐宝' not in pb,
+           'F10 🔴 只认本期清单，全档案里那个"君乐宝"不许混进来')
         _fc.close()
 
         print('=== L 拦截弹窗文案（v765d：本期不可报 + 哪天再来）===')
@@ -281,7 +292,8 @@ def main():
         ctx = bw.period_brand_windows(42)
         ok(ctx['enabled'] is True, 'M1 enabled=True')
         ok(ctx['brands'] == {}, 'M2 🔴 无人配星期 ⇒ 无任何限制')
-        ok(ctx['banner'] == '', 'M3 横幅空串')
+        ok(ctx['banner'] == '本期可报品牌：蒙牛低温、蒙牛鲜奶、简爱',
+           'M3 🔴 无人配星期 ⇒ 本期清单品牌全部可报、直接列全：' + ctx['banner'])
         ok(ctx['order_end'] == '2026-11-04', 'M4 读到 order_end')
         ok(ctx['weekday_cn'] == '周三', 'M5 星期中文')
 
@@ -294,16 +306,16 @@ def main():
         ok('简爱' in ctx42['brands'], 'N1 简爱进判定表')
         ok(ctx42['brands']['简爱']['orderable'] is False, 'N2 🔴 周三 42 不可报')
         ok(ctx42['brands']['简爱']['tip'] == '该商品可报单时间为每周一、四，本期不可提报', 'N3 提示文案')
-        # N 段夹具里只有「简爱」一个品牌配了规则 ⇒ 本期**全禁**。
-        # 这一格是全套里最容易被写成空串的地方（旧实现就是空串）—— 但整条横幅消失
-        # 等于告诉用户"这期没限制"，然后每一行都被挡、页面顶部找不到任何解释。
-        # 夹具 products 里有「蒙牛低温 / 蒙牛鲜奶」而规则只配了简爱 ⇒ free=True，
-        # 所以这里的正确输出是「其它品牌均可报」，**不是**"暂无可报品牌"。
-        ok(ctx42['banner'] == '本期可报品牌：其它品牌均可报',
-           'N4 🔴 全禁 + 有 free 品牌 → 说"其它可报"：' + ctx42['banner'])
-        ok(ctx42['free'] is True, 'N4b 🔴 下发 free 标记（前端据此解释"其它品牌"）')
+        # v772：本期清单 3 个品牌，只有简爱被挡 ⇒ 横幅直接列另外两个，
+        # 不再有 free 布尔，也不再有把白名单拆成两段的兜底句。
+        ok(ctx42['banner'] == '本期可报品牌：蒙牛低温、蒙牛鲜奶',
+           'N4 🔴 剔除被挡品牌后列全本期清单：' + ctx42['banner'])
+        ok('其它' not in ctx42['banner'] and 'free' not in ctx42,
+           'N4b 🔴 旧兜底句与 free 标记均已撤销')
         ok(bw.period_brand_windows(41)['brands']['简爱']['orderable'] is True, 'N5 🔴 周一 41 可报')
-        ok(bw.period_brand_windows(41)['banner'] == '', 'N6 全可报 → 无横幅')
+        ok(bw.period_brand_windows(41)['banner'] ==
+           '本期可报品牌：蒙牛低温、蒙牛鲜奶、简爱',
+           'N6 🔴 全可报也列全（本期清单口径，不再是空串）')
 
         print('=== U 缺 order_end_date 列的租户（tenant_10 / 新租户）===')
         # 🔴 这一段的成因：`period_brand_windows` 原来写
@@ -315,7 +327,10 @@ def main():
         ok(c_old['order_end'] == '2026-11-04', 'U1 缺列仍读到 order_end：' + repr(c_old['order_end']))
         ok(c_old['brands'].get('简爱', {}).get('orderable') is False,
            'U2 🔴 缺列不许把限制吞成全放行')
-        ok(c_old['banner'] == '本期可报品牌：其它品牌均可报', 'U3 缺列仍能出横幅：' + c_old['banner'])
+        # db_old 夹具的 4 条规则**全部**带 '1,4'（含归一后的「蒙牛鲜奶」），
+        # 42 期周三 ⇒ 简爱与蒙牛鲜奶都被挡，本期清单里只剩「蒙牛低温」可报。
+        ok(c_old['banner'] == '本期可报品牌：蒙牛低温',
+           'U3 缺列仍能出横幅（被挡品牌照常剔除）：' + c_old['banner'])
         conn_old.close()
 
         print('=== O 边界 ===')
@@ -328,6 +343,8 @@ def main():
         ok(rl['简爱']['rule_id'] == 9, 'P2 带 rule_id')
         sp = bw.spec()
         ok(sp['enabled'] is True and '{wd}' in sp['tip_tmpl'], 'Q1 spec 带开关与文案模板')
+        ok('banner_free_suffix' not in sp and 'banner_free_only_tmpl' not in sp,
+           'Q2 🔴 spec 不再下发旧兜底话术模板')
 
         print('=== S weekdays_label（行内短标签，v765 小程序用）===')
         ctx42 = bw.period_brand_windows(42)
@@ -408,8 +425,14 @@ SAMPLES = [
      'TIP_TMPL = "该商品可报单时间为每周{wd}，本期不可提报"',
      'TIP_TMPL = "该商品本期不可提报"'),
     ("期次不存在时照常下发限制（fail-safe 失效）", "domain/brand_order_window.py",
-     "        if wd is None:\n            ctx[\"order_end\"] = oe\n            return ctx",
-     "        if False:\n            ctx[\"order_end\"] = oe\n            return ctx"),
+     "        if wd is None:\n            ctx[\"order_end\"] = oe",
+     "        if False:\n            ctx[\"order_end\"] = oe"),
+    ("横幅品牌范围退回「只列配了规则的品牌」", "domain/brand_order_window.py",
+     "    all_brands = [b for b in (period_brands or []) if b]",
+     "    all_brands = [b for b in (window or {}) if b]"),
+    ("横幅改回按全商品档案取品牌（不认本期清单）", "domain/brand_order_window.py",
+     "        rcols = {x[1] for x in conn.execute(",
+     "        return [x[0] for x in conn.execute(\"SELECT DISTINCT brand FROM products WHERE is_active=1\").fetchall() if x[0]]\n        rcols = {x[1] for x in conn.execute("),
     ("空星期被当成规则（把没配的人全锁死）", "domain/brand_order_window.py",
      "        if not ws:\n            continue",
      "        if False:\n            continue"),

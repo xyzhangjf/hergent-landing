@@ -54,21 +54,20 @@ Page({
        两条横幅**互斥渲染**（服务端优先）：一屏出现两条「本期已报」是最容易让人不信数字的
        那种 UI 缺陷（v735 同族：同一语义两处显示，各自都对、合起来是错的）。 */
     serverSub: null,
-    /* v765 / v765d（2026-11-04）：**品牌报单日窗口**。
+    /* v765 / v772（2026-11-05）：**品牌报单日窗口**。
        数据来自 `GET /api/forecast/brand-window?period_id=`，逐品牌给
        `{ orderable, weekdays_label, tip, lock_msg, next_date }`；前端只做三件事：
        行内短标签 / 行禁用 / 顶部横幅。**一个星期的推算都不在这里做**
        （2 天/期 与 7 天/周 互质 ⇒ 星期以 7 期为周期循环，这条算法只许有一份实现）。
        · `bwBrands` = 品牌 label -> { orderable, cn, tip, lock_msg }（空对象 = 全放行）
-       · `bwBanner` = **正向**横幅句（`本期可报品牌：A、B`；空串 ⇒ 整条不渲染）
-       · `bwDetail` = 展开后逐品牌的可报星期
-       🔴 v765d 口径（用户原话）：只说"本期能报什么"，**不说"哪些不能报"**。
-          报单是"我要填什么"的场景，用户要的是白名单，不是黑名单 + 再点开一次。
-       取不到 / 接口失败 / 老板没开开关 ⇒ 三项都空 ⇒ 行为与 v764 一字不差。 */
+       · `bwBanner` = 完整的一句「本期可报品牌：…」（空串 ⇒ 整条不渲染）
+       🔴 v772 口径：品牌范围 = **本期预报清单**。没配报单日的品牌后端自动算可报，
+          主句一次列全；不再有「其它品牌均可报」，也撤掉了可展开明细
+          （主句已是完整清单，再展开就是重复一遍同样的话）。
+       🔴 只说"本期能报什么"，**不说"哪些不能报"**。
+       取不到 / 接口失败 / 老板没开开关 ⇒ 两项都空 ⇒ 行为与 v764 一字不差。 */
     bwBrands: {},
     bwBanner: '',
-    bwDetail: '',
-    bwOpen: false,
     /* v227（2026-09-21）：样单来源回执 —— { name, count, qty, outTip, outOfScope }。
        它回答的是"车里这些数从哪来、跟本期清单合不合"—— 而这个答案直接决定用户下一步
        是"直接提交"还是"先改几个"（需求原话：「如果无需修改，则可直接提交」）。
@@ -1451,7 +1450,7 @@ Page({
       // 没期次 ⇒ 一定没有任何限制（判定依赖期次的报单截止日）
       this._bwPid = ''
       if (this.data.bwBanner || Object.keys(this.data.bwBrands || {}).length) {
-        this.setData({ bwBrands: {}, bwBanner: '', bwDetail: '', bwOpen: false })
+        this.setData({ bwBrands: {}, bwBanner: '' })
       }
       return Promise.resolve()
     }
@@ -1461,7 +1460,6 @@ Page({
       .then(d => {
         if (this._bwPid !== p) return          // 竞态：回来时已切走（与 loadProducts 的 _seq 同理）
         const brands = {}
-        const parts = []
         for (const k of Object.keys((d && d.brands) || {})) {
           const b = (d.brands || {})[k] || {}
           brands[k] = {
@@ -1473,17 +1471,12 @@ Page({
                日期一加必然漂（谁拼谁负责，两处拼必有两套标点与措辞）。 */
             lock_msg: String(b.lock_msg || '')
           }
-          /* 明细**只列可报品牌**：主句已给名字，这里补的是"哪天能报"。
-             不可报品牌一个都不出现 —— 这是 v765d 的硬要求，不是排版偏好。 */
-          if (brands[k].orderable !== false) {
-            parts.push(k + (brands[k].cn ? '（' + brands[k].cn + '）' : ''))
-          }
         }
+        /* v772：横幅整句由后端按**本期预报清单**给（没配规则的品牌已算进去），
+           前端只渲染、不拼品牌名、不补兜底句、不展开明细。 */
         this.setData({
           bwBrands: brands,
-          bwBanner: String((d && d.banner) || ''),
-          bwDetail: parts.join(' · '),
-          bwOpen: false
+          bwBanner: String((d && d.banner) || '')
         })
       })
       .catch(e => {
@@ -1493,8 +1486,6 @@ Page({
         console.warn('[fill] 品牌报单日拉取失败（按全放行）:', e && e.message)
       })
   },
-
-  toggleBw() { this.setData({ bwOpen: !this.data.bwOpen }) },
 
   /* 行内短标签：`周一、四可报`。取不到（还没拉到 / 没配）⇒ 空串，模板退到通用句。 */
   _bwShort(item) {

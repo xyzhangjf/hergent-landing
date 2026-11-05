@@ -294,15 +294,13 @@
    🔴 三色**原样复用**已有值（底 #fff7ed / 描边 #fed7aa / 正文 #9a3412，均出自
       .pending-bar 与 .cf-dup）：v763 的教训是"每加一个浅底就多一个值"，
       同一个语义位置出现第二个色值就是 bug，哪怕肉眼分不出。
-   🔴 正文色分两级：#9a3412 主句 / #b45309 明细 —— 明细压 #fff7ed 约 4.6:1，
-      达到文字 4.5:1；主句 7.1:1。 */
+   🔴 正文色 #9a3412 压 #fff7ed 约 7.1:1。v772 起主句已是完整清单、展开明细撤销
+      ⇒ 不再需要第二级明细色（一个语义位置出现第 2 个色值就是 bug）。 */
 .bw-bar{display:flex;align-items:stretch;margin:12rpx 32rpx 0;background:#fff7ed;
   border:1rpx solid #fed7aa;border-radius:14rpx;overflow:hidden}
 .bw-accent{width:6rpx;background:#ea580c;flex:none}
 .bw-body{flex:1;min-width:0;padding:14rpx 18rpx}
 .bw-title{display:block;font-size:24rpx;font-weight:500;color:#9a3412;line-height:1.45}
-.bw-sub{display:block;font-size:22rpx;color:#b45309;margin-top:6rpx;line-height:1.5}
-.bw-go{flex:none;align-self:center;padding:0 20rpx 0 8rpx;font-size:24rpx;color:#9a3412}
 
 /* 【行内禁用态】只压数量区，**不整行变灰**：
    名称/条码/规格仍要看得清（用户要能确认"就是这一行"）。
