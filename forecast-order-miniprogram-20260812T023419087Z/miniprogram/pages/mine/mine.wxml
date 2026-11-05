@@ -95,7 +95,11 @@
           </view>
           <view class="rec-items" wx:if="{{expandedId === item.id}}">
             <view class="rec-item" wx:for="{{item.items}}" wx:for-item="it" wx:key="index">
-              <text class="it-name">{{it.product_name}} {{it.spec}}</text>
+              <!-- v777（2026-11-05）：展开明细只显示「商品名 + 数量单位」，不再显示规格。
+                   🔴 只撤**显示**：`spec` 仍由 mine.js 的 copyRecord 原样带回填报页，
+                      填报页靠规格确认「就是这一行」（fill.wxml 的 .prod-spec / .cart-spec）。
+                      别顺手删数据层或改 copyRecord 的 map，否则复制/继续修改会丢规格。 -->
+              <text class="it-name">{{it.product_name}}</text>
               <text class="it-qty">{{it.quantity}} {{it.unit}}</text>
             </view>
           </view>

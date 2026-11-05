@@ -784,6 +784,23 @@ if (has('skip-sfc')) {
   results.push({ name: '导购通知受众', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊿ 我的预报提交去掉商品规格显示（v777）──────────────────────
+/* 用户只要求「显示去掉」，范围＝mine.wxml 的 .rec-item 明细行。
+   🔴 两条反向破坏：① 顺手删 mine.js::copyRecord 的 spec ⇒ 复制/继续修改
+      静默丢规格（填报页靠它确认商品行），编译与请求都不报错；
+      ② 全仓替换 spec ⇒ 填报页 .prod-spec/.cart-spec、汇总 .pspec、
+      隐私协议的「规格」字段全被误删，而服务端仍确实在收集该字段。
+   15 条静态判据（剥注释后判结构，防注释自撞）+ 15 个坏样本（含
+   「注释声称已去掉、代码没改」「用 wx:if=false 藏规格」）自证。
+   🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs（v748 起连踩三轮）。 */
+{
+  console.log('\n── ㊿ 我的预报提交去掉商品规格显示（v777）──')
+  const r = run('miniprogram-mine-spec.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '我的提交去规格', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
