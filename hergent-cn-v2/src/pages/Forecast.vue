@@ -6394,11 +6394,12 @@ async function conflictOverride() {
    本函数先尝试按「列名 = 客户列」建立映射，命中则按行匹配商品名后写入数量；
    未命中返回 false，由 onPaste 回退到主档粘贴逻辑。 */
 function tryPasteCross(block) {
-  /* v379（P0·C-2）：与区块粘贴共用 `pasteCellEmpty`，且**只有一种语义：源格为空就跳过**。
-     🔴 曾经设计过「Alt 覆盖空值」出口，已**撤除** —— 实测 `ClipboardEvent` 只有 `clipboardData`，
-        `'altKey' in new ClipboardEvent('paste') === false` ⇒ 真实 paste 事件上 `e.altKey` 恒为
-        undefined，那个分支**永远不会进**（＝假旋钮）；且 macOS 的 Option+V 在 Chrome 里是输入「√」
-        而非粘贴。要清空某些格请：先选中 → Delete，再粘贴。 */
+  /* v783（P0·C-2 反转 v379）：与区块粘贴共用 `pasteCellEmpty`，语义统一为**空白也覆盖清空**
+     （qty 列置 0、文本列置空），不再「原值保留」。
+     🔴 v379 当年担心「源表空白静默清零」，但本表空白语义就是「这一期不报」，改单清空即此意；
+        现改为在提示里明确报出「清空了几格」，报出来就不算静默事故。
+     🔴 曾设计「Alt 覆盖空值」出口，已确认 `ClipboardEvent.altKey` 在真实 paste 事件上恒为 undefined
+        （假旋钮），故不依赖修饰键。 */
   if (!block.length || block[0].length < 2) return false
   const head = block[0]
   const nameIdx = head.findIndex(h => /名称|品名|货品|商品/.test(String(h == null ? '' : h).trim()))
@@ -6415,7 +6416,7 @@ function tryPasteCross(block) {
   const dataRows = block.slice(1)
   if (!dataRows.length) return false
   snapshot()
-  let added = 0, updated = 0, bad = 0, skipped = 0, blank = 0
+  let added = 0, updated = 0, bad = 0, skipped = 0, cleared = 0
   /* v756：落点包围盒。这条路径按「商品名匹配行、列名匹配客户列」写 ⇒ 落点**不是**一个从剪贴板
      左上角起算的矩形（客户列可能不连续、商品行也可能散落）。取所有实际写入格的包围盒：
      视觉上就是"这批数据落进了这一片"，语义正确，也比逐个格闪烁更容易一眼看清范围。 */
@@ -6430,15 +6431,17 @@ function tryPasteCross(block) {
     const nm = String(cells[nameIdx] == null ? '' : cells[nameIdx]).trim()
     if (!nm) { skipped++; return }
     let ri = cross.value.rows.findIndex(r => String(r.name || '').trim() === nm)
-    if (ri < 0) {
+    const isNew = ri < 0
+    if (isNew) {
       cross.value.rows.push({ ...blankRow(), name: nm, _new: true })
       ri = cross.value.rows.length - 1
       added++
     } else updated++
     map.forEach(({ bi, c }) => {
-      /* v379（C-2 同源）：客户列里的空格 = 「这一期这个客户没报这个商品」⇒ 不覆盖原值 */
+      /* v783（反转 v379）：客户列空格也覆盖清空（qty→0、文本→空），不再原值保留。
+         新商品行默认已是 0，跳过不计入「清空」。 */
       const v = cells[bi]
-      if (pasteCellEmpty(v)) { blank++; return }
+      if (pasteCellEmpty(v)) { if (!isNew) { writeCellVal(ri, c, ''); cleared++ } return }
       writeCellVal(ri, c, v)
       if (cellInvalid(ri, c)) bad++
       _hit(ri, c)
@@ -6447,10 +6450,10 @@ function tryPasteCross(block) {
   toast(`已按客户列粘贴：新增 ${added} 个商品 · 更新 ${updated} 个商品`
     + (_minR >= 0 ? ` → 落点「${pasteRowName(_minR)}」~「${pasteRowName(_maxR)}」第 ${_minC - visibleCols.value.length + 1}~${_maxC - visibleCols.value.length + 1} 个客户（已用主色框标出）` : '')
     + (skipped ? ` · 跳过 ${skipped} 行（无商品名称）` : '')
-    + (blank ? ` · 跳过 ${blank} 个空格（原值保留）` : '')
+    + (cleared ? ` · 清空 ${cleared} 个空白格` : '')
     + (bad ? ` · ${bad} 格不合法（已标红）` : '')
     + (added && brandSel.value.length ? ' · 品牌筛选生效中，品牌为空的新行暂不显示' : '')
-    + '（改完点「保存」）', bad || skipped || blank ? 'warn' : 'ok')
+    + '（改完点「保存」）', bad || skipped || cleared ? 'warn' : 'ok')
   /* v756：与区块粘贴同款三件套（扩渲染 → 标落点 → 滚到眼前），顺序理由见 pasteRegion 注释。 */
   if (_minR >= 0) {
     ensureRowsRendered(_maxR)
@@ -9184,7 +9187,7 @@ function batchWrite(val) {
      用户感受与区块粘贴完全一样 ⇒ 落点反馈必须同款，否则「有的粘贴有框、有的没有」更难理解。 */
   ensureRowsRendered(r1)
   markPasteLand(r0, c0, r1, c1)
-  toast(`已批量写入 ${n} 个单元格`, 'ok')
+  toast(pasteCellEmpty(val) ? `已清空 ${n} 个单元格` : `已批量写入 ${n} 个单元格`, 'ok')
 }
 // 批量清除：清空选区（或单格）内容（Delete / Backspace，非编辑态）
 function clearRange() {
@@ -10411,14 +10414,17 @@ function doJump() {
   jumpToCell(selected.value.r >= 0 ? selected.value.r : 0, visibleCols.value.length + ui)
   toast(`已定位到客户列「${cross.value.units[ui].name}」`, 'ok')
 }
-/* v379（P0·C-2）：粘贴时「源格为空该不该覆盖」只有**这一个判据** ——
-   区块粘贴（pasteRegion）与交叉表粘贴（tryPasteCross）共用，不再两处各写一套。
-   空格一律**不覆盖**（= Excel 的「跳过空单元格」语义）。
-   🔴 为什么算数据事故级：从微信 / Excel 复制一批数量时，源表里的空单元格会把本表已有数据
-      **静默清零**（用户以为「只更新了有数的那些格」），且全程不报任何错。
-   ✅ 要真覆盖（把这些格清掉）就按住 Alt / Option 粘贴 —— 与 Excel 的开关同义，只是默认取反：
-      本表里「空」表达的是「这一期不报」，不是「把它清掉」。 */
-function pasteCellEmpty(v) { return v === '' || v === null || v === undefined }
+  /* v783（P0·C-2 反转 v379）：粘贴时「源格为空是否覆盖」的**唯一判据** ——
+   区块粘贴（pasteRegion）与交叉表粘贴（tryPasteCross）共用 `pasteCellEmpty`，不再两处各写一套。
+   🔴 v379 当年：空格一律**不覆盖**（防静默清零）。但本表里「空白」语义就是「这一期不报」，
+      改单时你从 Excel 把某商品清空/改成空白，本意就是「这期清零」——结果它不给你清、还静默
+      留着旧值，用户以为粘上了实际没变（漏订货 / 错订货）。这是 2026-11-06 报障的真实痛点。
+   ✅ 现改为**空白也覆盖**：源表空白 → qty 列置 0、文本/计算列置空，与 Excel 习惯一致。
+   ⚠️ v379 当年真正怕的是「**静默**清零」（全程不报错）—— 现改为在提示里明确报出「清空了几格」，
+      报出来就不再是事故。唯一保留的安全网是「尾行整行空白不白白带出空商品行」（见 pasteRegion）。
+   🔴 注：曾经设计过「Alt/Option 覆盖空值」出口，已确认 `ClipboardEvent.altKey` 在真实 paste 事件
+      上恒为 undefined（假旋钮），故不依赖修饰键，改用「默认即覆盖 + 明确上报」。 */
+  function pasteCellEmpty(v) { return v === '' || v === null || v === undefined }
 
 // 区块单元格粘贴：从选中格（或选区左上角）起逐格写入，行超界自动补空商品行、列超界截断
 function pasteRegion(text) {
@@ -10443,23 +10449,28 @@ function pasteRegion(text) {
         它已经带 snapshot / 只读列跳过 / parseNumInput 收敛 / 按实际写入格数报数。 */
   const _sr0 = selRange.value
   if (rows === 1 && useCols === 1 && _sr0 && (_sr0.r1 > _sr0.r0 || _sr0.c1 > _sr0.c0)) {
-    const v = block[0][0]
-    if (pasteCellEmpty(v)) { toast('粘贴内容为空，未改动任何数据', 'warn'); return }
-    batchWrite(v)
+    /* v783：单值铺满选区，复制的若是空白即「清空整片选区」（与空白覆盖清空同义），
+        不再因「粘贴内容为空」被拒。 */
+    batchWrite(pasteCellEmpty(block[0][0]) ? '' : block[0][0])
     return
   }
-  /* v379：**先算清哪些格真要写**再动数据 —— 全空的粘贴不该补空商品行、也不该留一条撤销记录。 */
-  const writes = []
-  let skipped = 0
+  /* v783：先算清哪些格是「改值」、哪些是「源表空白要清空」—— 两件事分开，互不串。
+     空白也覆盖（反转 v379）：但补行只按「有非空值写入的最后一行」算，
+     尾行整行是空白时不白白带出一个空商品行。 */
+  const writes = []   // 非空单元格：真正改值
+  const clears = []   // 源表空白单元格：覆盖清空原值（qty→0、文本/计算列→空）
+  let maxWriteR = -1
   for (let i = 0; i < rows; i++)
     for (let j = 0; j < useCols; j++) {
       const v = (block[i] || [])[j]
-      if (pasteCellEmpty(v)) { skipped++; continue }
-      writes.push({ r: sr + i, c: sc + j, v })
+      const R = sr + i, C = sc + j
+      if (pasteCellEmpty(v)) { clears.push({ r: R, c: C }); continue }
+      writes.push({ r: R, c: C, v })
+      if (R > maxWriteR) maxWriteR = R
     }
-  if (!writes.length) { toast('粘贴内容为空，未改动任何数据', 'warn'); return }
-  /* 补行按**实际会写到的最后一行**算 —— 尾行整行是空格时不该白白带出一个空商品行 */
-  const needRows = writes[writes.length - 1].r + 1
+  if (!writes.length && !clears.length) { toast('粘贴内容为空，未改动任何数据', 'warn'); return }
+  /* 补行按**有非空值写入的最后一行**算 —— 尾行整行空白不白白带出空商品行 */
+  const needRows = maxWriteR + 1
   while (cross.value.rows.length < needRows) cross.value.rows.push(blankRow())
   snapshot()
   // Q13：粘贴后立即统计非法格，不再等到「保存」才告诉用户埋了雷
@@ -10468,6 +10479,11 @@ function pasteRegion(text) {
     writeCellVal(w.r, w.c, w.v)
     if (cellInvalid(w.r, w.c)) bad++
   }
+  /* v783：空白格覆盖清空 —— 只清已存在的行（不越界造空行）。 */
+  let cleared = 0
+  for (const k of clears) {
+    if (k.r < cross.value.rows.length) { writeCellVal(k.r, k.c, ''); cleared++ }
+  }
   /* v756：**把落点说出来** —— 坐标走 `pasteRowName/pasteColName`（与交叉表粘贴共用同一实现）。 */
   const _rEnd = sr + rows - 1, _cEnd = sc + useCols - 1
   const _span = (rows > 1 || useCols > 1)
@@ -10475,7 +10491,7 @@ function pasteRegion(text) {
     : `「${pasteRowName(sr)}」·「${pasteColName(sc)}」`
   toast(`已粘贴 ${rows} 行 × ${useCols} 列 → 落点 ${_span}（已用主色框标出）`
     + (truncated ? '（右侧列超出表格已截断）' : '')
-    + (skipped ? `，跳过 ${skipped} 个空格（原值保留）` : '')
+    + (cleared ? `，清空 ${cleared} 个空白格` : '')
     + (bad ? `，其中 ${bad} 格不合法（已标红，需修正后才能保存）` : ''), bad ? 'warn' : 'ok')
   /* v756：**标出来 + 滚到眼前**（原来只有上面那条数字 toast）。
      三件事缺一不可：

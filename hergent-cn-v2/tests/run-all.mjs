@@ -601,6 +601,20 @@ if (has('skip-sfc')) {
   results.push({ name: '纯数字列粘贴拦截', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊱·c 粘贴「空白 / 0」覆盖清空（v783）────────────────────────
+/* 报障（2026-11-06）：Excel 把某商品改成 0 或空白，粘贴进系统若系统当前值不是 0/空白，
+   这一格粘不进去。根因是 v379 刻意让粘贴空格一律不覆盖（防静默清零），但本表空白语义本就
+   是「这一期不报」，改单清空即此意，被故意跳过反而静默留旧值。v783 反转：空白也覆盖清空
+   （qty→0、文本→空），提示明确报出「清空了几格」，尾行整行空白不撑空行。
+   🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs（v748 起连踩三轮）。 */
+{
+  console.log('\n── ㊱·c 粘贴空白/0 覆盖清空（v783）──')
+  const r = run('forecast-paste-blank-clears.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '粘贴空白覆盖清空', ok: r.code === 0, code: r.code })
+}
+
 // ── ㊲ 填报页商品行（条码 + 名称可展开，v760）──────────────────────
 /* 需求（2026-11-04）：商品名下方展示条码；名称超长省略号 + 点击展开；库存/日均那行撤掉。
    本块钉四组：① 条码空值不渲染且整串不截断；② 截断交 CSS 不按字数切；
