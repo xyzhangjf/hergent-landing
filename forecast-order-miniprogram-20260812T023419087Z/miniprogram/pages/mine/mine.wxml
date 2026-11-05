@@ -100,7 +100,10 @@
                       填报页靠规格确认「就是这一行」（fill.wxml 的 .prod-spec / .cart-spec）。
                       别顺手删数据层或改 copyRecord 的 map，否则复制/继续修改会丢规格。 -->
               <text class="it-name">{{it.product_name}}</text>
-              <text class="it-qty">{{it.quantity}} {{it.unit}}</text>
+              <!-- v778：数量与单位连成一个整体，中间不留可折行的空格 —— 商品名换行时
+                   flex 会压缩右侧，旧写法「{{数量}} {{单位}}」的空格成了折行点，
+                   「24」与「瓶」会被挤成两行。样式侧另有 flex:none + nowrap 双保险。 -->
+              <text class="it-qty">{{it.quantity}}{{it.unit}}</text>
             </view>
           </view>
           <view class="rec-ft">

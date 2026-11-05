@@ -47,7 +47,14 @@
   font-size:22rpx;font-weight:600;text-align:center;vertical-align:middle}
 .rec-items{border-top:1rpx solid #f2f2f7;padding-top:12rpx}
 .rec-item{display:flex;justify-content:space-between;padding:8rpx 0;font-size:26rpx;color:#3a3a3c}
-.it-qty{color:var(--brand);font-weight:500}
+/* v778（2026-11-05）：商品名可以换行，数量+单位必须整块不散。
+   🔴 根因：两个 <text> 都是 flex item 且默认 flex-shrink:1 ⇒ 长名称换行时右侧被压缩，
+      旧版「24 瓶」在空格处折成「24」/「瓶」两行。
+   · 名称只给「占剩余宽度 + 可收缩」，不设 nowrap/ellipsis/line-clamp ⇒ 按原有方式换行、不截断；
+   · 数量用 flex:none（不伸不缩）+ white-space:nowrap ⇒ 任意位数数量、任意单位都在同一行；
+     配合 wxml 里去掉的可折行空格，是两层独立保险，缺一层仍不散。 */
+.it-name{flex:1;min-width:0}
+.it-qty{color:var(--brand);font-weight:500;flex:none;white-space:nowrap}
 /* 行尾（单号 / 共 N 件 / 撤回 / 展开）
    🔴 2026-09-22 修：此前 `.rec-total` / `.recall-btn` / `.rec-expand` **三个类名只有 wxml 引用、
    wxss 里一条样式都没有**（`.rec-no` 有）。后果：微信原生 `<button>` 按默认样式渲染
