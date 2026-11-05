@@ -2012,6 +2012,22 @@ def _in_quiet_hours(now, quiet):
         return False
 
 
+# ── v775（2026-11-05，B 方案）：管理兜底广播的**独立事件键** ────────────────
+# 🔴 为什么不能省：这条广播的 title 是 `11月05日 预报催单 · 2026-11-05 报单期次`，
+#    不显式传 event_key 时 `message_send` 会用 `norm_event_key(title)` 现算成
+#    `预报催单 · 报单期次` ⇒ 与「催单」共用 `预报催单` 前缀。受众表是**按事件键**判的，
+#    两种意图挤在同一个键上就没法分别定受众：
+#      · 定向催单 `forecast_remind_emp_<id>` 带 `recipients`，走定向优先（受众表不参与）；
+#      · 兜底广播 `recipients=''`，正文含**别人的单元名 ＋ 本期订量/金额**，只该给管理链。
+#    v773 一锅端补 guide ⇒ 导购看到别人的催单（「唐成的预报催单怎么发给马耀秀了」）；
+#    v774 只撤 guide 是堵漏，没拆结构；v775 从写端把两者彻底分开。
+# 🔴 与 `db/queries/finance.py::_AUDIENCE_EXACT` 里同名键是**同一个口径**，改这里必须
+#    同步改受众表 —— 护栏 ㊾ 有「写端常量 == 受众表键」的结构化判据，不许两处漂移。
+# ⚠️ 本轮只拆事件键，**不改发送目标**：未绑定单元仍走管理兜底，唐成漏催是独立问题
+#    （已查到 `report_mapping.external_user_id` 现成可定向，等单独拍板，不夹带进 B）。
+FORECAST_REMINDER_UNBOUND_EVENT = "forecast_reminder_unbound"
+
+
 def push_forecast_reminder_current(respect_open_notice=False, node="", ignore_quiet=False):
     """在当前租户上下文下计算+推送催单提醒。无开放周期/无候选/无未报 → 不推。返回 bool。
 
@@ -2109,8 +2125,10 @@ def push_forecast_reminder_current(respect_open_notice=False, node="", ignore_qu
             print(f"[Scheduler] forecast reminder 定向发送失败 (emp={eid}): {e}")
             unbound.extend(stores)  # 发送失败也退化为广播兜底
 
-    # fail-closed：未绑定 / 账号停用 / 发送失败的门店，广播给管理员，绝不静默丢弃
+    # fail-closed：未绑定 / 账号停用 / 发送失败的门店，广播给管理链，绝不静默丢弃
     # v305：`channels.inapp` 关掉时这一段一并跳过（否则"关站内信"关不干净）。
+    # 🔴 v775：必须显式传 event_key。省掉它 ⇒ 退回 `norm_event_key(title)` 的
+    #    `预报催单 · 报单期次`，受众表又分不出「定向催单」与「管理兜底」，v773 复发。
     if unbound and _inapp:
         lines = [
             f"以下 {len(unbound)} 个单元尚未报单（含未绑定负责人或账号停用，请关注）：",
@@ -2119,7 +2137,8 @@ def push_forecast_reminder_current(respect_open_notice=False, node="", ignore_qu
             f"本期已报 {tot.get('units') or 0} 个单元 · 总订量 {tot.get('qty') or 0} 件 · ¥{(tot.get('amount') or 0):,.0f}",
         ]
         try:
-            db.message_send(title, "\n".join(lines), "warning", "经营副驾")
+            db.message_send(title, "\n".join(lines), "warning", "经营副驾",
+                            event_key=FORECAST_REMINDER_UNBOUND_EVENT)
             sent_any = True
         except Exception as e:
             print(f"[Scheduler] forecast reminder 广播兜底发送失败: {e}")

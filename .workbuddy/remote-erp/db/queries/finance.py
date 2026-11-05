@@ -1742,7 +1742,7 @@ _AUDIENCE_EXACT = {
     "库存预警": "admin,boss,accountant,supervisor,staff",
     "效期预警·紧急": "admin,boss,accountant,supervisor,staff",
     "效期预警·提醒": "admin,boss,accountant,supervisor,staff",
-    # —— 报单线：按「谁该看」分两类，**不许用一个前缀一锅端**（v774 修正）——
+    # —— 报单线：按「谁该看」分三类，**不许用一个前缀一锅端**（v774 / v775）——
     #    ① 面向全体报单人的广播（期次开放 / 新期次 / 加单减单）⇒ 含 `guide`。
     #       受众覆盖 `sales/staff/distributor/supervisor/guide` 五个报单角色 ——
     #       它们正是 `core.ROLE_LOGIN_SCOPE` 里能在小程序登录的角色
@@ -1752,21 +1752,23 @@ _AUDIENCE_EXACT = {
     #       结果生产 5 个在职导购里 3 个在 21,704 条通知中**可见 0 条**（含马耀秀）。
     #       经营结果 / 账务 / 洞察类一概不动 —— 那些正文含客户名与欠款金额，
     #       放开就是重演 v330 修掉的泄密。
-    #    ② 催单类**不放 guide**，两条独立理由：
-    #       · 定向催单 `forecast_remind_emp_<id>` 落库带 `recipients=<账号id>`，
-    #         `message_visible` 定向优先 ⇒ 受众表根本不参与判定，写 guide 纯属
-    #         冗余且误导（看起来像「给了导购权限」，其实一行都不生效）。
-    #       · 「预报催单」还有一类**广播兜底**：未绑定负责人 / 账号停用的单元，
-    #         写端发 `recipients=''` 的行（生产实测「唐成」`report_mapping.employee_id=0`
-    #         ⇒ 每期都走兜底），本意只给管理端，正文含**别人的单元名＋本期订量/金额**。
-    #         v773 把 8 条规则一锅端补 guide ⇒ 导购可见 0→31，其中 11 条正是这类
-    #         兜底广播（马耀秀看到了「唐成」的催单）。v774 只撤这 3 条 ⇒ 31→20。
-    #    🔴 纪律：同一 event_key 前缀不许同时服务「定向」与「管理兜底」两种意图；
-    #       真要拆干净，给兜底单独一个 event_key（如 `forecast_reminder_unbound`）
-    #       再登记受众，别靠改这张表绕过。漏给与错发是同一枚硬币的两面，都静默零报错。
+    #    ② 定向催单 `forecast_remind_emp_<id>`：落库带 `recipients=<账号id>`，
+    #       `message_visible` 定向优先 ⇒ 受众表根本不参与判定，写 guide 纯属冗余。
+    #    ③ 管理兜底广播（v775 起独立 event_key `forecast_reminder_unbound`）：
+    #       未绑定负责人 / 账号停用的单元，写端发 `recipients=''`，正文含
+    #       **别人的单元名 ＋ 本期订量/金额**（生产实测「唐成」11 条）。
+    #       只给管理链 `admin,boss,supervisor` —— 一线/外部角色看到金额就是泄密。
+    #    🔴 v773 一锅端补 guide ⇒ 导购 0→31（其中 11 条兜底广播）；v774 只撤 3 条
+    #       催单规则 ⇒ 31→20；v775（B 方案）从**写端**拆出独立 event_key，把兜底
+    #       广播连同历史存量行一并收窄到管理链。旧 `预报催单` 精确/前缀键**只为
+    #       存量 11 行保留**（写端已不再生成），受众必须和 ③ 一模一样 ——
+    #       两处漂移 = 同一类通知两套口径，历史行会悄悄漏给一线角色。
+    #    🔴 纪律：同一 event_key 前缀不许同时服务「定向」与「管理兜底」两种意图。
+    #       漏给与错发是同一枚硬币的两面，都静默零报错。
     "本期报单已开放": "admin,boss,sales,supervisor,distributor,staff,guide",
-    "预报催单": "admin,boss,sales,supervisor,distributor,staff",
+    "预报催单": "admin,boss,supervisor",                   # 存量行兜底，见 ③
     "预报·新期次": "admin,boss,sales,supervisor,distributor,staff,guide",
+    "forecast_reminder_unbound": "admin,boss,supervisor",  # v775 管理兜底（新行）
 }
 
 # 前缀规则（动态键：`定时任务·<原名>` / `forecast_remind_emp_<id>` …）
@@ -1778,9 +1780,11 @@ _AUDIENCE_PREFIX_RAW = {
     "定时任务·": "admin,boss",                       # 兜底；正常靠 recipients 定向给创建者
     "经营卡简报": "admin,boss,accountant",           # v352：仅服务存量行（新行走精确键）
     "预报·新期次": "admin,boss,sales,supervisor,distributor,staff,guide",
-    # v774：下面 2 条是催单类，导购不进受众（理由见上方精确键注释 ②）。
-    #   `预报催单` 前缀还吃 `预报催单 · 报单期次` —— 那条是兜底广播，正文含金额。
-    "预报催单": "admin,boss,sales,supervisor,distributor,staff",
+    # v775：`预报催单` 前缀**只服务存量 11 行**兜底广播（`预报催单 · 报单期次`），
+    #   写端已改用独立 event_key ⇒ 受众必须与 `_AUDIENCE_EXACT` 的新键一致（管理链），
+    #   否则同一批历史行与未来行两套口径。护栏 ㊾ 有「两键受众相同」判据。
+    "预报催单": "admin,boss,supervisor",
+    # 定向催单：recipients 非空走定向优先，受众表不参与；保留原六角色作异常态兜底。
     "forecast_remind_emp_": "admin,boss,sales,supervisor,distributor,staff",
     "forecast_period_open_": "admin,boss,sales,supervisor,distributor,staff,guide",
     "forecast_extra_alloc": "admin,boss,sales,supervisor,distributor,staff,guide",
