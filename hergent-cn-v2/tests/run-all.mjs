@@ -758,6 +758,20 @@ if (has('skip-sfc')) {
   results.push({ name: '到货日期展示', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊾ 导购通知受众补全（v773）─────────────────────────────────
+/* v330 收口受众时导购还是 web 端，v333 才收紧成 mini ⇒ 生产 5 个在职导购里
+   3 个可见 0 条通知（含马耀秀，本人会话实测 total=0）。只补报单线 8 条规则，
+   经营/账务/洞察类一概不动；定向优先不许拆。
+   15 条静态判据 + 规则表仿真 + 6 个坏样本（含「只补精确键、漏前缀」假修复）自证。
+   🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs（v748 起连踩三轮）。 */
+{
+  console.log('\n── ㊾ 导购通知受众补全（v773）──')
+  const r = run('notification-guide-audience.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '导购通知受众', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

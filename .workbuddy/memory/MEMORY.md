@@ -1,6 +1,6 @@
 # Hergent 记忆索引（只留判据首句＋去哪查；细节在 `topics/*.md` / `memory/YYYY-MM-DD.md`）
 
-**前端 v770**｜v772 横幅改本期清单口径｜v771 我的提交到货日期｜v769 返利率可留空｜v768 GoLink/useGoPage｜**小程序 v758–v772 已提交、未发版**。唯一源 `main`。
+**前端 v770**｜v773 导购通知受众补全（后端已上线）｜v772 横幅改本期清单口径｜v771 我的提交到货日期｜v769 返利率可留空｜v768 GoLink/useGoPage｜**小程序 v758–v772 已提交、未发版**。唯一源 `main`。
 🔴🔴 **后端零版本管理**：生产 `/opt/hergent-erp/`（FastAPI+`routers/`、非 git 仓、有 `.env`），本仓 `server/` 是旧单文件 ⇒「提交了前端」≠「后端也入库」；靠 `.workbuddy/remote-erp/` 回拉镜像（v765c 起入库）。
 
 ## 🔴🔴 部署（错一步＝假部署）
@@ -45,7 +45,8 @@
 - **后端** → `topics/backend-invariants.md`：路由遮蔽先注册者胜｜静默失效＝恒空恒 0｜门禁用接口模块非页面模块｜FastAPI 未声明 query 被静默忽略｜`execute_tool` 返回键是 `success`。
 - 🔴🔴 改角色权限必须走 `POST /api/role-permissions`（直写库绕过 `reload_perms`＋不留 `audit_logs`），「未列出＝移除」⇒ 传完整清单。`roles` 与 `module` 是两条独立轴。
 - 🔴🔴 副驾产物 403「不在可访问范围内」＝允许根只认了一半 home（`_host_home(1)` vs `home_for(1)`）⇒ 取并集。
-- **域**：预报 `forecast-order-domain`｜返利 `rebate-domain`｜成本容量 `cost-and-capacity`｜账务 `accounting-gl-v716-v717`｜条码小程序 `miniprogram-and-brand-data`｜副驾租户 `copilot-tenant-memory`｜本机坑 `local-machine-pitfalls`｜库存 `inventory-psi`。
+- **域**：预报 `forecast-order-domain`｜返利 `rebate-domain`｜成本容量 `cost-and-capacity`｜账务 `accounting-gl-v716-v717`｜条码小程序 `miniprogram-and-brand-data`｜副驾租户 `copilot-tenant-memory`｜本机坑 `local-machine-pitfalls`｜库存 `inventory-psi`｜通知 `notification-center`。
+🔴🔴 **通知「某人收不到」先查角色受众表**：v330 收口时 `guide` 一条没写，v333 才把导购收紧成 `mini` ⇒ 5 个在职导购里 3 个对全部广播判 False（马耀秀 0 条）。**v773 已补**：只补报单线 8 条（3 精确 + 5 前缀，生产实际全走前缀），经营/账务/洞察/DEFAULT 一概不动 ⇒ 本人会话 0→31；定向类不看角色只看 `recipients`。判据＝真实 `message_visible` 全表扫 + 临时加 `sales` 反证 + 本人 session 实测 total；护栏 ㊾ + `v773-guide-notice-check.py`（含「只补精确键漏前缀」坏样本）。→ `memory/2026-11-05.md`
 
 ## 实现 / 进度 / 主体 / 本机
 实现：加列先吃「名称列」宽度、长文本列 `width+min-width` 同写｜分页条在滚动容器外｜加字段 4 处｜`ui_col_prefs` 租户级｜跨组件覆盖写在目标组件自己文件｜Bearer 免 CSRF，权限端点要 `X-Tenant-Id`。
