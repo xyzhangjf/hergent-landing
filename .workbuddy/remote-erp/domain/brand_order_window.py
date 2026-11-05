@@ -29,9 +29,27 @@ fail-safe 方向 = **放行**（与 `db/queries/forecast_rules.py` 的数量校�
     读不到配置 / 日期解析失败 / 规则表为空 ⇒ 一律 `orderable=True`。
 
 复用而不重写（本项目反复栽在「第二份口径」上）：
-    · `parse_weekdays` / `WEEKDAY_LABELS` ← `domain/arrival_schedule.py`（纯函数，无 DB）
+    · `parse_weekdays` / `WEEKDAY_LABELS` / `MAX_EARLY_LIMIT`
+      ← `domain/arrival_schedule.py`（纯函数与常量，无 DB）
     · 品牌归一化 `normalize_brand` 由 `routers/data.py::_brand_label` 收敛而来，
       那边现在 import 本模块，**全仓只有这一份实现**。
+
+🔴🔴 v779（2026-11-05）**两层口径打架的修正**：
+    自动编排层 `domain/arrival_schedule.py::match_brands_to_periods()` 用的是
+    「窗口 `[C-E, C]`」，C = 品牌方下单日（落在 `order_weekdays` 的星期），
+    E = `order_max_early_days`（最多可提前天数）：主序列下单日 D 落在
+    `[C-E, C]` 内 ⇒ **这一期就该报这个品牌**，即允许提前 E 天报单。
+    而本模块 v765 只判 `order_end` 的星期 ∈ `order_weekdays`，完全没读 E
+    ⇒ 同一期编排层判可报、拦截层判不可报。生产实证：43 期（11-06 周五截止）
+    编排层把「简爱（提前 1 天）」排进去了，小程序却弹「请在 11月7日填报」。
+    用户原话：「简爱是周六下订单，周六当天报单来不及，想提前一天报」。
+    ⇒ 判定改为**同一个二元关系**的反向视角：存在 C ∈ [order_end, order_end+E]
+      且 C 的星期 ∈ ws ⇒ 可报。E=0 时严格等价旧行为（护栏 80+ 断言原样全绿）。
+
+🔴 弹窗日期也跟着改：改为查 `forecast_periods` 真实期次，**不再按日历推算**。
+    期次是 2 天/期且与 7 天/周互质，日历上的「下一个周六」未必有期次；
+    生产 43 期之后根本没有未来期次，旧弹窗给的 11-07 是纯虚构。
+    查不到真实期次 ⇒ 空串 ⇒ 文案退到「本期已无可报日」（宁缺日期，不给假的）。
 """
 import json
 import logging
@@ -39,7 +57,7 @@ import re
 from datetime import datetime, timedelta
 
 from db.connection import get_db, get_db_tx
-from domain.arrival_schedule import WEEKDAY_LABELS, parse_weekdays
+from domain.arrival_schedule import MAX_EARLY_LIMIT, WEEKDAY_LABELS, parse_weekdays
 
 log = logging.getLogger("hergent")
 
@@ -129,16 +147,68 @@ def tip_for(ws):
     return TIP_TMPL.format(wd=weekdays_short(ws))
 
 
+def window_hit(order_end, ws, early=0):
+    """期次报单截止日是否落在该品牌的**可提前窗口**内（v779 唯一判定内核）。
+
+    编排层 `match_brands_to_periods()` 的表述：品牌方下单日 C（星期 ∈ ws），
+    主序列下单日 D 命中当且仅当 `C-E <= D <= C`。从**期次侧**看同一个二元关系：
+
+        存在 C ∈ [order_end, order_end + E] 且 C 的星期 ∈ ws
+
+    这里 `order_end` 就是主序列下单日 D（= 期次报单截止日），E = 可提前天数。
+    🔴 E 缺省 / 坏值 / 缺列 ⇒ 0 ⇒ 退化成 `order_end 的星期 ∈ ws`，与 v765 旧行为
+       **逐像素一致**（护栏 80+ 条生产真实期次断言原样全绿）。这是本次改动能
+       零风险落地的前提：不会误伤任何没配 `order_max_early_days` 的租户。
+    🔴 上限复用 `MAX_EARLY_LIMIT`，绝不自己写死一个数字（第二份口径）。
+    🔴 绝不依赖 `order_first_date` / `order_mode`（v765 判据 ①②不变）。
+    """
+    d = _parse_iso(order_end)
+    if d is None or not ws:
+        return False
+    try:
+        e = max(0, min(int(early or 0), MAX_EARLY_LIMIT))
+    except (TypeError, ValueError):
+        e = 0
+    for i in range(e + 1):
+        if (d + timedelta(days=i)).isoweekday() in ws:
+            return True
+    return False
+
+
+def next_period_date(ws, early, future_periods):
+    """下一个**真实可报期次**的开放日 → `11月5日（周四）`；查不到 ⇒ 空串。
+
+    `future_periods` 来自 `period_brand_windows()` 查 `forecast_periods` 的结果
+    （只含 `order_end > 当前期次` 的行）。逐个按 `window_hit` 判定，取第一个
+    可报期次的 `order_start`（用户能开始填的那天），没有则退回 `order_end`。
+
+    🔴 **绝不按日历推算**：期次 2 天/期、与 7 天/周互质，且可手工调整；
+       生产 43 期之后根本没有未来期次，日历算出的「11月7日（周六）」是虚构日期，
+       用户照着去填必然扑空。查不到 ⇒ 空串 ⇒ 文案退到"本期已无可报日"，
+       宁缺日期不给假的（`lock_msg_for` 的既有 fail-safe 方向）。
+    🔴 返回的是**期次开放日**不是品牌下单日：用户是在期次开放期间填报。
+    """
+    for p in (future_periods or []):
+        if not isinstance(p, dict):
+            continue
+        oe = str(p.get("order_end") or "").strip()
+        if not oe or not window_hit(oe, ws, early):
+            continue
+        d = _parse_iso(str(p.get("order_start") or "").strip() or oe)
+        if d is None:
+            continue
+        return "%d月%d日（周%s）" % (d.month, d.day, WEEKDAY_LABELS[d.isoweekday()])
+    return ""
+
+
 def next_order_date(ws, today=None):
-    """下一个符合 `ws` 的**日历日** → `11月5日（周四）`；`ws` 空 ⇒ 空串。
+    """🟡 **已废弃的日历推算**（下一个符合 `ws` 的日历日），仅供历史单测保留。
 
-    从**明天**起算（今天若能报就不该走到这里 —— 走到锁定的都是今天不在 `ws` 的）。
-
-    🔴 口径限制（写在这里，免得后人当权威）：这是**日历推算**，不是查期次表。
-       本系统 2 天/期，与 7 天/周互质，所以「下一个星期三」和「下一个下单日落在
-       星期三的期次」在绝大多数情况下重合，但**不保证**（期次手工调整过就会错位）。
-       所以文案里**同时给了星期**（`11月5日（周四）`）—— 日期错位时用户仍能从
-       "每周三、六"看出规律，而不是彻底迷路。真正的判据永远在服务端。
+    🔴 v779 起 `judge()` **禁止调用本函数** —— 它算出来的是日历日，不是期次，
+       生产实测会给用户一个根本不存在期次的日期（43 期弹「11月7日填报」，
+       而 7 号没有期次，下一个真正落在周六的期次要等 11-14）。
+       生产判定一律走 `next_period_date()` 查真实期次表；判据见护栏静态检查
+       「judge 函数体内不得出现 next_order_date(」。
     """
     if not ws:
         return ""
@@ -160,12 +230,17 @@ def lock_msg_for(brand, ws, nd):
 
 
 def rules_from_rows(rows):
-    """DB 行 → `{brandKey: {"weekdays":[…], "rule_id", "lead_days"}}`。**纯函数**。
+    """DB 行 → `{brandKey: {"weekdays":[…], "rule_id", "lead_days", "max_early"}}`。**纯函数**。
 
     只收 `order_weekdays` 非空的规则 —— 空值的品牌视为「不限报单日」，
     连键都不进表，避免下游每次都要判一次空。
     同一品牌有多条规则时取 `weekdays` 最多的那条（并集不被覆盖），
-    避免「后写的一条把前一条抹掉」这种静默失效。
+    避免「后写的一条把前一条抹掉」这种静默失效；`max_early` 跟着同一条规则走。
+
+    🔴 v779 新增 `max_early`（= `order_max_early_days`）：编排层允许提前 E 天报单，
+       判定层必须读同一个值，否则就是第二份口径。**缺键 / 缺列 / 坏值 ⇒ 0**
+       （老租户库没有这列、夹具库也没造这列），此时行为与 v765 完全一致；
+       上限复用编排层的 `MAX_EARLY_LIMIT`，不另写一个数字。
     """
     out = {}
     for r in rows or []:
@@ -180,21 +255,31 @@ def rules_from_rows(rows):
         cur = out.get(key)
         if cur and len(cur.get("weekdays") or []) >= len(ws):
             continue
+        try:
+            e = max(0, min(int(r.get("order_max_early_days") or 0), MAX_EARLY_LIMIT))
+        except (TypeError, ValueError):
+            e = 0
         out[key] = {
             "weekdays": ws,
             "rule_id": r.get("id"),
             "lead_days": r.get("order_lead_days") or 0,
+            "max_early": e,
         }
     return out
 
 
-def judge(brand, order_end, rules, enabled=True, today=None):
+def judge(brand, order_end, rules, enabled=True, today=None, future_periods=None):
     """单品牌判定 → `{"brand","orderable","weekdays","weekdays_label","tip",
                     "next_date","lock_msg"}`。
 
     `order_end` 是该期次的**报单截止日**（`forecast_periods.order_end`）。
     任何一环缺失（开关关 / 日期坏 / 品牌没规则）⇒ 可报。
 
+    🔴 v779：命中改用 `window_hit(order_end, ws, rule["max_early"])` ——
+       与编排层同一个可提前窗口，不再只看截止日当天的星期。
+    🔴 `future_periods` = 真实未来期次列表（由 `period_brand_windows` 查库下发）。
+       被拦时 `next_date` **只从这里取**，查不到就空串；旧的日历推算法已禁用
+       （会给不存在的期次日期）。`today` 仅为兼容旧调用保留，不再参与判定。
     🔴 `weekdays_label`（`每周一、四`）是给**行内短标签**用的现成整句，与 `rules` 里的
        `weekdays_cn`（`周一、周四`，单独成句）刻意不同名不同形 —— 同一个名字两种形态，
        前端必然在某个位置用错一种，而错的是标点、测试抓不到（v753 同族）。
@@ -217,27 +302,30 @@ def judge(brand, order_end, rules, enabled=True, today=None):
         return res
     res["weekdays"] = list(ws)
     res["weekdays_label"] = "每周" + weekdays_short(ws)
-    if wd in ws:
+    early = rule.get("max_early") or 0
+    if window_hit(order_end, ws, early):
         return res
     res["orderable"] = False
     res["tip"] = tip_for(ws)
-    # v765d：弹窗正文（含"请在 X月X日（周X）填报"）也在这里拼好 ——
-    # 前端 `_bwMsg()` 早期版本是自己拼「品牌：周X 才能报单」，两处口径必然漂
-    #（品牌名、星期、日期三样东西各一处），所以改成后端给整句、前端只渲染。
-    nd = next_order_date(ws, today)
+    # v765d：弹窗正文也在这里拼好 —— 前端 `_bwMsg()` 早期版本是自己拼
+    #「品牌：周X 才能报单」，两处口径必然漂（品牌名、星期、日期三样东西各一处），
+    # 所以改成后端给整句、前端只渲染。v779：日期源改为真实期次表。
+    nd = next_period_date(ws, early, future_periods)
     res["next_date"] = nd
     res["lock_msg"] = lock_msg_for(key, ws, nd)
     return res
 
 
-def window_map(order_end, rules, enabled=True, today=None):
+def window_map(order_end, rules, enabled=True, today=None, future_periods=None):
     """全部**有规则**的品牌 → `{brandKey: judge(...)}`。**纯函数**。
 
     只返回有规则的品牌（没规则的直接不存在 ⇒ 前端取不到就按可报处理），
     这样下发体最小：生产目前是 2 个有效品牌，不是 390 个。
+    🔴 v779：`future_periods` 必须透传给 `judge`，否则弹窗日期会退化成
+       「本期已无可报日」（用户看不到下一期该哪天来）。护栏有静态判据锁这一行。
     """
     return {
-        k: judge(k, order_end, rules, enabled, today)
+        k: judge(k, order_end, rules, enabled, today, future_periods)
         for k in (rules or {}).keys()
     }
 
@@ -283,9 +371,11 @@ def preview(rules, periods, limit=8):
         brands = []
         for k, r in (rules or {}).items():
             ws = r.get("weekdays") or []
+            # 🔴 v779：与 `judge()` / 编排层共用同一条 `window_hit`，
+            #    否则「配置预览说不能报、小程序实际能报」= 第二份口径（v765 同族）。
             brands.append({
                 "brand": k,
-                "orderable": bool(wd is not None and wd in ws),
+                "orderable": window_hit(oe, ws, r.get("max_early") or 0),
                 "weekdays": list(ws),
             })
         out.append({
@@ -355,9 +445,13 @@ def load_rules(conn=None):
     读的是 `rebate_target_rules`（Web「返利目标」里配的报单节奏）—— **不另存一份**。
     两份配置必然分叉：改了一边另一边不生效，是最难查的一类问题。
     """
+    # 🔴 v779：`order_max_early_days` 是**后加列**（erp_db.py 迁移 v121），
+    #    老租户 / 新装库未必有。硬写进 SELECT 列表会整段抛错 → 被下方 except
+    #    吞成「没有任何品牌配了报单日」= **开关打开也永远不生效**，界面一片正常，
+    #    现场只有一行 warning（v765c「order_end_date」踩过一模一样的坑）。
+    #    ⇒ 用 `SELECT *` 按列名取：`rules_from_rows` 缺键自动回落 max_early=0。
     sql = (
-        "SELECT id, scope_key, scope_name, order_mode, order_weekdays, "
-        "order_lead_days FROM rebate_target_rules "
+        "SELECT * FROM rebate_target_rules "
         "WHERE dimension='brand' AND is_active=1"
     )
 
@@ -426,6 +520,38 @@ def period_brands(conn, period_id, order_start="", order_end=""):
         return []
 
 
+def _future_periods(conn, current_end):
+    """当前期次之后的**真实期次**（`[{"id","order_start","order_end"}]`，按 id 升序）。
+
+    🔴 弹窗「请在 X 月 X 日填报」的唯一日期源。日历推算已被禁用（v779）。
+    🔴 同样用 `SELECT *` 按列名取：`order_start` / `order_end` 是后加列，
+       老租户只有 `order_start_date` / `order_end_date`（生产 tenant_1 两套都有）。
+       硬写列名 ⇒ 整段抛错 ⇒ 弹窗永远没有日期且零报错。
+    🔴 fail 方向 = 空列表 ⇒ 弹窗退到「本期已无可报日」，**不影响能不能报单**。
+       生产实测（2026-11-05）：期次表最大只到 43 期，一条未来期次都没有 ——
+       这正是旧弹窗给「11月7日」却扑空的根因。
+    """
+    cur_end = str(current_end or "").strip()
+    if not cur_end:
+        return []
+    try:
+        cur = conn.execute("SELECT * FROM forecast_periods ORDER BY id")
+        cols = [x[0] for x in (cur.description or [])]
+        out = []
+        for row in cur.fetchall():
+            d = dict(zip(cols, row))
+            oe = (str(d.get("order_end") or "").strip()
+                  or str(d.get("order_end_date") or "").strip())
+            os_ = (str(d.get("order_start") or "").strip()
+                   or str(d.get("order_start_date") or "").strip())
+            if oe > cur_end:
+                out.append({"id": d.get("id"), "order_start": os_, "order_end": oe})
+        return out
+    except Exception as e:
+        log.warning("未来期次读取失败（弹窗不给日期，判定不受影响）: %s", e)
+        return []
+
+
 def period_brand_windows(period_id=None, conn=None, today=None):
     """某期次的品牌窗口总览 —— 端点与提交闸门共用。
 
@@ -464,14 +590,16 @@ def period_brand_windows(period_id=None, conn=None, today=None):
                 os_ = ((d.get("order_start") or "").strip()
                        or (d.get("order_start_date") or "").strip())
             rules = load_rules(c)
+            # v779：弹窗日期只认真实期次表，查不到就不给日期。
+            future = _future_periods(c, oe)
             # v772：横幅品牌范围 = 本期预报清单，不是全商品档案。
-            return oe, os_, rules, period_brands(c, period_id, os_, oe)
+            return oe, os_, rules, period_brands(c, period_id, os_, oe), future
 
         if conn is not None:
-            oe, os_, rules, pbrands = _collect(conn)
+            oe, os_, rules, pbrands, future = _collect(conn)
         else:
             with get_db() as c2:
-                oe, os_, rules, pbrands = _collect(c2)
+                oe, os_, rules, pbrands, future = _collect(c2)
 
         oe = oe or ""
         wd = weekday_of(oe)
@@ -485,7 +613,7 @@ def period_brand_windows(period_id=None, conn=None, today=None):
             # （fail-open 方向不变：宁可列全，不可误说"暂无可报品牌"。）
             ctx["banner"] = banner_for({}, pbrands)
             return ctx
-        wm = window_map(oe, rules, True, today)
+        wm = window_map(oe, rules, True, today, future)
         ctx.update({
             "order_end": oe,
             "weekday_cn": ("周" + WEEKDAY_LABELS[wd]) if wd else "",

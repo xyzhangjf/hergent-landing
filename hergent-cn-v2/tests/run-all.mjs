@@ -628,13 +628,17 @@ if (has('skip-sfc')) {
   results.push({ name: '登录页使用范围说明', ok: r.code === 0, code: r.code })
 }
 
-// ── ㊵ 按品牌报单日管控 · 判定内核（v765）───────────────────────────
+// ── ㊵ 按品牌报单日管控 · 判定内核（v765 → v779）───────────────────
 /* 用户要求「某期次不属于某品牌报单日时，该品牌商品禁止提交」。这是一个
    **双向都会静默出错**的判定：判宽=该拦没拦；判紧=全员报不了单（更贵）。
    两种都不抛异常。判定内核在 `domain/brand_order_window.py`（生产后端），
-   校验脚本是 `.py` —— 不注册进 `run()` 就等于永不执行（v764 同族教训）。 */
+   校验脚本是 `.py` —— 不注册进 `run()` 就等于永不执行（v764 同族教训）。
+   🔴 v779：拦截层补读 `order_max_early_days`，与编排层 `match_brands_to_periods`
+   共用「可提前 E 天」窗口（此前同一期编排判可报、小程序判不可报）；弹窗日期
+   改为只查真实期次表，禁止日历推算（生产 43 期之后没有未来期次）。
+   140 项真判据 + 20 个坏样本，含 AST 判调用节点防 docstring 自撞。 */
 {
-  console.log('\n── ㊵ 品牌报单日判定内核（v765）──')
+  console.log('\n── ㊵ 品牌报单日判定内核（v779）──')
   const r = run('forecast-brand-window.contract.mjs', [], { timeout: 240000 })
   const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
   console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)

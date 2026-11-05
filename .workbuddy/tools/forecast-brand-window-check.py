@@ -129,7 +129,8 @@ def main():
             from domain.brand_order_window import (
                 normalize_brand, weekday_of, weekdays_short, weekdays_full, tip_for,
                 rules_from_rows, judge, window_map, banner_for, preview,
-                next_order_date, lock_msg_for, period_brands,
+                next_order_date, next_period_date, window_hit, lock_msg_for,
+                period_brands, _future_periods, MAX_EARLY_LIMIT,
             )
         except Exception as e:
             print('\u274c 判定内核无法导入：%r' % (e,))
@@ -222,10 +223,14 @@ def main():
         ok(nd == '11月5日（周四）', 'L2 下一个可报日：' + nd)
         ok(next_order_date([3], _dt(2026, 11, 4)) == '11月11日（周三）',
            'L3 🔴 今天本身在星期里也要跳过（从明天起算）')
+        # 🔴 v779：没有真实期次表上下文时**绝不给日历推算出来的假日期**。
+        #    旧断言锁的是「11月5日（周四）」—— 那是日历上的下个周四，
+        #    而期次是 2 天/期，那天未必有期次；生产 43 期之后干脆一期都没有。
+        #    用户实测被弹窗指去「11月7日填报」却扑空，就是这条口径害的。
         jl = judge('简爱', '2026-11-04', R, True, _dt(2026, 11, 4))
-        ok(jl['lock_msg'] == '简爱 只能在每周一、四报单，请在11月5日（周四）填报',
-           'L4 🔴 弹窗整句（品牌+星期+具体日期）：' + jl['lock_msg'])
-        ok(jl['next_date'] == '11月5日（周四）', 'L5 单独字段也可用')
+        ok(jl['lock_msg'] == '简爱 只能在每周一、四报单，本期已无可报日',
+           'L4 🔴 无真实期次 ⇒ 宁缺日期不给假的：' + jl['lock_msg'])
+        ok(jl['next_date'] == '', 'L5 无真实期次 ⇒ next_date 空串')
         ok(lock_msg_for('简爱', [1, 4], '') == '简爱 只能在每周一、四报单，本期已无可报日',
            'L6 算不出日期 ⇒ 不带假日期')
         ok(judge('新希望', '2026-11-04', R, True, _dt(2026, 11, 4))['lock_msg'] == '',
@@ -268,6 +273,11 @@ def main():
         ok(pv[0]['period_id'] == 42 and pv[0]['brands'][0]['orderable'] is False, 'J2 42 期不可报')
         ok(pv[1]['period_id'] == 41 and pv[1]['brands'][0]['orderable'] is True, 'J3 41 期可报')
         ok(pv[0]['weekday_cn'] == '周三', 'J4 星期中文')
+        # v779：预览必须和判定层共用可提前窗口，否则「预览说不能报、小程序能报」。
+        pv_e1 = preview({'简爱': {'weekdays': [3, 6], 'max_early': 1}},
+                        [{'id': 43, 'order_end': '2026-11-06'}], limit=1)
+        ok(pv_e1[0]['brands'][0]['orderable'] is True,
+           'J5 🔴 E=1 预览与实际同口径（周五截止、周六下单 ⇒ 可报）')
 
         print('=== K 配置读写（临时库）===')
         import domain.brand_order_window as bw
@@ -359,6 +369,153 @@ def main():
         ok(bw.judge('简爱', '2026-11-04', {'简爱': {'weekdays': []}})['weekdays_label'] == '',
            'S5 无星期 ⇒ 短标签空串（前端退到通用句）')
 
+        # ── v779：拦截判定读「最多可提前天数」，与编排层同一个窗口 ──────────
+        print('=== V v779 可提前窗口（与 match_brands_to_periods 同构）===')
+        # 编排层窗口 [C-E, C]：C=品牌方下单日（星期∈ws）、D=主序列下单日(=期次截止日)。
+        # 反过来看同一关系 ⇒ 存在 C ∈ [D, D+E] 且 C 的星期 ∈ ws。
+        ok(MAX_EARLY_LIMIT == 2, 'V0 上限复用编排层常量（不另写死一个数字）')
+        ok(all(window_hit(oe, [3, 6], 0) == (weekday_of(oe) in [3, 6])
+               for _, oe in PERIODS),
+           'V1 🔴 E=0 逐期等价 v765 旧行为（23 期全覆盖，零误伤）')
+        ok(window_hit('2026-11-06', [3, 6], 0) is False, 'V2 周五 E=0 → 拦')
+        ok(window_hit('2026-11-06', [3, 6], 1) is True,
+           'V3 🔴 周五 E=1 → 11-07 周六命中 ⇒ 提前一天可报（用户诉求）')
+        ok(window_hit('2026-11-05', [3, 6], 2) is True, 'V4 周四 E=2 → 周六命中')
+        ok(window_hit('2026-11-05', [3, 6], 1) is False, 'V5 周四 E=1 → 只到周五，不命中')
+        ok(window_hit('2026-11-02', [3, 6], 1) is False,
+           'V6 🔴 不许无限放宽：周一 E=1 只覆盖周一/周二')
+        ok(window_hit('2026-11-06', [3, 6], 99)
+           == window_hit('2026-11-06', [3, 6], MAX_EARLY_LIMIT),
+           'V7 大值 clamp 到编排层上限')
+        ok(window_hit('2026-11-06', [3, 6], 'abc') is False, 'V8 坏值回落 E=0')
+        ok(window_hit('2026-11-06', [3, 6], -5) is False, 'V9 负值回落 E=0')
+        ok(window_hit('bad', [3, 6], 1) is False and window_hit('2026-11-06', [], 1) is False,
+           'V10 坏日期 / 空星期 → False')
+
+        print('=== W 弹窗日期只认真实期次表 ===')
+        FUTURE = [
+            {'id': 44, 'order_start': '2026-11-07', 'order_end': '2026-11-08'},  # 周日
+            {'id': 45, 'order_start': '2026-11-09', 'order_end': '2026-11-10'},  # 周二 → E=1 命中 11-11 周三
+            {'id': 46, 'order_start': '2026-11-11', 'order_end': '2026-11-12'},  # 周四
+            {'id': 47, 'order_start': '2026-11-13', 'order_end': '2026-11-14'},  # 周六
+        ]
+        _nd1 = next_period_date([3, 6], 1, FUTURE)
+        ok(_nd1 == '11月9日（周一）', 'W1 🔴 取第一个真实可报期次的开放日：' + repr(_nd1))
+        ok('11月7日' not in _nd1, 'W2 🔴 绝不返回没有期次的虚构日历日 11-07')
+        ok(next_period_date([3, 6], 0, FUTURE) == '11月13日（周五）',
+           'W3 E=0 时跳过不可报期次，取真的落在周六的 47 期')
+        ok(next_period_date([3, 6], 1, []) == '', 'W4 无未来期次 ⇒ 空串')
+        ok(next_period_date([3, 6], 1, FUTURE[:1]) == '', 'W5 未来期次全不可报 ⇒ 空串')
+        ok(lock_msg_for('简爱', [3, 6], '') == '简爱 只能在每周三、六报单，本期已无可报日',
+           'W6 空日期退到不带假日期的句子')
+        ok(next_period_date([3, 6], 1, [{'order_end': '2026-11-14'}]) == '11月14日（周六）',
+           'W7 缺 order_start ⇒ 退回 order_end（不返回空）')
+
+        print('=== X rules_from_rows 读 order_max_early_days（缺列零误伤）===')
+        ok(rules_from_rows([{'id': 9, 'scope_key': '简爱', 'order_weekdays': '3,6'}])
+           ['简爱']['max_early'] == 0,
+           'X1 🔴 缺键 / 缺列 ⇒ 0（老租户与 v765 逐像素同行为）')
+        ok(rules_from_rows([{'id': 9, 'scope_key': '简爱', 'order_weekdays': '3,6',
+                             'order_max_early_days': 1}])['简爱']['max_early'] == 1,
+           'X2 读到生产简爱的值 1')
+        ok(rules_from_rows([{'id': 9, 'scope_key': '简爱', 'order_weekdays': '3,6',
+                             'order_max_early_days': 'abc'}])['简爱']['max_early'] == 0,
+           'X3 坏值 ⇒ 0')
+        ok(rules_from_rows([{'id': 9, 'scope_key': '简爱', 'order_weekdays': '3,6',
+                             'order_max_early_days': 99}])['简爱']['max_early'] == MAX_EARLY_LIMIT,
+           'X4 超上限 ⇒ clamp 到编排层上限')
+        ok(rules_from_rows([{'id': 9, 'scope_key': '简爱', 'order_weekdays': '3,6',
+                             'order_max_early_days': -3}])['简爱']['max_early'] == 0,
+           'X5 负值 ⇒ 0')
+
+        print('=== Y 生产 43 期复刻：简爱提前一天应当放行 ===')
+        _cy = sqlite3.connect(db_main)
+        # 夹具的 rebate_target_rules 故意没有后加列 ⇒ 同时验证「有列」租户能读到值
+        _cy.execute("ALTER TABLE rebate_target_rules ADD COLUMN order_max_early_days INTEGER DEFAULT 0")
+        _cy.execute("UPDATE rebate_target_rules SET order_weekdays='3,6', "
+                    "order_max_early_days=1 WHERE scope_key='简爱'")
+        _cy.execute("INSERT INTO forecast_periods VALUES(43,'2026-11-06','2026-11-06')")
+        for _pid, _n in [(72, 3), (234, 2), (1, 1)]:
+            for _ in range(_n):
+                _cy.execute("INSERT INTO forecast_import_products VALUES(NULL,?,?,?,NULL)",
+                            (43, '2026-11-06', _pid))
+        _cy.commit()
+        _cy.close()
+        _y43 = bw.period_brand_windows(43)
+        ok(_y43['order_end'] == '2026-11-06', 'Y1 读到 43 期截止日')
+        ok(_y43['brands']['简爱']['orderable'] is True,
+           'Y2 🔴🔴 简爱 43 期由「拦截」转「可报」（与编排层同款结论）')
+        ok('简爱' in _y43['banner'], 'Y3 横幅把简爱列回本期可报品牌：' + _y43['banner'])
+        ok(_y43['brands']['简爱']['lock_msg'] == '', 'Y4 可报品牌不得带拦截句')
+        _cf = sqlite3.connect(db_main)
+        _fp_empty = _future_periods(_cf, '2026-11-06')
+        _cf.close()
+        ok(_fp_empty == [], 'Y5 🔴 43 之后无未来期次 ⇒ 弹窗绝不给虚构日期')
+        # 反证：把 E 改回 0（模拟「没读到 max_early」），43 期必须重新被拦
+        _cz = sqlite3.connect(db_main)
+        _cz.execute("UPDATE rebate_target_rules SET order_max_early_days=0 WHERE scope_key='简爱'")
+        _cz.commit()
+        _cz.close()
+        _y43off = bw.period_brand_windows(43)
+        ok(_y43off['brands']['简爱']['orderable'] is False,
+           'Y6 🔴 反证：E=0 时 43 期仍被拦 ⇒ Y2 确系读到 E 才放行')
+        ok('请在' not in _y43off['brands']['简爱']['lock_msg'],
+           'Y7 被拦且无未来期次 ⇒ 不给「请在X日填报」：' + _y43off['brands']['简爱']['lock_msg'])
+
+        print('=== Z 静态结构（AST 判调用节点，防 docstring 自撞空白支票）===')
+        import ast as _ast
+        _bws = open(os.path.join(REMOTE, 'domain', 'brand_order_window.py'),
+                    encoding='utf-8').read()
+        _tree = _ast.parse(_bws)
+
+        def _fn(name):
+            for _n in _tree.body:
+                if isinstance(_n, _ast.FunctionDef) and _n.name == name:
+                    return _n
+            return None
+
+        def _calls(fn):
+            if fn is None:
+                return set()
+            return {_n.func.id for _n in _ast.walk(fn)
+                    if isinstance(_n, _ast.Call) and isinstance(_n.func, _ast.Name)}
+
+        def _str_consts(fn):
+            if fn is None:
+                return []
+            return [_n.value for _n in _ast.walk(fn)
+                    if isinstance(_n, _ast.Constant) and isinstance(_n.value, str)]
+
+        _fjudge, _fwmap, _fprev = _fn('judge'), _fn('window_map'), _fn('preview')
+        _fload, _ffp, _fpbw = _fn('load_rules'), _fn('_future_periods'), _fn('period_brand_windows')
+        ok(all(x is not None for x in (_fjudge, _fwmap, _fprev, _fload, _ffp, _fpbw)),
+           'Z0 AST 六个函数都定位得到（抽空集不算通过）')
+        ok('window_hit' in _calls(_fjudge), 'Z1 🔴 judge 必须调用可提前窗口内核')
+        ok('next_period_date' in _calls(_fjudge), 'Z2 🔴 judge 必须查真实期次')
+        ok('next_order_date' not in _calls(_fjudge),
+           'Z3 🔴 judge 禁止调用日历推算（会给不存在的期次日期）')
+        ok('window_hit' in _calls(_fprev), 'Z4 preview 必须共用同一内核（防预览与实际分叉）')
+        _jcalls = [_n for _n in _ast.walk(_fwmap)
+                   if isinstance(_n, _ast.Call) and isinstance(_n.func, _ast.Name)
+                   and _n.func.id == 'judge']
+        ok(bool(_jcalls) and any(
+            any(isinstance(_a, _ast.Name) and _a.id == 'future_periods' for _a in _c.args)
+            for _c in _jcalls),
+           'Z5 🔴 window_map 必须把 future_periods 作为实参传给 judge')
+        ok(any('SELECT * FROM rebate_target_rules' in _s for _s in _str_consts(_fload)),
+           'Z6 🔴 load_rules 用 SELECT * 按列名取（后加列缺列不炸整段）')
+        ok(any('SELECT * FROM forecast_periods' in _s for _s in _str_consts(_ffp)),
+           'Z7 🔴 未来期次查询同样不许硬写后加列')
+        _fpsrc = _ast.get_source_segment(_bws, _ffp) or ''
+        ok('oe > cur_end' in _fpsrc, 'Z8 只取当前期次之后的真实期次')
+        _wmcalls = [_n for _n in _ast.walk(_fpbw)
+                    if isinstance(_n, _ast.Call) and isinstance(_n.func, _ast.Name)
+                    and _n.func.id == 'window_map']
+        ok(bool(_wmcalls) and any(
+            _c.args and isinstance(_c.args[-1], _ast.Name) and _c.args[-1].id == 'future'
+            for _c in _wmcalls),
+           'Z9 生产入口必须把真实期次传给 window_map')
+
         print('=== R 坏库 fail-safe ===')
         import importlib
         import db.connection
@@ -409,9 +566,9 @@ def main():
 # 坏样本：(说明, 相对文件, 原文, 替换成)
 # 🔴 每个都必须让检查**变红**；只要有任意一个仍绿，说明对应的断言是空白支票。
 SAMPLES = [
-    ("命中分支被去掉（恒判不可报）", "domain/brand_order_window.py",
-     "    if wd in ws:\n        return res",
-     "    if False:\n        return res"),
+    ("提前窗口被去掉（退回只看当天星期，不读 max_early）", "domain/brand_order_window.py",
+     "    if window_hit(order_end, ws, early):\n        return res",
+     "    if wd in ws:\n        return res"),
     ("品牌归一化不去括号备注", "domain/brand_order_window.py",
      '    t = re.sub(r"[(（][^()（）]*[)）]", "", s)',
      '    t = s'),
@@ -442,6 +599,34 @@ SAMPLES = [
     ("preview 的规则行不带 rule_id（前端「改报单日」失去定位依据）", "routers/forecast.py",
      '"rule_id": v.get("rule_id")}',
      '"rule_id": None}'),
+    # ── v779：可提前窗口 + 真实期次日期，逐条都要有牙齿 ──────────────────
+    ("窗口方向写反（往前找 E 天，不是往后）", "domain/brand_order_window.py",
+     "        if (d + timedelta(days=i)).isoweekday() in ws:",
+     "        if (d - timedelta(days=i)).isoweekday() in ws:"),
+    ("弹窗日期退回日历推算（给不存在的期次日期）", "domain/brand_order_window.py",
+     "    nd = next_period_date(ws, early, future_periods)",
+     "    nd = next_order_date(ws, today)"),
+    ("window_map 漏传 future_periods（弹窗永远没日期）", "domain/brand_order_window.py",
+     "        k: judge(k, order_end, rules, enabled, today, future_periods)",
+     "        k: judge(k, order_end, rules, enabled, today)"),
+    ("load_rules 硬写后加列（缺列租户整段抛错被吞成全放行）", "domain/brand_order_window.py",
+     '        "SELECT * FROM rebate_target_rules "',
+     '        "SELECT id, scope_key, scope_name, order_weekdays, order_max_early_days FROM rebate_target_rules "'),
+    ("未来期次查询硬写后加列（弹窗静默没日期）", "domain/brand_order_window.py",
+     '        cur = conn.execute("SELECT * FROM forecast_periods ORDER BY id")',
+     '        cur = conn.execute("SELECT id, order_start, order_end FROM forecast_periods ORDER BY id")'),
+    ("max_early 不 clamp（超出编排层上限）", "domain/brand_order_window.py",
+     '            e = max(0, min(int(r.get("order_max_early_days") or 0), MAX_EARLY_LIMIT))',
+     '            e = int(r.get("order_max_early_days") or 0)'),
+    ("preview 不共用窗口内核（预览与实际分叉）", "domain/brand_order_window.py",
+     '                "orderable": window_hit(oe, ws, r.get("max_early") or 0),',
+     '                "orderable": bool(wd is not None and wd in ws),'),
+    ("next_period_date 取截止日而非开放日", "domain/brand_order_window.py",
+     '        d = _parse_iso(str(p.get("order_start") or "").strip() or oe)',
+     '        d = _parse_iso(oe)'),
+    ("_future_periods 不过滤当前期次（弹窗指回本期）", "domain/brand_order_window.py",
+     "            if oe > cur_end:",
+     "            if True:"),
 ]
 
 
