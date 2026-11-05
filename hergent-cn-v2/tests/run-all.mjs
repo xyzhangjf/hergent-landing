@@ -589,6 +589,18 @@ if (has('skip-sfc')) {
   results.push({ name: '关单改单+粘贴落点', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊱·b 纯数字列粘贴静默错误拦截（v781）──────────────────────
+/* 报障（2026-11-05）：Excel 复制「唐成」报单整列，未点选落点格直接 Ctrl+V ⇒ 纯数字被主档
+   粘贴当成「新增商品名」，唐成列数量落空还偷生一堆数字商品行。onPaste 新增拦截分支 +
+   pasteIsPureNumbers 纯函数：未选中单元格 + 纯数字列时提示并 return，不新增任何行。 */
+{
+  console.log('\n── ㊱·b 纯数字列粘贴静默错误拦截（v781）──')
+  const r = run('forecast-paste-pure-number.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '纯数字列粘贴拦截', ok: r.code === 0, code: r.code })
+}
+
 // ── ㊲ 填报页商品行（条码 + 名称可展开，v760）──────────────────────
 /* 需求（2026-11-04）：商品名下方展示条码；名称超长省略号 + 点击展开；库存/日均那行撤掉。
    本块钉四组：① 条码空值不渲染且整串不截断；② 截断交 CSS 不按字数切；

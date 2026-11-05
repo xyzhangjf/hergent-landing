@@ -6460,6 +6460,26 @@ function tryPasteCross(block) {
   return true
 }
 
+/* v781：判断剪贴板是否为「纯数字列」（无任何可识别表头、所有非空行都是数字）。
+   用于拦截"未选中单元格就粘报单数量"的静默错误 —— 否则这串数字会被主档粘贴当成
+   新增商品名，唐成列数量反而落空，还偷生一堆叫数字的商品行。带表头的商品主档表格
+   （首行含名称/条码/规格等）一律放行，交由下面的主档粘贴处理。 */
+const PASTE_HEADER_WORDS = ['名称', '商品名称', '品名', '货品', '商品', '条码', '条形码',
+  '厂家编码', '产品编码', '货号', '规格', '单位', '售价', '单价', '销售价', '分销价',
+  '进价', '厂价', '出厂价', '工厂价', '成本价', '采购价',   '安全库存', '库存下限', '保质期', '保质期天数'];
+function pasteIsPureNumbers(lines) {
+  if (!lines || !lines.length) return false
+  const first = String(lines[0] || '').split('\t').map(s => s.trim())
+  if (first.some(h => PASTE_HEADER_WORDS.includes(h))) return false  // 有表头 ⇒ 商品主档，放行
+  const numRe = /^[+-]?(\d+\.?\d*|\.\d+)$/
+  return lines.every(l => {
+    const v = String(l || '').trim()
+    if (!v) return true
+    const s = v.normalize('NFKC').replace(/,/g, '').trim()
+    return numRe.test(s)
+  })
+}
+
 function onPaste(e) {
   const cd = e.clipboardData || window.clipboardData
   const text = cd ? cd.getData('text') : ''
@@ -6483,6 +6503,15 @@ function onPaste(e) {
   if (!lines.length) return
   // Q23：先尝试按「商品 × 客户」交叉表粘贴，命中则直接返回
   if (tryPasteCross(lines.map(l => l.split('\t').map(s => s.trim())))) return
+  /* v781：未选中单元格 + 纯数字列（无表头、每行都是数字）⇒ 不能走下面的「主档粘贴」——
+     否则这串数字会被当成"新增商品名"塞进表格（唐成列数量反而落空，还偷生一堆叫数字的商品行）。
+     正确做法是提示用户先点选要填的客户列单元格（如唐成那一列）再 Ctrl+V。
+     ⚠️ 只在 `selected.r < 0` 时拦：已选中单元格的路径（首个分支）走的是 pasteRegion，
+        那是真正的"列对列批量填充"，绝不能误伤。 */
+  if (selected.value.r < 0 && pasteIsPureNumbers(lines)) {
+    toast('请先点选要粘贴的客户列单元格（如唐成那一列），再按 Ctrl+V 粘贴整列；若要新增商品，请保证每行含商品名称', 'warn')
+    return
+  }
   const HEADER_KEYS = {
     '名称': 'name', '商品名称': 'name', '货品': 'name', '条码': 'barcode', '条形码': 'barcode',
     '厂家编码': 'product_code', '永辉代码': 'product_code', '客户代码': 'product_code', '产品编码': 'product_code', '货号': 'product_code',
