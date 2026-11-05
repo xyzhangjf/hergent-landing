@@ -1281,6 +1281,20 @@ table.tbl .seq-num, table.seq-host .seq-num{display:inline-block;min-width:18px;
 .tag{
   display:inline-flex;align-items:center;height:22px;padding:0 var(--sp-2);
   border-radius:var(--radius-xs);font-size:var(--fs-sm);font-weight:500;background:var(--bg4);color:var(--t2);
+  /* 🔴 v770：状态胶囊必须单行，别顺手删这条。
+     根因（真机实测，商品档案 /archive/products，1440 视口）：
+       · 宽表在 `table-layout:auto` 下按 **min-content** 分配列宽；
+       · 中文可按字断行 ⇒ 没有 nowrap 时「启用」的 min-content = **1 个字**（12px），
+         状态列被压到 48px，`td` 内容区只剩 28px（还要扣本胶囊 16px 左右内距）；
+       · 于是「启」「用」各占一行，且 `height:22px` 固定 ⇒ scrollHeight 30 被裁掉 8px，
+         现场看到的就是「两个字竖着叠、下面那个还缺半截」。
+     加 nowrap 后 min-content 变成 2 个字 ⇒ 列宽 48→60px、胶囊 28→40px，文字回到 1 行。
+     ⚠️ 不是给某一页单独补 min-width：`.tag` 是 v717 收口后**全站唯一状态徽章入口**，
+        在页面级补宽度只会长出第二份判据，换个列表页照样竖排。
+     ⚠️ 不改成 `word-break:keep-all`：那只管标点/单词，管不住汉字逐字断行。
+     ⚠️ 全表实测影响：总宽 1391→1403px（+12，本来就在横向滚动状态），
+        `.table-wrap` 宽度、纵向 scrollHeight、clientHeight 三项一字不变。 */
+  white-space:nowrap;
 }
 .tag.ok,.tag.suc{background:rgba(var(--suc-rgb),.12);color:var(--st-ok-txt)}
 .tag.warn{background:rgba(var(--war-rgb),.15);color:var(--st-warn-txt)}

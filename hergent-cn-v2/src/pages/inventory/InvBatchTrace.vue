@@ -281,6 +281,9 @@ onMounted(() => {
 
 <style scoped>
 .ibt-search { display: flex; gap: var(--sp-h10); align-items: center; margin-bottom: var(--sp-3); padding: var(--sp-4) var(--sp-4) }
+/* v770：查询按钮文字不许竖排。按钮被压到 53px（左右各 16px 内距 ⇒ 内容区 21px），
+   「追溯」两字 28px 放不下 ⇒ 折成上下两行各一字。只影响本页搜索区的按钮。 */
+.ibt-search .btn { white-space:nowrap }
 .ibt-input { max-width: 340px }
 .ibt-card { margin-bottom: var(--sp-3) }
 .ibt-empty { text-align: center; color: var(--t2) }

@@ -317,6 +317,10 @@ onMounted(load)
 .cr-res i,.cr-res-i{font-size:var(--fs-sm);color:var(--t2)}
 .cr-res-warn{font-size:var(--fs-sm);color:var(--war)}
 .cr-tables{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
+/* v770：两张表并排时（901~1200px 之间，@media 断点 900px 才转单列）操作列被压到 45px，
+   「收款」两字放不下就上下叠两行。按钮文字属短文案，不许竖排 —— 只作用于本卡片，
+   不动全局 .btn（全站按钮文案长短不一，全局 nowrap 会让长文案按钮撑破窄屏）。 */
+.cr-tables .btn{white-space:nowrap}
 .cr-col-h{font-size:var(--fs-sm);font-weight:500;color:var(--t2);margin-bottom:var(--sp-h6)}
 .cr-none{font-size:var(--fs-sm);color:var(--t3);padding:var(--sp-2) 0}
 .tbl .num{text-align:right;font-variant-numeric:tabular-nums}

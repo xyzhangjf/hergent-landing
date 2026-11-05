@@ -171,7 +171,10 @@ defineExpose({ load })
 .wsa-acts { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap }
 .wsa-filter { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4) }
 .wsa-f { display: flex; align-items: center; gap: var(--sp-2) }
-.wsa-lb { font-size:var(--fs-base); color: var(--t2) }
+/* v770：筛选区的短标签必须单行。`.wsa-f` 是 flex，label 默认 `flex-shrink:1`，
+   窄屏/筛选项换行时会被压到 32~39px ⇒「关键字」断成「关键/字」、「预警级别」断成
+   「预警/级别」（真机 1440 视口实测两行 rect）。表单标签不是数据值，不允许逐字竖排。 */
+.wsa-lb { font-size:var(--fs-base); color: var(--t2); white-space:nowrap }
 .wsa-kw { min-width: 220px }
 .wsa-sel { min-width: 160px }
 .wsa-gap { font-weight: 600; color: var(--dan) }

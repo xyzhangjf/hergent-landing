@@ -732,6 +732,19 @@ if (has('skip-sfc')) {
   results.push({ name: '返利率可留空', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊼ 短中文文案禁止逐字竖排（v770）───────────────────────────
+/* 商品档案状态列「启用」被表格 min-content 压成上下两字（中文可按字断行）。
+   判据按 CSS **规则块**定位 .tag / tfoot .ft-lb / .wsa-lb / .ibt-search .btn，
+   逐条要求 white-space:nowrap；6 个坏样本分别删/改 nowrap 自证能红。
+   🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs（v748 起连踩三轮）。 */
+{
+  console.log('\n── ㊼ 短中文文案禁止竖排（v770）──')
+  const r = run('status-text-nowrap.contract.mjs', [], { timeout: 120000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '短文案禁止竖排', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
