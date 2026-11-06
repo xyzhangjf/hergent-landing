@@ -20,6 +20,8 @@
 - **新增展示字段先问「前端拿不拿得到全量」**（v771）：`/open-periods` 只返未关闭期次（24 期里 23 期 closed）⇒ 必须服务端批量补。
 - 其余逐条判据（通知受众 v773–v776、返利率留空 v769、扫码 v761、撤回 v758、zoom v745、列拖拽、品牌色/排版令牌、副驾 403、角色权限端点）**见上方完整原文存档**。
 
+- 🔴 **进销存阶段 0 线上核实（2026-11-06，老张拍「A」）**：生产 `inventory_logs` 281 条全是 2026-10-29 一次性 `opening` 快照、之后零真实交易 ⇒ 台账/流水/金额三项「完美相等」是**镜像快照假绿**；阶段 1 第一动作必须是「跑通一笔带批次效期的真实采购入库＋销售出库」，不是先写对账卡。生产主表 `status` **全无 CHECK**（旧判据来自开发版 DDL）；`entity_change_logs`/`audit_logs` 已有字段级留痕＋哈希链；`party_ledger` 建表 0 行、`write_party_ledger` 0 调用；生产 vs git = 220 一致/21 不同/11 缺。证据 `outputs/阶段0-线上只读核实报告-2026-11-06.md`，原计划文档已加修订章节。
+
 ## 🔴🔴 部署（全文 `topics/deploy-ops.md`）
 `deploy-frontend-closure.py --push` 只补 assets ⇒ 三步：`--push`→验闭包全 200→`rsync dist/index.html`（绝不 `--delete`，远端先 `cp -a`）。验产物**必须从线上 curl 回来 grep**：判新旧看**入口 JS 引用哪一份**；「改了没变」先查 `window.__HG_BUILD__`＋`html[data-build]`。
 FLAT：后端 `/opt/hergent-erp/`（非 git 仓，靠 `.workbuddy/remote-erp/` 回拉镜像）｜前端 `/opt/hergent-cn-v2/`（index.html 在根）｜**ERP 前端域名＝`hergent.cn`**（`erp.hergent.cn` 是另一个应用，curl 错域名得「404＝没传上去」假结论）。后端单文件：`cp -a`→`scp`→`chown`→双侧 `md5sum`→restart→**等 8~10 秒**。`vite build` 十几分钟零输出＝安全删除护栏拦住清 `dist/assets`。
