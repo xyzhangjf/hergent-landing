@@ -632,15 +632,18 @@ if (has('skip-sfc')) {
   results.push({ name: '粘贴严格N行全覆盖', ok: r.code === 0, code: r.code })
 }
 
-// ── ㊱·e 粘贴结果常驻展示（v786）──────────────────────────────────
+// ── ㊱·e 粘贴结果常驻展示（v786）+ 收起时机（v787）──────────────────
 /* 需求（2026-11-06）：粘完以类 Excel 表格持续展示行列结构与数据，保存前结果展示和
-   主色框都不得自动收起，仅保存成功后两者同步收起。触发/成功判定/校验/保存行为不变。
+   主色框都不得自动收起；触发/成功判定/校验/保存行为不变。
+   🔴 v787 用户拍板「1.按下按钮即消失；2.取消也一起收起」⇒ 收起时机口径反转：
+      不再是「仅保存成功后」，而是 saveEdits() 开头 + leaveEdit() 两处。
    🔴 护栏要点：① markPasteLand 撤掉 2.6s 定时器但仍会置位（成对判，防「删功能冒充」）；
       ② 抽取真实 setPasteResult 注入 vm 实跑 99 行含空白行 + 尾部空白单独样例；
-      ③ 全文 clearPasteResult() 只准 1 处调用且在 exitEditAfterSave（严格「仅保存后」）；
+      ③ 全文 clearPasteResult() 恰好 2 处调用；抽真实 clearPasteResult/leaveEdit/saveEdits
+         头部注入 vm 实跑，分别验证「按下保存」「取消」都清（含 3 组坏样本自证）；
       ④ 每条关键判据配坏样本 + 真实源码对照组，静态判据一律剥注释防自撞。 */
 {
-  console.log('\n── ㊱·e 粘贴结果常驻展示（v786）──')
+  console.log('\n── ㊱·e 粘贴结果常驻展示（v786）+ 收起时机（v787）──')
   const r = run('forecast-paste-result-panel.contract.mjs', [], { timeout: 60000 })
   const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
   console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)

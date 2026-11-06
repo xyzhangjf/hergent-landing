@@ -1410,12 +1410,12 @@
           </div>
           <!-- v786：粘贴结果常驻展示。粘完以类 Excel 表格逐行逐列列出本次结果，
                保留源数据的行列结构（空白行 / 空白格都原样占位），保存前不自动收起；
-               保存成功后由 clearPasteResult() 把本面板与主色框一起收起。 -->
+               v787：按下「保存」或「取消改单」时由 clearPasteResult() 把本面板与主色框一起收起。 -->
           <div v-if="editMode && pasteResult" class="info-panel paste-result-panel">
             <div class="panel-hd">
               <b><Icon name="grid"/> {{ pasteResult.label }}</b>
               <span class="tag ok">{{ pasteResult.rows }} 行 × {{ pasteResult.cols }} 列</span>
-              <span class="pr-hint">保存前持续展示 · 点「保存」后收起结果与主色框</span>
+              <span class="pr-hint">保存前持续展示 · 点「保存」或「取消」即收起结果与主色框</span>
             </div>
             <div v-if="pasteResult.span" class="pr-span">落点：{{ pasteResult.span }}</div>
             <div class="pr-wrap">
@@ -5353,6 +5353,7 @@ async function loadEditGrid() {
       若在这里 await，loadCross 的异常会冒泡进 saveEdits 的 try/catch ⇒
       明明保存成功了却弹「保存失败」，是比不刷新严重得多的错。 */
 function leaveEdit() {
+  clearPasteResult()       // v787：取消改单 / 退出编辑态时结果与主色框一起收起（否则下次进编辑态会重现上次结果）
   editMode.value = false
   loadingEdit.value = false
   errListOpen.value = false   // v174：退出编辑态收起查错面板（否则下次进入会先闪一屏旧结果）
@@ -5380,10 +5381,14 @@ async function exitEdit() {
       （与 v201 修掉的那处是同一个坑，只是入口从「用户点取消」变成「系统自动退出」）。
    ⚠️ 为什么不做成一个带参函数：`@click="exitEdit"` 会把 **MouseEvent** 当第一个实参传进来，
       改签名还得同步改模板，稍不留神就是「取消按钮悄悄跳过确认框」。独立函数零耦合。 */
-/* v786：保存成功 ⇒ 收起粘贴结果面板 + 主色框，两者同步结束。
-   ⚠️ 只在**保存成功**这条出口清：校验失败 / 网络失败时用户仍在编辑态、数据没提交，
-      此刻把可核对的结果拿走等于改变保存失败时的既有表现。 */
-function exitEditAfterSave() { clearPasteResult(); leaveEdit() }
+/* v787（2026-11-06 用户拍板）：「按下按钮即消失」+「取消也一起收起」。
+   收起不再挂在「保存成功」这个出口，而是前移到**两个动作发起处**：
+     ① saveEdits() 开头 → 按下「保存」的瞬间就清，不等成功 / 失败 / 网络回执；
+     ② leaveEdit()     → 「取消改单」与保存成功退出编辑态都经过这里，一并收起，
+                          也顺带治掉「取消后再进编辑态重现上次结果表」。
+   ⚠️ 本函数保持 v208 的既有职责（永不确认 + 退出编辑态），不再重复 clear
+      （clear 幂等，但重复调用点会让「收起时机」出现第二个解释，本项目铁律：口径只写一处）。 */
+function exitEditAfterSave() { leaveEdit() }
 
 
 /* P0(v376/P0-2 续)：整表行合计**一次算好**。
@@ -5710,7 +5715,7 @@ function flashAt (r, c) {
    ⚠️ 用 `k` 计数逼动画重放（同 `flashAt` 的教训）：连续粘两次到同一片区域时，
       布尔不变 ⇒ CSS 动画不重放 ⇒ 第二次"没反应"，用户会以为没粘上。
    🔴 v786：原先 2.6s 定时自动清空已撤 —— 用户明确要求「保存前主色框不得自动收起」。
-      现在只有 `clearPasteResult()`（保存成功后）把它置回 -1；「先清空一次再置位」仍保留，
+      v787：现在只在「按下保存」或「取消改单」时由 `clearPasteResult()` 置回 -1；「先清空一次再置位」仍保留，
       用于同一区域连续粘贴时触发重渲染 + 动画重放（若只改动画时长，class 一直在，
       下次同一区域粘贴会因为"值没变"而不触发重渲染）。 */
 const pasteLand = ref({ r0: -1, c0: -1, r1: -1, c1: -1, k: 0 })
@@ -5760,8 +5765,10 @@ function setPasteResult (block, meta = {}) {
     })),
   }
 }
-/* v786：唯一的收起出口 —— 只在保存成功后调用（见 exitEditAfterSave）。
-   ⚠️ 不放在 leaveEdit()：「取消改单」不是保存，用户明确要求保存前不得清除。 */
+/* v787：两个收起出口 —— ① `saveEdits()` 开头（按下「保存」即清，不等成功）；
+   ② `leaveEdit()`（「取消改单」及保存成功退出编辑态都经过）。
+   ⚠️ v786 曾只在「保存成功」清，且刻意不放在 leaveEdit()；本轮用户明确拍板
+      「按下按钮即消失」+「取消也一起收起」，口径已反转，别再按旧注释改回去。 */
 function clearPasteResult () {
   pasteResult.value = null
   pasteLand.value = { r0: -1, c0: -1, r1: -1, c1: -1, k: pasteLand.value.k + 1 }
@@ -6006,6 +6013,13 @@ function errFromViolations(vlist) {
 }
 
 async function saveEdits(opts = {}) {
+  /* v787：用户拍板「按下按钮即消失」—— 保存动作**一发起**就收起结果表与主色框，
+     不依赖保存成功；校验失败 / 409 / 网络失败也照收，这是用户明确要的表现。
+     ⚠️ 必须是函数体第一行：所有提前 return 的守卫路径同样会清，避免「按了保存却还亮着」。
+     ⚠️ 只动展示状态，opts / 载荷 / 校验 / 乐观锁 / 留痕一行不改。
+     ⚠️ 放在唯一提交入口而非模板 @click：四条保存路径（两个按钮、Ctrl+S、批量上架隐式保存、
+        并发冲突「用我这份覆盖」）都走这里，另写一份必然漂移。 */
+  clearPasteResult()
   /* opts.force：用户在并发冲突对话框上明确选了「用我这份覆盖」⇒ 只给 save-matrix 多带一个
      force=true（后端跳过冲突判定）。
      ⚠️ 复用**同一个函数**而不是在对话框里另写一份提交逻辑：两份载荷字段清单必然漂移

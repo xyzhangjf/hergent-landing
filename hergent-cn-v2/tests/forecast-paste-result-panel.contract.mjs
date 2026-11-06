@@ -1,8 +1,12 @@
-/* ㊱·e　粘贴结果常驻展示（v786）
+/* ㊱·e　粘贴结果常驻展示（v786）+ 收起时机（v787）
    ────────────────────────────────────────────────────────────────────────
    需求（2026-11-06）：粘完不再只有「2.6s 后自动消失的主色框 + 自动消失的 toast」，
    改为「类 Excel 表格持续展示已粘贴结果，保留行列结构与数据」；保存前结果展示与主色框
-   都不得自动收起；仅保存成功后两者同步收起。触发条件 / 成功判定 / 校验 / 保存行为不变。
+   都不得自动收起。触发条件 / 成功判定 / 校验 / 保存行为不变。
+   🔴 v787 口径反转（用户拍板「1.按下按钮即消失；2.取消也一起收起」）：
+      v786 曾把 clearPasteResult() 挂在「保存成功」出口、且刻意不放 leaveEdit()；
+      现在前移到 `saveEdits()` 开头（按下即清，不等成功）+ `leaveEdit()`（取消也清）。
+      本护栏 E 段按新口径重写，旧断言「全文 1 处调用 / 取消不清」已作废，别改回去。
 
    🔴 本护栏防三种空白支票（本项目铁律）：
       ① 正则抽到空集 ⇒ 每条截取先断言片段非空；
@@ -69,7 +73,8 @@ ok(/'pr-blank': v === ''/.test(panelCode) && /\{\{ v \}\}/.test(panelCode),
   '空白格原样占位（淡底标记），数值格显示实际值')
 ok(!/imp-x|@click="[^"]*pasteResult\s*=\s*null/.test(panelTxt),
   '面板没有手动关闭按钮 ⇒ 保存前不会收起/隐藏/清除')
-ok(/保存前持续展示/.test(panelCode), '面板明确告知「保存前持续展示 · 点保存后收起」')
+ok(/保存前持续展示/.test(panelCode) && /「取消」/.test(panelCode),
+  '面板明确告知「保存前持续展示 · 点保存或取消即收起」（与 v787 代码口径一致）')
 ok(/\{\{ pasteResult\.rows \}\} 行 × \{\{ pasteResult\.cols \}\} 列/.test(panelCode),
   '表头回执行列数（中文单位，不用英文缩写）')
 
@@ -141,21 +146,87 @@ ok(/setPasteResult\(block, \{ useCols, sc, span: _span/.test(regionSeg)
   && !/setPasteResult\(block, \{ useCols, sc, span: _span/.test(badRegion),
   '坏样本（删掉主路径快照调用）能被判否 ⇒ 撤销修复即红')
 
-/* ══════════════ E. 仅保存成功后同步收起 ══════════════ */
-console.log('\nE. 收起时机：仅保存成功，且结果与主色框一起')
+/* ══════════════ E. 收起时机：按下保存即清 + 取消也清（v787） ══════════════ */
+console.log('\nE. 收起时机（v787）：按下「保存」即清，「取消」也一起收起')
 const clearTxt = stripComments(fnBody('function clearPasteResult ()'))
 const leaveTxt = stripComments(fnBody('function leaveEdit()'))
-ok(clearTxt.length > 20 && leaveTxt.length > 20, 'clearPasteResult / leaveEdit 片段截取非空')
-ok(count(vueCode, /clearPasteResult\(\)/g) === 1,
-  '全文只有 1 处调用（不是「到处都清」），实测 ' + count(vueCode, /clearPasteResult\(\)/g) + ' 处')
-ok(/function exitEditAfterSave\(\) \{ clearPasteResult\(\); leaveEdit\(\) \}/.test(vueCode),
-  '唯一的调用点在保存成功出口 exitEditAfterSave')
-ok(!/clearPasteResult/.test(leaveTxt), '取消改单走的 leaveEdit 不清 ⇒ 严格「仅保存后」')
+const saveTxt = stripComments(fnBody('async function saveEdits(opts = {})'))
+ok(clearTxt.length > 20 && leaveTxt.length > 20 && saveTxt.length > 1000,
+  'clearPasteResult / leaveEdit / saveEdits 片段截取非空（防「正则抽空集」假绿）')
+ok(count(vueCode, /clearPasteResult\(\)/g) === 2,
+  '全文恰好 2 处调用：saveEdits 开头 + leaveEdit（口径只写一处，不多不少），实测 '
+  + count(vueCode, /clearPasteResult\(\)/g) + ' 处')
+ok(/function exitEditAfterSave\(\) \{ leaveEdit\(\) \}/.test(vueCode),
+  '保存成功出口不再直接清（收起已前移，不出现第三处口径）')
+ok(/function leaveEdit\(\) \{\s*\n\s*clearPasteResult\(\)/.test(leaveTxt),
+  '「取消改单」走 leaveEdit() ⇒ 结果与主色框一并收起')
+const clearIdx = saveTxt.indexOf('clearPasteResult()')
+const firstReturnIdx = saveTxt.indexOf('return')
+ok(clearIdx > 0 && clearIdx < firstReturnIdx,
+  'saveEdits 里 clearPasteResult() 在第一个 return 之前 ⇒ 按下保存即清，不依赖保存成功')
+/* 函数体的 `{` 要用 `) {` 定位：`indexOf('{')` 会先命中默认参数 `opts = {}` 的花括号。 */
+const saveBodyOpen = saveTxt.indexOf(') {') + 2
+ok(saveBodyOpen > 1 && saveTxt.slice(saveBodyOpen + 1, clearIdx).trim() === '',
+  'clearPasteResult() 是 saveEdits 函数体第一条可执行语句（所有提前 return 的守卫同样会清）')
 ok(/pasteResult\.value = null/.test(clearTxt) && /pasteLand\.value = \{ r0: -1/.test(clearTxt),
   '收起时同时结束结果展示状态与清空主色框（同步，不是只关一个）')
-const badExit = vueCode.replace('clearPasteResult(); leaveEdit()', 'leaveEdit()')
-ok(!/clearPasteResult\(\)/.test(badExit) && /clearPasteResult\(\)/.test(vueCode),
-  '坏样本（保存后不收起）能被判否 ⇒ 撤销修复即红')
+
+/* 真实函数体实跑：造出「已粘贴」状态 → 分别走「按下保存」与「取消」，断言两者都被清。
+   saveEdits 只截到 clear 调用为止并补 return（后面几万字符全是保存业务，与本判据无关，
+   注入 vm 会崩）—— 保留的是**真实签名 + 真实第一条语句**，不是仿写一份。 */
+const saveHeadTxt = saveTxt.replace(/^async function saveEdits/, 'function saveEdits')
+  .slice(0, clearIdx + 'clearPasteResult()'.length) + '\n  return\n}'
+function lifecycle (head = saveHeadTxt, leave = leaveTxt) {
+  const sb = {
+    pasteResult: { value: { rows: 99, cols: 1, cells: [['2']], heads: ['客户列1'], label: '区块粘贴', span: '' } },
+    pasteLand: { value: { r0: 0, c0: 0, r1: 98, c1: 0, k: 1 } },
+    editMode: { value: true }, loadingEdit: { value: false }, errListOpen: { value: true },
+    clearCopyMark: () => {}, loadCross: () => {},
+  }
+  vm.createContext(sb)
+  vm.runInContext(clearTxt + '\n' + leave + '\n' + head + '\n'
+    + 'this.__save = saveEdits; this.__leave = leaveEdit;', sb)
+  return sb
+}
+{
+  const s = lifecycle()
+  ok(s.pasteResult.value !== null && s.pasteLand.value.r0 === 0,
+    '前置状态确实处于「已粘贴」（主色框亮、结果表在）')
+  s.__save()
+  ok(s.pasteResult.value === null && s.pasteLand.value.r0 === -1,
+    '实跑：按下「保存」的瞬间（不等成功/失败回执）结果与主色框就都没了')
+}
+{
+  const s = lifecycle()
+  s.__leave()
+  ok(s.pasteResult.value === null && s.pasteLand.value.r0 === -1 && s.editMode.value === false,
+    '实跑：点「取消改单」走 leaveEdit() 也一起收起，且照常退出编辑态')
+  s.editMode.value = true
+  ok(s.pasteResult.value === null,
+    '取消后再进编辑态不会重现上一次结果表（v786 已知限制已修）')
+}
+/* 坏样本自证：分别撤掉两处 clear，动态判据必须翻红；还原 v786 旧口径，静态判据必须翻红。 */
+{
+  const badHead = saveHeadTxt.replace('clearPasteResult()', '')
+  const s = lifecycle(badHead)
+  s.__save()
+  ok(s.pasteResult.value !== null && saveHeadTxt.includes('clearPasteResult()'),
+    '坏样本实跑：撤掉 saveEdits 里的 clear ⇒ 按下保存结果仍在（撤销即红）')
+}
+{
+  const badLeave = leaveTxt.replace('clearPasteResult()', '')
+  const s = lifecycle(saveHeadTxt, badLeave)
+  s.__leave()
+  ok(s.pasteResult.value !== null && leaveTxt.includes('clearPasteResult()'),
+    '坏样本实跑：撤掉 leaveEdit 里的 clear ⇒ 取消后结果重现（撤销即红）')
+}
+{
+  const badCaliber = vueCode.replace('function exitEditAfterSave() { leaveEdit() }',
+    'function exitEditAfterSave() { clearPasteResult(); leaveEdit() }')
+  ok(!/function exitEditAfterSave\(\) \{ leaveEdit\(\) \}/.test(badCaliber)
+    && /function exitEditAfterSave\(\) \{ leaveEdit\(\) \}/.test(vueCode),
+  '坏样本（还原 v786「仅保存成功后清」）能被判否')
+}
 const badClear = clearTxt.replace(/pasteLand\.value = \{ r0: -1[^\n]*\n/, '')
 ok(/pasteLand\.value = \{ r0: -1/.test(clearTxt) && !/pasteLand\.value = \{ r0: -1/.test(badClear),
   '坏样本（只关结果、不关主色框）能被判否')
