@@ -58,6 +58,11 @@ const stripComments = (s) => s
 const parseTSVTxt = fnBody('function parseTSV(text)')
 const pasteCellEmptyTxt = (vue.match(/function pasteCellEmpty\(v\)\s*\{[^}]*\}/) || [''])[0]
 const writeCellValTxt = fnBody('function writeCellVal(r, c, v)')
+/* v792：`writeCellVal` 写数量格时会先把该格从「分摊叠加」里接管出来（`qtyCellTakeOver`）。
+   本契约只验「写入层严格 N 行全覆盖」，与本主题无关，但仍注入**真实函数体**而不是桩：
+   桩会让「接管逻辑哪天被删」在本文件里悄悄失去观测，而抽真实体只是多一行。
+   （分摊/覆盖语义本身由 forecast-paste-overwrite.contract.mjs 专门钉。） */
+const qtyCellTakeOverTxt = fnBody('function qtyCellTakeOver(r, store)')
 const pasteRegionTxt = fnBody('function pasteRegion(text)')
 const onPasteTxt = fnBody('function onPaste(e)')
 const tryPasteCrossTxt = fnBody('function tryPasteCross(block)')
@@ -137,7 +142,7 @@ function makeSandbox(regionOverride) {
   }
   vm.createContext(sb)
   const code = [
-    parseTSVTxt, pasteCellEmptyTxt, writeCellValTxt,
+    parseTSVTxt, pasteCellEmptyTxt, qtyCellTakeOverTxt, writeCellValTxt,
     regionOverride || pasteRegionTxt,
     'this.__parseTSV = parseTSV; this.__pasteRegion = pasteRegion; this.__writeCellVal = writeCellVal;',
   ].join('\n')

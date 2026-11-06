@@ -8991,7 +8991,26 @@ function writeCellVal(r, c, v) {
     return true
   }
   const ui = c - visibleCols.value.length
-  if (ui < unitCount()) { rw.qtyByUnit[cross.value.units[ui].name] = parseNumInput(v); return true }
+  if (ui < unitCount()) {
+    const store = cross.value.units[ui].name
+    /* 🔴 v792（2026-11-06，老张口径）：「**粘贴/批量写入 = 绝对覆盖**」——
+       系统 6、粘 0 ⇒ 变 0（减到 0）；粘 6 ⇒ 还是 6（没改单）；粘 12 ⇒ 变 12（加 6）。
+       写值这一半本来就是覆盖（直接赋值，不是累加），**缺的是另一半**：
+       门店格的**显示值** = `qtyByUnit[store]` + `allocOfStore(r,store)`（分摊叠加层），
+       而本函数只写前一半 ⇒ 用户粘 12，屏幕上却是 12 + 分摊（或分摊盖住 0 显出旧量），
+       体感就是「粘了没覆盖」。分摊叠加见 calc.js::allocOfStore 与 qtyCellShown。
+       ⇒ 用户主动写这一格时，先按「手工打字」同一待遇把它**接管**（`allocTaken[store]=true`），
+          此后该格只显示他自己写进去的数，分摊不再叠加。
+       ⚠️ 复用 `qtyCellTakeOver` 而不再写一份：它已处理「本行没有分摊 / 该格已接管」两种短路，
+          重复实现必然漂移（onQtyCellInput / onQtyCellCommit 也走它）。
+       ⚠️ 只标这一格、不影响同行别的门店 —— 用户常常只改一个店。
+       ⚠️ 本函数是**所有主动写入**的唯一入口（粘贴 / 填充柄 / Ctrl+Enter / Delete 清空 /
+          一键修复负数），故在此统一接管即可全覆盖；`restoreCellRaw`（Esc 放弃本格修改）
+          与本函数的职责不同，不走这里，也不会误接管。 */
+    qtyCellTakeOver(rw, store)
+    rw.qtyByUnit[store] = parseNumInput(v)
+    return true
+  }
   /* v377：写路径同上。空值写 ''（模板用 `?? ''` 判断「没填」⇒ 清空后回到占位符，
      而不是留下一个显示成 0 的「假已填」）。 */
   const ck2 = calcInputKey(c)
