@@ -237,9 +237,11 @@ const LH_TOKEN = /var\(\s*--lh-[A-Za-z0-9-]*\s*\)/g
      B. `<select>` 系 × 2（`.hd-sel` / `.cm-sel·.cm-in·.scheme-name-ipt`）——
         原生下拉不吃 `align-items`（UA 内部渲染 popup，不参与 flex 布局），
         `line-height` 本来就是它唯一的垂直居中手段。
-   🔴 新增的同类写法会被判失败 —— 冻结的是**这 12 处**，不是这个模式。 */
+   🔴 新增的同类写法会被判失败 —— 冻结的是**这 10 处**，不是这个模式。
+   v788：无路由死页面 InvPurchaseNew.vue 已删除，它那 2 处（.ipn-v 主档 18 + compact 16）
+      一并从清单移除。清单「用不满」同样判红（见下方 shrunk）⇒ 删文件必须同步收缩，
+      否则清单会慢慢变成「允许这个文件里随便出现 N 处」的空白支票。 */
 const LH_AS_HEIGHT_FROZEN = new Map([
-  ['src/pages/inventory/InvPurchaseNew.vue', 2],   // A：.ipn-v 主档 18 + compact 16
   ['src/pages/inventory/new/ProductCombo.vue', 2], // A
   ['src/pages/inventory/new/PurchaseOrderForm.vue', 2], // A
   ['src/pages/inventory/new/PurchaseReturnForm.vue', 2], // A
@@ -300,7 +302,7 @@ function checkLineHeights () {
     bad.push({ rel: o.rel, val: `${o.val} —— 靠 line-height 撑高度，改 flex：display:flex;align-items:center;justify-content:center + line-height:var(--lh-none)` })
   }
   const frozenTotal = [...frozenSeen].reduce((a, [, n]) => a + n, 0)
-  if (frozenTotal) console.log(`  · 行高：${frozenTotal} 处「用 line-height 当高度」已冻结（10 处明细格文本态有 ellipsis、2 处原生 select，见 LH_AS_HEIGHT_FROZEN）`)
+  if (frozenTotal) console.log(`  · 行高：${frozenTotal} 处「用 line-height 当高度」已冻结（8 处明细格文本态有 ellipsis、2 处原生 select，见 LH_AS_HEIGHT_FROZEN）`)
   return bad
 }
 
