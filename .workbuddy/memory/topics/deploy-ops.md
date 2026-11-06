@@ -26,6 +26,18 @@
 - 服务器上跑单测：先 `. /opt/hergent-erp/.env`（缺 `ERP_SECRET` 会 RuntimeError），再 `sys.path.insert(0,'/opt/hergent-erp')`。
 - ⚠️ **后端生产依赖（非 git 管理，须人工补装）**：`python-docx==1.2.0` 已 `pip install` 到**系统 python3**（`/usr/bin/python3`）。用于 `/api/meeting/export-docx` 生成 `.docx` 周报。若整目录重部署到新机或系统 python 重装，须先 `python3 -m pip install python-docx`，否则该端点 500（代码已 `try/except` 兜底返回 500 提示，不会拖垮其他接口）。
 
+### 🔴 后端发版后：源码纳管基线（2026-11-06 阶段 0 落地）
+- 🔴 **前提**：生产 `/opt/hergent-erp/` **不是 git 仓**（`NO_GIT_REPO`）且**长期领先**本机 `~/Documents/hergent-erp`。**严禁拿 git 仓反向覆盖生产**（会一次性回退 `erp_db.py`/`server.py`/`scheduler.py` 与 13 个路由）。方向永远是「生产 → 快照 → 基线提交」。
+- **每次后端发版四步**（与既有 `cp -a` 备份 → `scp` 全路径 → `chown` → 双侧 md5 → restart → 等 8～10s → `/api/health` 并列）：
+  1. `python3 .workbuddy/tools/prod-src-diff.py pull`（只读 rsync 回拉，绝不回写生产）；
+  2. `python3 .workbuddy/tools/prod-baseline-commit.py --tag prod-baseline/<日期>`（临时索引 + plumbing，**不 checkout / 不 stash / 不 reset / 不 push**，并行会话在途改动零影响）；
+  3. `python3 .workbuddy/tools/prod-src-diff.py compare --ref prod-baseline --snap .workbuddy/stage0/prod-src-latest --out <报告>`，退出码 `0` = `VERDICT: PASS`；
+  4. 记录提交号 + 线上进程启动时间（回答「线上跑哪份」）。
+- 🔴 **验收必须带 `--ref prod-baseline`，不能比工作树**：2026-11-06 实测工作树比对是 `214/21/10`，而比 HEAD 分支是 `212/23/10` —— 差的 2 个（`funds_db.py` / `routers/funds.py`）是**并行会话在途改动恰好把工作树改成与生产一致**，属虚高。工作树口径只能作开发参考。
+- **首次基线**：提交 `6d1c12f`（父 `7d88503`），标签 `prod-baseline/2026-11-06`，245 个核心 `.py` 逐字节一致 → `245/0/0 PASS`。分支只在本地，**不要 push**（生产源码含已知安全债）。
+- **安全边界**：快照里的 `.env` 不入库（`.gitignore` + 脚本 `DENY_NAMES` 双拦），分支内只有 HEAD 原有的 `.env.example` 模板；6 个 `tools_patch_v706*.py` 一次性补丁仅为忠实反映线上而收入基线，**不是现行代码，不要执行、不要合进主分支**。
+- 见 `outputs/阶段0-后端纳管清单-2026-11-06.md`、`outputs/阶段0-后端纳管比对-基线条-2026-11-06.md`。
+
 ## 第二个前端面：erp.hergent.cn（旧前端 static/）
 - **源码**：`hergent-erp/static/`（vanilla JS + Vite，`src/main.js` 按 index.html 顺序 side-effect import 全模块；`vite.config.js` 用 `exposeTopLevelGlobals` 插件把列 0 顶层声明挂回 `window`，模拟旧多 `<script>` 加载序）。
 - **产物/部署**：`cd static && CODEBUDDY_SAFE_DELETE_ENABLED=0 npm run build` → `static/dist/` → `rsync -a --no-owner --no-group --delete static/dist/ root@…:/opt/static/` → `chown -R hergent:hergent /opt/static`。
