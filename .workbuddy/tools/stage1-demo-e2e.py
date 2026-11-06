@@ -38,9 +38,12 @@ DB = SAND / 'erp.db'
 LOCAL_SERVER = Path('/Users/zhangjunfeng/Documents/hergent-erp/server')
 PROD_SNAP = ROOT / '.workbuddy/stage0/prod-src-20261106'
 CORE_QUERIES = ('inventory.py', 'purchases.py', 'sales.py')
-# 阶段 1 第 1 项新增的统一写入内核。生产快照里没有这个文件，
-# 所以「现状」演练时跳过、「收敛版」(--with-fix) 演练时一并复制。
-EXTRA_QUERIES = ('stock_movement.py',)
+# 阶段 1 新增、生产快照里没有的文件：现状演练时跳过，收敛版演练时一并复制。
+#   · stock_movement.py = 第 1 项统一库存写入口
+#   · doc_state.py      = 第 3 项状态跃迁白名单（销售/采购/审批引擎都已 import 它，
+#                         不复制过来会让「现状版」演练在 import 阶段就崩）
+#   · approvals.py      = 第 3 项接线的审批引擎；快照里有原件，故两版都会复制
+EXTRA_QUERIES = ('stock_movement.py', 'doc_state.py', 'approvals.py')
 
 # 演示数据统一前缀：与副本里已有的开发数据一眼可分
 DEMO = '演示-阶段1'

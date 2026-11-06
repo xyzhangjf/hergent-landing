@@ -21,7 +21,10 @@ PY = sys.executable
 STEPS = [
     ('补丁↔开发副本自证', 'stage1-dev-src-rebuild.py', ['--check']),
     ('库存写入点静态护栏', 'stage1-stock-write-guard.py', []),
+    ('状态写入点静态护栏', 'stage1-doc-state-guard.py', []),
+    ('状态机内核验收（含坏样本）', 'stage1-doc-state-verify.py', []),
     ('统一三写演示数据验证', 'stage1-stock-movement-e2e.py', []),
+    ('状态跃迁端到端（真实业务函数）', 'stage1-doc-state-e2e.py', []),
     ('链路演练 C 组（录生产日期 + 收敛版）', 'stage1-demo-e2e.py', ['--with-fix', '--prod-date']),
     ('链路演练 D 组（不录 + 收敛版）', 'stage1-demo-e2e.py', ['--with-fix']),
     ('链路演练 A 组（生产快照现状，向后兼容）', 'stage1-demo-e2e.py', []),

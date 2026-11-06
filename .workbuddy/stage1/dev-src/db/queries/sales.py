@@ -3,6 +3,9 @@ from db.connection import get_db, get_db_tx, _gen_no, log_migration_warn
 # v719：`_allow_neg_inv` —— 发货缺货是否降级为提醒，由仓库配置决定
 from db.queries.inventory import inventory_adjust, fefo_deduct, SALEABLE_BATCH_COND, _allow_neg_inv
 from db.queries.entity_logs import log_entity_changes
+# 阶段 1（第 3 项）：状态跃迁白名单的**唯一源**。此处只引只读校验，
+# 不是又把一份状态表抄进本文件。
+from db.queries.doc_state import check_transition, guard_sql, status_label, IllegalTransition
 from contextlib import nullcontext
 import logging
 import time
@@ -319,8 +322,19 @@ def sale_order_deliver(oid):
         # 已发货/签收(delivered/signed)、终态(cancelled/rejected) 仍拒绝。
         # v525d：审批流引入 `approved` 中间态 —— 终审批通过的销售单落到 `approved`，
         #   发货必须认这个态（否则审批通过的单永远发不了货）。原 `draft`/`confirmed` 一并保留。
-        o = db.execute("SELECT * FROM sale_orders WHERE id=? AND status IN ('draft','confirmed','approved')",(oid,)).fetchone()
-        if not o: return {'error':'状态错误：只有草稿或已确认状态的订单才能发货'}
+        # 阶段 1（第 3 项）：守卫改由 `doc_state` 统一给出。
+        # 🔴 修掉两处既有缺陷：
+        #   ① 原守卫写死 `status IN ('draft','confirmed','approved')`，**漏了 `picking`**
+        #      ⇒ 一旦 `generate_pick_list` 把单置成拣货中，这张单就永远发不出货
+        #      （提示还是「只有草稿或已确认才能发货」，用户无从下手）；
+        #   ② 提示语写死，已发货/已签收/已作废都报同一句，看不出当前到底是什么状态。
+        o = db.execute("SELECT * FROM sale_orders WHERE id=?", (oid,)).fetchone()
+        if not o:
+            return {'error': '订单不存在'}
+        try:
+            check_transition('sale_order', o['status'], 'delivered')
+        except IllegalTransition as e:
+            return {'error': str(e)}
 
         # Check inventory for each item before delivering.
         # Count only SALEABLE stock (G8: expired batches cannot ship — they must go to 报损).
@@ -379,7 +393,14 @@ def sale_order_deliver(oid):
                 except Exception:
                     pass
 
-        db.execute("UPDATE sale_orders SET status='delivered' WHERE id=?",(oid,))
+        # 阶段 1（第 3 项）：写入加来源守卫（乐观锁）。前面已按白名单校验过，
+        # 但校验与写入之间还隔着整段 FEFO 扣减 —— 并发下同一张单可能被两个请求
+        # 同时通过校验、各扣一次库存。守卫让第二个请求拿到 rowcount=0 并整体回滚。
+        _gs, _gp = guard_sql('sale_order', 'delivered')
+        _cur = db.execute("UPDATE sale_orders SET status='delivered' WHERE id=?" + _gs,
+                          [oid] + _gp)
+        if not _cur.rowcount:
+            raise ValueError('这张单刚被别人改过状态，本次发货未生效，请刷新后重试')
         # v107.146: 出库单打通 — 发货即生成拣货波次记录(P2-10 最小版)
         try:
             from db.connection import _gen_no
@@ -416,7 +437,13 @@ def sale_order_sign(oid):
         if not o: return {"error": "状态错误：只有已发货的订单才能签收"}
 
         # Update status
-        db.execute("UPDATE sale_orders SET status='signed' WHERE id=?", (oid,))
+        # 阶段 1（第 3 项）：来源守卫下沉到写入语句本身（上面的 SELECT 只是取行，
+        # 校验与写入之间仍可能被并发改状态）。
+        _gs, _gp = guard_sql('sale_order', 'signed')
+        _cur = db.execute("UPDATE sale_orders SET status='signed' WHERE id=?" + _gs,
+                          [oid] + _gp)
+        if not _cur.rowcount:
+            return {"error": "这张单刚被别人改过状态，本次签收未生效，请刷新后重试"}
         # v107.116: 审计日志
         try: log_entity_changes('sale_order', oid, '', [('status', 'delivered', 'signed')], action='sign')
         except Exception: pass
@@ -458,8 +485,18 @@ def sale_order_cancel(oid, operator_id=''):
         if not o:
             return {"error": "订单不存在"}
         if o["status"] not in ("draft", "confirmed", "pending_approval"):
-            return {"error": "状态错误：只有草稿/已确认/待审批的订单才能取消"}
-        db.execute("UPDATE sale_orders SET status='cancelled' WHERE id=?", (oid,))
+            # ⚠️ 人工取消比白名单**更严**：白名单放 `signed → cancelled` 是给
+            #    AI 回滚 / 红冲用的系统通道；人工不能靠「取消」抹掉一张已签收的单
+            #    （货已交付、AR 已生成），必须走销售退货。故此处不用 check_transition。
+            return {"error": "状态错误：当前是「%s」，只有草稿/已确认/待审批的订单才能取消；"
+                             "已发货或已签收请走销售退货"
+                             % status_label('sale_order', o["status"])}
+        # 阶段 1（第 3 项）：写入加来源守卫，防「校验通过后被人抢先改状态」。
+        _gs, _gp = guard_sql('sale_order', 'cancelled')
+        _cur = db.execute("UPDATE sale_orders SET status='cancelled' WHERE id=?" + _gs,
+                          [oid] + _gp)
+        if not _cur.rowcount:
+            return {"error": "这张单刚被别人改过状态，本次取消未生效，请刷新后重试"}
         try:
             log_entity_changes('sale_order', oid, '', [('status', o["status"], 'cancelled')], action='cancel')
         except Exception:
@@ -1531,8 +1568,14 @@ def sale_order_reject(oid, operator_id=''):
         if not o:
             return {"error": "订单不存在"}
         if o["status"] not in ("draft", "pending_approval"):
-            return {"error": "状态错误：只有草稿或待审批状态的订单才能拒绝"}
-        db.execute("UPDATE sale_orders SET status='rejected', operator_id=? WHERE id=?", (operator_id, oid))
+            return {"error": "状态错误：当前是「%s」，只有草稿或待审批状态的订单才能拒绝"
+                             % status_label('sale_order', o["status"])}
+        _gs, _gp = guard_sql('sale_order', 'rejected')
+        _cur = db.execute(
+            "UPDATE sale_orders SET status='rejected', operator_id=? WHERE id=?" + _gs,
+            [operator_id, oid] + _gp)
+        if not _cur.rowcount:
+            return {"error": "这张单刚被别人改过状态，本次驳回未生效，请刷新后重试"}
         db.commit()
         # v107.116: 审计日志
         try: log_entity_changes('sale_order', oid, operator_id, [('status', o["status"], 'rejected')], action='reject')

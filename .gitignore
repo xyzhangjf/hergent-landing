@@ -92,4 +92,7 @@ desktop-app/*.tar.gz
 # 这些文件由 stage1-dev-src-rebuild.py 从「生产快照 + 累积补丁」重建（已做逐字节自证）。
 /.workbuddy/stage1/dev-src/erp_db.py
 /.workbuddy/stage1/dev-src/sync_writer.py
+/.workbuddy/stage1/dev-src/server.py
 /.workbuddy/stage1/dev-src/domain/
+# 阶段 1 第 3 项：审批引擎是生产源码副本（仅改了状态规则），同样由补丁重建
+/.workbuddy/stage1/dev-src/db/queries/approvals.py

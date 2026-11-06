@@ -35,18 +35,27 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SNAP = ROOT / '.workbuddy/stage0/prod-src-20261106'
-PATCH = ROOT / '.workbuddy/stage1/patches/stock-movement-convergence.patch'
+PATCH = ROOT / '.workbuddy/stage1/patches/stage1-accumulated.patch'
 DEV = ROOT / '.workbuddy/stage1/dev-src'
 
 # 补丁涉及的文件（相对 server/）。新增文件不在快照里，由补丁创建。
+# ⚠️ 这份清单必须与 `stage1-make-patch.py` 的 PATCHED/CREATED **逐字一致**：
+#    两处不一致时，重建会「少拷一个文件 → 补丁打不上 → 报出一堆 fuzz/Reversed」，
+#    而报错信息不会指向真正的原因。改清单要同时改两个脚本。
 PATCHED = [
     'erp_db.py',
+    'server.py',
     'sync_writer.py',
     'domain/wastage_tracker.py',
     'db/queries/inventory.py',
     'db/queries/purchases.py',
+    'db/queries/sales.py',
+    'db/queries/approvals.py',
 ]
-CREATED = ['db/queries/stock_movement.py']
+CREATED = [
+    'db/queries/stock_movement.py',
+    'db/queries/doc_state.py',
+]
 
 
 def rebuild(dst: Path):

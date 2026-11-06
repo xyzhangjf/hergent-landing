@@ -1,0 +1,1769 @@
+阶段 1 累积补丁（账可信 + 状态可信）
+=====================================
+
+本文件取代 `stock-movement-convergence.patch`（那份只含第 1 项，已并入此处）。
+
+包含两项：
+  第 1 项 · 库存写入点收敛
+    · db/queries/stock_movement.py  新增统一写入口（台账 / 流水 / 余额三写同一 SAVEPOINT）
+    · db/queries/inventory.py       6 处内联写入收编
+    · db/queries/purchases.py       收货链路收编
+    · erp_db.py                     5 处收编（AI 回滚 ×2、装配、期初、演示数据）
+    · sync_writer.py / domain/wastage_tracker.py  各 1 处收编
+
+  第 3 项 · 状态跃迁白名单
+    · db/queries/doc_state.py       新增：5 类单据的状态词表 + 跃迁白名单 + 派生 docstatus
+                                    + 唯一写入口 set_doc_status + 中文原因
+    · db/queries/sales.py           发货/签收/取消/驳回补来源守卫；修掉「拣货中发不出货」
+    · db/queries/purchases.py       整单收货补守卫（原先只有 SELECT 校验，写入裸奔）
+    · db/queries/approvals.py       审批引擎改从 doc_state 取规则，不再自带第二份状态机
+    · server.py                     AI 动作 approve/reject 不再裸写状态；路由层不再复述状态机
+    · erp_db.py                     打包发货 / RMA 驳回·处置·退款 / AI 回滚 / 撤销建议 补守卫；
+                                    影子状态机报错改中文
+
+不新增 `docstatus` 物理列：本轮用 `docstatus_of()` 派生（理由见 doc_state.py 文件头）。
+
+用法
+----
+    cd server && patch -p1 --batch -f < stage1-accumulated.patch
+
+    ⚠️ 必须先 `--batch -f` 并把 stdin 接到 /dev/null：不加会等交互输入，
+       在自动化里表现为「卡住后被 SIGTERM（exit 137、零输出）」。
+
+自证
+----
+    /usr/bin/python3 .workbuddy/tools/stage1-dev-src-rebuild.py --check
+    # 「生产快照 + 本补丁」重建出来必须与 dev-src 逐字节一致
+
+----------------------------------------------------------------------
+
+--- a/erp_db.py
++++ b/erp_db.py
+@@ -13,6 +13,9 @@
+ # v705：金额精度口径的唯一实现在 db/precision.py（常量 MONEY_EPS 等）。
+ # 这里只做门面转发，implementation 原样迁入，行为逐位不变。
+ from db.precision import round_money, money_balanced, to_cents
++# 阶段 1 第 1 项：单据回滚 / 组拆 / 期初余额的库存增减统一走三写入口，
++# 不再各自裸 UPDATE inventory（原来这些点改了数量却一条流水都不写）。
++from db.queries.stock_movement import write_stock_movement
+ 
+ 
+ # G6 (2026-07-25): 金额统一取整层。所有读写金额经此函数 round(2)，消除浮点尾差
+@@ -3440,17 +3443,28 @@
+             items = db.execute("SELECT * FROM sale_order_items WHERE order_id=?", (ref_id,)).fetchall()
+             for item in items:
+                 try:
+-                    db.execute(
+-                        "UPDATE inventory SET quantity=quantity+?,stock_value=(quantity+?)*COALESCE(cost_price,0) WHERE product_id=? AND warehouse_id=?",
+-                        (item['quantity'], item['quantity'], item['product_id'], order['warehouse_id'] or 1)
+-                    )
++                    # 阶段 1：原 SQL 按「商品+仓」更新**所有批次行**（多批次会被重复
++                    # 加回），且一条流水都不写。收敛后只回滚一行并记可归因流水。
++                    write_stock_movement(
++                        db, product_id=item['product_id'],
++                        warehouse_id=order['warehouse_id'] or 1,
++                        delta_qty=float(item['quantity'] or 0), batch_no='',
++                        change_type='sale_rollback', ref_type='sale_order',
++                        ref_id=ref_id)
+                 except Exception as e:
+                     logging.getLogger("hergent").debug(f"skipping row during sale rollback: {e}")
+ 
+             # Void receivables for this order
+             db.execute("UPDATE receivables SET status='voided' WHERE ref_type='sale_order' AND ref_id=?", (ref_id,))
+             # Mark order cancelled
+-            db.execute("UPDATE sale_orders SET status='cancelled' WHERE id=?", (ref_id,))
++            # 阶段 1（第 3 项）：加写入守卫。函数开头虽已判「已取消/已作废则退出」，
++            # 但那与这条 UPDATE 之间隔着整段库存回滚 —— 并发下同一张单可能被回滚两次。
++            from db.queries.doc_state import guard_sql
++            _gs, _gp = guard_sql('sale_order', 'cancelled')
++            _cur = db.execute("UPDATE sale_orders SET status='cancelled' WHERE id=?" + _gs,
++                              [ref_id] + _gp)
++            if not _cur.rowcount:
++                return False, "这张单刚被别人改过状态，本次回滚未生效，请刷新后重试"
+             db.commit()
+             audit_log(f"[回滚]{user_name}", f"回滚：{action}", module, ref_id,
+                      f"已取消订单 #{order['order_no']} (原审计ID:{log_id})")
+@@ -3467,16 +3481,26 @@
+             items = db.execute("SELECT * FROM purchase_order_items WHERE order_id=?", (ref_id,)).fetchall()
+             for item in items:
+                 try:
+-                    db.execute(
+-                        "UPDATE inventory SET quantity=MAX(0,quantity-?),stock_value=MAX(0,quantity-?)*COALESCE(cost_price,0) WHERE product_id=? AND warehouse_id=?",
+-                        (item['quantity'], item['quantity'], item['product_id'], order['warehouse_id'] or 1)
+-                    )
++                    # 阶段 1：采购回滚同样收编；MAX(0,...) 的夹零语义由统一入口
++                    # 「不允许负库存」判红替代（扣不够就是扣不够，不静默夹成 0）。
++                    write_stock_movement(
++                        db, product_id=item['product_id'],
++                        warehouse_id=order['warehouse_id'] or 1,
++                        delta_qty=-float(item['quantity'] or 0), batch_no='',
++                        change_type='purchase_rollback', ref_type='purchase_order',
++                        ref_id=ref_id)
+                 except Exception as e:
+                     logging.getLogger("hergent").debug(f"skipping row during purchase rollback: {e}")
+ 
+             # Void payables
+             db.execute("UPDATE receivables SET status='voided' WHERE ref_type='purchase_order' AND ref_id=?", (ref_id,))
+-            db.execute("UPDATE purchase_orders SET status='cancelled' WHERE id=?", (ref_id,))
++            # 阶段 1（第 3 项）：同上，加写入守卫（理由见销售侧那条）。
++            from db.queries.doc_state import guard_sql
++            _gs, _gp = guard_sql('purchase_order', 'cancelled')
++            _cur = db.execute("UPDATE purchase_orders SET status='cancelled' WHERE id=?" + _gs,
++                              [ref_id] + _gp)
++            if not _cur.rowcount:
++                return False, "这张单刚被别人改过状态，本次回滚未生效，请刷新后重试"
+             db.commit()
+             audit_log(f"[回滚]{user_name}", f"回滚：{action}", module, ref_id,
+                      f"已取消采购单 #{order['order_no']} (原审计ID:{log_id})")
+@@ -6069,6 +6093,9 @@
+     #      ⇒ 不会出现「退货单落库了但采购单没标退货」的半截状态。
+     #   🔴 v451 起「回写」只发生在**过账时**：草稿（`draft`）不退不改 —— 见 `purchase_return_post`。
+     if po_id:
++        # doc-state-exempt: 退货回写「已退货」是附加标记、不是一次跃迁 ——
++        # 源单可能是 received/partial/confirmed/approved，套白名单会按来源把合法退货拦掉；
++        # 真正的状态校验由 `purchase_return_post` 的乐观锁负责（只放 draft → confirmed）。
+         db.execute("UPDATE purchase_orders SET status='returned' WHERE id=?", (po_id,))
+ 
+ 
+@@ -6229,6 +6256,9 @@
+             if draft:
+                 return {"id": rid, "total": total, "status": "draft", "order_no": _pr_no}
+             _pr_apply_effects(db, rid, sup, total, wh, po_id, post_items)
++            # doc-state-exempt: 这一行改的是**刚 INSERT 的新行**（(new) → confirmed），
++            # 不存在「来源状态」可言；草稿路径走 draft，过账由 `purchase_return_post`
++            # 用条件 UPDATE 抢锁，那条才是需要守卫的跃迁。
+             db.execute("UPDATE purchase_returns SET status='confirmed' WHERE id=?", (rid,))
+             return {"id":rid,"total":total,"status":"confirmed","order_no":_pr_no}
+     except ValueError as e:
+@@ -8255,13 +8285,13 @@
+         row = db.execute(
+             "SELECT id,quantity FROM inventory WHERE product_id=? AND warehouse_id=? AND batch_no=''",
+             (product_id, warehouse_id)).fetchone()
+-        if row:
+-            new_qty = (row["quantity"] or 0) + delta
+-            db.execute("UPDATE inventory SET quantity=?, stock_value=?*COALESCE(cost_price,0), updated_at=datetime('now','localtime') WHERE id=?",
+-                       (new_qty, new_qty, row["id"]))
+-        else:
+-            db.execute("INSERT INTO inventory (product_id,warehouse_id,quantity,batch_no,stock_value) VALUES (?,?,?,?,0)",
+-                       (product_id, warehouse_id, delta, ""))
++        # 阶段 1：组拆产出收编为统一三写（原来只改台账、不写流水）。
++        # 增加分支仍落 batch_no='' 行，不编造批次；减少分支继续走 gross_deduct。
++        write_stock_movement(
++            db, product_id=product_id, warehouse_id=warehouse_id,
++            delta_qty=float(delta), row_id=(row["id"] if row else None),
++            batch_no='', change_type='assembly_in', ref_type='assembly',
++            ref_id=ref_id, force_new=not row)
+         return
+     r = gross_deduct(db, product_id, warehouse_id, -delta,
+                      ref_type="assembly", ref_id=ref_id)
+@@ -8477,8 +8507,20 @@
+ 	with get_db() as db:
+ 		slip = db.execute("SELECT * FROM packing_slips WHERE id=?", (slip_id,)).fetchone()
+ 		if not slip: return {"error": "包装单不存在"}
++		# 阶段 1（第 3 项）：原先是两条裸写 —— 只要装箱就能把**任何状态**的销售单
++		# 改成「已发货」，包括已签收、已作废。而且先改装箱单再改销售单，
++		# 一旦销售单该拦，装箱单已经被标成 shipped（半截状态）。
++		# 现在：先按白名单改销售单，成功了再标装箱单。
++		from db.queries.doc_state import guard_sql, status_label
++		_sid = slip["sale_order_id"]
++		_gs, _gp = guard_sql('sale_order', 'delivered')
++		_cur = db.execute("UPDATE sale_orders SET status='delivered' WHERE id=?" + _gs,
++		                  [_sid] + _gp)
++		if not _cur.rowcount:
++			_row = db.execute("SELECT status FROM sale_orders WHERE id=?", (_sid,)).fetchone()
++			_now = status_label('sale_order', _row["status"]) if _row else '（销售单不存在）'
++			return {"error": "销售单当前是「%s」，不能装箱发货" % _now}
+ 		db.execute("UPDATE packing_slips SET status='shipped' WHERE id=?", (slip_id,))
+-		db.execute("UPDATE sale_orders SET status='delivered' WHERE id=?", (slip["sale_order_id"],))
+ 		db.commit()
+ 		return {"slip_id": slip_id, "status": "shipped"}
+ 
+@@ -12341,7 +12383,14 @@
+ def save_inventory_opening(product_id, quantity, cost_price):
+     with get_db() as db:
+         db.execute("INSERT INTO opening_balances (balance_type,contact_id,amount,ref_no) VALUES (?,?,?,?)",("inventory",product_id,quantity,str(cost_price)))
+-        db.execute("UPDATE inventory SET quantity=quantity+?,stock_value=(quantity+?)*?,cost_price=? WHERE product_id=?",(quantity,quantity,cost_price,cost_price,product_id))
++        # 阶段 1：期初库存也是一次库存变动，必须写流水 + 余额。
++        # 原 SQL 不带 warehouse_id（会把所有仓的该商品一起改），收敛后明确落到
++        # 默认仓 1；将来要按仓维护期初，由调用方补 warehouse_id 参数。
++        write_stock_movement(
++            db, product_id=product_id, warehouse_id=1,
++            delta_qty=float(quantity or 0), cost_price=float(cost_price or 0),
++            batch_no='', change_type='opening', ref_type='opening_balance',
++            ref_id=0)
+         db.commit()
+ 
+ def save_account_opening(account_code, debit, credit):
+@@ -16417,7 +16466,14 @@
+     c.execute("SELECT current_state FROM document_states WHERE ref_type=? AND ref_id=?", (ref_type,ref_id))
+     row = c.fetchone(); old_state = row['current_state'] if row else 'draft'
+     if old_state != new_state and new_state not in VALID_STATES.get(old_state,[]):
+-        db.close(); return {"error": f"Invalid state transition: {old_state} -> {new_state}"}
++        db.close()
++        # 阶段 1（第 3 项）：英文 `Invalid state transition` 换成中文。
++        # ⚠️ 这里只管 `document_states` 这张**工作流影子表**（生产 0 行）；
++        #    **业务表**（sale_orders.status 等）的跃迁唯一源是
++        #    `db/queries/doc_state.py`，两者不共用词表，不要在此处扩写业务状态。
++        _next = "、".join(VALID_STATES.get(old_state, [])) or "（终态，不能再变）"
++        return {"error": "审批流状态不能从「%s」直接变成「%s」；当前只能变成：%s"
++                         % (old_state, new_state, _next)}
+     sub_at = f"datetime('now','localtime')" if new_state == 'submitted' else f"COALESCE((SELECT submitted_at FROM document_states WHERE ref_type='{ref_type}' AND ref_id={ref_id}),datetime('now','localtime'))"
+     c.execute(f"INSERT OR REPLACE INTO document_states(ref_type,ref_id,workflow_id,current_state,current_step,total_steps,submitted_at,updated_at) VALUES(?,?,?,?,?,?,{sub_at},datetime('now','localtime'))", (ref_type,ref_id,workflow_id,new_state,current_step,total_steps))
+     db.commit(); db.close(); return {"success":True,"old_state":old_state,"new_state":new_state}
+@@ -17595,10 +17651,14 @@
+                 prod_ids.append(pid)
+                 # Add initial inventory
+                 qty = random.randint(50, 200)
+-                db.execute(
+-                    "INSERT INTO inventory (product_id, warehouse_id, quantity, batch_no, cost_price, stock_value) VALUES (?,1,?,?,?,?)",
+-                    (pid, qty, "B2026" + str(random.randint(100, 999)), cost, qty*cost)
+-                )
++                # 阶段 1：演示数据初始化也是一次库存变动，走统一三写
++                # （原来只 INSERT 台账、不写流水；万一有人在生产跑 seed 就悄悄脱钩）。
++                write_stock_movement(
++                    db, product_id=pid, warehouse_id=1,
++                    set_qty=qty, cost_price=cost,
++                    batch_no="B2026" + str(random.randint(100, 999)),
++                    change_type='opening', ref_type='seed_demo', ref_id=0,
++                    allow_negative=True, atomic_guard=False, force_new=True)
+                 db.commit()
+             except Exception as e: logging.getLogger("hergent").debug(f"skipping row: {e}")
+ 
+@@ -18071,7 +18131,16 @@
+             (new_status, auth_by, auth_note, ra["id"]))
+         # If rejected, update return order status
+         if not approved:
+-            db.execute("UPDATE return_orders SET status='rejected' WHERE id=?", (rma_id,))
++            # 阶段 1（第 3 项）：原先裸写 —— 已确认/已退款的退货单也能被"驳回"回 rejected，
++            # 状态与事实（库存已回增、钱已退）直接脱节。白名单只放 draft → rejected。
++            from db.queries.doc_state import guard_sql as _gsql, status_label as _slab
++            _gs, _gp = _gsql('return_order', 'rejected')
++            _cur = db.execute("UPDATE return_orders SET status='rejected' WHERE id=?" + _gs,
++                              [rma_id] + _gp)
++            if not _cur.rowcount:
++                _row = db.execute("SELECT status FROM return_orders WHERE id=?", (rma_id,)).fetchone()
++                raise ValueError("退货单当前是「%s」，不能驳回（只有草稿可以）"
++                                 % (_slab('return_order', _row['status']) if _row else '（不存在）'))
+         db.commit()
+     return {"rma_id": rma_id, "auth_status": new_status}
+ 
+@@ -18119,7 +18188,17 @@
+                 pass  # Inventory already reduced during return
+             # For quarantine/supplier return/rework: record only
+             results.append({"disposition_id": did, "disposition": disp, "quantity": qty})
+-        db.execute("UPDATE return_orders SET status='dispositioned' WHERE id=?", (rma_id,))
++        # 阶段 1（第 3 项）：原先裸写 —— 已退款（refunded）的退货单还能再"处置"一次，
++        # 其中 restock 会**再次回增库存**（上面的幂等只挡同 disposition 的重复，
++        # 挡不住「先退款、再处置」这种顺序）。守卫按白名单只放 confirmed → dispositioned。
++        from db.queries.doc_state import guard_sql, status_label
++        _gs, _gp = guard_sql('return_order', 'dispositioned')
++        _cur = db.execute("UPDATE return_orders SET status='dispositioned' WHERE id=?" + _gs,
++                          [rma_id] + _gp)
++        if not _cur.rowcount:
++            _row = db.execute("SELECT status FROM return_orders WHERE id=?", (rma_id,)).fetchone()
++            raise ValueError("退货单当前是「%s」，不能执行处置"
++                             % (status_label('return_order', _row['status']) if _row else '（不存在）'))
+     return {"rma_id": rma_id, "dispositions": len(results), "details": results}
+ 
+ def rma_refund_create(rma_id, amount=0, method="原路退回", idempotency_key=None):
+@@ -18186,7 +18265,17 @@
+                 (account, 'expense', amount, bal_after,
+                  ro["contact_id"], 'rma_refund', rma_id, '退货退款', f"RMA#{rma_id} {method}"))
+ 
+-        db.execute("UPDATE return_orders SET status='refunded' WHERE id=?", (rma_id,))
++        # 阶段 1（第 3 项）：原先裸写 —— 已退款（refunded）的单能被**再退一次**：
++        # 幂等键只挡「同一个 key 重放」，换个 key 或前端重试就会写出第二笔退款 +
++        # 第二条 cash_flow（资金账直接多出一笔）。守卫只放 confirmed / dispositioned → refunded。
++        from db.queries.doc_state import guard_sql as _gsql, status_label as _slab
++        _gs, _gp = _gsql('return_order', 'refunded')
++        _cur = db.execute("UPDATE return_orders SET status='refunded' WHERE id=?" + _gs,
++                          [rma_id] + _gp)
++        if not _cur.rowcount:
++            _row = db.execute("SELECT status FROM return_orders WHERE id=?", (rma_id,)).fetchone()
++            raise ValueError("退货单当前是「%s」，不能退款（已退款的不重复退）"
++                             % (_slab('return_order', _row['status']) if _row else '（不存在）'))
+         db.commit()
+     if idempotency_key:
+         idempotency_put(idempotency_key, 'rma_refund', rid, '')
+@@ -21164,9 +21253,19 @@
+             oid = int(d["result_entity_id"])
+             po = db.execute("SELECT status FROM purchase_orders WHERE id=?", (oid,)).fetchone()
+             if po and po["status"] in ("draft", "pending_approval"):
+-                db.execute("UPDATE purchase_orders SET status='cancelled' WHERE id=?", (oid,))
++                # 阶段 1（第 3 项）：加写入守卫（上面的 Python 判断与这条 UPDATE 之间
++                # 可能被并发改状态；撤销要撤得干净，不能撤一半）。
++                from db.queries.doc_state import guard_sql as _gsql
++                _gs, _gp = _gsql('purchase_order', 'cancelled')
++                _cur = db.execute("UPDATE purchase_orders SET status='cancelled' WHERE id=?" + _gs,
++                                  [oid] + _gp)
++                if not _cur.rowcount:
++                    return {"success": False, "detail": "采购单刚被别人改过状态，本次撤销未生效，请刷新后重试"}
+             elif po:
+-                return {"success": False, "detail": f"采购单已处于 {po['status']} 状态, 无法撤销"}
++                from db.queries.doc_state import status_label as _slab
++                return {"success": False,
++                        "detail": "采购单当前是「%s」，无法撤销"
++                                  % _slab('purchase_order', po['status'])}
+         db.execute(
+             "UPDATE ai_advice_log SET status='undone', modified_by_user='__undo__' WHERE id=?",
+             (advice_id,)
+--- a/server.py
++++ b/server.py
+@@ -4737,11 +4737,12 @@
+         raise HTTPException(404, "订单不存在")
+     order = o.get("order", {})
+     st = order.get("status", "")
+-    # v416 (P0-1): 与 sale_order_deliver 闸门对齐 —— draft 或 confirmed 均可发货
+-    if action == "deliver" and st not in ("draft", "confirmed"):
+-        raise HTTPException(400, f"仅草稿或已确认订单可发货, 当前状态 {st}")
+-    if action == "cancel" and st not in ("draft", "confirmed", "pending_approval"):
+-        raise HTTPException(400, f"当前状态 {st} 不可取消")
++    # 阶段 1（第 3 项）：deliver / cancel 的闸门**只留在 db 层**。
++    # 🔴 原先这里各写一份 `status IN (...)`，与 db 层并不是同一套：
++    #    · deliver 只认 draft/confirmed，而 `sale_order_deliver` 已认 picking/approved
++    #      ⇒ 拣货中的单在路由层就被拦死，db 层根本没机会执行；
++    #    · cancel 的集合散落两处，改一处忘一处就会分叉。
++    # 现在统一由 `doc_state` 判定，路由层不再复述状态机。
+     # 执行
+     if action == "deliver":
+         from db.queries.sales import sale_order_deliver
+@@ -4750,14 +4751,35 @@
+         from db.queries.sales import sale_order_cancel
+         r = sale_order_cancel(oid, str(u.get("id", "")))
+     elif action == "approve":
+-        with get_db() as db:
+-            db.execute("UPDATE sale_orders SET status='confirmed' WHERE id=?", (oid,))
++        # 阶段 1（第 3 项）：**原先裸写 `SET status='confirmed' WHERE id=?`** ——
++        # AI 可以把一张已签收（signed）甚至已作废（cancelled）的单改成「已确认」，
++        # 库存不动、AR 不动，只把状态改了，且零报错。现在走白名单 + 中文原因。
++        from db.queries.doc_state import check_transition, guard_sql, IllegalTransition
++        try:
++            check_transition('sale_order', st, 'confirmed')
++        except IllegalTransition as e:
++            raise HTTPException(400, str(e))
++        _gs, _gp = guard_sql('sale_order', 'confirmed')
++        with get_db() as db:
++            cur = db.execute("UPDATE sale_orders SET status='confirmed' WHERE id=?" + _gs,
++                             [oid] + _gp)
+             db.commit()
++        if not cur.rowcount:
++            raise HTTPException(409, "这张单刚被别人改过状态，本次确认未生效，请刷新后重试")
+         r = {"success": True, "status": "confirmed"}
+     elif action == "reject":
+-        with get_db() as db:
+-            db.execute("UPDATE sale_orders SET status='rejected' WHERE id=?", (oid,))
++        from db.queries.doc_state import check_transition, guard_sql, IllegalTransition
++        try:
++            check_transition('sale_order', st, 'rejected')
++        except IllegalTransition as e:
++            raise HTTPException(400, str(e))
++        _gs, _gp = guard_sql('sale_order', 'rejected')
++        with get_db() as db:
++            cur = db.execute("UPDATE sale_orders SET status='rejected' WHERE id=?" + _gs,
++                             [oid] + _gp)
+             db.commit()
++        if not cur.rowcount:
++            raise HTTPException(409, "这张单刚被别人改过状态，本次驳回未生效，请刷新后重试")
+         r = {"success": True, "status": "rejected"}
+     if "error" in r:
+         raise HTTPException(400, r["error"])
+--- a/sync_writer.py
++++ b/sync_writer.py
+@@ -15,6 +15,7 @@
+ import logging
+ 
+ from db.connection import set_tenant_context, get_db
++from db.queries.stock_movement import write_stock_movement
+ import erp_db as erp_db
+ 
+ logger = logging.getLogger("hergent")
+@@ -134,18 +135,17 @@
+             qty = int(float(mi.get("quantity", 0) or 0))
+             cost = float(mi.get("cost_price", 0) or 0)
+             exp = mi.get("expiry_date", "") or ""
+-            if exist:
+-                d.execute(
+-                    "UPDATE inventory SET quantity=?,cost_price=?,expiry_date=?,updated_at=datetime('now','localtime') WHERE id=?",
+-                    (qty, cost, exp, exist[0]),
+-                )
+-            else:
+-                d.execute(
+-                    "INSERT INTO inventory "
+-                    "(product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,updated_at) "
+-                    "VALUES (?,?,?,?,?,?,datetime('now','localtime'))",
+-                    (pid, wid, qty, cost, batch, exp),
+-                )
++            # 阶段 1：外部数据同步覆盖**也是**一次库存变动，用 set_qty 绝对量
++            # 口径走统一三写，流水记 sync_upsert，可归因、可对账。
++            # 原来两条裸 SQL 完全不写流水，同步一次账就悄悄脱钩一次。
++            write_stock_movement(
++                d, product_id=pid, warehouse_id=wid,
++                set_qty=qty, cost_price=cost,
++                row_id=(exist[0] if exist else None),
++                batch_no=batch, expiry_date=exp,
++                change_type='sync_upsert', ref_type='sync', ref_id=0,
++                allow_negative=True, atomic_guard=False,
++                force_new=not exist)
+             n += 1
+         except Exception as e2:
+             errors.append(f"Inventory row: {e2}")
+--- a/domain/wastage_tracker.py
++++ b/domain/wastage_tracker.py
+@@ -15,6 +15,7 @@
+ 
+ from db.connection import get_db, get_db_tx
+ from db.queries.inventory import gross_deduct
++from db.queries.stock_movement import write_stock_movement
+ 
+ # Wastage type → GL account mapping
+ WASTAGE_TYPES = {
+@@ -305,23 +306,15 @@
+     row = db.execute(
+         "SELECT id,quantity FROM inventory WHERE product_id=? AND warehouse_id=? AND batch_no=?",
+         (product_id, warehouse_id, batch_no)).fetchone()
+-    if row:
+-        before = float(row["quantity"] or 0)
+-        after = before + qty
+-        db.execute("UPDATE inventory SET quantity=?,updated_at=datetime('now','localtime') WHERE id=?",
+-                   (after, row["id"]))
+-    else:
+-        before = 0.0
+-        after = qty
+-        db.execute(
+-            "INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no) "
+-            "VALUES (?,?,?,?,?)",
+-            (product_id, warehouse_id, after, cost_price, batch_no))
+-    db.execute(
+-        "INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,"
+-        "before_qty,after_qty,cost_price,ref_type,ref_id) VALUES (?,?,?,?,?,?,?,?,?)",
+-        (product_id, warehouse_id, "wastage_reversal", qty, before, after,
+-         cost_price, "wastage_reversal", ref_id))
++    # 阶段 1：撤销报损原来写了流水却漏掉 stock_value 与余额，且流水只有 9 列
++    # （金额三列全缺）。收编后三写齐全，change_type 仍保留 wastage_reversal，
++    # 「撤销动作可归因」这条日志契约不丢。
++    write_stock_movement(
++        db, product_id=product_id, warehouse_id=warehouse_id,
++        delta_qty=qty, cost_price=cost_price,
++        row_id=(row["id"] if row else None), batch_no=batch_no,
++        change_type='wastage_reversal', ref_type='wastage_reversal',
++        ref_id=ref_id, force_new=not row)
+ 
+ 
+ def reject_wastage(wastage_id, operator_id=""):
+--- a/db/queries/inventory.py
++++ b/db/queries/inventory.py
+@@ -1,8 +1,13 @@
+ """Inventory queries."""
+ from datetime import datetime, timedelta
+ from db.connection import get_db, get_db_tx
++from db.queries.stock_movement import write_stock_movement, assert_triple_in_sync
+ import logging
+ 
++# 阶段 1 第 1 项：下方 6 个函数原本各自内联「改台账 + 写流水」，且都不更新
++# `inventory_balance`；`batch_in` 累加分支甚至**只改台账不写流水**。现统一收编到
++# `write_stock_movement()`，同一 SAVEPOINT 内三写（台账 / 流水 / 余额快照）。
++
+ # G8 (2026-07-25): saleable stock excludes expired batches.
+ # Expired stock stays in physical inventory until written off via 报损 (wastage),
+ # but must never be deducted for sales. Undated batches remain saleable (data issue, not spoilage).
+@@ -73,48 +78,38 @@
+         return rows
+ 
+ def inventory_adjust(product_id, warehouse_id, qty_change, cost_price=0, ref_type='', ref_id=0, db_conn=None):
+-    """Adjust inventory atomically. Uses atomic UPDATE with stock guard when deducting.
+-    If db_conn is provided, caller manages transaction."""
++    """批次盲增减（保留历史契约）—— 三写统一交给 `write_stock_movement()`。
++
++    阶段 1：原本内联的 `UPDATE inventory` + `INSERT inventory_logs` 收编，
++    并在同一 SAVEPOINT 内补写 `inventory_balance`。若 db_conn 传入则调用方管事务。
++    """
+     if db_conn is not None:
+         db = db_conn; own = False
+     else:
+         _cm = get_db(); db = _cm.__enter__(); own = True
+     try:
+-        inv = db.execute("SELECT id,quantity,cost_price FROM inventory WHERE product_id=? AND warehouse_id=?",(product_id,warehouse_id)).fetchone()
+-        before = inv['quantity'] if inv else 0; after = before + qty_change
+-        # P0-S1：stock_value 必须用「新数量 × 新成本」。SQLite 的 SET 右侧读的是旧行值，
+-        #   若在同一 UPDATE 里改 quantity/cost_price，stock_value=quantity*COALESCE(cost_price,0)
+-        #   会拿到旧值算错。故在 Python 侧算好再绑定。
+-        _new_cp = cost_price if (cost_price and cost_price > 0) else (inv['cost_price'] if inv else 0)
+-        _new_sv = after * float(_new_cp or 0)
+-        if inv:
+-            if qty_change < 0:
+-                # Atomic guard: only update if enough stock (prevents overselling)
+-                # v719：仓库配了「允许负库存」就去掉该守卫 —— 配置本来就写着「允许」，
+-                #   此前却从不生效（业务员仓库存 0，一张单也发不出去）。
+-                if _allow_neg_inv(db, warehouse_id):
+-                    db.execute("UPDATE inventory SET quantity=quantity+?,cost_price=CASE WHEN ?>0 THEN ? ELSE cost_price END,stock_value=?,updated_at=datetime('now','localtime') WHERE id=?",(qty_change,cost_price,cost_price,_new_sv,inv['id']))
+-                else:
+-                    cur = db.execute("UPDATE inventory SET quantity=quantity+?,cost_price=CASE WHEN ?>0 THEN ? ELSE cost_price END,stock_value=?,updated_at=datetime('now','localtime') WHERE id=? AND quantity+?>=0",(qty_change,cost_price,cost_price,_new_sv,inv['id'],qty_change))
+-                    if cur.rowcount == 0:
+-                        if own: _cm.__exit__(None,None,None)
+-                        return {"error": f"库存不足：需要{-qty_change}，可用{before}"}
+-                after = db.execute("SELECT quantity FROM inventory WHERE id=?",(inv['id'],)).fetchone()['quantity']
+-            else:
+-                db.execute("UPDATE inventory SET quantity=?,cost_price=CASE WHEN ?>0 THEN ? ELSE cost_price END,stock_value=?,updated_at=datetime('now','localtime') WHERE id=?",(after,cost_price,cost_price,_new_sv,inv['id']))
+-        else:
+-            if qty_change < 0:
+-                # v719：允许负库存 ⇒ 没有库存记录也要能扣（下面直接建一行负的）
+-                if not _allow_neg_inv(db, warehouse_id):
+-                    if own: _cm.__exit__(None,None,None)
+-                    return {"error": "库存不足：无此商品库存记录"}
+-            db.execute("INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,stock_value) VALUES (?,?,?,?,?)",(product_id,warehouse_id,after,cost_price, after*(float(cost_price) or 0)))
+-        _cp = float(cost_price or 0)
+-        _after_qty = after if inv else after
+-        db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",(product_id,warehouse_id,ref_type,qty_change,before,_after_qty,cost_price,ref_type,ref_id, before*_cp, _after_qty*_cp, qty_change*_cp))
++        inv = db.execute(
++            "SELECT id,quantity,cost_price FROM inventory WHERE product_id=? AND warehouse_id=? "
++            "ORDER BY id ASC LIMIT 1", (product_id, warehouse_id)).fetchone()
++        allow_neg = _allow_neg_inv(db, warehouse_id)
++        if not inv and qty_change < 0 and not allow_neg:
++            if own: _cm.__exit__(None, None, None)
++            return {"error": "库存不足：无此商品库存记录"}
++        # 原口径：cost_price<=0 时保留台账原成本；统一入口用 None 表达「不改」。
++        cp = cost_price if (cost_price and cost_price > 0) else None
++        r = write_stock_movement(
++            db, product_id=product_id, warehouse_id=warehouse_id,
++            delta_qty=qty_change, cost_price=cp,
++            row_id=(inv['id'] if inv else None), batch_no='',
++            change_type=(ref_type or 'adjust'), ref_type=ref_type, ref_id=ref_id,
++            allow_negative=allow_neg, atomic_guard=not allow_neg,
++            force_new=not inv)
++        if r.get('error'):
++            if own: _cm.__exit__(None, None, None)
++            return {"error": r['error']}
+         if own: db.commit()
+     finally:
+-        if own: _cm.__exit__(None,None,None)
++        if own: _cm.__exit__(None, None, None)
+ 
+ def get_fefo_suggestions(product_id, warehouse_id=1):
+     with get_db() as db:
+@@ -168,18 +163,16 @@
+                 if remaining <= 0:
+                     break
+                 take = min(b['quantity'], remaining)
+-                # Atomic guard: only deduct if this batch still has enough (prevents oversell races)
+-                cur = db.execute(
+-                    "UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') WHERE id=? AND quantity>=?",
+-                    (take, take, b['id'], take))
+-                if cur.rowcount == 0:
++                # 阶段 1：逐批扣减收编为统一三写（台账 + 流水 + 余额），
++                # 并发守卫 `quantity>=take` 由 write_stock_movement 内部持有。
++                r = write_stock_movement(
++                    db, product_id=product_id, warehouse_id=warehouse_id,
++                    delta_qty=-take, row_id=b['id'],
++                    change_type=(ref_type or 'sale'), ref_type=ref_type, ref_id=ref_id)
++                if r.get('error'):
+                     db.execute("ROLLBACK TO fefo_sp")
+                     db.execute("RELEASE fefo_sp")
+-                    return {'error': f'库存不足：批次扣减冲突（并发），请重试。需要{qty_needed}', 'used': []}
+-                new_qty = b['quantity'] - take
+-                _cp = float(b['cost_price'] or 0)
+-                db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                           (product_id, warehouse_id, ref_type, -take, b['quantity'], new_qty, b['cost_price'], ref_type, ref_id, b['quantity']*_cp, new_qty*_cp, -take*_cp))
++                    return {'error': r['error'], 'used': []}
+                 used.append({'batch_no': b['batch_no'], 'expiry_date': b['expiry_date'], 'quantity': take, 'batch_id': b['id']})
+                 remaining -= take
+             if remaining > 0:
+@@ -196,20 +189,19 @@
+                 _pr = db.execute("SELECT COALESCE(purchase_price,0) AS p FROM products WHERE id=?",
+                                  (product_id,)).fetchone()
+                 _pcost = float((_pr['p'] if _pr else 0) or 0)
+-                if neg:
+-                    _before = float(neg['quantity'] or 0)
+-                    _cp = float(neg['cost_price'] or 0) or _pcost
+-                    db.execute("UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') "
+-                               "WHERE id=?", (remaining, remaining, neg['id']))
+-                else:
+-                    _before = 0.0
+-                    _cp = _pcost
+-                    db.execute("INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,stock_value) "
+-                               "VALUES (?,?,?,?,'','',?)", (product_id, warehouse_id, -remaining, _pcost, -remaining*_pcost))
+-                db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,"
+-                           "before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                           (product_id, warehouse_id, ref_type, -remaining, _before,
+-                            _before - remaining, _cp, ref_type, ref_id, _before*_cp, (_before-remaining)*_cp, -remaining*_cp))
++                _cp = (float(neg['cost_price'] or 0) or _pcost) if neg else _pcost
++                # 阶段 1：负库存兜底行也走统一三写。cost_price 取进货价兜底，
++                # 顺手修掉「台账成本为 0、流水也记 0 ⇒ 利润表低估成本」的旧隐患。
++                r = write_stock_movement(
++                    db, product_id=product_id, warehouse_id=warehouse_id,
++                    delta_qty=-remaining, cost_price=_cp,
++                    row_id=(neg['id'] if neg else None), batch_no='',
++                    change_type=(ref_type or 'sale'), ref_type=ref_type, ref_id=ref_id,
++                    allow_negative=True, atomic_guard=False, force_new=not neg)
++                if r.get('error'):
++                    db.execute("ROLLBACK TO fefo_sp")
++                    db.execute("RELEASE fefo_sp")
++                    return {'error': r['error'], 'used': []}
+                 used.append({'batch_no': '', 'expiry_date': '', 'quantity': remaining,
+                              'batch_id': 0, 'cost_price': _cp, 'negative': True})
+                 remaining = 0
+@@ -287,17 +279,13 @@
+         if avail <= 0:
+             continue
+         take = min(avail, remaining)
+-        cur = db.execute(
+-            "UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') "
+-            "WHERE id=? AND quantity>=?",
+-            (take, take, r["id"], take))
+-        if cur.rowcount == 0:
+-            return {"error": f"批次扣减冲突（并发），请重试。需要{need:g}", "used": []}
+-        db.execute(
+-                "INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,"
+-                "before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                (product_id, warehouse_id, ref_type, -take, avail, avail - take,
+-                 r["cost_price"], ref_type, ref_id, avail*float(r["cost_price"] or 0), (avail-take)*float(r["cost_price"] or 0), -take*float(r["cost_price"] or 0)))
++        # 阶段 1：报损/领用/盘亏等非销售出库也收编为统一三写。
++        mv = write_stock_movement(
++            db, product_id=product_id, warehouse_id=warehouse_id,
++            delta_qty=-take, row_id=r["id"],
++            change_type=(ref_type or 'adjust'), ref_type=ref_type, ref_id=ref_id)
++        if mv.get('error'):
++            return {"error": mv['error'], "used": []}
+         # `cost_price` 带上：调用方（报损单）要按**实际扣掉的批次成本**入账，
+         # 而不是拿任意一行的成本顶替 —— 多批次进价不同时这两者差得不是一点半点。
+         used.append({"batch_id": r["id"], "batch_no": r["batch_no"] or "",
+@@ -306,31 +294,41 @@
+         remaining -= take
+     return {"success": True, "used": used}
+ 
+-def batch_in(product_id, warehouse_id, quantity, cost_price=0, batch_no='', expiry_date='', db_conn=None):
+-    """入库时记录批次和效期。已有同批次则累加，否则新建。"""
++def batch_in(product_id, warehouse_id, quantity, cost_price=0, batch_no='', expiry_date='', db_conn=None, production_date=''):
++    """入库时记录批次和效期。已有同批次则累加，否则新建。
++
++    v789：新增 `production_date`（末尾关键字参数，既有按位置调用零影响）。
++    是否录由上游按用户偏好决定 —— 空串合法，**绝不强制必录**。
++
++    🔴 阶段 1：原「同批次累加」分支只 `UPDATE inventory` 就 return，
++       **完全不写流水**（台账涨了、流水没有，对账必然脱钩）。现累加与新建
++       都统一走 `write_stock_movement()`，三写不可拆分。
++    """
+     if db_conn is not None:
+         db = db_conn; own = False
+     else:
+         _cm = get_db(); db = _cm.__enter__(); own = True
+     try:
++        existing = None
+         if batch_no:
+             existing = db.execute(
+                 "SELECT id,quantity FROM inventory WHERE product_id=? AND warehouse_id=? AND batch_no=?",
+                 (product_id, warehouse_id, batch_no)).fetchone()
+-            if existing:
+-                new_qty = existing['quantity'] + quantity
+-                db.execute("UPDATE inventory SET quantity=?,cost_price=?,stock_value=?,updated_at=datetime('now','localtime') WHERE id=?",
+-                           (new_qty, cost_price, new_qty*(float(cost_price) or 0), existing['id']))
+-                if own: db.commit()
+-                return {'batch': batch_no, 'quantity': new_qty, 'action': 'updated'}
+-        # New batch record
+-        db.execute(
+-                "INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,stock_value) VALUES (?,?,?,?,?,?,?)",
+-                (product_id, warehouse_id, quantity, cost_price, batch_no, expiry_date, quantity*(float(cost_price) or 0)))
+-        db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                   (product_id,warehouse_id,'batch_in',quantity,0,quantity,cost_price,'batch_in',0, 0, quantity*(float(cost_price) or 0), quantity*(float(cost_price) or 0)))
++        # v789：production_date 如实落库（空串照写，不强制）。
++        # 无批次号时 force_new=True，保持「每次新开一行」的原语义。
++        r = write_stock_movement(
++            db, product_id=product_id, warehouse_id=warehouse_id,
++            delta_qty=quantity, cost_price=cost_price,
++            row_id=(existing['id'] if existing else None),
++            batch_no=batch_no, expiry_date=expiry_date,
++            production_date=production_date or '',
++            change_type='batch_in', ref_type='batch_in', ref_id=0,
++            force_new=not existing)
++        if r.get('error'):
++            return {'error': r['error']}
+         if own: db.commit()
+-        return {'batch': batch_no, 'quantity': quantity, 'action': 'created'}
++        return {'batch': batch_no, 'quantity': r['after_qty'],
++                'action': 'updated' if existing else 'created'}
+     finally:
+         if own:
+             try: db.commit()
+@@ -365,17 +363,15 @@
+                 if remaining <= 0: break
+                 b = dict(b)
+                 take = min(remaining, b['quantity'])
+-                cur = db.execute(
+-                    "UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') WHERE id=? AND quantity>=?",
+-                    (take, take, b['id'], take))
+-                if cur.rowcount == 0:
++                # 阶段 1：FEFO 出库收编为统一三写。
++                r = write_stock_movement(
++                    db, product_id=product_id, warehouse_id=warehouse_id,
++                    delta_qty=-take, row_id=b['id'],
++                    change_type='batch_out', ref_type='batch_out', ref_id=0)
++                if r.get('error'):
+                     db.execute("ROLLBACK TO batch_out_sp")
+                     db.execute("RELEASE batch_out_sp")
+-                    return {'error': f'库存不足: 批次扣减冲突（并发），请重试。需要{quantity_needed}件', 'used': []}
+-                new_qty = b['quantity'] - take
+-                _cp = float(b['cost_price'] or 0)
+-                db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                           (product_id,warehouse_id,'batch_out',-take,b['quantity'],new_qty,b['cost_price'],'batch_out',0, b['quantity']*_cp, new_qty*_cp, -take*_cp))
++                    return {'error': r['error'], 'used': []}
+                 used.append({'batch_no': b['batch_no'], 'expiry_date': b['expiry_date'], 'quantity': take, 'cost_price': b['cost_price']})
+                 remaining -= take
+             db.execute("RELEASE batch_out_sp")
+@@ -448,8 +444,9 @@
+         r2 = inventory_adjust(product_id, to_wh, quantity, ref_type='transfer_in', ref_id=0, db_conn=db)
+         if isinstance(r2, dict) and 'error' in r2:
+             return r2
+-        db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,ref_type) VALUES (?,?,?,?,?,?,?)",
+-                   (product_id,from_wh,'transfer_out',-quantity,src['quantity'],src['quantity']-quantity,'transfer'))
++        # 阶段 1：删掉这条多余流水 —— 上面两次 inventory_adjust 经统一入口
++        # 已各写一条 transfer_out / transfer_in，再手写第三条会让流水累加
++        # 比台账少算一次（重复记账），对账卡必红。
+         return {'success':True}
+ 
+ def stock_take_start():
+--- a/db/queries/purchases.py
++++ b/db/queries/purchases.py
+@@ -9,6 +9,8 @@
+ from db.queries.units import (
+     ratio_to_base, base_qty_of, unit_options, default_tier, conversion_text, norm_ratio,
+ )
++# 阶段 1（第 3 项）：状态跃迁白名单的唯一源（见 `db/queries/doc_state.py`）。
++from db.queries.doc_state import check_transition, guard_sql, status_label, IllegalTransition
+ # v415（P2-7）：采购单「自定义字段」—— 定义层与校验层**复用**报单矩阵那套唯一实现
+ #   （`db/queries/forecast_columns.py`），本文件**只负责把值落进/读出 `purchase_orders.extra_json`**。
+ #   🔴 绝不在这里另写一份"字段存不存在 / 值是不是数字"的校验 —— 抄两份必然在边界上分岔。
+@@ -622,11 +624,14 @@
+       （否则"谁把它退回待审的"永远查不出来）。
+     """
+     _st, _sp = _po_stamp(operator_id)
++    # 阶段 1（第 3 项）：来源集合改由白名单生成（原先手写 `IN ('draft','confirmed')`，
++    # 与 `doc_state` 里 pending_approval 的两条入边逐字相同 —— 抄两份就会在将来分岔）。
++    _gs, _gp = guard_sql('purchase_order', 'pending_approval')
+     with get_db() as db:
+         cur = db.execute(
+             "UPDATE purchase_orders SET status='pending_approval', audit_time='', auditor_id='' "
+             + (", " + _st if _st else "")
+-            + " WHERE id=? AND status IN ('draft','confirmed')", _sp + [oid])
++            + " WHERE id=?" + _gs, _sp + [oid] + _gp)
+         db.commit()
+         if not cur.rowcount:
+             return {'order_id': oid, 'ok': False,
+@@ -646,14 +651,21 @@
+     """
+     _st, _sp = _po_stamp(operator_id)
+     with get_db() as db:
++        # 阶段 1（第 3 项）：这里的来源集合**刻意窄于**白名单 —— 白名单放
++        # `received/partial → cancelled` 是给 AI 回滚用的系统通道；人工作废一张
++        # 已入库的单会让库存与应付凭空消失，只能走采购退货冲回。
++        # 两者的分工写在此处，避免以后有人「统一一下」把它放宽。
+         cur = db.execute(
+             "UPDATE purchase_orders SET status='cancelled' "
+             + (", " + _st if _st else "")
+             + " WHERE id=? AND status IN ('draft','pending_approval','confirmed')", _sp + [oid])
+         db.commit()
+         if not cur.rowcount:
++            _row = db.execute("SELECT status FROM purchase_orders WHERE id=?", (oid,)).fetchone()
++            _now = status_label('purchase_order', _row['status']) if _row else '（单据不存在）'
+             return {'order_id': oid, 'ok': False,
+-                    'reason': '该单已入库 / 部分入库，不能作废；请走采购退货单冲回'}
++                    'reason': '当前是「%s」，不能作废；已入库 / 部分入库请走采购退货单冲回'
++                              % _now}
+         return {'order_id': oid, 'ok': True, 'status': 'cancelled'}
+ 
+ 
+@@ -755,8 +767,14 @@
+         #   而这里原本只收 ('draft','approved') ⇒ **审核通过的单根本入不了库**
+         #   （前端 canConfirm 与后端逐字对齐，所以按钮也不显示 —— 老板看到的「没有入库入口」）。
+         #   `approved` 保留：存量/其他链路可能有这个值，去掉是破坏性变更。
+-        o = db.execute("SELECT * FROM purchase_orders WHERE id=? AND status IN ('draft','approved','confirmed')",(oid,)).fetchone()
+-        if not o: return {'error': '状态错误：该单已作废 / 已入库，不能重复入库'}
++        o = db.execute("SELECT * FROM purchase_orders WHERE id=?", (oid,)).fetchone()
++        if not o:
++            return {'error': '采购单不存在'}
++        if o['status'] not in ('draft', 'approved', 'confirmed'):
++            # 集合**不放宽**（未审批 / 部分入库各有自己的入口），只把「当前是什么」
++            # 说出来 —— 原提示把三种情况压成一句「已作废 / 已入库」，用户无从判断。
++            return {'error': '当前是「%s」，不能整单入库；只有草稿 / 审批通过 / 已确认的单可以'
++                             % status_label('purchase_order', o['status'])}
+         # QC gate: check if rejected QC records exist for this PO
+         try:
+             qc = db.execute("SELECT result FROM qc_records WHERE ref_type='purchase_order' AND ref_id=? AND result!='pending' ORDER BY id DESC LIMIT 1", (oid,)).fetchone()
+@@ -789,7 +807,10 @@
+             #    只换数量不换价，`inventory.cost_price` 会记成「40 袋 @100 元」（应为 2.5 元/袋），
+             #    加权平均成本随之错几十倍，而且**零报错**（库存看着对、成本全错）。
+             #    两者相乘仍等于原行金额（`qty × price`），金额口径不变。
+-            batch_in(itd['product_id'], o['warehouse_id'], _in_qty, _poi_base_price(itd), batch_no, expiry, db_conn=db)
++            # v789：把明细行的生产日期透传给 batch_in —— 录不录由用户偏好决定，
++            #   空串合法（不强制）；此前只传 batch_no/expiry_date ⇒ 录了也不落台账。
++            batch_in(itd['product_id'], o['warehouse_id'], _in_qty, _poi_base_price(itd), batch_no, expiry,
++                     db_conn=db, production_date=itd.get('production_date', '') or '')
+             _n_recv += 1
+             # 🔴 v404：把「整单全收」这件事**落到明细行**（`received_qty = quantity`）。
+             #    此前只有 `purchase_order_partial_receive` 会写这一列，`confirm` 从不写 ⇒
+@@ -832,14 +853,20 @@
+         # ⚠️ `audit_time` 只在为空时补：已走显式审核的单不能被覆盖成入库时刻。
+         #    对「金额低于阈值、免审批直接建单」的单，这一步是它**唯一**的审核时间来源 ——
+         #    不补则该列对它永久为空，用户会以为系统坏了。取值 = 「这张单最后一次被人工确认的时刻」。
+-        db.execute(
++        # 阶段 1（第 3 项）：这条 UPDATE 原先**没有任何来源守卫**（`WHERE id=?`），
++        # 注释里写的「状态守卫只放 draft|approved」其实只住在上面的 SELECT 里，
++        # 而校验与写入之间隔着整段逐行入库 + 批次追溯 —— 并发下可被重复收一次货。
++        _gs, _gp = guard_sql('purchase_order', 'received')
++        _cur = db.execute(
+             "UPDATE purchase_orders SET "
+             "  status='received', "
+             "  received_amount=COALESCE(total_amount,0), "
+             "  audit_time=CASE WHEN COALESCE(audit_time,'')='' "
+             "                 THEN datetime('now','localtime') ELSE audit_time END "
+             + (", " + _st if _st else "")
+-            + " WHERE id=?", _sp + [oid])
++            + " WHERE id=?" + _gs, _sp + [oid] + _gp)
++        if not _cur.rowcount:
++            raise ValueError('这张单刚被别人改过状态，本次入库未生效，请刷新后重试')
+         # v408（P0-6）：**入库时间**（`received_at`）—— 与上面的 `audit_time` 是**两个不同事实**，
+         # 所以是**另一条语句、另一个口径**，不要顺手并进上面那条 UPDATE：
+         #   · `audit_time`  = 审核时刻；已审核的单**不能被覆盖**（CASE WHEN 空则补）。
+@@ -893,8 +920,14 @@
+     _st, _sp = _po_stamp(operator_id)
+     with get_db() as db:
+         # v697c：同上，补 `confirmed`。
+-        o = db.execute("SELECT * FROM purchase_orders WHERE id=? AND status IN ('draft','approved','confirmed','partial')",(oid,)).fetchone()
+-        if not o: return {'error': '状态错误'}
++        o = db.execute("SELECT * FROM purchase_orders WHERE id=?", (oid,)).fetchone()
++        if not o:
++            return {'error': '采购单不存在'}
++        if o['status'] not in ('draft', 'approved', 'confirmed', 'partial'):
++            # 原提示只有两个字「状态错误」—— 分批到货失败时用户完全不知道该怎么办。
++            return {'error': '当前是「%s」，不能分批到货；只有草稿 / 审批通过 / 已确认 / '
++                             '部分入库的单可以'
++                             % status_label('purchase_order', o['status'])}
+         received_count = 0; total_count = 0
+         for item_input in items:
+             it = db.execute("SELECT * FROM purchase_order_items WHERE order_id=? AND product_id=?",(oid, item_input['product_id'])).fetchone()
+@@ -974,16 +1007,21 @@
+                     "  status=CASE WHEN amount<=? THEN 'paid' ELSE 'partial' END WHERE id=?",
+                     (_pre_m, _pre_m, _ap_id))
+         # Set status
++        # 阶段 1（第 3 项）：两条状态写入都补来源守卫（原先只有 SELECT 校验，
++        # 写入本身裸奔；分批到货会真的动库存与应付，被重复执行就是多收一次货）。
+         if received_count >= total_count:
+             # 全部到齐 ⇒ 与 `purchase_order_confirm` 口径保持一致：入库金额 = 订单金额
+             # （订单金额可能是外部系统给的权威金额，未必等于 Σ数量×采购价，不能现算替它）。
++            _gs, _gp = guard_sql('purchase_order', 'received')
+             db.execute("UPDATE purchase_orders SET status='received', "
+                        "received_amount=COALESCE(total_amount,0)"
+-                       + (", " + _st if _st else "") + " WHERE id=?", _sp + [oid])
++                       + (", " + _st if _st else "") + " WHERE id=?" + _gs,
++                       _sp + [oid] + _gp)
+         else:
++            _gs, _gp = guard_sql('purchase_order', 'partial')
+             db.execute("UPDATE purchase_orders SET status='partial', "
+                        "received_amount=?" + (", " + _st if _st else "")
+-                       + " WHERE id=?", [recv_amt] + _sp + [oid])
++                       + " WHERE id=?" + _gs, [recv_amt] + _sp + [oid] + _gp)
+         if _moved > 0:
+             db.execute("UPDATE purchase_orders SET received_at=datetime('now','localtime') WHERE id=?", (oid,))
+         db.commit()
+--- a/db/queries/sales.py
++++ b/db/queries/sales.py
+@@ -3,6 +3,9 @@
+ # v719：`_allow_neg_inv` —— 发货缺货是否降级为提醒，由仓库配置决定
+ from db.queries.inventory import inventory_adjust, fefo_deduct, SALEABLE_BATCH_COND, _allow_neg_inv
+ from db.queries.entity_logs import log_entity_changes
++# 阶段 1（第 3 项）：状态跃迁白名单的**唯一源**。此处只引只读校验，
++# 不是又把一份状态表抄进本文件。
++from db.queries.doc_state import check_transition, guard_sql, status_label, IllegalTransition
+ from contextlib import nullcontext
+ import logging
+ import time
+@@ -319,8 +322,19 @@
+         # 已发货/签收(delivered/signed)、终态(cancelled/rejected) 仍拒绝。
+         # v525d：审批流引入 `approved` 中间态 —— 终审批通过的销售单落到 `approved`，
+         #   发货必须认这个态（否则审批通过的单永远发不了货）。原 `draft`/`confirmed` 一并保留。
+-        o = db.execute("SELECT * FROM sale_orders WHERE id=? AND status IN ('draft','confirmed','approved')",(oid,)).fetchone()
+-        if not o: return {'error':'状态错误：只有草稿或已确认状态的订单才能发货'}
++        # 阶段 1（第 3 项）：守卫改由 `doc_state` 统一给出。
++        # 🔴 修掉两处既有缺陷：
++        #   ① 原守卫写死 `status IN ('draft','confirmed','approved')`，**漏了 `picking`**
++        #      ⇒ 一旦 `generate_pick_list` 把单置成拣货中，这张单就永远发不出货
++        #      （提示还是「只有草稿或已确认才能发货」，用户无从下手）；
++        #   ② 提示语写死，已发货/已签收/已作废都报同一句，看不出当前到底是什么状态。
++        o = db.execute("SELECT * FROM sale_orders WHERE id=?", (oid,)).fetchone()
++        if not o:
++            return {'error': '订单不存在'}
++        try:
++            check_transition('sale_order', o['status'], 'delivered')
++        except IllegalTransition as e:
++            return {'error': str(e)}
+ 
+         # Check inventory for each item before delivering.
+         # Count only SALEABLE stock (G8: expired batches cannot ship — they must go to 报损).
+@@ -379,7 +393,14 @@
+                 except Exception:
+                     pass
+ 
+-        db.execute("UPDATE sale_orders SET status='delivered' WHERE id=?",(oid,))
++        # 阶段 1（第 3 项）：写入加来源守卫（乐观锁）。前面已按白名单校验过，
++        # 但校验与写入之间还隔着整段 FEFO 扣减 —— 并发下同一张单可能被两个请求
++        # 同时通过校验、各扣一次库存。守卫让第二个请求拿到 rowcount=0 并整体回滚。
++        _gs, _gp = guard_sql('sale_order', 'delivered')
++        _cur = db.execute("UPDATE sale_orders SET status='delivered' WHERE id=?" + _gs,
++                          [oid] + _gp)
++        if not _cur.rowcount:
++            raise ValueError('这张单刚被别人改过状态，本次发货未生效，请刷新后重试')
+         # v107.146: 出库单打通 — 发货即生成拣货波次记录(P2-10 最小版)
+         try:
+             from db.connection import _gen_no
+@@ -416,7 +437,13 @@
+         if not o: return {"error": "状态错误：只有已发货的订单才能签收"}
+ 
+         # Update status
+-        db.execute("UPDATE sale_orders SET status='signed' WHERE id=?", (oid,))
++        # 阶段 1（第 3 项）：来源守卫下沉到写入语句本身（上面的 SELECT 只是取行，
++        # 校验与写入之间仍可能被并发改状态）。
++        _gs, _gp = guard_sql('sale_order', 'signed')
++        _cur = db.execute("UPDATE sale_orders SET status='signed' WHERE id=?" + _gs,
++                          [oid] + _gp)
++        if not _cur.rowcount:
++            return {"error": "这张单刚被别人改过状态，本次签收未生效，请刷新后重试"}
+         # v107.116: 审计日志
+         try: log_entity_changes('sale_order', oid, '', [('status', 'delivered', 'signed')], action='sign')
+         except Exception: pass
+@@ -458,8 +485,18 @@
+         if not o:
+             return {"error": "订单不存在"}
+         if o["status"] not in ("draft", "confirmed", "pending_approval"):
+-            return {"error": "状态错误：只有草稿/已确认/待审批的订单才能取消"}
+-        db.execute("UPDATE sale_orders SET status='cancelled' WHERE id=?", (oid,))
++            # ⚠️ 人工取消比白名单**更严**：白名单放 `signed → cancelled` 是给
++            #    AI 回滚 / 红冲用的系统通道；人工不能靠「取消」抹掉一张已签收的单
++            #    （货已交付、AR 已生成），必须走销售退货。故此处不用 check_transition。
++            return {"error": "状态错误：当前是「%s」，只有草稿/已确认/待审批的订单才能取消；"
++                             "已发货或已签收请走销售退货"
++                             % status_label('sale_order', o["status"])}
++        # 阶段 1（第 3 项）：写入加来源守卫，防「校验通过后被人抢先改状态」。
++        _gs, _gp = guard_sql('sale_order', 'cancelled')
++        _cur = db.execute("UPDATE sale_orders SET status='cancelled' WHERE id=?" + _gs,
++                          [oid] + _gp)
++        if not _cur.rowcount:
++            return {"error": "这张单刚被别人改过状态，本次取消未生效，请刷新后重试"}
+         try:
+             log_entity_changes('sale_order', oid, '', [('status', o["status"], 'cancelled')], action='cancel')
+         except Exception:
+@@ -1531,8 +1568,14 @@
+         if not o:
+             return {"error": "订单不存在"}
+         if o["status"] not in ("draft", "pending_approval"):
+-            return {"error": "状态错误：只有草稿或待审批状态的订单才能拒绝"}
+-        db.execute("UPDATE sale_orders SET status='rejected', operator_id=? WHERE id=?", (operator_id, oid))
++            return {"error": "状态错误：当前是「%s」，只有草稿或待审批状态的订单才能拒绝"
++                             % status_label('sale_order', o["status"])}
++        _gs, _gp = guard_sql('sale_order', 'rejected')
++        _cur = db.execute(
++            "UPDATE sale_orders SET status='rejected', operator_id=? WHERE id=?" + _gs,
++            [operator_id, oid] + _gp)
++        if not _cur.rowcount:
++            return {"error": "这张单刚被别人改过状态，本次驳回未生效，请刷新后重试"}
+         db.commit()
+         # v107.116: 审计日志
+         try: log_entity_changes('sale_order', oid, operator_id, [('status', o["status"], 'rejected')], action='reject')
+--- a/db/queries/approvals.py
++++ b/db/queries/approvals.py
+@@ -17,7 +17,18 @@
+ import json
+ from db.connection import get_db, get_db_tx
+ from erp_db import audit_log
++# 阶段 1（第 3 项）：本引擎写的是**业务表 status**，所以跃迁规则必须取自
++# `doc_state`（唯一源）。原先这里自己判 `status != 'draft'`、自己报文，等于第二份状态机。
++from db.queries.doc_state import check_transition, guard_sql, status_label, IllegalTransition
+ 
++# 本引擎的单据键 → doc_state 的单据键
++_STATE_KEY = {
++    'purchase': 'purchase_order',
++    'sale': 'sale_order',
++    'transfer': 'transfer_order',
++    'return': 'return_order',
++}
++
+ # 单据类型 → 物理表。新增类型只需在此登记。
+ DOC_TABLES = {
+     'purchase': 'purchase_orders',
+@@ -107,13 +118,17 @@
+     if err:
+         return {'error': err}
+     if row['status'] != 'draft':
+-        return {'error': f'只有草稿可提交审核（当前状态：{row["status"]}）'}
++        return {'error': '只有草稿可以提交审核（当前是「%s」）'
++                         % status_label(_STATE_KEY[doc_type], row['status'])}
+     chain = get_flow(doc_type)
++    _gs, _gp = guard_sql(_STATE_KEY[doc_type], 'pending_approval')
+     with get_db_tx() as db:
+-        db.execute(
+-            f"UPDATE {DOC_TABLES[doc_type]} SET status='pending_approval', approval_node=0, approval_chain=? WHERE id=?",
+-            (json.dumps(chain, ensure_ascii=False), oid))
++        cur = db.execute(
++            f"UPDATE {DOC_TABLES[doc_type]} SET status='pending_approval', approval_node=0, approval_chain=? WHERE id=?" + _gs,
++            [json.dumps(chain, ensure_ascii=False), oid] + _gp)
+         db.commit()
++        if not cur.rowcount:
++            return {'error': '这张单刚被别人改过状态，本次提交审核未生效，请刷新后重试'}
+     audit_log(user_name or 'system', f'提交审批 #{oid}', doc_type, str(oid),
+               '链条=' + json.dumps(chain, ensure_ascii=False))
+     return {'ok': True, 'status': 'pending_approval', 'node': 0, 'chain': chain}
+@@ -125,17 +140,21 @@
+     if err:
+         return {'error': err}
+     if row['status'] != 'pending_approval':
+-        return {'error': '该单不在待审批状态'}
++        return {'error': '这张单不在待审批状态（当前是「%s」）'
++                         % status_label(_STATE_KEY[doc_type], row['status'])}
+     chain = _jload(row['approval_chain'], get_flow(doc_type))
+     node = int(row['approval_node'] or 0)
+     if not _can_approve(user_role, chain, node):
+         need = chain[node].get('name') if chain and 0 <= node < len(chain) else '?'
+         return {'error': f'当前节点需【{need}】审批，您无权限'}
+     last = (node >= len(chain) - 1)
++    _gs, _gp = guard_sql(_STATE_KEY[doc_type], 'approved')
+     with get_db_tx() as db:
+         if last:
+-            db.execute(f"UPDATE {DOC_TABLES[doc_type]} SET status='approved', approval_node=? WHERE id=?",
+-                       (len(chain), oid))
++            cur = db.execute(f"UPDATE {DOC_TABLES[doc_type]} SET status='approved', approval_node=? WHERE id=?" + _gs,
++                             [len(chain), oid] + _gp)
++            if not cur.rowcount:
++                return {'error': '这张单刚被别人改过状态，本次审批未生效，请刷新后重试'}
+             # 沿用既有 auditor_id / audit_time 列语义（首次写入，幂等保留）
+             db.execute(
+                 f"UPDATE {DOC_TABLES[doc_type]} SET "
+@@ -158,16 +177,20 @@
+     if err:
+         return {'error': err}
+     if row['status'] != 'pending_approval':
+-        return {'error': '该单不在待审批状态'}
++        return {'error': '这张单不在待审批状态（当前是「%s」）'
++                         % status_label(_STATE_KEY[doc_type], row['status'])}
+     chain = _jload(row['approval_chain'], get_flow(doc_type))
+     node = int(row['approval_node'] or 0)
+     if not _can_approve(user_role, chain, node):
+         return {'error': '驳回需当前节点审批人操作'}
++    _gs, _gp = guard_sql(_STATE_KEY[doc_type], 'draft')
+     with get_db_tx() as db:
+-        db.execute(
+-            f"UPDATE {DOC_TABLES[doc_type]} SET status='draft', approval_node=0, reject_reason=? WHERE id=?",
+-            (reason, oid))
++        cur = db.execute(
++            f"UPDATE {DOC_TABLES[doc_type]} SET status='draft', approval_node=0, reject_reason=? WHERE id=?" + _gs,
++            [reason, oid] + _gp)
+         db.commit()
++        if not cur.rowcount:
++            return {'error': '这张单刚被别人改过状态，本次驳回未生效，请刷新后重试'}
+     audit_log(user_name or 'system', f'驳回 #{oid}' + (f'：{reason}' if reason else ''), doc_type, str(oid),
+               f'node={node}')
+     return {'ok': True, 'status': 'draft'}
+--- /dev/null
++++ b/db/queries/stock_movement.py
+@@ -0,0 +1,310 @@
++#!/usr/bin/env python3
++# -*- coding: utf-8 -*-
++"""阶段 1 · 统一库存写入口（开发副本，未落地后端仓、未部署）
++
++🔴 为什么要这个文件
++--------------------
++生产快照里 **没有** `stock_ledger.py`；`inventory_balance` 表由迁移 0012 建了，
++但只有 `db/queries/reserve.py` 在维护 `reserved_qty`，`actual_qty` / `stock_value`
++**从没被任何库存变动写过**（`reserve.py` 注释里写的 `stock_ledger._BALANCE_UPSERT`
++是个从未实现的符号）。于是「台账 / 流水 / 余额」三者里，第三者是死的。
++
++同时 `db/queries/inventory.py` 里 6 个函数各自内联「改数量 + 写流水」，其中：
++  · `batch_in` 的**同批次累加分支**只 `UPDATE inventory` 就 return，**不写流水**；
++  · `transfer_stock` 在 `inventory_adjust` 已写两条流水后又手写第三条，**重复记账**；
++  · 全部 6 处都不更新 `inventory_balance`。
++
++⇒ 本文件把「改台账 + 追加流水 + 滚动余额」收成**唯一**一个函数，调用方传入
++   已在 `get_db_tx()` / `_begin_write()` 里的事务连接，三写在同一个 SAVEPOINT 内，
++   任一失败整体回滚，不可能只成其一。
++
++设计纪律（照抄 ERPNext 的骨架，不抄它的体量）：
++  1. 流水**只追加**，永不 UPDATE / DELETE；
++  2. 余额是**派生量**，每次由台账实时 SUM 重算，不靠增量累加（增量累加会漂移）；
++  3. 金额口径唯一：`数量 × COALESCE(cost_price,0)`，与阶段 1 自动对账卡第③项一致；
++  4. 不接管事务边界：不 commit、不 rollback 整个事务、不自建连接；
++  5. 幂等建表：老开发库可能没跑过迁移 0012，函数自己 `CREATE TABLE IF NOT EXISTS`。
++
++⚠️ 本文件是 `.workbuddy/stage1/dev-src/` 下的**开发副本**。落地到
++   `~/Documents/hergent-erp/server/db/queries/` 需老张单独拍板（并行会话在途改动 +
++   生产领先 git 仓 21 个文件），本轮不动、不部署。
++"""
++import itertools
++
++# SAVEPOINT 名字必须唯一：`fefo_deduct` / `batch_out_fefo` 自己已经开了同名
++# SAVEPOINT，嵌套时若复用固定名字，`ROLLBACK TO` 会命中最近一层而不是本层。
++_SP_SEQ = itertools.count(1)
++
++_BALANCE_DDL = """CREATE TABLE IF NOT EXISTS inventory_balance (
++    id             INTEGER PRIMARY KEY AUTOINCREMENT,
++    product_id     INTEGER NOT NULL,
++    warehouse_id   INTEGER NOT NULL,
++    actual_qty     REAL NOT NULL DEFAULT 0,
++    reserved_qty   REAL NOT NULL DEFAULT 0,
++    in_transit_qty REAL NOT NULL DEFAULT 0,
++    stock_value    REAL NOT NULL DEFAULT 0,
++    valuation_rate REAL NOT NULL DEFAULT 0,
++    updated_at     TEXT,
++    UNIQUE(product_id, warehouse_id)
++)"""
++
++# 与迁移 0012 的 DDL 逐字对齐（含 UNIQUE(product_id, warehouse_id)）。
++
++
++def _val(row, key, idx, default=0):
++    """兼容 sqlite3.Row 与裸 tuple 两种 row_factory。"""
++    if row is None:
++        return default
++    try:
++        v = row[key]
++    except (TypeError, KeyError, IndexError):
++        try:
++            v = row[idx]
++        except (TypeError, KeyError, IndexError):
++            return default
++    return default if v is None else v
++
++
++def _ensure_balance_table(db):
++    """幂等建表，不写任何业务数据；不碰已有行的 reserved_qty / in_transit_qty。"""
++    db.execute(_BALANCE_DDL)
++
++
++def _upsert_balance(db, product_id, warehouse_id):
++    """按台账实时 SUM 重算「商品-仓」余额行。
++
++    🔴 只更新 actual_qty / stock_value / valuation_rate 三列 —— `reserved_qty`
++       是 `reserve.py` 的地盘，`in_transit_qty` 是采购在途的地盘，绝不能覆盖。
++    """
++    r = db.execute(
++        "SELECT COALESCE(SUM(quantity),0) AS q, "
++        "       COALESCE(SUM(quantity * COALESCE(cost_price,0)),0) AS v "
++        "FROM inventory WHERE product_id=? AND warehouse_id=?",
++        (product_id, warehouse_id)).fetchone()
++    qty = float(_val(r, 'q', 0))
++    value = float(_val(r, 'v', 1))
++    rate = (value / qty) if qty else 0.0
++    db.execute(
++        "INSERT INTO inventory_balance "
++        "(product_id,warehouse_id,actual_qty,reserved_qty,in_transit_qty,"
++        " stock_value,valuation_rate,updated_at) VALUES (?,?,?,0,0,?,?,datetime('now','localtime')) "
++        "ON CONFLICT(product_id,warehouse_id) DO UPDATE SET "
++        " actual_qty=excluded.actual_qty, stock_value=excluded.stock_value, "
++        " valuation_rate=excluded.valuation_rate, updated_at=excluded.updated_at",
++        (product_id, warehouse_id, qty, value, rate))
++
++
++def write_stock_movement(db, *, product_id, warehouse_id, delta_qty=0,
++                         set_qty=None, cost_price=None, row_id=None,
++                         batch_no='', expiry_date='', production_date='',
++                         change_type='adjust', ref_type='', ref_id=0,
++                         allow_negative=False, atomic_guard=True,
++                         force_new=False):
++    """一次库存数量变动 = 台账 + 流水 + 余额，同 SAVEPOINT 原子完成。
++
++    参数
++    ----
++    db            : 调用方已开启写事务的连接（get_db_tx / _begin_write / 已有 db_conn）
++    delta_qty     : 增减量（入库为正、出库为负）
++    set_qty       : 不为 None 时按**绝对量**覆盖（数据同步/初始化用），忽略 delta_qty
++    cost_price    : None = 保留台账原有成本；给了数值则一并更新
++    row_id        : 指定台账行（逐批扣减用）；不指定则按 商品+仓+批次 定位，找不到就新建
++    batch_no / expiry_date / production_date : 仅在**新建行**时写入
++    change_type   : 流水类型，如 batch_in / sale / transfer_out
++    ref_type / ref_id : 归因到单据
++    allow_negative: False 时扣成负数直接判红
++    atomic_guard  : 扣减时给 UPDATE 加 `AND quantity>=?` 并发守卫
++    force_new     : 跳过定位直接新建行（`batch_in` 无批次号时保持「每次新开一行」原语义）
++
++    返回
++    ----
++    {'ok':True, 'row_id', 'before_qty', 'after_qty', 'change_qty',
++     'stock_value_before', 'stock_value_after', 'balance_qty', 'balance_value'}
++    或 {'error': '中文原因'}（出错时 SAVEPOINT 已回滚，台账/流水/余额都没动）
++    """
++    sp = 'stock_mv_%d' % next(_SP_SEQ)
++    db.execute('SAVEPOINT ' + sp)
++    try:
++        _ensure_balance_table(db)
++
++        # ── ① 定位台账行 ──────────────────────────────────────────
++        if force_new:
++            inv = None
++        elif row_id:
++            inv = db.execute(
++                "SELECT id,quantity,cost_price FROM inventory WHERE id=?",
++                (row_id,)).fetchone()
++        else:
++            inv = db.execute(
++                "SELECT id,quantity,cost_price FROM inventory "
++                "WHERE product_id=? AND warehouse_id=? AND COALESCE(batch_no,'')=? "
++                "ORDER BY id ASC LIMIT 1",
++                (product_id, warehouse_id, batch_no or '')).fetchone()
++        if inv is None:
++            db.execute(
++                "INSERT INTO inventory "
++                "(product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,"
++                " production_date,stock_value,updated_at) "
++                "VALUES (?,?,0,?,'','','',0,datetime('now','localtime'))",
++                # 占位行先给 0；真正的批次字段在下面 UPDATE 里回填，
++                # 避免「先 INSERT 带值、再 UPDATE」出现两处口径。
++                (product_id, warehouse_id, float(cost_price or 0)))
++            inv_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
++            db.execute(
++                "UPDATE inventory SET batch_no=?,expiry_date=?,production_date=? WHERE id=?",
++                (batch_no or '', expiry_date or '', production_date or '', inv_id))
++            inv = db.execute(
++                "SELECT id,quantity,cost_price FROM inventory WHERE id=?",
++                (inv_id,)).fetchone()
++
++        inv_id = int(_val(inv, 'id', 0))
++        before = float(_val(inv, 'quantity', 1))
++        old_cp = float(_val(inv, 'cost_price', 2))
++        new_cp = old_cp if cost_price is None else float(cost_price or 0)
++
++        if set_qty is not None:
++            after = float(set_qty)
++            change = after - before
++        else:
++            change = float(delta_qty or 0)
++            after = before + change
++
++        if change < 0 and after < 0 and not allow_negative:
++            db.execute('ROLLBACK TO ' + sp)
++            db.execute('RELEASE ' + sp)
++            return {'error': '库存不足：需要 %.2f，可用 %.2f' % (-change, before)}
++
++        sv_before = before * old_cp
++        sv_after = after * new_cp
++
++        # ── ② 改台账（原子守卫）──────────────────────────────────
++        guard = ' AND quantity>=?' if (change < 0 and atomic_guard) else ''
++        # 🔴 参数顺序必须严格按 SQL 里的 `?` 出现顺序：SET 三列 → WHERE id → 守卫。
++        #   曾把守卫值排在 inv_id 前面，导致 `WHERE id=?` 绑成扣减量、
++        #   发货流水写了但台账没扣（演示数据实测抓到），此处逐位对齐。
++        params = [after, new_cp, sv_after, inv_id]
++        if guard:
++            params.append(-change)
++        cur = db.execute(
++            "UPDATE inventory SET quantity=?,cost_price=?,stock_value=?,"
++            "updated_at=datetime('now','localtime') WHERE id=?" + guard,
++            params)
++        if cur.rowcount == 0:
++            db.execute('ROLLBACK TO ' + sp)
++            db.execute('RELEASE ' + sp)
++            return {'error': '批次扣减冲突（并发），请重试'}
++
++        # ── ③ 追加流水（只追加，永不改）──────────────────────────
++        db.execute(
++            "INSERT INTO inventory_logs "
++            "(product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,"
++            " cost_price,ref_type,ref_id,stock_value_before,stock_value_after,"
++            " stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
++            (product_id, warehouse_id, change_type or 'adjust', change,
++             before, after, new_cp, ref_type or change_type, ref_id or 0,
++             sv_before, sv_after, sv_after - sv_before))
++
++        # ── ④ 滚动余额快照（派生重算，不累加）────────────────────
++        _upsert_balance(db, product_id, warehouse_id)
++        bal = db.execute(
++            "SELECT actual_qty,stock_value FROM inventory_balance "
++            "WHERE product_id=? AND warehouse_id=?",
++            (product_id, warehouse_id)).fetchone()
++        db.execute('RELEASE ' + sp)
++        return {
++            'ok': True,
++            'row_id': inv_id,
++            'before_qty': before,
++            'after_qty': after,
++            'change_qty': change,
++            'stock_value_before': sv_before,
++            'stock_value_after': sv_after,
++            'balance_qty': float(_val(bal, 'actual_qty', 0)),
++            'balance_value': float(_val(bal, 'stock_value', 1)),
++        }
++    except Exception:
++        try:
++            db.execute('ROLLBACK TO ' + sp)
++            db.execute('RELEASE ' + sp)
++        except Exception:
++            pass
++        raise
++
++
++def assert_triple_in_sync(db, product_id, warehouse_id, eps=0.0001):
++    """只读校验「台账 / 流水 / 余额」三者一致，供对账卡与沙箱验证调用。
++
++    🔴 不检查 `inventory_balance` 是否存在旧行 —— 缺行本身就是失配（余额没接线）。
++    """
++    checks = []
++
++    def close(a, b):
++        return abs(float(a) - float(b)) <= eps
++
++    inv = db.execute(
++        "SELECT COALESCE(SUM(quantity),0) AS q, "
++        "       COALESCE(SUM(quantity*COALESCE(cost_price,0)),0) AS v "
++        "FROM inventory WHERE product_id=? AND warehouse_id=?",
++        (product_id, warehouse_id)).fetchone()
++    inv_q = float(_val(inv, 'q', 0))
++    inv_v = float(_val(inv, 'v', 1))
++
++    log_q = float(_val(db.execute(
++        "SELECT COALESCE(SUM(change_qty),0) AS q FROM inventory_logs "
++        "WHERE product_id=? AND warehouse_id=?",
++        (product_id, warehouse_id)).fetchone(), 'q', 0))
++
++    has_bal = db.execute(
++        "SELECT 1 FROM inventory_balance WHERE product_id=? AND warehouse_id=?",
++        (product_id, warehouse_id)).fetchone()
++    bal_q = bal_v = None
++    if has_bal:
++        b = db.execute(
++            "SELECT actual_qty,stock_value FROM inventory_balance "
++            "WHERE product_id=? AND warehouse_id=?",
++            (product_id, warehouse_id)).fetchone()
++        bal_q = float(_val(b, 'actual_qty', 0))
++        bal_v = float(_val(b, 'stock_value', 1))
++
++    checks.append(('台账数量 = 流水累加', close(inv_q, log_q),
++                   '台账 %.2f / 流水 %.2f' % (inv_q, log_q)))
++    checks.append(('余额行存在', has_bal is not None,
++                   '有' if has_bal else '缺（余额未接线）'))
++    checks.append(('余额数量 = 台账数量', bal_q is not None and close(bal_q, inv_q),
++                   '余额 %s / 台账 %.2f' % (bal_q, inv_q)))
++    checks.append(('余额金额 = 数量×成本', bal_v is not None and close(bal_v, inv_v),
++                   '余额 %s / 台账 %.2f' % (bal_v, inv_v)))
++    return {
++        'ok': all(ok for _, ok, _ in checks),
++        'checks': [{'name': n, 'ok': ok, 'detail': d} for n, ok, d in checks],
++        'inventory_qty': inv_q, 'log_qty': log_q,
++        'balance_qty': bal_q, 'balance_value': bal_v,
++    }
++
++
++def rebuild_balances(db):
++    """显式一次性重建全部余额行（只由运维/回放调用，不在迁移里自动跑）。
++
++    保留已有 `reserved_qty` / `in_transit_qty`，只重算派生三列。
++    """
++    _ensure_balance_table(db)
++    rows = db.execute(
++        "SELECT product_id,warehouse_id,COALESCE(SUM(quantity),0) AS q, "
++        "       COALESCE(SUM(quantity*COALESCE(cost_price,0)),0) AS v "
++        "FROM inventory GROUP BY product_id,warehouse_id").fetchall()
++    n = 0
++    for r in rows:
++        pid = int(_val(r, 'product_id', 0))
++        wid = int(_val(r, 'warehouse_id', 1))
++        q = float(_val(r, 'q', 2))
++        v = float(_val(r, 'v', 3))
++        db.execute(
++            "INSERT INTO inventory_balance "
++            "(product_id,warehouse_id,actual_qty,reserved_qty,in_transit_qty,"
++            " stock_value,valuation_rate,updated_at) VALUES (?,?,?,0,0,?,?,datetime('now','localtime')) "
++            "ON CONFLICT(product_id,warehouse_id) DO UPDATE SET "
++            " actual_qty=excluded.actual_qty, stock_value=excluded.stock_value, "
++            " valuation_rate=excluded.valuation_rate, updated_at=excluded.updated_at",
++            (pid, wid, q, v, (v / q) if q else 0.0))
++        n += 1
++    return n
+--- /dev/null
++++ b/db/queries/doc_state.py
+@@ -0,0 +1,392 @@
++# -*- coding: utf-8 -*-
++"""单据状态机 —— 状态词表、跃迁白名单、统一写入口（阶段 1 · 第 3 项）
++
++🔴 为什么需要这个模块（现状是「三套状态机 + 谁都能写」）
++--------------------------------------------------------
++收口前，同一批单据上的状态判断散在三处、互不相认：
++
++  ① **业务表 `status`**：真正被前端读的字段。写入点遍布 `db/queries/*.py` 与
++     `erp_db.py`（5 类单据共 30+ 处），其中大部分是 `UPDATE … SET status='x' WHERE id=?`
++     —— **没有任何来源状态守卫**，任何状态都能跳到任何状态。
++  ② **`db/queries/approvals.py`**：多级审批流，写业务表 `status`
++     （`draft → pending_approval → approved`），有自己的 `DOC_TABLES`。
++  ③ **`erp_db.doc_state_set()`**：另一套词表（`draft/submitted/in_approval/approved/
++     rejected/returned/executed/voided`），写的是 `document_states` **影子表**，
++     业务表一行不动，报错还是英文 `Invalid state transition: draft -> approved`。
++     实测生产 `document_states` **0 行** —— 这套从未真正接线。
++
++后果不是「会报错」，而是**静默脏状态**：已签收的销售单能被 AI 改成 `confirmed`、
++已入库的采购单能被回滚成 `cancelled`、`picking` 这种中间态能被任意端点覆盖，
++全程零报错、零留痕。生产 `sale_orders` 22,505 条 `signed` 就是在这种「无守卫」
++前提下由脚本一路写过来的。
++
++本模块把**词表**与**跃迁规则**收成唯一一份，别处只许引用，不许再写字面量。
++
++🔴 两条必须同时成立的设计约束
++------------------------------
++1. **白名单必须装得下现有全部真实业务**。白名单的 `from` 集合是从生产代码里
++   逐处抽取的（`WHERE … status IN (…)` + Python 层守卫），不是从 ERPNext 抄的
++   理想状态图。少一条 = 上线当天拦死正常业务。
++2. **非法跃迁必须给出中文原因**，而且要能回答「这张单现在是什么、能变成什么」。
++   只说「状态错误」等于把排查成本转给用户。
++
++🔴 `status` 与 `delivery_status` / `invoice_status` 是**不同字段**
++-----------------------------------------------------------------
++盘点时踩过：全仓按 `status=` 扫，会把 `delivery_status='assigned'`、
++`invoice_status='invoiced'` 一起抓进来，凭空给销售单造出 `assigned`/`invoiced`
++两个根本不存在的 `status` 值。正则必须写成 `(?<![_A-Za-z])status`。
++
++🔴 本轮**不新增 `docstatus` 物理列**
++------------------------------------
++计划里的目标是「统一 docstatus（0 草稿／1 已提交／2 已取消）+ 业务状态独立字段」。
++本轮只做 `docstatus_of()` **派生**，原因是：加列要让 30+ 个写入点同时写两列、
++回填 22,505 条历史行、还要改前端全部读取处；而它带来的拦截能力，用派生 + 白名单
++已经完全拿到。物理列留给阶段 2 与「提交后字段锁定 / 乐观锁 / doc_versions」一起做
++—— 那时本来就要改保存钩子，改一次比改两次安全。
++"""
++from __future__ import annotations
++
++from datetime import datetime
++
++__all__ = [
++    'IllegalTransition', 'DOC_SPECS', 'STATUS_LABEL',
++    'spec', 'status_label', 'docstatus_of', 'allowed_targets', 'allowed_sources',
++    'check_transition', 'explain', 'guard_sql', 'set_doc_status',
++]
++
++
++class IllegalTransition(Exception):
++    """非法状态跃迁。`str(e)` 就是可以直接抛给用户看的中文原因。"""
++
++
++# ──────────────────────────────────────────────────────────────
++# 一、单据规格（唯一词表）
++# ──────────────────────────────────────────────────────────────
++# statuses 里每个值都要有中文名 —— 报错与时间线都直接用它，
++# 不允许出现「用户看到英文状态码」的情况。
++DOC_SPECS = {
++    'purchase_order': {
++        'table': 'purchase_orders',
++        'label': '采购单',
++        'initial': 'draft',
++        'statuses': {
++            'draft': '草稿',
++            'pending_approval': '待审批',
++            'approved': '审批通过',
++            'confirmed': '已确认',
++            'partial': '部分入库',
++            'received': '已入库',
++            'returned': '已退货',
++            'cancelled': '已作废',
++        },
++        # from → 允许去的目标集合。空集合 = 终态。
++        'transitions': {
++            'draft': {'pending_approval', 'approved', 'confirmed',
++                      'partial', 'received', 'cancelled'},
++            'pending_approval': {'draft', 'approved', 'confirmed',
++                                 'partial', 'received', 'cancelled'},
++            'approved': {'partial', 'received', 'confirmed', 'returned', 'cancelled'},
++            'confirmed': {'pending_approval', 'partial', 'received', 'returned', 'cancelled'},
++            # 再次全收是幂等动作（分批到货会反复进 received），必须放行
++            'partial': {'partial', 'received', 'returned', 'cancelled'},
++            'received': {'received', 'returned', 'cancelled'},
++            'returned': set(),
++            'cancelled': set(),
++        },
++    },
++    'sale_order': {
++        'table': 'sale_orders',
++        'label': '销售单',
++        'initial': 'draft',
++        'statuses': {
++            'draft': '草稿',
++            'pending_approval': '待审批',
++            'approved': '审批通过',
++            'confirmed': '已确认',
++            'picking': '拣货中',
++            'delivered': '已发货',
++            'signed': '已签收',
++            'rejected': '已驳回',
++            'cancelled': '已作废',
++        },
++        'transitions': {
++            'draft': {'pending_approval', 'approved', 'confirmed', 'picking',
++                      'delivered', 'rejected', 'cancelled'},
++            'pending_approval': {'draft', 'approved', 'confirmed', 'picking',
++                                 'delivered', 'rejected', 'cancelled'},
++            'approved': {'picking', 'delivered', 'confirmed', 'cancelled'},
++            'confirmed': {'picking', 'delivered', 'cancelled'},
++            'picking': {'delivered', 'cancelled'},
++            # 装箱发货（ship_packed）会对同一张单再写一次 delivered，放行自身
++            'delivered': {'delivered', 'signed', 'cancelled'},
++            # 已签收仍可作废：AI 回滚 / 红冲要撤销一张已签收单，这是**真实业务**
++            'signed': {'cancelled'},
++            'rejected': {'draft', 'cancelled'},
++            'cancelled': set(),
++        },
++    },
++    'transfer_order': {
++        'table': 'transfer_orders',
++        'label': '调拨单',
++        'initial': 'draft',
++        # ⚠️ 生产这张表**带 CHECK**，取值必须与之逐字一致，否则会出现
++        #    「白名单放行、DDL 拒绝」的割裂（SQLite 会直接抛约束错误）。
++        'statuses': {
++            'draft': '草稿',
++            'pending_approval': '待审批',
++            'approved': '审批通过',
++            'completed': '已完成',
++            'cancelled': '已作废',
++        },
++        'transitions': {
++            'draft': {'pending_approval', 'approved', 'completed', 'cancelled'},
++            'pending_approval': {'draft', 'approved', 'completed', 'cancelled'},
++            'approved': {'completed', 'cancelled'},
++            'completed': set(),
++            'cancelled': set(),
++        },
++        'ddl_check': {'draft', 'pending_approval', 'approved', 'completed', 'cancelled'},
++    },
++    'purchase_return': {
++        'table': 'purchase_returns',
++        'label': '采购退货单',
++        'initial': 'draft',
++        'statuses': {
++            'draft': '草稿',
++            'pending_approval': '待审批',
++            'approved': '审批通过',
++            'confirmed': '已过账',
++            'cancelled': '已作废',
++        },
++        'transitions': {
++            # 建单即过账走 (new) → confirmed；建草稿走 (new) → draft
++            'draft': {'pending_approval', 'approved', 'confirmed', 'cancelled'},
++            'pending_approval': {'draft', 'approved', 'confirmed', 'cancelled'},
++            'approved': {'confirmed', 'cancelled'},
++            'confirmed': set(),
++            'cancelled': set(),
++        },
++    },
++    'return_order': {
++        'table': 'return_orders',
++        'label': '销售退货单',
++        'initial': 'draft',
++        'statuses': {
++            'draft': '草稿',
++            'pending_approval': '待审批',
++            'approved': '审批通过',
++            'confirmed': '已确认',
++            'dispositioned': '已处置',
++            'refunded': '已退款',
++            'rejected': '已驳回',
++            'cancelled': '已作废',
++        },
++        'transitions': {
++            'draft': {'pending_approval', 'approved', 'confirmed', 'rejected', 'cancelled'},
++            'pending_approval': {'draft', 'approved', 'confirmed', 'rejected', 'cancelled'},
++            'approved': {'confirmed', 'cancelled'},
++            'confirmed': {'dispositioned', 'refunded', 'cancelled'},
++            'dispositioned': {'refunded'},
++            'rejected': {'draft'},
++            'refunded': set(),
++            'cancelled': set(),
++        },
++    },
++}
++
++# 取消类状态：docstatus = 2。驳回**不算**取消 —— 它把单子退回可编辑，
++# 语义上是「还没提交成功」，所以归 0（与 ERPNext 对 rejected 的处理一致）。
++_CANCELLED_STATES = {'cancelled', 'voided'}
++# 未提交（可编辑）状态：docstatus = 0
++_DRAFT_STATES = {'draft', 'pending_approval', 'rejected'}
++
++# 反查表：status 值 → 中文名。同名状态在不同单据下含义相同，取首个即可。
++STATUS_LABEL = {}
++for _sp in DOC_SPECS.values():
++    for _code, _lab in _sp['statuses'].items():
++        STATUS_LABEL.setdefault(_code, _lab)
++
++
++# ──────────────────────────────────────────────────────────────
++# 二、只读查询
++# ──────────────────────────────────────────────────────────────
++def spec(doc_type):
++    """取单据规格。未登记的单据直接抛错 —— 静默放行等于没做守卫。"""
++    try:
++        return DOC_SPECS[doc_type]
++    except KeyError:
++        raise ValueError(
++            '未登记的单据类型「%s」；已登记：%s'
++            % (doc_type, '、'.join(sorted(DOC_SPECS)))
++        )
++
++
++def status_label(doc_type, status):
++    """状态码 → 中文名。未知值如实显示为「未知状态(x)」，不猜。"""
++    sp = spec(doc_type)
++    code = str(status or '')
++    if code in sp['statuses']:
++        return sp['statuses'][code]
++    if not code:
++        return '空状态'
++    return '未知状态(%s)' % code
++
++
++def docstatus_of(doc_type, status):
++    """派生 docstatus：0 草稿 / 1 已提交 / 2 已取消。
++
++    ⚠️ 这是**派生**，不是库里存的列。阶段 2 加物理列时，回填口径必须与本函数
++       逐条一致，否则历史数据与新增数据会分成两套判定。
++    """
++    sp = spec(doc_type)
++    code = str(status or '')
++    if code not in sp['statuses']:
++        # 未知状态不猜成 0：猜成 0 会让它被当成「可编辑草稿」，正是脏状态的入口。
++        raise ValueError('%s 的状态「%s」不在词表内' % (sp['label'], code or '(空)'))
++    if code in _CANCELLED_STATES:
++        return 2
++    if code in _DRAFT_STATES:
++        return 0
++    return 1
++
++
++def allowed_targets(doc_type, from_status):
++    """当前状态能去哪些状态（按词表顺序返回，便于拼提示语）。"""
++    sp = spec(doc_type)
++    code = str(from_status or '')
++    targets = sp['transitions'].get(code, set())
++    order = list(sp['statuses'])
++    return tuple(s for s in order if s in targets)
++
++
++def allowed_sources(doc_type, to_status):
++    """哪些状态可以走到目标状态 —— 用来给现有 UPDATE 拼 `AND status IN (...)`。
++
++    ⚠️ 返回**按词表顺序**的元组。拼进 SQL 时参数个数必须与元组长度一致，
++       别用 `?` * len(set) 那种写法（集合无序，参数顺序会对不上）。
++    """
++    sp = spec(doc_type)
++    code = str(to_status or '')
++    if code not in sp['statuses']:
++        raise ValueError('%s 没有状态「%s」' % (sp['label'], code))
++    order = list(sp['statuses'])
++    srcs = {f for f, ts in sp['transitions'].items() if code in ts}
++    return tuple(s for s in order if s in srcs)
++
++
++def check_transition(doc_type, from_status, to_status):
++    """校验一次跃迁。合法返回 True；非法抛 `IllegalTransition`（中文原因）。"""
++    sp = spec(doc_type)
++    src, dst = str(from_status or ''), str(to_status or '')
++    if dst not in sp['statuses']:
++        raise IllegalTransition(
++            '%s没有「%s」这个状态（可用状态：%s）'
++            % (sp['label'], dst or '(空)',
++               '、'.join(sp['statuses'][s] for s in sp['statuses']))
++        )
++    if src == dst:
++        return True                       # 幂等重写，不算跃迁
++    if src not in sp['statuses']:
++        raise IllegalTransition(
++            '%s当前状态是「%s」，系统不认识这个状态，拒绝改成「%s」'
++            % (sp['label'], src or '(空)', sp['statuses'][dst])
++        )
++    if dst not in sp['transitions'].get(src, set()):
++        raise IllegalTransition(explain(doc_type, src, dst))
++    return True
++
++
++def explain(doc_type, from_status, to_status):
++    """生成中文原因。**这是用户唯一会看到的那句话**，必须能照着它做决定。"""
++    sp = spec(doc_type)
++    src, dst = str(from_status or ''), str(to_status or '')
++    src_lab = status_label(doc_type, src)
++    dst_lab = status_label(doc_type, dst) if dst in sp['statuses'] else (dst or '(空)')
++    targets = allowed_targets(doc_type, src)
++    if not targets:
++        return ('%s已经是「%s」，这是终态，不能再改成「%s」。'
++                '要更正请另开一张单（终态单据不允许被改写）。'
++                % (sp['label'], src_lab, dst_lab))
++    return ('%s当前是「%s」，不能直接改成「%s」；当前只能改成：%s。'
++            % (sp['label'], src_lab, dst_lab,
++               '、'.join(sp['statuses'][s] for s in targets)))
++
++
++def guard_sql(doc_type, to_status, prefix='status'):
++    """给现有 `UPDATE … WHERE …` 拼一段来源守卫：(sql 片段, 参数列表)。
++
++    用法（**参数顺序要紧**：SET 的占位符在 WHERE 之前）：
++
++        frag, gp = guard_sql('sale_order', 'delivered')
++        db.execute("UPDATE sale_orders SET status='delivered' WHERE id=?" + frag,
++                   [oid] + gp)
++
++    🔴 为什么保留这种「拼片段」而不是全部换成 `set_doc_status()`：
++       很多 UPDATE 同时写 `received_amount` / `audit_time` / 盖章列，整条替换会
++       把这些副作用搬到别处，风险远大于收益。片段方案让守卫只有一个来源，
++       同时不动既有 SET 子句。
++    """
++    srcs = allowed_sources(doc_type, to_status)
++    if not srcs:
++        # 没有任何状态能走到它 —— 说明是 (new) 才有的初始态，只允许 INSERT。
++        raise ValueError('%s 的「%s」只能由建单产生，不能 UPDATE 进去'
++                         % (spec(doc_type)['label'], status_label(doc_type, to_status)))
++    return (' AND %s IN (%s)' % (prefix, ','.join('?' * len(srcs))), list(srcs))
++
++
++# ──────────────────────────────────────────────────────────────
++# 三、唯一写入口
++# ──────────────────────────────────────────────────────────────
++def set_doc_status(db, doc_type, doc_id, to_status, operator_id='',
++                   extra_set=None, extra_params=None, touch=None):
++    """把一张单据改到 `to_status`。**这是状态跃迁的唯一写入口**。
++
++    行为：
++      1. 读当前状态（同一连接、同一事务）→ 不存在就抛中文错；
++      2. 校验跃迁（非法 → `IllegalTransition`，中文原因）；
++      3. 乐观锁写入：`WHERE id=? AND status=<读到的旧值>`
++         —— 并发下别人先改了，rowcount=0 ⇒ 抛「已被别人改成 X」，不静默覆盖；
++      4. 返回 `{'id','from','to','from_label','to_label','docstatus'}`。
++
++    `extra_set` / `extra_params` 供需要「同时写别的列」的调用方使用
++    （如 `received_amount`）。它们被拼在 status 之后，参数排在前面。
++
++    `touch` 传列名（如 `'applied_at'`）时补一个本地时间。时间戳由 Python 生成、
++    走参数传入，不用 `datetime('now')` —— 那个函数是 SQLite 专有，
++    而本仓已支持 PostgreSQL（`db/connection.py` 的 DATABASE_URL 分支）。
++    """
++    sp = spec(doc_type)
++    table = sp['table']
++    row = db.execute('SELECT status FROM %s WHERE id=?' % table, (doc_id,)).fetchone()
++    if row is None:
++        raise IllegalTransition('%s #%s 不存在' % (sp['label'], doc_id))
++    src = row['status'] if hasattr(row, 'keys') else row[0]
++    src = str(src or sp['initial'])
++    if src == to_status:
++        return {'id': doc_id, 'from': src, 'to': src,
++                'from_label': status_label(doc_type, src),
++                'to_label': status_label(doc_type, src),
++                'docstatus': docstatus_of(doc_type, src), 'unchanged': True}
++    check_transition(doc_type, src, to_status)
++
++    sets = ['status=?']
++    params = [to_status]
++    for frag, vals in (extra_set or []):
++        sets.append(frag)
++        params.extend(vals)
++    if touch:
++        sets.append('%s=?' % touch)
++        params.append(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
++    params.extend([doc_id, src])
++    cur = db.execute(
++        'UPDATE %s SET %s WHERE id=? AND status=?' % (table, ', '.join(sets)), params)
++    if not cur.rowcount:
++        raise IllegalTransition(
++            '%s #%s 刚被其他人改成别的状态，本次「%s」未生效，请刷新后重试'
++            % (sp['label'], doc_id, status_label(doc_type, to_status))
++        )
++    return {'id': doc_id, 'from': src, 'to': to_status,
++            'from_label': status_label(doc_type, src),
++            'to_label': status_label(doc_type, to_status),
++            'docstatus': docstatus_of(doc_type, to_status),
++            'operator_id': str(operator_id or '')}

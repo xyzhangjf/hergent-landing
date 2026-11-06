@@ -9,6 +9,8 @@ from db.queries.inventory import inventory_adjust
 from db.queries.units import (
     ratio_to_base, base_qty_of, unit_options, default_tier, conversion_text, norm_ratio,
 )
+# 阶段 1（第 3 项）：状态跃迁白名单的唯一源（见 `db/queries/doc_state.py`）。
+from db.queries.doc_state import check_transition, guard_sql, status_label, IllegalTransition
 # v415（P2-7）：采购单「自定义字段」—— 定义层与校验层**复用**报单矩阵那套唯一实现
 #   （`db/queries/forecast_columns.py`），本文件**只负责把值落进/读出 `purchase_orders.extra_json`**。
 #   🔴 绝不在这里另写一份"字段存不存在 / 值是不是数字"的校验 —— 抄两份必然在边界上分岔。
@@ -622,11 +624,14 @@ def purchase_order_unapprove(oid, operator_id=''):
       （否则"谁把它退回待审的"永远查不出来）。
     """
     _st, _sp = _po_stamp(operator_id)
+    # 阶段 1（第 3 项）：来源集合改由白名单生成（原先手写 `IN ('draft','confirmed')`，
+    # 与 `doc_state` 里 pending_approval 的两条入边逐字相同 —— 抄两份就会在将来分岔）。
+    _gs, _gp = guard_sql('purchase_order', 'pending_approval')
     with get_db() as db:
         cur = db.execute(
             "UPDATE purchase_orders SET status='pending_approval', audit_time='', auditor_id='' "
             + (", " + _st if _st else "")
-            + " WHERE id=? AND status IN ('draft','confirmed')", _sp + [oid])
+            + " WHERE id=?" + _gs, _sp + [oid] + _gp)
         db.commit()
         if not cur.rowcount:
             return {'order_id': oid, 'ok': False,
@@ -646,14 +651,21 @@ def purchase_order_cancel(oid, operator_id=''):
     """
     _st, _sp = _po_stamp(operator_id)
     with get_db() as db:
+        # 阶段 1（第 3 项）：这里的来源集合**刻意窄于**白名单 —— 白名单放
+        # `received/partial → cancelled` 是给 AI 回滚用的系统通道；人工作废一张
+        # 已入库的单会让库存与应付凭空消失，只能走采购退货冲回。
+        # 两者的分工写在此处，避免以后有人「统一一下」把它放宽。
         cur = db.execute(
             "UPDATE purchase_orders SET status='cancelled' "
             + (", " + _st if _st else "")
             + " WHERE id=? AND status IN ('draft','pending_approval','confirmed')", _sp + [oid])
         db.commit()
         if not cur.rowcount:
+            _row = db.execute("SELECT status FROM purchase_orders WHERE id=?", (oid,)).fetchone()
+            _now = status_label('purchase_order', _row['status']) if _row else '（单据不存在）'
             return {'order_id': oid, 'ok': False,
-                    'reason': '该单已入库 / 部分入库，不能作废；请走采购退货单冲回'}
+                    'reason': '当前是「%s」，不能作废；已入库 / 部分入库请走采购退货单冲回'
+                              % _now}
         return {'order_id': oid, 'ok': True, 'status': 'cancelled'}
 
 
@@ -755,8 +767,14 @@ def purchase_order_confirm(oid, operator_id=''):
         #   而这里原本只收 ('draft','approved') ⇒ **审核通过的单根本入不了库**
         #   （前端 canConfirm 与后端逐字对齐，所以按钮也不显示 —— 老板看到的「没有入库入口」）。
         #   `approved` 保留：存量/其他链路可能有这个值，去掉是破坏性变更。
-        o = db.execute("SELECT * FROM purchase_orders WHERE id=? AND status IN ('draft','approved','confirmed')",(oid,)).fetchone()
-        if not o: return {'error': '状态错误：该单已作废 / 已入库，不能重复入库'}
+        o = db.execute("SELECT * FROM purchase_orders WHERE id=?", (oid,)).fetchone()
+        if not o:
+            return {'error': '采购单不存在'}
+        if o['status'] not in ('draft', 'approved', 'confirmed'):
+            # 集合**不放宽**（未审批 / 部分入库各有自己的入口），只把「当前是什么」
+            # 说出来 —— 原提示把三种情况压成一句「已作废 / 已入库」，用户无从判断。
+            return {'error': '当前是「%s」，不能整单入库；只有草稿 / 审批通过 / 已确认的单可以'
+                             % status_label('purchase_order', o['status'])}
         # QC gate: check if rejected QC records exist for this PO
         try:
             qc = db.execute("SELECT result FROM qc_records WHERE ref_type='purchase_order' AND ref_id=? AND result!='pending' ORDER BY id DESC LIMIT 1", (oid,)).fetchone()
@@ -835,14 +853,20 @@ def purchase_order_confirm(oid, operator_id=''):
         # ⚠️ `audit_time` 只在为空时补：已走显式审核的单不能被覆盖成入库时刻。
         #    对「金额低于阈值、免审批直接建单」的单，这一步是它**唯一**的审核时间来源 ——
         #    不补则该列对它永久为空，用户会以为系统坏了。取值 = 「这张单最后一次被人工确认的时刻」。
-        db.execute(
+        # 阶段 1（第 3 项）：这条 UPDATE 原先**没有任何来源守卫**（`WHERE id=?`），
+        # 注释里写的「状态守卫只放 draft|approved」其实只住在上面的 SELECT 里，
+        # 而校验与写入之间隔着整段逐行入库 + 批次追溯 —— 并发下可被重复收一次货。
+        _gs, _gp = guard_sql('purchase_order', 'received')
+        _cur = db.execute(
             "UPDATE purchase_orders SET "
             "  status='received', "
             "  received_amount=COALESCE(total_amount,0), "
             "  audit_time=CASE WHEN COALESCE(audit_time,'')='' "
             "                 THEN datetime('now','localtime') ELSE audit_time END "
             + (", " + _st if _st else "")
-            + " WHERE id=?", _sp + [oid])
+            + " WHERE id=?" + _gs, _sp + [oid] + _gp)
+        if not _cur.rowcount:
+            raise ValueError('这张单刚被别人改过状态，本次入库未生效，请刷新后重试')
         # v408（P0-6）：**入库时间**（`received_at`）—— 与上面的 `audit_time` 是**两个不同事实**，
         # 所以是**另一条语句、另一个口径**，不要顺手并进上面那条 UPDATE：
         #   · `audit_time`  = 审核时刻；已审核的单**不能被覆盖**（CASE WHEN 空则补）。
@@ -896,8 +920,14 @@ def purchase_order_partial_receive(oid, items, operator_id=''):
     _st, _sp = _po_stamp(operator_id)
     with get_db() as db:
         # v697c：同上，补 `confirmed`。
-        o = db.execute("SELECT * FROM purchase_orders WHERE id=? AND status IN ('draft','approved','confirmed','partial')",(oid,)).fetchone()
-        if not o: return {'error': '状态错误'}
+        o = db.execute("SELECT * FROM purchase_orders WHERE id=?", (oid,)).fetchone()
+        if not o:
+            return {'error': '采购单不存在'}
+        if o['status'] not in ('draft', 'approved', 'confirmed', 'partial'):
+            # 原提示只有两个字「状态错误」—— 分批到货失败时用户完全不知道该怎么办。
+            return {'error': '当前是「%s」，不能分批到货；只有草稿 / 审批通过 / 已确认 / '
+                             '部分入库的单可以'
+                             % status_label('purchase_order', o['status'])}
         received_count = 0; total_count = 0
         for item_input in items:
             it = db.execute("SELECT * FROM purchase_order_items WHERE order_id=? AND product_id=?",(oid, item_input['product_id'])).fetchone()
@@ -977,16 +1007,21 @@ def purchase_order_partial_receive(oid, items, operator_id=''):
                     "  status=CASE WHEN amount<=? THEN 'paid' ELSE 'partial' END WHERE id=?",
                     (_pre_m, _pre_m, _ap_id))
         # Set status
+        # 阶段 1（第 3 项）：两条状态写入都补来源守卫（原先只有 SELECT 校验，
+        # 写入本身裸奔；分批到货会真的动库存与应付，被重复执行就是多收一次货）。
         if received_count >= total_count:
             # 全部到齐 ⇒ 与 `purchase_order_confirm` 口径保持一致：入库金额 = 订单金额
             # （订单金额可能是外部系统给的权威金额，未必等于 Σ数量×采购价，不能现算替它）。
+            _gs, _gp = guard_sql('purchase_order', 'received')
             db.execute("UPDATE purchase_orders SET status='received', "
                        "received_amount=COALESCE(total_amount,0)"
-                       + (", " + _st if _st else "") + " WHERE id=?", _sp + [oid])
+                       + (", " + _st if _st else "") + " WHERE id=?" + _gs,
+                       _sp + [oid] + _gp)
         else:
+            _gs, _gp = guard_sql('purchase_order', 'partial')
             db.execute("UPDATE purchase_orders SET status='partial', "
                        "received_amount=?" + (", " + _st if _st else "")
-                       + " WHERE id=?", [recv_amt] + _sp + [oid])
+                       + " WHERE id=?" + _gs, [recv_amt] + _sp + [oid] + _gp)
         if _moved > 0:
             db.execute("UPDATE purchase_orders SET received_at=datetime('now','localtime') WHERE id=?", (oid,))
         db.commit()
