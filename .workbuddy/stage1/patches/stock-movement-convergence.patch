@@ -1,0 +1,795 @@
+# 阶段 1 第 1 项 · 库存写入点收敛（累积补丁，已含上一轮 v789 生产日期落库修复）
+# 基线：阶段 0 生产快照 prod-src-20261106；目标：后端仓的 server/ 目录
+# 用法：cd server && patch -p1 --batch -f < stock-movement-convergence.patch
+# 反向：cd server && patch -p1 -R --batch -f < stock-movement-convergence.patch
+# 幂等：打过的文件再打会 "Reversed (or previously applied) patch detected"，可用 -N 跳过
+# 注意：本补丁**替代** production-date-chain.patch，不要两个叠加应用。
+# 注意：本轮未落地后端仓、未部署，需老张单独拍板。
+# 改动文件：erp_db.py / sync_writer.py / domain/wastage_tracker.py /
+#           db/queries/inventory.py / db/queries/purchases.py / db/queries/stock_movement.py(新增)
+--- a/erp_db.py
++++ b/erp_db.py
+@@ -13,6 +13,9 @@
+ # v705：金额精度口径的唯一实现在 db/precision.py（常量 MONEY_EPS 等）。
+ # 这里只做门面转发，implementation 原样迁入，行为逐位不变。
+ from db.precision import round_money, money_balanced, to_cents
++# 阶段 1 第 1 项：单据回滚 / 组拆 / 期初余额的库存增减统一走三写入口，
++# 不再各自裸 UPDATE inventory（原来这些点改了数量却一条流水都不写）。
++from db.queries.stock_movement import write_stock_movement
+ 
+ 
+ # G6 (2026-07-25): 金额统一取整层。所有读写金额经此函数 round(2)，消除浮点尾差
+@@ -3440,10 +3443,14 @@
+             items = db.execute("SELECT * FROM sale_order_items WHERE order_id=?", (ref_id,)).fetchall()
+             for item in items:
+                 try:
+-                    db.execute(
+-                        "UPDATE inventory SET quantity=quantity+?,stock_value=(quantity+?)*COALESCE(cost_price,0) WHERE product_id=? AND warehouse_id=?",
+-                        (item['quantity'], item['quantity'], item['product_id'], order['warehouse_id'] or 1)
+-                    )
++                    # 阶段 1：原 SQL 按「商品+仓」更新**所有批次行**（多批次会被重复
++                    # 加回），且一条流水都不写。收敛后只回滚一行并记可归因流水。
++                    write_stock_movement(
++                        db, product_id=item['product_id'],
++                        warehouse_id=order['warehouse_id'] or 1,
++                        delta_qty=float(item['quantity'] or 0), batch_no='',
++                        change_type='sale_rollback', ref_type='sale_order',
++                        ref_id=ref_id)
+                 except Exception as e:
+                     logging.getLogger("hergent").debug(f"skipping row during sale rollback: {e}")
+ 
+@@ -3467,10 +3474,14 @@
+             items = db.execute("SELECT * FROM purchase_order_items WHERE order_id=?", (ref_id,)).fetchall()
+             for item in items:
+                 try:
+-                    db.execute(
+-                        "UPDATE inventory SET quantity=MAX(0,quantity-?),stock_value=MAX(0,quantity-?)*COALESCE(cost_price,0) WHERE product_id=? AND warehouse_id=?",
+-                        (item['quantity'], item['quantity'], item['product_id'], order['warehouse_id'] or 1)
+-                    )
++                    # 阶段 1：采购回滚同样收编；MAX(0,...) 的夹零语义由统一入口
++                    # 「不允许负库存」判红替代（扣不够就是扣不够，不静默夹成 0）。
++                    write_stock_movement(
++                        db, product_id=item['product_id'],
++                        warehouse_id=order['warehouse_id'] or 1,
++                        delta_qty=-float(item['quantity'] or 0), batch_no='',
++                        change_type='purchase_rollback', ref_type='purchase_order',
++                        ref_id=ref_id)
+                 except Exception as e:
+                     logging.getLogger("hergent").debug(f"skipping row during purchase rollback: {e}")
+ 
+@@ -8255,13 +8266,13 @@
+         row = db.execute(
+             "SELECT id,quantity FROM inventory WHERE product_id=? AND warehouse_id=? AND batch_no=''",
+             (product_id, warehouse_id)).fetchone()
+-        if row:
+-            new_qty = (row["quantity"] or 0) + delta
+-            db.execute("UPDATE inventory SET quantity=?, stock_value=?*COALESCE(cost_price,0), updated_at=datetime('now','localtime') WHERE id=?",
+-                       (new_qty, new_qty, row["id"]))
+-        else:
+-            db.execute("INSERT INTO inventory (product_id,warehouse_id,quantity,batch_no,stock_value) VALUES (?,?,?,?,0)",
+-                       (product_id, warehouse_id, delta, ""))
++        # 阶段 1：组拆产出收编为统一三写（原来只改台账、不写流水）。
++        # 增加分支仍落 batch_no='' 行，不编造批次；减少分支继续走 gross_deduct。
++        write_stock_movement(
++            db, product_id=product_id, warehouse_id=warehouse_id,
++            delta_qty=float(delta), row_id=(row["id"] if row else None),
++            batch_no='', change_type='assembly_in', ref_type='assembly',
++            ref_id=ref_id, force_new=not row)
+         return
+     r = gross_deduct(db, product_id, warehouse_id, -delta,
+                      ref_type="assembly", ref_id=ref_id)
+@@ -12341,7 +12352,14 @@
+ def save_inventory_opening(product_id, quantity, cost_price):
+     with get_db() as db:
+         db.execute("INSERT INTO opening_balances (balance_type,contact_id,amount,ref_no) VALUES (?,?,?,?)",("inventory",product_id,quantity,str(cost_price)))
+-        db.execute("UPDATE inventory SET quantity=quantity+?,stock_value=(quantity+?)*?,cost_price=? WHERE product_id=?",(quantity,quantity,cost_price,cost_price,product_id))
++        # 阶段 1：期初库存也是一次库存变动，必须写流水 + 余额。
++        # 原 SQL 不带 warehouse_id（会把所有仓的该商品一起改），收敛后明确落到
++        # 默认仓 1；将来要按仓维护期初，由调用方补 warehouse_id 参数。
++        write_stock_movement(
++            db, product_id=product_id, warehouse_id=1,
++            delta_qty=float(quantity or 0), cost_price=float(cost_price or 0),
++            batch_no='', change_type='opening', ref_type='opening_balance',
++            ref_id=0)
+         db.commit()
+ 
+ def save_account_opening(account_code, debit, credit):
+@@ -17595,10 +17613,14 @@
+                 prod_ids.append(pid)
+                 # Add initial inventory
+                 qty = random.randint(50, 200)
+-                db.execute(
+-                    "INSERT INTO inventory (product_id, warehouse_id, quantity, batch_no, cost_price, stock_value) VALUES (?,1,?,?,?,?)",
+-                    (pid, qty, "B2026" + str(random.randint(100, 999)), cost, qty*cost)
+-                )
++                # 阶段 1：演示数据初始化也是一次库存变动，走统一三写
++                # （原来只 INSERT 台账、不写流水；万一有人在生产跑 seed 就悄悄脱钩）。
++                write_stock_movement(
++                    db, product_id=pid, warehouse_id=1,
++                    set_qty=qty, cost_price=cost,
++                    batch_no="B2026" + str(random.randint(100, 999)),
++                    change_type='opening', ref_type='seed_demo', ref_id=0,
++                    allow_negative=True, atomic_guard=False, force_new=True)
+                 db.commit()
+             except Exception as e: logging.getLogger("hergent").debug(f"skipping row: {e}")
+ 
+--- a/sync_writer.py
++++ b/sync_writer.py
+@@ -15,6 +15,7 @@
+ import logging
+ 
+ from db.connection import set_tenant_context, get_db
++from db.queries.stock_movement import write_stock_movement
+ import erp_db as erp_db
+ 
+ logger = logging.getLogger("hergent")
+@@ -134,18 +135,17 @@
+             qty = int(float(mi.get("quantity", 0) or 0))
+             cost = float(mi.get("cost_price", 0) or 0)
+             exp = mi.get("expiry_date", "") or ""
+-            if exist:
+-                d.execute(
+-                    "UPDATE inventory SET quantity=?,cost_price=?,expiry_date=?,updated_at=datetime('now','localtime') WHERE id=?",
+-                    (qty, cost, exp, exist[0]),
+-                )
+-            else:
+-                d.execute(
+-                    "INSERT INTO inventory "
+-                    "(product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,updated_at) "
+-                    "VALUES (?,?,?,?,?,?,datetime('now','localtime'))",
+-                    (pid, wid, qty, cost, batch, exp),
+-                )
++            # 阶段 1：外部数据同步覆盖**也是**一次库存变动，用 set_qty 绝对量
++            # 口径走统一三写，流水记 sync_upsert，可归因、可对账。
++            # 原来两条裸 SQL 完全不写流水，同步一次账就悄悄脱钩一次。
++            write_stock_movement(
++                d, product_id=pid, warehouse_id=wid,
++                set_qty=qty, cost_price=cost,
++                row_id=(exist[0] if exist else None),
++                batch_no=batch, expiry_date=exp,
++                change_type='sync_upsert', ref_type='sync', ref_id=0,
++                allow_negative=True, atomic_guard=False,
++                force_new=not exist)
+             n += 1
+         except Exception as e2:
+             errors.append(f"Inventory row: {e2}")
+--- a/domain/wastage_tracker.py
++++ b/domain/wastage_tracker.py
+@@ -15,6 +15,7 @@
+ 
+ from db.connection import get_db, get_db_tx
+ from db.queries.inventory import gross_deduct
++from db.queries.stock_movement import write_stock_movement
+ 
+ # Wastage type → GL account mapping
+ WASTAGE_TYPES = {
+@@ -305,23 +306,15 @@
+     row = db.execute(
+         "SELECT id,quantity FROM inventory WHERE product_id=? AND warehouse_id=? AND batch_no=?",
+         (product_id, warehouse_id, batch_no)).fetchone()
+-    if row:
+-        before = float(row["quantity"] or 0)
+-        after = before + qty
+-        db.execute("UPDATE inventory SET quantity=?,updated_at=datetime('now','localtime') WHERE id=?",
+-                   (after, row["id"]))
+-    else:
+-        before = 0.0
+-        after = qty
+-        db.execute(
+-            "INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no) "
+-            "VALUES (?,?,?,?,?)",
+-            (product_id, warehouse_id, after, cost_price, batch_no))
+-    db.execute(
+-        "INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,"
+-        "before_qty,after_qty,cost_price,ref_type,ref_id) VALUES (?,?,?,?,?,?,?,?,?)",
+-        (product_id, warehouse_id, "wastage_reversal", qty, before, after,
+-         cost_price, "wastage_reversal", ref_id))
++    # 阶段 1：撤销报损原来写了流水却漏掉 stock_value 与余额，且流水只有 9 列
++    # （金额三列全缺）。收编后三写齐全，change_type 仍保留 wastage_reversal，
++    # 「撤销动作可归因」这条日志契约不丢。
++    write_stock_movement(
++        db, product_id=product_id, warehouse_id=warehouse_id,
++        delta_qty=qty, cost_price=cost_price,
++        row_id=(row["id"] if row else None), batch_no=batch_no,
++        change_type='wastage_reversal', ref_type='wastage_reversal',
++        ref_id=ref_id, force_new=not row)
+ 
+ 
+ def reject_wastage(wastage_id, operator_id=""):
+--- a/db/queries/inventory.py
++++ b/db/queries/inventory.py
+@@ -1,8 +1,13 @@
+ """Inventory queries."""
+ from datetime import datetime, timedelta
+ from db.connection import get_db, get_db_tx
++from db.queries.stock_movement import write_stock_movement, assert_triple_in_sync
+ import logging
+ 
++# 阶段 1 第 1 项：下方 6 个函数原本各自内联「改台账 + 写流水」，且都不更新
++# `inventory_balance`；`batch_in` 累加分支甚至**只改台账不写流水**。现统一收编到
++# `write_stock_movement()`，同一 SAVEPOINT 内三写（台账 / 流水 / 余额快照）。
++
+ # G8 (2026-07-25): saleable stock excludes expired batches.
+ # Expired stock stays in physical inventory until written off via 报损 (wastage),
+ # but must never be deducted for sales. Undated batches remain saleable (data issue, not spoilage).
+@@ -73,48 +78,38 @@
+         return rows
+ 
+ def inventory_adjust(product_id, warehouse_id, qty_change, cost_price=0, ref_type='', ref_id=0, db_conn=None):
+-    """Adjust inventory atomically. Uses atomic UPDATE with stock guard when deducting.
+-    If db_conn is provided, caller manages transaction."""
++    """批次盲增减（保留历史契约）—— 三写统一交给 `write_stock_movement()`。
++
++    阶段 1：原本内联的 `UPDATE inventory` + `INSERT inventory_logs` 收编，
++    并在同一 SAVEPOINT 内补写 `inventory_balance`。若 db_conn 传入则调用方管事务。
++    """
+     if db_conn is not None:
+         db = db_conn; own = False
+     else:
+         _cm = get_db(); db = _cm.__enter__(); own = True
+     try:
+-        inv = db.execute("SELECT id,quantity,cost_price FROM inventory WHERE product_id=? AND warehouse_id=?",(product_id,warehouse_id)).fetchone()
+-        before = inv['quantity'] if inv else 0; after = before + qty_change
+-        # P0-S1：stock_value 必须用「新数量 × 新成本」。SQLite 的 SET 右侧读的是旧行值，
+-        #   若在同一 UPDATE 里改 quantity/cost_price，stock_value=quantity*COALESCE(cost_price,0)
+-        #   会拿到旧值算错。故在 Python 侧算好再绑定。
+-        _new_cp = cost_price if (cost_price and cost_price > 0) else (inv['cost_price'] if inv else 0)
+-        _new_sv = after * float(_new_cp or 0)
+-        if inv:
+-            if qty_change < 0:
+-                # Atomic guard: only update if enough stock (prevents overselling)
+-                # v719：仓库配了「允许负库存」就去掉该守卫 —— 配置本来就写着「允许」，
+-                #   此前却从不生效（业务员仓库存 0，一张单也发不出去）。
+-                if _allow_neg_inv(db, warehouse_id):
+-                    db.execute("UPDATE inventory SET quantity=quantity+?,cost_price=CASE WHEN ?>0 THEN ? ELSE cost_price END,stock_value=?,updated_at=datetime('now','localtime') WHERE id=?",(qty_change,cost_price,cost_price,_new_sv,inv['id']))
+-                else:
+-                    cur = db.execute("UPDATE inventory SET quantity=quantity+?,cost_price=CASE WHEN ?>0 THEN ? ELSE cost_price END,stock_value=?,updated_at=datetime('now','localtime') WHERE id=? AND quantity+?>=0",(qty_change,cost_price,cost_price,_new_sv,inv['id'],qty_change))
+-                    if cur.rowcount == 0:
+-                        if own: _cm.__exit__(None,None,None)
+-                        return {"error": f"库存不足：需要{-qty_change}，可用{before}"}
+-                after = db.execute("SELECT quantity FROM inventory WHERE id=?",(inv['id'],)).fetchone()['quantity']
+-            else:
+-                db.execute("UPDATE inventory SET quantity=?,cost_price=CASE WHEN ?>0 THEN ? ELSE cost_price END,stock_value=?,updated_at=datetime('now','localtime') WHERE id=?",(after,cost_price,cost_price,_new_sv,inv['id']))
+-        else:
+-            if qty_change < 0:
+-                # v719：允许负库存 ⇒ 没有库存记录也要能扣（下面直接建一行负的）
+-                if not _allow_neg_inv(db, warehouse_id):
+-                    if own: _cm.__exit__(None,None,None)
+-                    return {"error": "库存不足：无此商品库存记录"}
+-            db.execute("INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,stock_value) VALUES (?,?,?,?,?)",(product_id,warehouse_id,after,cost_price, after*(float(cost_price) or 0)))
+-        _cp = float(cost_price or 0)
+-        _after_qty = after if inv else after
+-        db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",(product_id,warehouse_id,ref_type,qty_change,before,_after_qty,cost_price,ref_type,ref_id, before*_cp, _after_qty*_cp, qty_change*_cp))
++        inv = db.execute(
++            "SELECT id,quantity,cost_price FROM inventory WHERE product_id=? AND warehouse_id=? "
++            "ORDER BY id ASC LIMIT 1", (product_id, warehouse_id)).fetchone()
++        allow_neg = _allow_neg_inv(db, warehouse_id)
++        if not inv and qty_change < 0 and not allow_neg:
++            if own: _cm.__exit__(None, None, None)
++            return {"error": "库存不足：无此商品库存记录"}
++        # 原口径：cost_price<=0 时保留台账原成本；统一入口用 None 表达「不改」。
++        cp = cost_price if (cost_price and cost_price > 0) else None
++        r = write_stock_movement(
++            db, product_id=product_id, warehouse_id=warehouse_id,
++            delta_qty=qty_change, cost_price=cp,
++            row_id=(inv['id'] if inv else None), batch_no='',
++            change_type=(ref_type or 'adjust'), ref_type=ref_type, ref_id=ref_id,
++            allow_negative=allow_neg, atomic_guard=not allow_neg,
++            force_new=not inv)
++        if r.get('error'):
++            if own: _cm.__exit__(None, None, None)
++            return {"error": r['error']}
+         if own: db.commit()
+     finally:
+-        if own: _cm.__exit__(None,None,None)
++        if own: _cm.__exit__(None, None, None)
+ 
+ def get_fefo_suggestions(product_id, warehouse_id=1):
+     with get_db() as db:
+@@ -168,18 +163,16 @@
+                 if remaining <= 0:
+                     break
+                 take = min(b['quantity'], remaining)
+-                # Atomic guard: only deduct if this batch still has enough (prevents oversell races)
+-                cur = db.execute(
+-                    "UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') WHERE id=? AND quantity>=?",
+-                    (take, take, b['id'], take))
+-                if cur.rowcount == 0:
++                # 阶段 1：逐批扣减收编为统一三写（台账 + 流水 + 余额），
++                # 并发守卫 `quantity>=take` 由 write_stock_movement 内部持有。
++                r = write_stock_movement(
++                    db, product_id=product_id, warehouse_id=warehouse_id,
++                    delta_qty=-take, row_id=b['id'],
++                    change_type=(ref_type or 'sale'), ref_type=ref_type, ref_id=ref_id)
++                if r.get('error'):
+                     db.execute("ROLLBACK TO fefo_sp")
+                     db.execute("RELEASE fefo_sp")
+-                    return {'error': f'库存不足：批次扣减冲突（并发），请重试。需要{qty_needed}', 'used': []}
+-                new_qty = b['quantity'] - take
+-                _cp = float(b['cost_price'] or 0)
+-                db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                           (product_id, warehouse_id, ref_type, -take, b['quantity'], new_qty, b['cost_price'], ref_type, ref_id, b['quantity']*_cp, new_qty*_cp, -take*_cp))
++                    return {'error': r['error'], 'used': []}
+                 used.append({'batch_no': b['batch_no'], 'expiry_date': b['expiry_date'], 'quantity': take, 'batch_id': b['id']})
+                 remaining -= take
+             if remaining > 0:
+@@ -196,20 +189,19 @@
+                 _pr = db.execute("SELECT COALESCE(purchase_price,0) AS p FROM products WHERE id=?",
+                                  (product_id,)).fetchone()
+                 _pcost = float((_pr['p'] if _pr else 0) or 0)
+-                if neg:
+-                    _before = float(neg['quantity'] or 0)
+-                    _cp = float(neg['cost_price'] or 0) or _pcost
+-                    db.execute("UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') "
+-                               "WHERE id=?", (remaining, remaining, neg['id']))
+-                else:
+-                    _before = 0.0
+-                    _cp = _pcost
+-                    db.execute("INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,stock_value) "
+-                               "VALUES (?,?,?,?,'','',?)", (product_id, warehouse_id, -remaining, _pcost, -remaining*_pcost))
+-                db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,"
+-                           "before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                           (product_id, warehouse_id, ref_type, -remaining, _before,
+-                            _before - remaining, _cp, ref_type, ref_id, _before*_cp, (_before-remaining)*_cp, -remaining*_cp))
++                _cp = (float(neg['cost_price'] or 0) or _pcost) if neg else _pcost
++                # 阶段 1：负库存兜底行也走统一三写。cost_price 取进货价兜底，
++                # 顺手修掉「台账成本为 0、流水也记 0 ⇒ 利润表低估成本」的旧隐患。
++                r = write_stock_movement(
++                    db, product_id=product_id, warehouse_id=warehouse_id,
++                    delta_qty=-remaining, cost_price=_cp,
++                    row_id=(neg['id'] if neg else None), batch_no='',
++                    change_type=(ref_type or 'sale'), ref_type=ref_type, ref_id=ref_id,
++                    allow_negative=True, atomic_guard=False, force_new=not neg)
++                if r.get('error'):
++                    db.execute("ROLLBACK TO fefo_sp")
++                    db.execute("RELEASE fefo_sp")
++                    return {'error': r['error'], 'used': []}
+                 used.append({'batch_no': '', 'expiry_date': '', 'quantity': remaining,
+                              'batch_id': 0, 'cost_price': _cp, 'negative': True})
+                 remaining = 0
+@@ -287,17 +279,13 @@
+         if avail <= 0:
+             continue
+         take = min(avail, remaining)
+-        cur = db.execute(
+-            "UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') "
+-            "WHERE id=? AND quantity>=?",
+-            (take, take, r["id"], take))
+-        if cur.rowcount == 0:
+-            return {"error": f"批次扣减冲突（并发），请重试。需要{need:g}", "used": []}
+-        db.execute(
+-                "INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,"
+-                "before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                (product_id, warehouse_id, ref_type, -take, avail, avail - take,
+-                 r["cost_price"], ref_type, ref_id, avail*float(r["cost_price"] or 0), (avail-take)*float(r["cost_price"] or 0), -take*float(r["cost_price"] or 0)))
++        # 阶段 1：报损/领用/盘亏等非销售出库也收编为统一三写。
++        mv = write_stock_movement(
++            db, product_id=product_id, warehouse_id=warehouse_id,
++            delta_qty=-take, row_id=r["id"],
++            change_type=(ref_type or 'adjust'), ref_type=ref_type, ref_id=ref_id)
++        if mv.get('error'):
++            return {"error": mv['error'], "used": []}
+         # `cost_price` 带上：调用方（报损单）要按**实际扣掉的批次成本**入账，
+         # 而不是拿任意一行的成本顶替 —— 多批次进价不同时这两者差得不是一点半点。
+         used.append({"batch_id": r["id"], "batch_no": r["batch_no"] or "",
+@@ -306,31 +294,41 @@
+         remaining -= take
+     return {"success": True, "used": used}
+ 
+-def batch_in(product_id, warehouse_id, quantity, cost_price=0, batch_no='', expiry_date='', db_conn=None):
+-    """入库时记录批次和效期。已有同批次则累加，否则新建。"""
++def batch_in(product_id, warehouse_id, quantity, cost_price=0, batch_no='', expiry_date='', db_conn=None, production_date=''):
++    """入库时记录批次和效期。已有同批次则累加，否则新建。
++
++    v789：新增 `production_date`（末尾关键字参数，既有按位置调用零影响）。
++    是否录由上游按用户偏好决定 —— 空串合法，**绝不强制必录**。
++
++    🔴 阶段 1：原「同批次累加」分支只 `UPDATE inventory` 就 return，
++       **完全不写流水**（台账涨了、流水没有，对账必然脱钩）。现累加与新建
++       都统一走 `write_stock_movement()`，三写不可拆分。
++    """
+     if db_conn is not None:
+         db = db_conn; own = False
+     else:
+         _cm = get_db(); db = _cm.__enter__(); own = True
+     try:
++        existing = None
+         if batch_no:
+             existing = db.execute(
+                 "SELECT id,quantity FROM inventory WHERE product_id=? AND warehouse_id=? AND batch_no=?",
+                 (product_id, warehouse_id, batch_no)).fetchone()
+-            if existing:
+-                new_qty = existing['quantity'] + quantity
+-                db.execute("UPDATE inventory SET quantity=?,cost_price=?,stock_value=?,updated_at=datetime('now','localtime') WHERE id=?",
+-                           (new_qty, cost_price, new_qty*(float(cost_price) or 0), existing['id']))
+-                if own: db.commit()
+-                return {'batch': batch_no, 'quantity': new_qty, 'action': 'updated'}
+-        # New batch record
+-        db.execute(
+-                "INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,stock_value) VALUES (?,?,?,?,?,?,?)",
+-                (product_id, warehouse_id, quantity, cost_price, batch_no, expiry_date, quantity*(float(cost_price) or 0)))
+-        db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                   (product_id,warehouse_id,'batch_in',quantity,0,quantity,cost_price,'batch_in',0, 0, quantity*(float(cost_price) or 0), quantity*(float(cost_price) or 0)))
++        # v789：production_date 如实落库（空串照写，不强制）。
++        # 无批次号时 force_new=True，保持「每次新开一行」的原语义。
++        r = write_stock_movement(
++            db, product_id=product_id, warehouse_id=warehouse_id,
++            delta_qty=quantity, cost_price=cost_price,
++            row_id=(existing['id'] if existing else None),
++            batch_no=batch_no, expiry_date=expiry_date,
++            production_date=production_date or '',
++            change_type='batch_in', ref_type='batch_in', ref_id=0,
++            force_new=not existing)
++        if r.get('error'):
++            return {'error': r['error']}
+         if own: db.commit()
+-        return {'batch': batch_no, 'quantity': quantity, 'action': 'created'}
++        return {'batch': batch_no, 'quantity': r['after_qty'],
++                'action': 'updated' if existing else 'created'}
+     finally:
+         if own:
+             try: db.commit()
+@@ -365,17 +363,15 @@
+                 if remaining <= 0: break
+                 b = dict(b)
+                 take = min(remaining, b['quantity'])
+-                cur = db.execute(
+-                    "UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') WHERE id=? AND quantity>=?",
+-                    (take, take, b['id'], take))
+-                if cur.rowcount == 0:
++                # 阶段 1：FEFO 出库收编为统一三写。
++                r = write_stock_movement(
++                    db, product_id=product_id, warehouse_id=warehouse_id,
++                    delta_qty=-take, row_id=b['id'],
++                    change_type='batch_out', ref_type='batch_out', ref_id=0)
++                if r.get('error'):
+                     db.execute("ROLLBACK TO batch_out_sp")
+                     db.execute("RELEASE batch_out_sp")
+-                    return {'error': f'库存不足: 批次扣减冲突（并发），请重试。需要{quantity_needed}件', 'used': []}
+-                new_qty = b['quantity'] - take
+-                _cp = float(b['cost_price'] or 0)
+-                db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+-                           (product_id,warehouse_id,'batch_out',-take,b['quantity'],new_qty,b['cost_price'],'batch_out',0, b['quantity']*_cp, new_qty*_cp, -take*_cp))
++                    return {'error': r['error'], 'used': []}
+                 used.append({'batch_no': b['batch_no'], 'expiry_date': b['expiry_date'], 'quantity': take, 'cost_price': b['cost_price']})
+                 remaining -= take
+             db.execute("RELEASE batch_out_sp")
+@@ -448,8 +444,9 @@
+         r2 = inventory_adjust(product_id, to_wh, quantity, ref_type='transfer_in', ref_id=0, db_conn=db)
+         if isinstance(r2, dict) and 'error' in r2:
+             return r2
+-        db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,ref_type) VALUES (?,?,?,?,?,?,?)",
+-                   (product_id,from_wh,'transfer_out',-quantity,src['quantity'],src['quantity']-quantity,'transfer'))
++        # 阶段 1：删掉这条多余流水 —— 上面两次 inventory_adjust 经统一入口
++        # 已各写一条 transfer_out / transfer_in，再手写第三条会让流水累加
++        # 比台账少算一次（重复记账），对账卡必红。
+         return {'success':True}
+ 
+ def stock_take_start():
+--- a/db/queries/purchases.py
++++ b/db/queries/purchases.py
+@@ -789,7 +789,10 @@
+             #    只换数量不换价，`inventory.cost_price` 会记成「40 袋 @100 元」（应为 2.5 元/袋），
+             #    加权平均成本随之错几十倍，而且**零报错**（库存看着对、成本全错）。
+             #    两者相乘仍等于原行金额（`qty × price`），金额口径不变。
+-            batch_in(itd['product_id'], o['warehouse_id'], _in_qty, _poi_base_price(itd), batch_no, expiry, db_conn=db)
++            # v789：把明细行的生产日期透传给 batch_in —— 录不录由用户偏好决定，
++            #   空串合法（不强制）；此前只传 batch_no/expiry_date ⇒ 录了也不落台账。
++            batch_in(itd['product_id'], o['warehouse_id'], _in_qty, _poi_base_price(itd), batch_no, expiry,
++                     db_conn=db, production_date=itd.get('production_date', '') or '')
+             _n_recv += 1
+             # 🔴 v404：把「整单全收」这件事**落到明细行**（`received_qty = quantity`）。
+             #    此前只有 `purchase_order_partial_receive` 会写这一列，`confirm` 从不写 ⇒
+--- /dev/null
++++ b/db/queries/stock_movement.py
+@@ -0,0 +1,310 @@
++#!/usr/bin/env python3
++# -*- coding: utf-8 -*-
++"""阶段 1 · 统一库存写入口（开发副本，未落地后端仓、未部署）
++
++🔴 为什么要这个文件
++--------------------
++生产快照里 **没有** `stock_ledger.py`；`inventory_balance` 表由迁移 0012 建了，
++但只有 `db/queries/reserve.py` 在维护 `reserved_qty`，`actual_qty` / `stock_value`
++**从没被任何库存变动写过**（`reserve.py` 注释里写的 `stock_ledger._BALANCE_UPSERT`
++是个从未实现的符号）。于是「台账 / 流水 / 余额」三者里，第三者是死的。
++
++同时 `db/queries/inventory.py` 里 6 个函数各自内联「改数量 + 写流水」，其中：
++  · `batch_in` 的**同批次累加分支**只 `UPDATE inventory` 就 return，**不写流水**；
++  · `transfer_stock` 在 `inventory_adjust` 已写两条流水后又手写第三条，**重复记账**；
++  · 全部 6 处都不更新 `inventory_balance`。
++
++⇒ 本文件把「改台账 + 追加流水 + 滚动余额」收成**唯一**一个函数，调用方传入
++   已在 `get_db_tx()` / `_begin_write()` 里的事务连接，三写在同一个 SAVEPOINT 内，
++   任一失败整体回滚，不可能只成其一。
++
++设计纪律（照抄 ERPNext 的骨架，不抄它的体量）：
++  1. 流水**只追加**，永不 UPDATE / DELETE；
++  2. 余额是**派生量**，每次由台账实时 SUM 重算，不靠增量累加（增量累加会漂移）；
++  3. 金额口径唯一：`数量 × COALESCE(cost_price,0)`，与阶段 1 自动对账卡第③项一致；
++  4. 不接管事务边界：不 commit、不 rollback 整个事务、不自建连接；
++  5. 幂等建表：老开发库可能没跑过迁移 0012，函数自己 `CREATE TABLE IF NOT EXISTS`。
++
++⚠️ 本文件是 `.workbuddy/stage1/dev-src/` 下的**开发副本**。落地到
++   `~/Documents/hergent-erp/server/db/queries/` 需老张单独拍板（并行会话在途改动 +
++   生产领先 git 仓 21 个文件），本轮不动、不部署。
++"""
++import itertools
++
++# SAVEPOINT 名字必须唯一：`fefo_deduct` / `batch_out_fefo` 自己已经开了同名
++# SAVEPOINT，嵌套时若复用固定名字，`ROLLBACK TO` 会命中最近一层而不是本层。
++_SP_SEQ = itertools.count(1)
++
++_BALANCE_DDL = """CREATE TABLE IF NOT EXISTS inventory_balance (
++    id             INTEGER PRIMARY KEY AUTOINCREMENT,
++    product_id     INTEGER NOT NULL,
++    warehouse_id   INTEGER NOT NULL,
++    actual_qty     REAL NOT NULL DEFAULT 0,
++    reserved_qty   REAL NOT NULL DEFAULT 0,
++    in_transit_qty REAL NOT NULL DEFAULT 0,
++    stock_value    REAL NOT NULL DEFAULT 0,
++    valuation_rate REAL NOT NULL DEFAULT 0,
++    updated_at     TEXT,
++    UNIQUE(product_id, warehouse_id)
++)"""
++
++# 与迁移 0012 的 DDL 逐字对齐（含 UNIQUE(product_id, warehouse_id)）。
++
++
++def _val(row, key, idx, default=0):
++    """兼容 sqlite3.Row 与裸 tuple 两种 row_factory。"""
++    if row is None:
++        return default
++    try:
++        v = row[key]
++    except (TypeError, KeyError, IndexError):
++        try:
++            v = row[idx]
++        except (TypeError, KeyError, IndexError):
++            return default
++    return default if v is None else v
++
++
++def _ensure_balance_table(db):
++    """幂等建表，不写任何业务数据；不碰已有行的 reserved_qty / in_transit_qty。"""
++    db.execute(_BALANCE_DDL)
++
++
++def _upsert_balance(db, product_id, warehouse_id):
++    """按台账实时 SUM 重算「商品-仓」余额行。
++
++    🔴 只更新 actual_qty / stock_value / valuation_rate 三列 —— `reserved_qty`
++       是 `reserve.py` 的地盘，`in_transit_qty` 是采购在途的地盘，绝不能覆盖。
++    """
++    r = db.execute(
++        "SELECT COALESCE(SUM(quantity),0) AS q, "
++        "       COALESCE(SUM(quantity * COALESCE(cost_price,0)),0) AS v "
++        "FROM inventory WHERE product_id=? AND warehouse_id=?",
++        (product_id, warehouse_id)).fetchone()
++    qty = float(_val(r, 'q', 0))
++    value = float(_val(r, 'v', 1))
++    rate = (value / qty) if qty else 0.0
++    db.execute(
++        "INSERT INTO inventory_balance "
++        "(product_id,warehouse_id,actual_qty,reserved_qty,in_transit_qty,"
++        " stock_value,valuation_rate,updated_at) VALUES (?,?,?,0,0,?,?,datetime('now','localtime')) "
++        "ON CONFLICT(product_id,warehouse_id) DO UPDATE SET "
++        " actual_qty=excluded.actual_qty, stock_value=excluded.stock_value, "
++        " valuation_rate=excluded.valuation_rate, updated_at=excluded.updated_at",
++        (product_id, warehouse_id, qty, value, rate))
++
++
++def write_stock_movement(db, *, product_id, warehouse_id, delta_qty=0,
++                         set_qty=None, cost_price=None, row_id=None,
++                         batch_no='', expiry_date='', production_date='',
++                         change_type='adjust', ref_type='', ref_id=0,
++                         allow_negative=False, atomic_guard=True,
++                         force_new=False):
++    """一次库存数量变动 = 台账 + 流水 + 余额，同 SAVEPOINT 原子完成。
++
++    参数
++    ----
++    db            : 调用方已开启写事务的连接（get_db_tx / _begin_write / 已有 db_conn）
++    delta_qty     : 增减量（入库为正、出库为负）
++    set_qty       : 不为 None 时按**绝对量**覆盖（数据同步/初始化用），忽略 delta_qty
++    cost_price    : None = 保留台账原有成本；给了数值则一并更新
++    row_id        : 指定台账行（逐批扣减用）；不指定则按 商品+仓+批次 定位，找不到就新建
++    batch_no / expiry_date / production_date : 仅在**新建行**时写入
++    change_type   : 流水类型，如 batch_in / sale / transfer_out
++    ref_type / ref_id : 归因到单据
++    allow_negative: False 时扣成负数直接判红
++    atomic_guard  : 扣减时给 UPDATE 加 `AND quantity>=?` 并发守卫
++    force_new     : 跳过定位直接新建行（`batch_in` 无批次号时保持「每次新开一行」原语义）
++
++    返回
++    ----
++    {'ok':True, 'row_id', 'before_qty', 'after_qty', 'change_qty',
++     'stock_value_before', 'stock_value_after', 'balance_qty', 'balance_value'}
++    或 {'error': '中文原因'}（出错时 SAVEPOINT 已回滚，台账/流水/余额都没动）
++    """
++    sp = 'stock_mv_%d' % next(_SP_SEQ)
++    db.execute('SAVEPOINT ' + sp)
++    try:
++        _ensure_balance_table(db)
++
++        # ── ① 定位台账行 ──────────────────────────────────────────
++        if force_new:
++            inv = None
++        elif row_id:
++            inv = db.execute(
++                "SELECT id,quantity,cost_price FROM inventory WHERE id=?",
++                (row_id,)).fetchone()
++        else:
++            inv = db.execute(
++                "SELECT id,quantity,cost_price FROM inventory "
++                "WHERE product_id=? AND warehouse_id=? AND COALESCE(batch_no,'')=? "
++                "ORDER BY id ASC LIMIT 1",
++                (product_id, warehouse_id, batch_no or '')).fetchone()
++        if inv is None:
++            db.execute(
++                "INSERT INTO inventory "
++                "(product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,"
++                " production_date,stock_value,updated_at) "
++                "VALUES (?,?,0,?,'','','',0,datetime('now','localtime'))",
++                # 占位行先给 0；真正的批次字段在下面 UPDATE 里回填，
++                # 避免「先 INSERT 带值、再 UPDATE」出现两处口径。
++                (product_id, warehouse_id, float(cost_price or 0)))
++            inv_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
++            db.execute(
++                "UPDATE inventory SET batch_no=?,expiry_date=?,production_date=? WHERE id=?",
++                (batch_no or '', expiry_date or '', production_date or '', inv_id))
++            inv = db.execute(
++                "SELECT id,quantity,cost_price FROM inventory WHERE id=?",
++                (inv_id,)).fetchone()
++
++        inv_id = int(_val(inv, 'id', 0))
++        before = float(_val(inv, 'quantity', 1))
++        old_cp = float(_val(inv, 'cost_price', 2))
++        new_cp = old_cp if cost_price is None else float(cost_price or 0)
++
++        if set_qty is not None:
++            after = float(set_qty)
++            change = after - before
++        else:
++            change = float(delta_qty or 0)
++            after = before + change
++
++        if change < 0 and after < 0 and not allow_negative:
++            db.execute('ROLLBACK TO ' + sp)
++            db.execute('RELEASE ' + sp)
++            return {'error': '库存不足：需要 %.2f，可用 %.2f' % (-change, before)}
++
++        sv_before = before * old_cp
++        sv_after = after * new_cp
++
++        # ── ② 改台账（原子守卫）──────────────────────────────────
++        guard = ' AND quantity>=?' if (change < 0 and atomic_guard) else ''
++        # 🔴 参数顺序必须严格按 SQL 里的 `?` 出现顺序：SET 三列 → WHERE id → 守卫。
++        #   曾把守卫值排在 inv_id 前面，导致 `WHERE id=?` 绑成扣减量、
++        #   发货流水写了但台账没扣（演示数据实测抓到），此处逐位对齐。
++        params = [after, new_cp, sv_after, inv_id]
++        if guard:
++            params.append(-change)
++        cur = db.execute(
++            "UPDATE inventory SET quantity=?,cost_price=?,stock_value=?,"
++            "updated_at=datetime('now','localtime') WHERE id=?" + guard,
++            params)
++        if cur.rowcount == 0:
++            db.execute('ROLLBACK TO ' + sp)
++            db.execute('RELEASE ' + sp)
++            return {'error': '批次扣减冲突（并发），请重试'}
++
++        # ── ③ 追加流水（只追加，永不改）──────────────────────────
++        db.execute(
++            "INSERT INTO inventory_logs "
++            "(product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,"
++            " cost_price,ref_type,ref_id,stock_value_before,stock_value_after,"
++            " stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
++            (product_id, warehouse_id, change_type or 'adjust', change,
++             before, after, new_cp, ref_type or change_type, ref_id or 0,
++             sv_before, sv_after, sv_after - sv_before))
++
++        # ── ④ 滚动余额快照（派生重算，不累加）────────────────────
++        _upsert_balance(db, product_id, warehouse_id)
++        bal = db.execute(
++            "SELECT actual_qty,stock_value FROM inventory_balance "
++            "WHERE product_id=? AND warehouse_id=?",
++            (product_id, warehouse_id)).fetchone()
++        db.execute('RELEASE ' + sp)
++        return {
++            'ok': True,
++            'row_id': inv_id,
++            'before_qty': before,
++            'after_qty': after,
++            'change_qty': change,
++            'stock_value_before': sv_before,
++            'stock_value_after': sv_after,
++            'balance_qty': float(_val(bal, 'actual_qty', 0)),
++            'balance_value': float(_val(bal, 'stock_value', 1)),
++        }
++    except Exception:
++        try:
++            db.execute('ROLLBACK TO ' + sp)
++            db.execute('RELEASE ' + sp)
++        except Exception:
++            pass
++        raise
++
++
++def assert_triple_in_sync(db, product_id, warehouse_id, eps=0.0001):
++    """只读校验「台账 / 流水 / 余额」三者一致，供对账卡与沙箱验证调用。
++
++    🔴 不检查 `inventory_balance` 是否存在旧行 —— 缺行本身就是失配（余额没接线）。
++    """
++    checks = []
++
++    def close(a, b):
++        return abs(float(a) - float(b)) <= eps
++
++    inv = db.execute(
++        "SELECT COALESCE(SUM(quantity),0) AS q, "
++        "       COALESCE(SUM(quantity*COALESCE(cost_price,0)),0) AS v "
++        "FROM inventory WHERE product_id=? AND warehouse_id=?",
++        (product_id, warehouse_id)).fetchone()
++    inv_q = float(_val(inv, 'q', 0))
++    inv_v = float(_val(inv, 'v', 1))
++
++    log_q = float(_val(db.execute(
++        "SELECT COALESCE(SUM(change_qty),0) AS q FROM inventory_logs "
++        "WHERE product_id=? AND warehouse_id=?",
++        (product_id, warehouse_id)).fetchone(), 'q', 0))
++
++    has_bal = db.execute(
++        "SELECT 1 FROM inventory_balance WHERE product_id=? AND warehouse_id=?",
++        (product_id, warehouse_id)).fetchone()
++    bal_q = bal_v = None
++    if has_bal:
++        b = db.execute(
++            "SELECT actual_qty,stock_value FROM inventory_balance "
++            "WHERE product_id=? AND warehouse_id=?",
++            (product_id, warehouse_id)).fetchone()
++        bal_q = float(_val(b, 'actual_qty', 0))
++        bal_v = float(_val(b, 'stock_value', 1))
++
++    checks.append(('台账数量 = 流水累加', close(inv_q, log_q),
++                   '台账 %.2f / 流水 %.2f' % (inv_q, log_q)))
++    checks.append(('余额行存在', has_bal is not None,
++                   '有' if has_bal else '缺（余额未接线）'))
++    checks.append(('余额数量 = 台账数量', bal_q is not None and close(bal_q, inv_q),
++                   '余额 %s / 台账 %.2f' % (bal_q, inv_q)))
++    checks.append(('余额金额 = 数量×成本', bal_v is not None and close(bal_v, inv_v),
++                   '余额 %s / 台账 %.2f' % (bal_v, inv_v)))
++    return {
++        'ok': all(ok for _, ok, _ in checks),
++        'checks': [{'name': n, 'ok': ok, 'detail': d} for n, ok, d in checks],
++        'inventory_qty': inv_q, 'log_qty': log_q,
++        'balance_qty': bal_q, 'balance_value': bal_v,
++    }
++
++
++def rebuild_balances(db):
++    """显式一次性重建全部余额行（只由运维/回放调用，不在迁移里自动跑）。
++
++    保留已有 `reserved_qty` / `in_transit_qty`，只重算派生三列。
++    """
++    _ensure_balance_table(db)
++    rows = db.execute(
++        "SELECT product_id,warehouse_id,COALESCE(SUM(quantity),0) AS q, "
++        "       COALESCE(SUM(quantity*COALESCE(cost_price,0)),0) AS v "
++        "FROM inventory GROUP BY product_id,warehouse_id").fetchall()
++    n = 0
++    for r in rows:
++        pid = int(_val(r, 'product_id', 0))
++        wid = int(_val(r, 'warehouse_id', 1))
++        q = float(_val(r, 'q', 2))
++        v = float(_val(r, 'v', 3))
++        db.execute(
++            "INSERT INTO inventory_balance "
++            "(product_id,warehouse_id,actual_qty,reserved_qty,in_transit_qty,"
++            " stock_value,valuation_rate,updated_at) VALUES (?,?,?,0,0,?,?,datetime('now','localtime')) "
++            "ON CONFLICT(product_id,warehouse_id) DO UPDATE SET "
++            " actual_qty=excluded.actual_qty, stock_value=excluded.stock_value, "
++            " valuation_rate=excluded.valuation_rate, updated_at=excluded.updated_at",
++            (pid, wid, q, v, (v / q) if q else 0.0))
++        n += 1
++    return n

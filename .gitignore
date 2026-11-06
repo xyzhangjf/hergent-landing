@@ -86,3 +86,10 @@ desktop-app/*.tar.gz
 /.workbuddy/stage1/demo-sandbox/
 # 只读基线含库存金额汇总（敏感），不入库
 /.workbuddy/stage1/ledger-baseline.json
+
+# 阶段 1 dev-src 里的**整份生产源码副本**不入库（erp_db.py 1.4MB 等）——
+# 否则这个前端/落地页仓会长出「第二套后端源码」，与「后端唯一源是 hergent-erp」冲突。
+# 这些文件由 stage1-dev-src-rebuild.py 从「生产快照 + 累积补丁」重建（已做逐字节自证）。
+/.workbuddy/stage1/dev-src/erp_db.py
+/.workbuddy/stage1/dev-src/sync_writer.py
+/.workbuddy/stage1/dev-src/domain/

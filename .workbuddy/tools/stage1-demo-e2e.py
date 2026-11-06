@@ -38,6 +38,9 @@ DB = SAND / 'erp.db'
 LOCAL_SERVER = Path('/Users/zhangjunfeng/Documents/hergent-erp/server')
 PROD_SNAP = ROOT / '.workbuddy/stage0/prod-src-20261106'
 CORE_QUERIES = ('inventory.py', 'purchases.py', 'sales.py')
+# 阶段 1 第 1 项新增的统一写入内核。生产快照里没有这个文件，
+# 所以「现状」演练时跳过、「收敛版」(--with-fix) 演练时一并复制。
+EXTRA_QUERIES = ('stock_movement.py',)
 
 # 演示数据统一前缀：与副本里已有的开发数据一眼可分
 DEMO = '演示-阶段1'
@@ -63,8 +66,10 @@ def build_sandbox(reset=True, with_fix=False):
             '*.png', '*.jpg', '*.xlsx', '*.pdf', '.git', 'venv', '.venv'))
     # 核心查询层总是按所选来源覆盖（生产快照 / 打了修复补丁的开发副本）
     src_queries = DEV_SRC if with_fix else PROD_SNAP / 'db/queries'
-    for name in CORE_QUERIES:
+    for name in CORE_QUERIES + EXTRA_QUERIES:
         p = src_queries / name
+        if name in EXTRA_QUERIES and not p.is_file():
+            continue  # 未收敛版本本来就没有统一内核
         if not p.is_file():
             raise RuntimeError('查询层来源缺少 %s' % p)
         shutil.copy2(p, SRC / 'db/queries' / name)

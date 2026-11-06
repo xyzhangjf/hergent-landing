@@ -3,9 +3,13 @@
 > 🔴 **完整原文一字未删**存档：`topics/memory-index-full-2026-11-06.md`（含全部实测数字、版本线、坏样本细节）。
 > 本文件按既有惯例（同 `topics/impl-and-deploy-criteria.md`）压缩为索引；**查细节先搜这两份，再按域指针进 `topics/*.md` / `memory/YYYY-MM-DD.md`**。
 
+**进行中**：阶段 1 第 1 项「库存写入点收敛」（13 裸写→`write_stock_movement` 台账/流水/余额同 SAVEPOINT 三写）**沙箱已验 61 判据、补丁未落地后端仓、未部署**，交付 `outputs/阶段1-第1项-库存写入点收敛交付-2026-11-06.md`｜阶段 1 余项：状态跃迁白名单 / 提交后字段锁定＋乐观锁 / `doc_versions` 时间线 / `party_ledger` 接线。🔴 dev-src 整份生产源码副本**不入库**，由 `stage1-dev-src-rebuild.py --check` 从「快照＋补丁」重建并逐字节自证。
+
 **版本**：v788 构建号构建时注入＋清理两个死页面（**已部署 2026-11-06**，commit `3b40cc70`）｜阶段0收尾/阶段1验证单见 `outputs/`｜v787 粘贴结果收起时机（**已部署 2026-11-06**，commit `e27780e2`）＝按下保存即清＋取消也收｜v786 粘贴结果类 Excel 表格常驻展示（**已部署 2026-11-06**，commit `31612e17`）｜v785 粘贴严格 N 行全覆盖（**已部署 2026-11-06**，commit `01ce394b`）｜v784 品牌筛选藏行（已部署、**归因后被推翻**）｜v783 空白/0 覆盖清空、v781 纯数字列静默错误（已部署）｜v780 日期文案改短（小程序已上传待发布）｜v779 拦截层读「可提前天数」、v776 外部账号定向催单、v775 拆兜底 event_key、v773→v774 导购受众（后端已上线）｜v778 数量单位不折行、v777 去规格显示（小程序代码已改**未发版**）｜v772 横幅本期清单｜v771 到货日期｜v769 返利率可留空｜v768 GoLink/useGoPage。**小程序 v758–v780 已上传微信平台开发版、待审核发布**。唯一源 `main`。→ `memory/2026-11-05.md` / `2026-11-06.md`
 
 ## 🔴🔴 最高频硬判据（每条只留判据首句）
+- **库存写入点不是 6 个是 13 个**（阶段 1 第 1 项）：「6 个」只数 `db/queries/inventory.py`；真实 = 查询层 6 ＋ `erp_db.py` 5（`rollback_ai_operation`×2/`_asm_apply_inventory`/`save_inventory_opening`/`seed_demo_data`）＋ `sync_writer` 1 ＋ `wastage_tracker` 1。判据：**收编的是「数量/金额变了」，不是「行被改过」** ⇒ `SET location_id` / `SET bin_location` 两处只改货位，必须列白名单，套三写会造 0 变动流水。
+- **三写内核对了、SQL 参数顺序错了照样「看起来成功」**：`write_stock_movement` 扣减分支把守卫值排在 `inv_id` 前 ⇒ `WHERE id=?` 绑成扣减量、`quantity>=?` 绑成行号 ⇒ **流水记了出库、台账没扣**；入库无守卫不受影响 ⇒ 缺陷只藏在发货路径，**静态判据与入库测试都抓不到，只有演示数据真跑发货才暴露**。`SAVEPOINT` 名必须带序号（`stock_mv_<n>`），否则 `ROLLBACK TO` 命中外层同名 SP。`inventory_balance` 曾是死表（`reserve.py` 引的 `stock_ledger._BALANCE_UPSERT` 是从未实现的符号）。
 - **「99 行只进 76 行」不是藏行，是写入层三处过滤**（v785）：`onPaste` filter 删空白行、`parseTSV` 尾部 pop、`pasteRegion` 按 `maxWriteR` 撑行 + clears 越界跳过。**后端删旧建新且 `qty_by_unit` 只发已存在的 key ⇒ 那格从未被 `writeCellVal` 触达，旧值 12 就永远留库 ⇒ 修复必须在前端写入层。**
 - **严格 N 行全覆盖**：`parseTSV` 一行不删（Excel 末行空白时文本以 `\n` 结尾）、`onPaste` 不 filter 不 pop、`pasteRegion` 补行 `sr + rows` + 全块最大列数 + clears 逐格无越界守卫；`tryPasteCross` 按名寻址 ⇒ 空白行**只报数不按位置盲清**（盲清误伤别的商品）。
 - **「持续展示」= 撤定时器 + 收起挂在动作发起处**（v786→**v787 口径反转**）：`markPasteLand` 不再 `setTimeout`；`clearPasteResult()` 全文**恰好 2 处**调用 —— `saveEdits()` 第一行（按下保存即清，不等成功/失败／所有提前 return 守卫同样会清）+ `leaveEdit()`（取消改单也收，并治掉「取消后再进编辑态重现上次结果」）；`exitEditAfterSave()` 只调 `leaveEdit()`，口径只写一处。v786 的「只准 1 处且在保存成功出口、保存失败不收、取消不收」**已被用户拍板推翻**。结果表按源块原样 `slice`（空白行整行占位），四条粘贴成功出口都要写快照。
@@ -36,4 +40,4 @@ FLAT：后端 `/opt/hergent-erp/`（非 git 仓，靠 `.workbuddy/remote-erp/` �
 
 ## 实现 / 进度 / 主体 / 本机
 实现细则 → `topics/impl-and-deploy-criteria.md`。进度：P0/P1 全交付；剩促销 ROI（端点 500）/货架位（零数据）/现金流预测页面化；**卖前三关未过、调拨单生产仍 0 张**；BI 唯一源 `erp_db.py:_BI_MEASURES`；敏感页后端 `_admin` 双保险。主体＝`hergent-cn-v2` + `hergent-erp`(FastAPI+SQLite)；脱敏红线：返利率/进货价/客户名/区域销量/厂家政策。
-本机坑：🔴 `grep "A\|B"` 静默失效⇒一律 `-e`｜BSD grep 无 `\s`｜`| head -N`/`| tail -N` 会截掉决定性命中｜`grep -rl X *.py` 只搜顶层｜`git commit -m` 含 `{}`/反引号静默失败⇒`-F`｜「搜不到」先排除「搜错范围/被截断」。微信开发者工具 CLI 被「服务端口」挡住 ⇒ 须人工在 IDE 设置里打开一次。
+本机坑：🔴 `grep "A\|B"` 静默失效⇒一律 `-e`｜BSD grep 无 `\s`｜`| head -N`/`| tail -N` 会截掉决定性命中｜`grep -rl X *.py` 只搜顶层｜`git commit -m` 含 `{}`/反引号静默失败⇒`-F`｜**`patch` 不加 `--batch -f` 且 stdin 未关 ⇒ 等交互输入被 SIGTERM（exit 137、零输出）**⇒一律 `--batch -f` + `stdin=DEVNULL`｜**zsh 里 `${PIPESTATUS[0]}` 恒为空**（应为 `pipestatus` 且下标从 1 起）⇒「管道吞退出码」在 zsh 更隐蔽，一律 `> file; RC=$?`｜「搜不到」先排除「搜错范围/被截断」。微信开发者工具 CLI 被「服务端口」挡住 ⇒ 须人工在 IDE 设置里打开一次。

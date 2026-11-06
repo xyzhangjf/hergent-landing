@@ -1,7 +1,12 @@
 """Inventory queries."""
 from datetime import datetime, timedelta
 from db.connection import get_db, get_db_tx
+from db.queries.stock_movement import write_stock_movement, assert_triple_in_sync
 import logging
+
+# 阶段 1 第 1 项：下方 6 个函数原本各自内联「改台账 + 写流水」，且都不更新
+# `inventory_balance`；`batch_in` 累加分支甚至**只改台账不写流水**。现统一收编到
+# `write_stock_movement()`，同一 SAVEPOINT 内三写（台账 / 流水 / 余额快照）。
 
 # G8 (2026-07-25): saleable stock excludes expired batches.
 # Expired stock stays in physical inventory until written off via 报损 (wastage),
@@ -73,48 +78,38 @@ def inventory_query(keyword='', brand='', warehouse_id=1, low_stock_only=False, 
         return rows
 
 def inventory_adjust(product_id, warehouse_id, qty_change, cost_price=0, ref_type='', ref_id=0, db_conn=None):
-    """Adjust inventory atomically. Uses atomic UPDATE with stock guard when deducting.
-    If db_conn is provided, caller manages transaction."""
+    """批次盲增减（保留历史契约）—— 三写统一交给 `write_stock_movement()`。
+
+    阶段 1：原本内联的 `UPDATE inventory` + `INSERT inventory_logs` 收编，
+    并在同一 SAVEPOINT 内补写 `inventory_balance`。若 db_conn 传入则调用方管事务。
+    """
     if db_conn is not None:
         db = db_conn; own = False
     else:
         _cm = get_db(); db = _cm.__enter__(); own = True
     try:
-        inv = db.execute("SELECT id,quantity,cost_price FROM inventory WHERE product_id=? AND warehouse_id=?",(product_id,warehouse_id)).fetchone()
-        before = inv['quantity'] if inv else 0; after = before + qty_change
-        # P0-S1：stock_value 必须用「新数量 × 新成本」。SQLite 的 SET 右侧读的是旧行值，
-        #   若在同一 UPDATE 里改 quantity/cost_price，stock_value=quantity*COALESCE(cost_price,0)
-        #   会拿到旧值算错。故在 Python 侧算好再绑定。
-        _new_cp = cost_price if (cost_price and cost_price > 0) else (inv['cost_price'] if inv else 0)
-        _new_sv = after * float(_new_cp or 0)
-        if inv:
-            if qty_change < 0:
-                # Atomic guard: only update if enough stock (prevents overselling)
-                # v719：仓库配了「允许负库存」就去掉该守卫 —— 配置本来就写着「允许」，
-                #   此前却从不生效（业务员仓库存 0，一张单也发不出去）。
-                if _allow_neg_inv(db, warehouse_id):
-                    db.execute("UPDATE inventory SET quantity=quantity+?,cost_price=CASE WHEN ?>0 THEN ? ELSE cost_price END,stock_value=?,updated_at=datetime('now','localtime') WHERE id=?",(qty_change,cost_price,cost_price,_new_sv,inv['id']))
-                else:
-                    cur = db.execute("UPDATE inventory SET quantity=quantity+?,cost_price=CASE WHEN ?>0 THEN ? ELSE cost_price END,stock_value=?,updated_at=datetime('now','localtime') WHERE id=? AND quantity+?>=0",(qty_change,cost_price,cost_price,_new_sv,inv['id'],qty_change))
-                    if cur.rowcount == 0:
-                        if own: _cm.__exit__(None,None,None)
-                        return {"error": f"库存不足：需要{-qty_change}，可用{before}"}
-                after = db.execute("SELECT quantity FROM inventory WHERE id=?",(inv['id'],)).fetchone()['quantity']
-            else:
-                db.execute("UPDATE inventory SET quantity=?,cost_price=CASE WHEN ?>0 THEN ? ELSE cost_price END,stock_value=?,updated_at=datetime('now','localtime') WHERE id=?",(after,cost_price,cost_price,_new_sv,inv['id']))
-        else:
-            if qty_change < 0:
-                # v719：允许负库存 ⇒ 没有库存记录也要能扣（下面直接建一行负的）
-                if not _allow_neg_inv(db, warehouse_id):
-                    if own: _cm.__exit__(None,None,None)
-                    return {"error": "库存不足：无此商品库存记录"}
-            db.execute("INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,stock_value) VALUES (?,?,?,?,?)",(product_id,warehouse_id,after,cost_price, after*(float(cost_price) or 0)))
-        _cp = float(cost_price or 0)
-        _after_qty = after if inv else after
-        db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",(product_id,warehouse_id,ref_type,qty_change,before,_after_qty,cost_price,ref_type,ref_id, before*_cp, _after_qty*_cp, qty_change*_cp))
+        inv = db.execute(
+            "SELECT id,quantity,cost_price FROM inventory WHERE product_id=? AND warehouse_id=? "
+            "ORDER BY id ASC LIMIT 1", (product_id, warehouse_id)).fetchone()
+        allow_neg = _allow_neg_inv(db, warehouse_id)
+        if not inv and qty_change < 0 and not allow_neg:
+            if own: _cm.__exit__(None, None, None)
+            return {"error": "库存不足：无此商品库存记录"}
+        # 原口径：cost_price<=0 时保留台账原成本；统一入口用 None 表达「不改」。
+        cp = cost_price if (cost_price and cost_price > 0) else None
+        r = write_stock_movement(
+            db, product_id=product_id, warehouse_id=warehouse_id,
+            delta_qty=qty_change, cost_price=cp,
+            row_id=(inv['id'] if inv else None), batch_no='',
+            change_type=(ref_type or 'adjust'), ref_type=ref_type, ref_id=ref_id,
+            allow_negative=allow_neg, atomic_guard=not allow_neg,
+            force_new=not inv)
+        if r.get('error'):
+            if own: _cm.__exit__(None, None, None)
+            return {"error": r['error']}
         if own: db.commit()
     finally:
-        if own: _cm.__exit__(None,None,None)
+        if own: _cm.__exit__(None, None, None)
 
 def get_fefo_suggestions(product_id, warehouse_id=1):
     with get_db() as db:
@@ -168,18 +163,16 @@ def fefo_deduct(product_id, warehouse_id, qty_needed, ref_type='sale', ref_id=0,
                 if remaining <= 0:
                     break
                 take = min(b['quantity'], remaining)
-                # Atomic guard: only deduct if this batch still has enough (prevents oversell races)
-                cur = db.execute(
-                    "UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') WHERE id=? AND quantity>=?",
-                    (take, take, b['id'], take))
-                if cur.rowcount == 0:
+                # 阶段 1：逐批扣减收编为统一三写（台账 + 流水 + 余额），
+                # 并发守卫 `quantity>=take` 由 write_stock_movement 内部持有。
+                r = write_stock_movement(
+                    db, product_id=product_id, warehouse_id=warehouse_id,
+                    delta_qty=-take, row_id=b['id'],
+                    change_type=(ref_type or 'sale'), ref_type=ref_type, ref_id=ref_id)
+                if r.get('error'):
                     db.execute("ROLLBACK TO fefo_sp")
                     db.execute("RELEASE fefo_sp")
-                    return {'error': f'库存不足：批次扣减冲突（并发），请重试。需要{qty_needed}', 'used': []}
-                new_qty = b['quantity'] - take
-                _cp = float(b['cost_price'] or 0)
-                db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                           (product_id, warehouse_id, ref_type, -take, b['quantity'], new_qty, b['cost_price'], ref_type, ref_id, b['quantity']*_cp, new_qty*_cp, -take*_cp))
+                    return {'error': r['error'], 'used': []}
                 used.append({'batch_no': b['batch_no'], 'expiry_date': b['expiry_date'], 'quantity': take, 'batch_id': b['id']})
                 remaining -= take
             if remaining > 0:
@@ -196,20 +189,19 @@ def fefo_deduct(product_id, warehouse_id, qty_needed, ref_type='sale', ref_id=0,
                 _pr = db.execute("SELECT COALESCE(purchase_price,0) AS p FROM products WHERE id=?",
                                  (product_id,)).fetchone()
                 _pcost = float((_pr['p'] if _pr else 0) or 0)
-                if neg:
-                    _before = float(neg['quantity'] or 0)
-                    _cp = float(neg['cost_price'] or 0) or _pcost
-                    db.execute("UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') "
-                               "WHERE id=?", (remaining, remaining, neg['id']))
-                else:
-                    _before = 0.0
-                    _cp = _pcost
-                    db.execute("INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,stock_value) "
-                               "VALUES (?,?,?,?,'','',?)", (product_id, warehouse_id, -remaining, _pcost, -remaining*_pcost))
-                db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,"
-                           "before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                           (product_id, warehouse_id, ref_type, -remaining, _before,
-                            _before - remaining, _cp, ref_type, ref_id, _before*_cp, (_before-remaining)*_cp, -remaining*_cp))
+                _cp = (float(neg['cost_price'] or 0) or _pcost) if neg else _pcost
+                # 阶段 1：负库存兜底行也走统一三写。cost_price 取进货价兜底，
+                # 顺手修掉「台账成本为 0、流水也记 0 ⇒ 利润表低估成本」的旧隐患。
+                r = write_stock_movement(
+                    db, product_id=product_id, warehouse_id=warehouse_id,
+                    delta_qty=-remaining, cost_price=_cp,
+                    row_id=(neg['id'] if neg else None), batch_no='',
+                    change_type=(ref_type or 'sale'), ref_type=ref_type, ref_id=ref_id,
+                    allow_negative=True, atomic_guard=False, force_new=not neg)
+                if r.get('error'):
+                    db.execute("ROLLBACK TO fefo_sp")
+                    db.execute("RELEASE fefo_sp")
+                    return {'error': r['error'], 'used': []}
                 used.append({'batch_no': '', 'expiry_date': '', 'quantity': remaining,
                              'batch_id': 0, 'cost_price': _cp, 'negative': True})
                 remaining = 0
@@ -287,17 +279,13 @@ def gross_deduct(db, product_id, warehouse_id, qty_needed, ref_type="", ref_id=0
         if avail <= 0:
             continue
         take = min(avail, remaining)
-        cur = db.execute(
-            "UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') "
-            "WHERE id=? AND quantity>=?",
-            (take, take, r["id"], take))
-        if cur.rowcount == 0:
-            return {"error": f"批次扣减冲突（并发），请重试。需要{need:g}", "used": []}
-        db.execute(
-                "INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,"
-                "before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                (product_id, warehouse_id, ref_type, -take, avail, avail - take,
-                 r["cost_price"], ref_type, ref_id, avail*float(r["cost_price"] or 0), (avail-take)*float(r["cost_price"] or 0), -take*float(r["cost_price"] or 0)))
+        # 阶段 1：报损/领用/盘亏等非销售出库也收编为统一三写。
+        mv = write_stock_movement(
+            db, product_id=product_id, warehouse_id=warehouse_id,
+            delta_qty=-take, row_id=r["id"],
+            change_type=(ref_type or 'adjust'), ref_type=ref_type, ref_id=ref_id)
+        if mv.get('error'):
+            return {"error": mv['error'], "used": []}
         # `cost_price` 带上：调用方（报损单）要按**实际扣掉的批次成本**入账，
         # 而不是拿任意一行的成本顶替 —— 多批次进价不同时这两者差得不是一点半点。
         used.append({"batch_id": r["id"], "batch_no": r["batch_no"] or "",
@@ -311,34 +299,36 @@ def batch_in(product_id, warehouse_id, quantity, cost_price=0, batch_no='', expi
 
     v789：新增 `production_date`（末尾关键字参数，既有按位置调用零影响）。
     是否录由上游按用户偏好决定 —— 空串合法，**绝不强制必录**。
+
+    🔴 阶段 1：原「同批次累加」分支只 `UPDATE inventory` 就 return，
+       **完全不写流水**（台账涨了、流水没有，对账必然脱钩）。现累加与新建
+       都统一走 `write_stock_movement()`，三写不可拆分。
     """
     if db_conn is not None:
         db = db_conn; own = False
     else:
         _cm = get_db(); db = _cm.__enter__(); own = True
     try:
+        existing = None
         if batch_no:
             existing = db.execute(
                 "SELECT id,quantity FROM inventory WHERE product_id=? AND warehouse_id=? AND batch_no=?",
                 (product_id, warehouse_id, batch_no)).fetchone()
-            if existing:
-                new_qty = existing['quantity'] + quantity
-                db.execute("UPDATE inventory SET quantity=?,cost_price=?,stock_value=?,updated_at=datetime('now','localtime') WHERE id=?",
-                           (new_qty, cost_price, new_qty*(float(cost_price) or 0), existing['id']))
-                if own: db.commit()
-                return {'batch': batch_no, 'quantity': new_qty, 'action': 'updated'}
-        # New batch record
-        # v789：production_date 如实落库 —— 此前 confirm 只传 batch_no/expiry_date，
-        #   前端录了生产日期、purchase_order_items 也存了，但 inventory 永远是空，
-        #   「录生产日期」等于白录。空串照写（不强制），不传时与改动前逐字一致。
-        db.execute(
-                "INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,stock_value,production_date) VALUES (?,?,?,?,?,?,?,?)",
-                (product_id, warehouse_id, quantity, cost_price, batch_no, expiry_date,
-                 quantity*(float(cost_price) or 0), production_date or ''))
-        db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                   (product_id,warehouse_id,'batch_in',quantity,0,quantity,cost_price,'batch_in',0, 0, quantity*(float(cost_price) or 0), quantity*(float(cost_price) or 0)))
+        # v789：production_date 如实落库（空串照写，不强制）。
+        # 无批次号时 force_new=True，保持「每次新开一行」的原语义。
+        r = write_stock_movement(
+            db, product_id=product_id, warehouse_id=warehouse_id,
+            delta_qty=quantity, cost_price=cost_price,
+            row_id=(existing['id'] if existing else None),
+            batch_no=batch_no, expiry_date=expiry_date,
+            production_date=production_date or '',
+            change_type='batch_in', ref_type='batch_in', ref_id=0,
+            force_new=not existing)
+        if r.get('error'):
+            return {'error': r['error']}
         if own: db.commit()
-        return {'batch': batch_no, 'quantity': quantity, 'action': 'created'}
+        return {'batch': batch_no, 'quantity': r['after_qty'],
+                'action': 'updated' if existing else 'created'}
     finally:
         if own:
             try: db.commit()
@@ -373,17 +363,15 @@ def batch_out_fefo(product_id, warehouse_id, quantity_needed):
                 if remaining <= 0: break
                 b = dict(b)
                 take = min(remaining, b['quantity'])
-                cur = db.execute(
-                    "UPDATE inventory SET quantity=quantity-?,stock_value=(quantity-?)*COALESCE(cost_price,0),updated_at=datetime('now','localtime') WHERE id=? AND quantity>=?",
-                    (take, take, b['id'], take))
-                if cur.rowcount == 0:
+                # 阶段 1：FEFO 出库收编为统一三写。
+                r = write_stock_movement(
+                    db, product_id=product_id, warehouse_id=warehouse_id,
+                    delta_qty=-take, row_id=b['id'],
+                    change_type='batch_out', ref_type='batch_out', ref_id=0)
+                if r.get('error'):
                     db.execute("ROLLBACK TO batch_out_sp")
                     db.execute("RELEASE batch_out_sp")
-                    return {'error': f'库存不足: 批次扣减冲突（并发），请重试。需要{quantity_needed}件', 'used': []}
-                new_qty = b['quantity'] - take
-                _cp = float(b['cost_price'] or 0)
-                db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                           (product_id,warehouse_id,'batch_out',-take,b['quantity'],new_qty,b['cost_price'],'batch_out',0, b['quantity']*_cp, new_qty*_cp, -take*_cp))
+                    return {'error': r['error'], 'used': []}
                 used.append({'batch_no': b['batch_no'], 'expiry_date': b['expiry_date'], 'quantity': take, 'cost_price': b['cost_price']})
                 remaining -= take
             db.execute("RELEASE batch_out_sp")
@@ -456,8 +444,9 @@ def transfer_stock(product_id, from_wh, to_wh, quantity, operator_id=''):
         r2 = inventory_adjust(product_id, to_wh, quantity, ref_type='transfer_in', ref_id=0, db_conn=db)
         if isinstance(r2, dict) and 'error' in r2:
             return r2
-        db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,ref_type) VALUES (?,?,?,?,?,?,?)",
-                   (product_id,from_wh,'transfer_out',-quantity,src['quantity'],src['quantity']-quantity,'transfer'))
+        # 阶段 1：删掉这条多余流水 —— 上面两次 inventory_adjust 经统一入口
+        # 已各写一条 transfer_out / transfer_in，再手写第三条会让流水累加
+        # 比台账少算一次（重复记账），对账卡必红。
         return {'success':True}
 
 def stock_take_start():
