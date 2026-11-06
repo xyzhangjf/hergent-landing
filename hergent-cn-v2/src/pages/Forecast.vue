@@ -1408,6 +1408,33 @@
             <button class="btn btn-ghost btn-xs" @click="snapCompare = null">清除快照对比</button>
             <button v-if="snapCompare" class="btn btn-primary btn-xs" @click="exportDiffXlsx"><Icon name="download"/> 导出差异</button>
           </div>
+          <!-- v786：粘贴结果常驻展示。粘完以类 Excel 表格逐行逐列列出本次结果，
+               保留源数据的行列结构（空白行 / 空白格都原样占位），保存前不自动收起；
+               保存成功后由 clearPasteResult() 把本面板与主色框一起收起。 -->
+          <div v-if="editMode && pasteResult" class="info-panel paste-result-panel">
+            <div class="panel-hd">
+              <b><Icon name="grid"/> {{ pasteResult.label }}</b>
+              <span class="tag ok">{{ pasteResult.rows }} 行 × {{ pasteResult.cols }} 列</span>
+              <span class="pr-hint">保存前持续展示 · 点「保存」后收起结果与主色框</span>
+            </div>
+            <div v-if="pasteResult.span" class="pr-span">落点：{{ pasteResult.span }}</div>
+            <div class="pr-wrap">
+              <table class="pr-tbl">
+                <thead>
+                  <tr>
+                    <th class="pr-seq">#</th>
+                    <th v-for="(h, j) in pasteResult.heads" :key="j">{{ h || ('第 ' + (j + 1) + ' 列') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(r, i) in pasteResult.cells" :key="i">
+                    <th class="pr-seq">{{ i + 1 }}</th>
+                    <td v-for="(v, j) in r" :key="j" :class="{ 'pr-blank': v === '' }">{{ v }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
           <!-- v174：查错结果面板。
                原实现只把校验结果写进 errList/errListOpen，**模板里没有任何渲染** ⇒
                点「查错」后界面上什么都不出现（连 toast 都没有），用户只看到角标上有个数字
@@ -5353,7 +5380,10 @@ async function exitEdit() {
       （与 v201 修掉的那处是同一个坑，只是入口从「用户点取消」变成「系统自动退出」）。
    ⚠️ 为什么不做成一个带参函数：`@click="exitEdit"` 会把 **MouseEvent** 当第一个实参传进来，
       改签名还得同步改模板，稍不留神就是「取消按钮悄悄跳过确认框」。独立函数零耦合。 */
-function exitEditAfterSave() { leaveEdit() }
+/* v786：保存成功 ⇒ 收起粘贴结果面板 + 主色框，两者同步结束。
+   ⚠️ 只在**保存成功**这条出口清：校验失败 / 网络失败时用户仍在编辑态、数据没提交，
+      此刻把可核对的结果拿走等于改变保存失败时的既有表现。 */
+function exitEditAfterSave() { clearPasteResult(); leaveEdit() }
 
 
 /* P0(v376/P0-2 续)：整表行合计**一次算好**。
@@ -5679,11 +5709,15 @@ function flashAt (r, c) {
 
    ⚠️ 用 `k` 计数逼动画重放（同 `flashAt` 的教训）：连续粘两次到同一片区域时，
       布尔不变 ⇒ CSS 动画不重放 ⇒ 第二次"没反应"，用户会以为没粘上。
-   ⚠️ 计时器结束时是**把 r0 置 -1**（= 清空），不是只改 class —— 若只改动画时长，
-      class 一直在，下次同一区域粘贴会因为"值没变"而不触发重渲染。 */
+   🔴 v786：原先 2.6s 定时自动清空已撤 —— 用户明确要求「保存前主色框不得自动收起」。
+      现在只有 `clearPasteResult()`（保存成功后）把它置回 -1；「先清空一次再置位」仍保留，
+      用于同一区域连续粘贴时触发重渲染 + 动画重放（若只改动画时长，class 一直在，
+      下次同一区域粘贴会因为"值没变"而不触发重渲染）。 */
 const pasteLand = ref({ r0: -1, c0: -1, r1: -1, c1: -1, k: 0 })
-let _pasteLandTimer = null
-const PASTE_LAND_MS = 2600
+/* v786：**粘贴结果常驻快照** —— 以类 Excel 表格持续展示本次粘贴的行列结构与数据，
+   保存前不自动收起。cells 是源数据块的二维数组：空白行、空白格都原样占位（不 filter、
+   不 pop、不截断），这正是「N 行严格一致」在视觉上可逐行核对的凭据。 */
+const pasteResult = ref(null)
 function inPasteLand (r, c) {
   const p = pasteLand.value
   return p.r0 >= 0 && r >= p.r0 && r <= p.r1 && c >= p.c0 && c <= p.c1
@@ -5696,16 +5730,41 @@ function pasteLandCls (r, c) {
   return (r === p.r0 || r === p.r1 || c === p.c0 || c === p.c1) ? 'paste-land edge' : 'paste-land'
 }
 function markPasteLand (r0, c0, r1, c1) {
-  if (_pasteLandTimer) clearTimeout(_pasteLandTimer)
+  /* v786：不再起定时器 —— 高亮从「粘贴成功」一直留到「保存成功」，中途绝不自动清除。 */
   // 先清空一次再置位：同一区域连续粘贴时靠这步触发重渲染 + 动画重放
   pasteLand.value = { r0: -1, c0: -1, r1: -1, c1: -1, k: pasteLand.value.k + 1 }
   nextTick(() => {
     pasteLand.value = { r0, c0, r1, c1, k: pasteLand.value.k + 1 }
   })
-  _pasteLandTimer = setTimeout(() => {
-    pasteLand.value = { r0: -1, c0: -1, r1: -1, c1: -1, k: pasteLand.value.k }
-    _pasteLandTimer = null
-  }, PASTE_LAND_MS)
+}
+/* v786：构造结果快照。调用点全是既有「粘贴成功」出口，不改触发条件与成功判定。
+   · heads：带表头的路径用源表头；区块粘贴用目标列名（能核对「贴到唐成列没有」）。
+   · cells：按最大列数补齐空白，空白行整行保留 ⇒ 源 N 行就是面板 N 行。 */
+function setPasteResult (block, meta = {}) {
+  const src = (Array.isArray(block) ? block : []).slice(meta.startRow || 0)
+  const autoCols = src.reduce((m, r) => Math.max(m, (r || []).length), 0)
+  const heads = Array.isArray(meta.heads) && meta.heads.length
+    ? meta.heads.map(h => String(h == null ? '' : h).trim())
+    : Array.from({ length: meta.useCols || autoCols }, (_, j) => pasteColName((meta.sc || 0) + j))
+  const cols = heads.length
+  if (!src.length || !cols) return
+  pasteResult.value = {
+    label: meta.label || '粘贴结果',
+    span: meta.span || '',
+    heads,
+    rows: src.length,
+    cols,
+    cells: src.map(r => Array.from({ length: cols }, (_, j) => {
+      const v = (r || [])[j]
+      return v == null ? '' : String(v)
+    })),
+  }
+}
+/* v786：唯一的收起出口 —— 只在保存成功后调用（见 exitEditAfterSave）。
+   ⚠️ 不放在 leaveEdit()：「取消改单」不是保存，用户明确要求保存前不得清除。 */
+function clearPasteResult () {
+  pasteResult.value = null
+  pasteLand.value = { r0: -1, c0: -1, r1: -1, c1: -1, k: pasteLand.value.k + 1 }
 }
 /* 落点的「人话坐标」：**单一实现**供区块粘贴与交叉表粘贴共用（两条路各写一份必然漂移，
    本项目铁律）。用商品名 / 客户名而不是「第 137 行第 9 列」—— 286 行的表里没人按行号定位。 */
@@ -6472,6 +6531,7 @@ function tryPasteCross(block) {
     markPasteLand(_minR, _minC, _maxR, _maxC)
     scrollRowIntoView(_minR)
   }
+  setPasteResult(dataRows, { heads: head, label: '按客户列粘贴' })
   return true
 }
 
@@ -6578,11 +6638,13 @@ function onPaste(e) {
     cross.value.rows.push(row)
     added++
   }
-  if (added || skipped)
+  if (added || skipped) {
     toast(`已从 Excel 粘贴 ${added} 行商品`
       + (skipped ? `，跳过 ${skipped} 行（缺少商品名称或条码）` : '')
       + (added && brandSel.value.length ? '，品牌筛选生效中，品牌为空的新行暂不显示' : '')
       + '（改完点「保存」）', skipped ? 'warn' : 'ok')
+    setPasteResult(lines.map(l => l.split('\t').map(s => s.trim())), { heads: startIdx ? first : null, startRow: startIdx, sc: 0, label: '商品主档粘贴' })
+  }
 }
 const savingEdit = ref(false)
 const confirmInfo = ref(null)  // 2026-08-27：期次确认（经理保存汇总表=审批定稿）状态，老板进汇总表一眼看出是否已定稿
@@ -10500,6 +10562,7 @@ function pasteRegion(text) {
     /* v783：单值铺满选区，复制的若是空白即「清空整片选区」（与空白覆盖清空同义），
         不再因「粘贴内容为空」被拒。 */
     batchWrite(pasteCellEmpty(block[0][0]) ? '' : block[0][0])
+    setPasteResult(block, { useCols, sc, label: '单值铺满选区' })
     return
   }
   /* v785：**严格 N 行全覆盖** —— 源数据的每一行、每一格都必须落到目标同位置，
@@ -10555,12 +10618,14 @@ function pasteRegion(text) {
      三件事缺一不可：
        ① `ensureRowsRendered` —— 改单态分批挂载（v666），落点行没渲染时 DOM 里没有那个 td，
           高亮与滚动都会"什么也没发生"（这正是"静默"的另一种成因）；
-       ② `markPasteLand` —— 贴住落点的矩形框（视觉锚点，2.6s 后自动淡出）；
+       ② `markPasteLand` —— 贴住落点的矩形框（视觉锚点，v786 起持续保留到保存）；
        ③ `scrollRowIntoView` —— 落点在视口外时把人带过去（286 行的表里滚错一屏就等于没提示）。
-     ⚠️ 顺序不能反：先扩渲染、再标、最后滚；先滚的话目标 td 还没挂载，滚了个空。 */
+     ⚠️ 顺序不能反：先扩渲染、再标、最后滚；先滚的话目标 td 还没挂载，滚了个空。
+     ⚠️ 结果快照放三件套**之后**：这三行的顺序是既有契约判据，不能插进去。 */
   ensureRowsRendered(_rEnd)
   markPasteLand(sr, sc, _rEnd, _cEnd)
   scrollRowIntoView(sr)
+  setPasteResult(block, { useCols, sc, span: _span, label: '区块粘贴' })
 }
 /* v377：窗口失焦（切 App / 系统弹窗抢焦点）时 mouseup 收不到 ⇒ `dragging` 会永远停在 true，
    表现是「表格一直跟着鼠标选」。挂到 blur 上兜一次，共用同一个收尾函数。 */
@@ -14192,7 +14257,7 @@ const rowCtx = reactive({
   /* —— 状态（低频变化；变则全表重渲染，这是正确语义）—— */
   cross, visibleCols, selected, selAxis, selRange, editMode, condWarnOn, frozenExtra,
   hsMap, snapCompare, compareOn, showSuggest, showSpark, yoyOn, namePh, flashCell,
-  /* v756：粘贴落点矩形（低频变化：只在粘贴后置位、2.6s 后清空 —— 符合 ctx「不放会因别的行变化而变化的东西」铁律）。 */
+  /* v756：粘贴落点矩形（低频变化：v786 起只在粘贴后置位、保存成功后清空 —— 符合 ctx「不放会因别的行变化而变化的东西」铁律）。 */
   pasteLand, pasteLandCls,
   softWarnCfg, prevUnitMap,
   C_EXTRA_INPUT, C_PRICE_INPUT, SEQ_CI,
@@ -15497,6 +15562,19 @@ body.cust-col-dragging .cross-tbl tbody td{cursor:grabbing}
   0%{outline-width:3px;outline-offset:-3px}
   100%{outline-width:2px;outline-offset:-2px}
 }
+/* v786：粘贴结果表（类 Excel：行号列 + 列标题 + 逐格数据，空白格淡底占位）。
+   只新增本面板自己的规则，不动 .info-panel / .paste-land 等既有样式。 */
+.paste-result-panel .pr-hint{color:var(--t2);font-weight:400}
+.pr-span{margin:0 0 var(--sp-h6);color:var(--t2)}
+.pr-wrap{max-height:280px;overflow:auto;border:1px solid var(--bd);border-radius:var(--radius-sm);background:var(--bg)}
+.pr-tbl{border-collapse:separate;border-spacing:0;width:100%;font-size:var(--fs-sm);font-variant-numeric:tabular-nums}
+.pr-tbl th,.pr-tbl td{border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);padding:var(--sp-h2) var(--sp-2);text-align:right;white-space:nowrap;color:var(--t1)}
+.pr-tbl thead th{position:sticky;top:0;background:var(--bg2);color:var(--t2);font-weight:600;z-index:1}
+.pr-tbl .pr-seq{position:sticky;left:0;background:var(--bg2);color:var(--t2);text-align:center;font-weight:500;min-width:36px;z-index:2}
+.pr-tbl thead .pr-seq{z-index:3}
+.pr-tbl td.pr-blank{background:color-mix(in srgb,var(--t2) 10%,transparent)}
+.pr-tbl tbody tr:last-child th,.pr-tbl tbody tr:last-child td{border-bottom:0}
+.pr-tbl th:last-child,.pr-tbl td:last-child{border-right:0}
 /* v219 打磨②：改动记录列表 */
 .undo-list{display:flex;flex-direction:column;gap:var(--sp-h2);max-height:320px;overflow-y:auto;margin:var(--sp-2) 0;border:1px solid var(--bd);border-radius:var(--radius-md)}
 .undo-item{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-h6) var(--sp-2);background:none;border:0;border-bottom:1px solid var(--bd);cursor:pointer;text-align:left;font-size:var(--fs-sm);color:var(--t1)}

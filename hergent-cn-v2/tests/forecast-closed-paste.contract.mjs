@@ -83,7 +83,7 @@ ok(count(vue, /closedEditMode \? '本期次已关闭 · 你以管理者身份改
 console.log('\nB. 粘贴落点（三件套 + 三条路径）')
 
 ok(/const pasteLand = ref\(\{ r0: -1/.test(vue), '存在落点矩形状态 pasteLand')
-ok(/function markPasteLand \(r0, c0, r1, c1\)/.test(vue), '存在 markPasteLand（置位 + 定时清除）')
+ok(/function markPasteLand \(r0, c0, r1, c1\)/.test(vue), '存在 markPasteLand（置位；v786 起不再定时清除，改由保存后统一收起）')
 ok(/function pasteLandCls \(r, c\)[\s\S]{0,320}?edge/.test(vue),
   'pasteLandCls 区分「内部格」与「边界格」（边界才描边，否则一片格子各圈一道）')
 

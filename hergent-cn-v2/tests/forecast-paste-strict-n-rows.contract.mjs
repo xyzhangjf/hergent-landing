@@ -131,6 +131,7 @@ function makeSandbox(regionOverride) {
     pasteColName: (c) => '列' + c,
     ensureRowsRendered: () => {},
     markPasteLand: () => {},
+    setPasteResult: () => {},   // v786：结果常驻展示的快照入口，本护栏只关心写入层，桩掉
     scrollRowIntoView: () => {},
     state,
   }

@@ -632,6 +632,21 @@ if (has('skip-sfc')) {
   results.push({ name: '粘贴严格N行全覆盖', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊱·e 粘贴结果常驻展示（v786）──────────────────────────────────
+/* 需求（2026-11-06）：粘完以类 Excel 表格持续展示行列结构与数据，保存前结果展示和
+   主色框都不得自动收起，仅保存成功后两者同步收起。触发/成功判定/校验/保存行为不变。
+   🔴 护栏要点：① markPasteLand 撤掉 2.6s 定时器但仍会置位（成对判，防「删功能冒充」）；
+      ② 抽取真实 setPasteResult 注入 vm 实跑 99 行含空白行 + 尾部空白单独样例；
+      ③ 全文 clearPasteResult() 只准 1 处调用且在 exitEditAfterSave（严格「仅保存后」）；
+      ④ 每条关键判据配坏样本 + 真实源码对照组，静态判据一律剥注释防自撞。 */
+{
+  console.log('\n── ㊱·e 粘贴结果常驻展示（v786）──')
+  const r = run('forecast-paste-result-panel.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '粘贴结果常驻展示', ok: r.code === 0, code: r.code })
+}
+
 // ── ㊲ 填报页商品行（条码 + 名称可展开，v760）──────────────────────
 /* 需求（2026-11-04）：商品名下方展示条码；名称超长省略号 + 点击展开；库存/日均那行撤掉。
    本块钉四组：① 条码空值不渲染且整串不截断；② 截断交 CSS 不按字数切；
