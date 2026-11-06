@@ -10,14 +10,22 @@
  *
  * 修法（反转 v379，Forecast.vue::pasteRegion + tryPasteCross）：
  *   · 空白也覆盖清空 —— qty 列置 0、文本/计算列置空，与 Excel 习惯一致；
- *   · 唯一保留的安全网：补行只按「有非空值写入的最后一行」算，尾行整行空白不白白带空商品行；
  *   · 不再静默：提示里明确报出「清空了几格」（v379 当年真正怕的是静默清零，报出来即非事故）。
+ *
+ * 🔴🔴 v785 口径反转（用户 2026-11-06 明确要求，覆盖上面 v783 的「尾行不撑行」）：
+ *   「从 Excel 复制 N 行（包含空白行）后，粘贴到系统必须完整写入同样的 N 行；空白行与空白
+ *    单元格同样占位并参与覆盖，不得被过滤、不得中途截断、不得保留目标位置原有的旧值。」
+ *   v783 的「补行只按最后非空行(maxWriteR)算 + clears 越界跳过」正是 99→76 截断与
+ *   「第 98 个商品 0 没覆盖旧值 12」的根因 ⇒ 已改为 `needRows = sr + rows`。
+ *   🔴 本契约只负责「空白/0 覆盖清空」这一语义；严格 N 行全覆盖的**强护栏**见 ㊱·d
+ *     （forecast-paste-strict-n-rows.contract.mjs，抽取真实函数体注入桩实跑）。
+ *   ⚠️ 口径变了必须同步反转旧坏样本/旧判据，否则护栏会拿旧标准判错正确修改（v780 教训）。
  *
  * 🔴 护栏要点：
  *   · 静态判据必须三态：① 旧「跳过」模式确实消失（撤销即红）；
  *     ② 新「收集为 clears + 写空」模式确实出现；③ 提示文案从「原值保留」改为「清空 N 个空白格」。
  *   · 动态判据抽取**真实纯函数** parseTSV / pasteCellEmpty 实跑新循环：0 进 writes、空白进 clears、
- *     尾行整行空白不撑出行数。
+ *     N 行即 N 行（空白行也占位）。
  *   · 坏样本：把 pasteRegion / tryPasteCross 的新循环还原成旧的「跳过」后，
  *     旧模式重现 + 新模式消失 ⇒ 上面的静态判据必然翻转（撤销即红）。 */
 
@@ -32,14 +40,21 @@ function ok(cond, label) {
   else { fail++; console.log('  ❌', label) }
 }
 
-// 精准截取 pasteRegion 函数体（从函数声明到下一个顶层 function）
-const prStart = vue.indexOf('function pasteRegion(text)')
-const prEnd = vue.indexOf('\nfunction ', prStart + 10)
-const regionTxt = vue.slice(prStart, prEnd)
-// 精准截取 tryPasteCross 函数体
-const cxStart = vue.indexOf('function tryPasteCross(block)')
-const cxEnd = vue.indexOf('\nfunction ', cxStart + 10)
-const crossTxt = vue.slice(cxStart, cxEnd)
+/* 精准截取单个顶层函数体：到「行首 }」为止。
+   ⚠️ 不能用「下一个 \nfunction 」：pasteRegion 后面紧跟的是 onMounted(...) 等非函数语句，
+      会把一大段无关代码（含注释）截进来，静态判据容易被注释自撞成空白支票。 */
+const fnBody = (sig) => {
+  const s = vue.indexOf(sig)
+  if (s < 0) return ''
+  const rest = vue.slice(s)
+  const m = rest.match(/^\}/m)
+  return m ? rest.slice(0, m.index + 1) : ''
+}
+const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+const regionTxt = fnBody('function pasteRegion(text)')
+const crossTxt = fnBody('function tryPasteCross(block)')
+const cRegion = stripComments(regionTxt)
+const cCross = stripComments(crossTxt)
 
 console.log('=== 静态判据（pasteRegion：旧跳过消失 + 新覆盖出现 + 提示反转） ===')
 ok(!/pasteCellEmpty\(v\)\)\s*\{\s*skipped\+\+;\s*continue/.test(regionTxt),
@@ -48,8 +63,12 @@ ok(/pasteCellEmpty\(v\)\)\s*\{\s*clears\.push/.test(regionTxt),
   'pasteRegion 空白改为 collects 进 clears')
 ok(/for \(const k of clears\)\s*\{[\s\S]{0,140}?writeCellVal\(k\.r, k\.c, ''\)/.test(regionTxt),
   'pasteRegion 对 clears 逐格 writeCellVal(…, \'\') 清空')
-ok(/const needRows = maxWriteR \+ 1/.test(regionTxt),
-  'pasteRegion 补行按「有非空值写入的最后一行」(maxWriteR)，尾行空白不撑行')
+/* v785 反转：补行按源数据总行数（sr + rows），空白行也占位；
+   且旧 maxWriteR 撑行必须确实消失（撤销即红）。 */
+ok(/const needRows = sr \+ rows/.test(cRegion),
+  'pasteRegion 补行按源数据总行数（sr + rows），空白行也占位')
+ok(!/const needRows = maxWriteR \+ 1/.test(cRegion),
+  'pasteRegion 不再按「最后非空行」(maxWriteR) 撑行（旧口径已反转）')
 ok(/清空 \$\{cleared\} 个空白格/.test(vue), '提示文案改为「清空 N 个空白格」')
 ok(!/跳过 \$\{skipped\} 个空格（原值保留）/.test(vue), '旧「跳过 N 个空格（原值保留）」已移除')
 
@@ -73,16 +92,15 @@ const { parseTSV, pasteCellEmpty } = sandbox
 function simulateNewLoop(blockText) {
   const block = parseTSV(blockText)
   const writes = [], clears = []
-  let maxWriteR = -1
   for (let i = 0; i < block.length; i++)
     for (let j = 0; j < block[i].length; j++) {
       const v = block[i][j]
       const R = i, C = j
       if (pasteCellEmpty(v)) { clears.push({ r: R, c: C }); continue }
       writes.push({ r: R, c: C, v })
-      if (R > maxWriteR) maxWriteR = R
     }
-  return { writes, clears, needRows: maxWriteR + 1 }
+  /* v785：N 行就是 N 行，不再按最后非空行截断（严格版见 ㊱·d 真实函数体实跑） */
+  return { writes, clears, needRows: block.length }
 }
 
 const col = ['30', '0', '25', '', '10'].join('\n')   // 一格 0、一格空白，其余有数
@@ -90,17 +108,20 @@ const r = simulateNewLoop(col)
 ok(r.writes.some(w => w.v === '0'), '复制来的 "0" 进入 writes（会被写入/置 0）')
 ok(r.clears.length === 1 && r.clears[0].r === 3, '复制来的空白进入 clears（会被清空，不再静默跳过）')
 ok(r.writes.length === 4, '其余 4 个有数值的格进入 writes')
-ok(r.needRows === 5, '补行按最后非空行算，不因尾行空白多撑行')
+ok(r.needRows === 5, '补行按源数据总行数（5 行），N 行就是 N 行')
 
-// 尾行整行空白不应撑出额外行
+// v785 反转：尾行整行空白同样占位并参与覆盖，不得被剥掉
 const trailing = ['30', '0', '', ''].join('\n')
 const r2 = simulateNewLoop(trailing)
-ok(r2.needRows === 2, '尾行整行空白不白白带出空商品行（needRows=2，非 4）')
+ok(r2.needRows === 4 && r2.clears.length === 2,
+  '尾行整行空白同样占位并覆盖清空（needRows=4、清空 2 格；v783 旧标准 2 已反转）')
 
-// 整列全空白：parseTSV 把全空行剥掉 → 空块，pasteRegion 提前返回（不静默改数据）
+// v785 反转：整列全空白不再是「空块丢弃」，而是逐格占位覆盖清空，且提示会报数（不静默）
 const allBlank = ['', '', ''].join('\n')
 const r3 = simulateNewLoop(allBlank)
-ok(r3.writes.length === 0 && r3.clears.length === 0, '整列全空白被 parseTSV 视为空块（无静默写入）')
+ok(parseTSV(allBlank).length === 3, '真实 parseTSV 保留全空白的 3 行（不再 pop 剥行）')
+ok(r3.writes.length === 0 && r3.clears.length === 3,
+  '整列全空白逐格占位覆盖清空（3 格），不再被当作空块静默丢弃')
 
 console.log('\n=== 坏样本自证（撤销修复即红） ===')
 const badRegion = regionTxt.replace(

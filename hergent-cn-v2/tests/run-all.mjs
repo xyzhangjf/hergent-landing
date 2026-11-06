@@ -615,6 +615,23 @@ if (has('skip-sfc')) {
   results.push({ name: '粘贴空白覆盖清空', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊱·d 粘贴「严格 N 行全覆盖」（v785）────────────────────────────
+/* 报障（2026-11-06，第三次粘贴报障）：易胜玲复制 99 行（含空白行）只进 76 行，
+   第 98 个商品 Excel 为 0、系统里仍残留旧值 12。🔴 上一版 v784 归因「品牌筛选藏行」不成立
+   —— 藏行不会让旧值 12 留在原地。真因在写入层三处：onPaste filter 删空白行（99→76 且错位）、
+   parseTSV 尾部 pop 剥空白数据行、pasteRegion 按 maxWriteR 撑行 + clears 越界跳过。
+   后端 save_matrix 是「删旧建新」且 qty_by_unit 只发已存在的 key ⇒ 那格从未被触达，
+   旧值就永远留库里，故修复必须在前端写入层。
+   🔴 强护栏：抽取真实 parseTSV/pasteCellEmpty/writeCellVal/pasteRegion 注入桩实跑 99 行，
+   直接断言 model 最终值 + 三组坏样本自证；静态判据一律剥注释（防逐字抄代码自撞空白支票）。 */
+{
+  console.log('\n── ㊱·d 粘贴严格 N 行全覆盖（v785）──')
+  const r = run('forecast-paste-strict-n-rows.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '粘贴严格N行全覆盖', ok: r.code === 0, code: r.code })
+}
+
 // ── ㊲ 填报页商品行（条码 + 名称可展开，v760）──────────────────────
 /* 需求（2026-11-04）：商品名下方展示条码；名称超长省略号 + 点击展开；库存/日均那行撤掉。
    本块钉四组：① 条码空值不渲染且整串不截断；② 截断交 CSS 不按字数切；

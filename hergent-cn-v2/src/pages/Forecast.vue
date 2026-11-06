@@ -6416,7 +6416,7 @@ function tryPasteCross(block) {
   const dataRows = block.slice(1)
   if (!dataRows.length) return false
   snapshot()
-  let added = 0, updated = 0, bad = 0, skipped = 0, cleared = 0
+  let added = 0, updated = 0, bad = 0, cleared = 0, blankRows = 0
   /* v756：落点包围盒。这条路径按「商品名匹配行、列名匹配客户列」写 ⇒ 落点**不是**一个从剪贴板
      左上角起算的矩形（客户列可能不连续、商品行也可能散落）。取所有实际写入格的包围盒：
      视觉上就是"这批数据落进了这一片"，语义正确，也比逐个格闪烁更容易一眼看清范围。 */
@@ -6430,7 +6430,15 @@ function tryPasteCross(block) {
   }
   dataRows.forEach(cells => {
     const nm = String(cells[nameIdx] == null ? '' : cells[nameIdx]).trim()
-    if (!nm) { skipped++; return }
+    if (!nm) {
+      /* v785：空白行**明确报数，不再静默丢弃**。
+         ⚠️ 这条路径按「商品名」匹配（内容寻址），源表行序未必等于系统表行序；
+            空白行没有商品名 ⇒ 无法确定它对应系统里哪一行，按位置盲清会误伤别的商品
+            （比原 bug 更严重）。因此这里只如实回执，不做猜测式写入。
+            🔴 需要「严格 N 行按位置全覆盖」时请点选落点格走区块粘贴（pasteRegion，v785 已实现）。 */
+      blankRows++
+      return
+    }
     let ri = cross.value.rows.findIndex(r => String(r.name || '').trim() === nm)
     const isNew = ri < 0
     if (isNew) {
@@ -6441,7 +6449,7 @@ function tryPasteCross(block) {
     _touched.add(ri)
     map.forEach(({ bi, c }) => {
       /* v783（反转 v379）：客户列空格也覆盖清空（qty→0、文本→空），不再原值保留。
-         新商品行默认已是 0，跳过不计入「清空」。 */
+         新商品行默认已是 0，跳过不计入「清空」。0 走 writeCellVal 写 0，覆盖旧值。 */
       const v = cells[bi]
       if (pasteCellEmpty(v)) { if (!isNew) { writeCellVal(ri, c, ''); cleared++ } return }
       writeCellVal(ri, c, v)
@@ -6453,11 +6461,11 @@ function tryPasteCross(block) {
   const _relaxed = relaxBrandFilterForPaste([..._touched])
   toast(`已按客户列粘贴：新增 ${added} 个商品 · 更新 ${updated} 个商品`
     + (_minR >= 0 ? ` → 落点「${pasteRowName(_minR)}」~「${pasteRowName(_maxR)}」第 ${_minC - visibleCols.value.length + 1}~${_maxC - visibleCols.value.length + 1} 个客户（已用主色框标出）` : '')
-    + (skipped ? ` · 跳过 ${skipped} 行（无商品名称）` : '')
+    + (blankRows ? ` · ${blankRows} 行空白无商品名（未定位，需按位置粘贴请点选落点格）` : '')
     + (cleared ? ` · 清空 ${cleared} 个空白格` : '')
     + (bad ? ` · ${bad} 格不合法（已标红）` : '')
     + (_relaxed ? '；已自动取消品牌筛选以便查看全部' : '')
-    + '（改完点「保存」）', bad || skipped || cleared ? 'warn' : 'ok')
+    + '（改完点「保存」）', bad || blankRows || cleared ? 'warn' : 'ok')
   /* v756：与区块粘贴同款三件套（扩渲染 → 标落点 → 滚到眼前），顺序理由见 pasteRegion 注释。 */
   if (_minR >= 0) {
     ensureRowsRendered(_maxR)
@@ -6506,7 +6514,12 @@ function onPaste(e) {
     toast('当前为只读视图，请先点「改单」再粘贴数据', 'warn')
     return
   }
-  const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim().length)
+  /* v785：**不再过滤空白行**。原 `.filter(l => l.trim().length)` 会把源数据里的空白行整段删掉，
+     N 行压成 M 行且后续行全部上移错位 —— 本次「99 行只进 76 行、第 98 个商品 0 没覆盖旧值 12」
+     的直接元凶。
+     ⚠️ 也不能「剥掉末尾空串」：Excel 复制「最后一行是空白单元格」时文本正是以 '\n' 结尾，
+        那个空串就是真实的第 N 行，剥了又丢行。宁可多一行空白（会明确报数），绝不中途截断。 */
+  const lines = text.replace(/\r/g, '').split('\n')
   if (!lines.length) return
   // Q23：先尝试按「商品 × 客户」交叉表粘贴，命中则直接返回
   if (tryPasteCross(lines.map(l => l.split('\t').map(s => s.trim())))) return
@@ -10328,7 +10341,14 @@ function selectAll() {
 function parseTSV(text) {
   const norm = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const lines = norm.split('\n')
-  while (lines.length && lines[lines.length - 1].trim() === '') lines.pop()
+  /* v785：**严格保留源数据全部 N 行**（含空白行、含尾部空白行），一行不删。
+     v379~v783 这里的 `while (尾部 trim 空) pop()` 会整段剥掉尾部空白数据行 ——
+     Excel 复制 A1:A99 且末行为空时，剪贴板文本正是以 '\n' 结尾，最后那个 ''
+     不是「多余的换行」而是**真实的第 99 行空白**；pop 掉就少一行、目标位置旧值残留。
+     🔴 空白行必须占位并参与覆盖（清空对应格），绝不能在这里过滤。
+     ⚠️ 整段空白剪贴板也不在这里拦：v785 起「全空白粘贴」= 逐格覆盖清空，
+        pasteRegion 的 toast 会明确报出清空格数（不静默），且要保住 v783 的
+        「复制单个空白格 → 清空选区」能力。 */
   return lines.map(l => l.split('\t').map(s => s.trim()))
 }
 // v605：原 `gotoRowPage(ri)`（Q7 配套，翻到目标行所在页）随分页机制一并删除；
@@ -10449,9 +10469,16 @@ function relaxBrandFilterForPaste(touchedRows) {
 }
 
 function pasteRegion(text) {
+  /* v785：parseTSV 保留全部行（含空白行）后，整段空白粘贴 = 逐格覆盖清空，
+     这正是「空白也覆盖」语义，且 toast 会明确报数，不静默；故此处**不拦空**，
+     以保住 v783 的「复制单个空白格 → 清空选区」能力。 */
   const block = parseTSV(text)
-  if (!block.length || !block[0].length) return
-  const rows = block.length, cols = block[0].length
+  if (!block.length) return
+  /* v785：列数取「全块最大列数」而非首行列数 —— 空白行常被 Excel 压成 ''（长度 1），
+     若按首行取列数，后续多列的数据行只写第一列 ⇒ 静默丢列。缺失的格按空白占位覆盖清空。 */
+  const rows = block.length
+  const cols = block.reduce((m, r) => Math.max(m, r.length), 0)   // reduce 而非展开，超长粘贴不爆栈
+  if (!cols) return
   let sr, sc
   if (selRange.value) { sr = selRange.value.r0; sc = selRange.value.c0 }
   else { sr = selected.value.r; sc = selected.value.c }
@@ -10475,23 +10502,27 @@ function pasteRegion(text) {
     batchWrite(pasteCellEmpty(block[0][0]) ? '' : block[0][0])
     return
   }
-  /* v783：先算清哪些格是「改值」、哪些是「源表空白要清空」—— 两件事分开，互不串。
-     空白也覆盖（反转 v379）：但补行只按「有非空值写入的最后一行」算，
-     尾行整行是空白时不白白带出一个空商品行。 */
-  const writes = []   // 非空单元格：真正改值
+  /* v785：**严格 N 行全覆盖** —— 源数据的每一行、每一格都必须落到目标同位置，
+     空白行/空白格同样占位并覆盖清空，0 与非空值一律写入，绝不中途截断、绝不保留旧值。
+     🔴 v783 的「尾行整行空白不撑行」(+ clears 的 `k.r < rows.length` 守卫) 会让
+        源数据尾部空白行整段丢失、目标位置旧值残留 —— 正是本次 99→76 截断的根因，已反转。 */
+  const writes = []   // 非空单元格（含 "0"）：真正改值
   const clears = []   // 源表空白单元格：覆盖清空原值（qty→0、文本/计算列→空）
-  let maxWriteR = -1
-  for (let i = 0; i < rows; i++)
+  let blankRows = 0   // 源数据中整行空白的行数（同样占位，用于提示回执）
+  for (let i = 0; i < rows; i++) {
+    let rowAllBlank = true
     for (let j = 0; j < useCols; j++) {
       const v = (block[i] || [])[j]
       const R = sr + i, C = sc + j
       if (pasteCellEmpty(v)) { clears.push({ r: R, c: C }); continue }
+      rowAllBlank = false
       writes.push({ r: R, c: C, v })
-      if (R > maxWriteR) maxWriteR = R
     }
+    if (rowAllBlank) blankRows++
+  }
   if (!writes.length && !clears.length) { toast('粘贴内容为空，未改动任何数据', 'warn'); return }
-  /* 补行按**有非空值写入的最后一行**算 —— 尾行整行空白不白白带出空商品行 */
-  const needRows = maxWriteR + 1
+  /* v785：补行按**源数据总行数**算（sr + rows）—— 空白行也占位，最后一行一定被覆盖。 */
+  const needRows = sr + rows
   while (cross.value.rows.length < needRows) cross.value.rows.push(blankRow())
   snapshot()
   // Q13：粘贴后立即统计非法格，不再等到「保存」才告诉用户埋了雷
@@ -10500,11 +10531,10 @@ function pasteRegion(text) {
     writeCellVal(w.r, w.c, w.v)
     if (cellInvalid(w.r, w.c)) bad++
   }
-  /* v783：空白格覆盖清空 —— 只清已存在的行（不越界造空行）。 */
+  /* v785：空白格逐格全覆盖清空 —— 行已按总行数撑够，不再有「越界跳过」；
+     0 走 writes 写 0、空白走 clears 写空，两者都能覆盖目标位置原有旧值。 */
   let cleared = 0
-  for (const k of clears) {
-    if (k.r < cross.value.rows.length) { writeCellVal(k.r, k.c, ''); cleared++ }
-  }
+  for (const k of clears) { writeCellVal(k.r, k.c, ''); cleared++ }
   /* v784：受粘贴影响的行若是被品牌筛选藏住的，自动取消筛选，避免"看得见才以为粘进去了"。 */
   const _touched = []
   for (const w of writes) _touched.push(w.r)
@@ -10515,7 +10545,8 @@ function pasteRegion(text) {
   const _span = (rows > 1 || useCols > 1)
     ? `「${pasteRowName(sr)}」·「${pasteColName(sc)}」→「${pasteRowName(_rEnd)}」·「${pasteColName(_cEnd)}」`
     : `「${pasteRowName(sr)}」·「${pasteColName(sc)}」`
-  toast(`已粘贴 ${rows} 行 × ${useCols} 列 → 落点 ${_span}（已用主色框标出）`
+  toast(`已粘贴 ${rows} 行 × ${useCols} 列（逐行全覆盖）→ 落点 ${_span}（已用主色框标出）`
+    + (blankRows ? `，其中 ${blankRows} 行空白也占位清空` : '')
     + (truncated ? '（右侧列超出表格已截断）' : '')
     + (cleared ? `，清空 ${cleared} 个空白格` : '')
     + (bad ? `，其中 ${bad} 格不合法（已标红，需修正后才能保存）` : '')
