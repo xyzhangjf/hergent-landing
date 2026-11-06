@@ -1442,8 +1442,14 @@
                 <button v-if="fixables.length" class="btn btn-sm btn-primary" @click="openFixPreview">
                   <Icon name="wizard"/> 一键修复 {{ fixables.length }} 处
                 </button>
+                <!-- v791：负数专属出口。与上面「一键修复」并排但**不同色**：那个是「文案已给出唯一答案」，
+                     这个是「由你确认按 0 计」—— 两类语义不能长得一样。 -->
+                <button v-if="negFixables.length" class="btn btn-sm" @click="openNegFixPreview"
+                        title="把列出的负数一次性改成 0（逐条预览后可整批撤销）">
+                  <Icon name="wizard"/> 负数设为 0（{{ negFixables.length }} 处）
+                </button>
                 <span v-if="manualErrs" class="err-fixhint">
-                  {{ fixables.length ? '另有 ' : '' }}{{ manualErrs }} 处需手工判断（重复建档 / 负数 / 名称缺失等），不会自动改
+                  {{ (fixables.length || negFixables.length) ? '另有 ' : '' }}{{ manualErrs }} 处需手工判断（重复建档 / 名称缺失等），不会自动改
                 </span>
                 <!-- v219 打磨⑥：上限入口就放在「被上限拦下」真正发生的地方 -->
                 <button v-if="canEditRules" class="err-rulebtn" @click="openRuleEdit"
@@ -1492,6 +1498,37 @@
                   <span v-if="manualErrs" class="fix-rest">另有 {{ manualErrs }} 处需手工处理，本次不会改动</span>
                   <button class="btn btn-sm" @click="fixPreviewOpen = false">取消</button>
                   <button class="btn btn-sm btn-primary" @click="applyFixes">确认修复 {{ fixables.length }} 处</button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
+          <!-- v791：负数清 0 的确认弹窗。**逐条列出「原值 → 0」**，与一键修复同一套版式，
+               但不共用 fixables 名单 —— 负数没有唯一目标值，必须让用户看见自己在把什么改成 0。 -->
+          <Teleport to="body">
+            <div v-if="negPreviewOpen" class="fix-mask" @click.self="negPreviewOpen = false">
+              <div class="fix-dlg">
+                <div class="fix-hd">
+                  <b><Icon name="alert-triangle"/> 负数设为 0</b>
+                  <button class="imp-x" @click="negPreviewOpen = false"><Icon name="close"/></button>
+                </div>
+                <p class="fix-tip">
+                  以下 <b>{{ negFixables.length }}</b> 处当前是<b>负数</b>，将被改成 <b>0</b>。
+                  确认后整批执行，<b>一次 Ctrl+Z 可整批还原</b>。
+                  <br>若某些负数本意是<b>退货/冲减</b>，请不要用这里 —— 关闭后手工改为实际数量，退货应走退单。
+                </p>
+                <div class="fix-list-wrap">
+                  <ul class="fix-list">
+                    <li v-for="(x, i) in negFixables" :key="i">
+                      <span class="fix-loc">第 {{ x.row }} 行 · {{ x.name || '（无名称）' }} · {{ x.col }}</span>
+                      <span class="fix-chg"><span class="fix-old">{{ x.old || '（空）' }}</span> → <b class="fix-new">{{ x.neu }}</b></span>
+                      <span class="fix-how">{{ x.how }}</span>
+                    </li>
+                  </ul>
+                </div>
+                <div class="fix-ft">
+                  <span v-if="manualErrs" class="fix-rest">另有 {{ manualErrs }} 处需手工处理，本次不会改动</span>
+                  <button class="btn btn-sm" @click="negPreviewOpen = false">取消</button>
+                  <button class="btn btn-sm btn-primary" @click="applyNegFixes">确认改为 0（{{ negFixables.length }} 处）</button>
                 </div>
               </div>
             </div>
@@ -5628,8 +5665,22 @@ function errKindOf(msg) {
 }
 function pushErr(list, ri, ci, r, msg) {
   const kd = errKindOf(msg)
+  /* 🔴 v791：数值类错误必须**带上当前值**。
+     起因（2026-11-06 报障）：粘贴后 7 处全报「不能为负数」，用户在 Excel 里看自己那一列
+     明明全是 0/正数 ⇒ 只看到一句「不能为负数」，既不知道是哪一格、也不知道系统认为多少，
+     只能逐格点开猜，最后结论是「软件算错了」。
+     ⚠️ 取值必须与本格校验**同源**（`rawCellVal`，不是 `readCellVal`）：
+        readCellVal 对数量列有 `|| 0`，真负值能读对，但「没填过」会被读成 0 ⇒ 清单里会冒出
+        「不能为负数（当前 0）」这种自相矛盾的句子。rawCellVal 取字段本身，空就是空。
+     ⚠️ 只追加在**尾部括号**里，前缀一字不动 —— `ERR_KINDS` 全部按 `^` 前缀分组（负数的正则是
+        `/^不能为负数/`），改前缀会让分组、筛选、契约判据一起失效。 */
+  let show = msg
+  if (kd.k === 'neg' || kd.k === 'over' || kd.k === 'int') {
+    const raw = rawCellVal(ri, ci)
+    if (raw !== '' && raw != null) show = msg + '（当前 ' + String(raw) + '）'
+  }
   list.push({
-    ri, ci, row: ri + 1, col: colNameOf(ci), name: r.name || '', msg,
+    ri, ci, row: ri + 1, col: colNameOf(ci), name: r.name || '', msg: show,
     kind: kd.k, kindLabel: kd.label,
   })
 }
@@ -5856,15 +5907,62 @@ const fixables = computed(() => {
   }
   return out
 })
-const manualErrs = computed(() => errList.value.length - fixables.value.length)
+/* v791：负数已有专属的一键清 0 通道 ⇒ 这里要把它扣掉，否则同一批负数既显示「可一键」
+   又显示「需手工判断」，两个数字加起来超过总数，用户会当成清单算错。
+   ⚠️ 两组互斥（fixables 只收 over/num，negFixables 只收 neg），相减不会重复扣。 */
+const manualErrs = computed(() => errList.value.length - fixables.value.length - negFixables.value.length)
+/* 🔴 v791：负数「设为 0」的**显式**修复。
+   为什么不并进上面的 `fixables`：那一组的判据是「官方文案自己给出了唯一目标值」（超上限→
+   上限值、`12箱`→12），而负数**没有唯一答案** —— 可能真是退货/冲减，该走退单。把它混进去
+   等于替用户决定业务语义，这与 v219 立的规矩冲突。
+   但另一种真实情形必须兜住：用户从 Excel 粘了一列，源里带了几格负号残渣（或旧草稿留的负值），
+   他明确知道「这些不是退货」，却要一格一格手改成 0 —— 7 处就得点 7 次。
+   所以给一个**独立按钮**：只列负数、逐条显示「原值 → 0」、整批一次 Ctrl+Z 可撤销，
+   改不改由用户按下确认。既不做静默猜测，也不让人干手工活。
+   ⚠️ 复核闸门与 fixables 一致（用当前表格状态重算，必须仍是负数才动手）—— errList 里可能有
+      上一次校验的残留坐标，拿过期坐标写数值会改错格。 */
+const negFixables = computed(() => {
+  const out = []
+  const nc = visibleCols.value.length + unitCount()
+  const seen = new Set()
+  for (const it of errList.value) {
+    if (it.kind !== 'neg') continue
+    if (it.ci < 0 || it.ci >= nc) continue
+    const key = it.ri + '_' + it.ci
+    if (seen.has(key)) continue
+    const now = cellIssue(it.ri, it.ci)
+    if (!now || errKindOf(now).k !== 'neg') continue
+    seen.add(key)
+    const oldRaw = readCellVal(it.ri, it.ci)
+    out.push({
+      ri: it.ri, ci: it.ci, row: it.row, col: it.col, name: it.name,
+      oldRaw, old: String(oldRaw), neu: '0', how: '负数按 0 计（本格不留负值）',
+    })
+  }
+  return out
+})
+const negPreviewOpen = ref(false)
+function openNegFixPreview() {
+  if (!negFixables.value.length) { toast('当前没有负数需要处理', 'ok'); return }
+  negPreviewOpen.value = true
+}
 const fixPreviewOpen = ref(false)
 function openFixPreview() {
   if (!fixables.value.length) { toast('这类错误需要你手工判断，没有可自动修复的项', 'warn'); return }
   fixPreviewOpen.value = true
 }
 function applyFixes() {
-  const list = fixables.value
-  if (!list.length) { fixPreviewOpen.value = false; return }
+  fixPreviewOpen.value = false
+  applyFixList(fixables.value)
+}
+/* v791：负数清 0 走**同一段**写入/撤销/回写逻辑（见 applyFixList），只换名单来源。
+   两份实现必然漂移 —— 本项目已多次吃过「第二份拷贝」的亏（存档、载荷、撤销各一次）。 */
+function applyNegFixes() {
+  negPreviewOpen.value = false
+  applyFixList(negFixables.value)
+}
+function applyFixList(list) {
+  if (!list.length) return
   /* 先抓 old 再写：pushBatchSnap 存的是 old→new 补丁，写之前 old 必须已经在手。
      ⚠️ `?? ''` 这道兜底不能省：readCellVal 对「从未填过」的格返回 undefined，
         undo 时 writeCellVal(r,c,undefined) 会被 parseNumInput 里的 String(undefined)
@@ -5872,7 +5970,6 @@ function applyFixes() {
   const cells = list.map(x => ({ r: x.ri, c: x.ci, old: x.oldRaw == null ? '' : x.oldRaw, new: x.neu }))
   for (const x of list) writeCellVal(x.ri, x.ci, x.neu)
   pushBatchSnap(cells)
-  fixPreviewOpen.value = false
   refreshDirty()
   const rest = validateAll()
   errList.value = rest
@@ -6442,7 +6539,7 @@ function tryPasteCross(block) {
   const dataRows = block.slice(1)
   if (!dataRows.length) return false
   snapshot()
-  let added = 0, updated = 0, bad = 0, cleared = 0, blankRows = 0
+  let added = 0, updated = 0, bad = 0, cleared = 0, blankRows = 0, negN = 0
   /* v756：落点包围盒。这条路径按「商品名匹配行、列名匹配客户列」写 ⇒ 落点**不是**一个从剪贴板
      左上角起算的矩形（客户列可能不连续、商品行也可能散落）。取所有实际写入格的包围盒：
      视觉上就是"这批数据落进了这一片"，语义正确，也比逐个格闪烁更容易一眼看清范围。 */
@@ -6479,7 +6576,10 @@ function tryPasteCross(block) {
       const v = cells[bi]
       if (pasteCellEmpty(v)) { if (!isNew) { writeCellVal(ri, c, ''); cleared++ } return }
       writeCellVal(ri, c, v)
-      if (cellInvalid(ri, c)) bad++
+      if (cellInvalid(ri, c)) {
+        bad++
+        if (errKindOf(cellIssue(ri, c)).k === 'neg') negN++   // v791：同 pasteRegion
+      }
       _hit(ri, c)
     })
   })
@@ -6490,6 +6590,7 @@ function tryPasteCross(block) {
     + (blankRows ? ` · ${blankRows} 行空白无商品名（未定位，需按位置粘贴请点选落点格）` : '')
     + (cleared ? ` · 清空 ${cleared} 个空白格` : '')
     + (bad ? ` · ${bad} 格不合法（已标红）` : '')
+    + (negN ? ` · 其中 ${negN} 格是负数（源表里那一格带负号/破折号）` : '')
     + (_relaxed ? '；已自动取消品牌筛选以便查看全部' : '')
     + '（改完点「保存」）', bad || blankRows || cleared ? 'warn' : 'ok')
   /* v756：与区块粘贴同款三件套（扩渲染 → 标落点 → 滚到眼前），顺序理由见 pasteRegion 注释。 */
@@ -10554,9 +10655,15 @@ function pasteRegion(text) {
   snapshot()
   // Q13：粘贴后立即统计非法格，不再等到「保存」才告诉用户埋了雷
   let bad = 0
+  /* v791：负数单独计数 —— 「N 格不合法」太笼统，用户根本想不到是负号（尤其源表里那格
+     看着像 0 或空）。粘贴**当场**说清「其中 N 格是负数」，比等到点保存被拦更有用。 */
+  let negN = 0
   for (const w of writes) {
     writeCellVal(w.r, w.c, w.v)
-    if (cellInvalid(w.r, w.c)) bad++
+    if (cellInvalid(w.r, w.c)) {
+      bad++
+      if (errKindOf(cellIssue(w.r, w.c)).k === 'neg') negN++
+    }
   }
   /* v785：空白格逐格全覆盖清空 —— 行已按总行数撑够，不再有「越界跳过」；
      0 走 writes 写 0、空白走 clears 写空，两者都能覆盖目标位置原有旧值。 */
@@ -10577,6 +10684,7 @@ function pasteRegion(text) {
     + (truncated ? '（右侧列超出表格已截断）' : '')
     + (cleared ? `，清空 ${cleared} 个空白格` : '')
     + (bad ? `，其中 ${bad} 格不合法（已标红，需修正后才能保存）` : '')
+    + (negN ? `，其中 ${negN} 格是负数（源表里那一格带负号/破折号）` : '')
     + (_relaxed ? '；已自动取消品牌筛选以便查看全部' : ''), bad ? 'warn' : 'ok')
   /* v756：**标出来 + 滚到眼前**（原来只有上面那条数字 toast）。
      三件事缺一不可：
