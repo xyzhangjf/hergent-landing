@@ -632,22 +632,24 @@ if (has('skip-sfc')) {
   results.push({ name: '粘贴严格N行全覆盖', ok: r.code === 0, code: r.code })
 }
 
-// ── ㊱·e 粘贴结果常驻展示（v786）+ 收起时机（v787）──────────────────
-/* 需求（2026-11-06）：粘完以类 Excel 表格持续展示行列结构与数据，保存前结果展示和
-   主色框都不得自动收起；触发/成功判定/校验/保存行为不变。
-   🔴 v787 用户拍板「1.按下按钮即消失；2.取消也一起收起」⇒ 收起时机口径反转：
-      不再是「仅保存成功后」，而是 saveEdits() 开头 + leaveEdit() 两处。
-   🔴 护栏要点：① markPasteLand 撤掉 2.6s 定时器但仍会置位（成对判，防「删功能冒充」）；
-      ② 抽取真实 setPasteResult 注入 vm 实跑 99 行含空白行 + 尾部空白单独样例；
-      ③ 全文 clearPasteResult() 恰好 2 处调用；抽真实 clearPasteResult/leaveEdit/saveEdits
-         头部注入 vm 实跑，分别验证「按下保存」「取消」都清（含 3 组坏样本自证）；
-      ④ 每条关键判据配坏样本 + 真实源码对照组，静态判据一律剥注释防自撞。 */
+// ── ㊱·e 粘贴视觉反馈只留网格主色高亮（v790）──────────────────
+/* 需求（2026-11-06 22:00，用户原话）：「粘贴成功后不需要展示这个『区块粘贴』区域，
+   仅保留网格中粘贴区域的品牌色高亮，让用户视觉上能看到粘了哪些区域即可，其它交互逻辑不变。」
+   🔴 口径三段反转，别再改回去：
+      v786 面板常驻 → v787 按下保存/取消即收起 → **v790 面板整个不要了**。
+   🔴 护栏要点：① A 段是**反向判据**（面板/`pasteResult`/`setPasteResult`/`.pr-*`
+      必须不存在），且与「高亮还在」成对判 —— 否则把粘贴功能删光也能全绿；
+      ② pasteLandCls 抽真实函数体注入 vm 实跑：内部淡底 / 四边描边 / 框外无色 / 清空后全无色；
+      ③ 跨文件：高亮真正画在 `ForecastRow.vue` 的 `ctx.pasteLandCls`（普通列 + 数量列两处），
+         页面侧删干净不等于行组件也删干净；
+      ④ clearPasteLand() 全文恰好 2 处 + 实跑「保存」「取消」都清（2 组坏样本自证）；
+      ⑤ 面板没了以后 toast 是唯一文字确认（行数/列数/落点/逐行全覆盖）⇒ 单独钉 F 段。 */
 {
-  console.log('\n── ㊱·e 粘贴结果常驻展示（v786）+ 收起时机（v787）──')
-  const r = run('forecast-paste-result-panel.contract.mjs', [], { timeout: 60000 })
+  console.log('\n── ㊱·e 粘贴只留主色高亮（v790）──')
+  const r = run('forecast-paste-land-only.contract.mjs', [], { timeout: 60000 })
   const tail = r.out.split('\n').filter(Boolean).slice(-2).join('\n   ')
   console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
-  results.push({ name: '粘贴结果常驻展示', ok: r.code === 0, code: r.code })
+  results.push({ name: '粘贴只留主色高亮', ok: r.code === 0, code: r.code })
 }
 
 // ── ㊲ 填报页商品行（条码 + 名称可展开，v760）──────────────────────
