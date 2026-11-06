@@ -10,7 +10,9 @@ from db.queries.units import (
     ratio_to_base, base_qty_of, unit_options, default_tier, conversion_text, norm_ratio,
 )
 # 阶段 1（第 3 项）：状态跃迁白名单的唯一源（见 `db/queries/doc_state.py`）。
-from db.queries.doc_state import check_transition, guard_sql, status_label, IllegalTransition
+from db.queries.doc_state import (check_transition, guard_sql, status_label,
+                                 IllegalTransition, _phase, editable_fields,
+                                 status_token_clause)
 # v415（P2-7）：采购单「自定义字段」—— 定义层与校验层**复用**报单矩阵那套唯一实现
 #   （`db/queries/forecast_columns.py`），本文件**只负责把值落进/读出 `purchase_orders.extra_json`**。
 #   🔴 绝不在这里另写一份"字段存不存在 / 值是不是数字"的校验 —— 抄两份必然在边界上分岔。
@@ -454,12 +456,16 @@ def purchase_order_create(supplier_id, items, warehouse_id=1, note='', operator_
 
 def purchase_order_update(oid, supplier_id=0, items=None, warehouse_id=1, note='',
                          operator_id='', expected_date='', order_date='', handler='',
-                         department_id=0, mark='', extra=None, source=''):
-    """P1-4 编辑一张**尚未入库**的采购单（draft / pending_approval / cancelled）。
+                         department_id=0, mark='', extra=None, source='',
+                         expected_status=None):
+    """P1-4 编辑一张**尚未入库**的采购单（draft / cancelled 可整单重写）。
 
-    🔴 闸门：只有这三个状态可改。一旦 `confirmed` / `received` / `partial` / `returned`，
-      库存 / 应付 / 批次都已落账，再改明细就是「改已发生的历史」⇒ 返回 `ok=False` 拒绝，
-      由调用方如实报出（不能假装保存成功）。这是进销存「写已发生事实」的硬边界。
+    🔴 闸门（阶段 1 第 4 项「提交后字段锁定」）：只有 `_phase == 'full'` 的状态能整单改。
+      原闸门放行 (draft, pending_approval, cancelled)；现 `pending_approval` 已提交，核心字段
+      锁死 ⇒ 整单重写被拦（备注/经手人/期望日期等走 `purchase_order_update_header`）。
+      保留 `cancelled` 整单可改是既有怪癖（本函数会把作废单重存并维持作废）。
+      一旦 `confirmed` / `received` / `partial` / `returned`，库存/应付/批次已落账，再改明细
+      就是「改已发生的历史」⇒ 拒绝。这是进销存「写已发生事实」的硬边界。
 
     实现：整单重写 —— 更新表头 + **删旧明细、按新 items 重插**。对未入库的单这是安全的
       （明细还没变成库存，没有外键 / 批次引用需要保留）。已入库的单走「退货」而不是「编辑」。
@@ -467,8 +473,8 @@ def purchase_order_update(oid, supplier_id=0, items=None, warehouse_id=1, note='
     🔴 复刻 `purchase_order_create` 的明细写入纪律：批次三列 / 单位换算 / 自定义字段 / 空则不加列
       一切照旧，保证「编辑后保存」与「新建」走**同一套**落库逻辑（唯一实现，不抄第二份）。
 
-    状态：若当前是 draft / pending_approval，按金额阈值重新判定（与建单一致）；否则保持原状态
-      （cancelled 编辑后仍 cancelled —— 取消态不该被编辑偷偷改回进行中）。
+    乐观锁：`expected_status` 是客户端加载时读到的状态，UPDATE 末尾拼 `AND status=?`；
+      并发下有人先把单子提交了（status 变了），本次 rowcount=0 ⇒ 如实报「已被他人改」。
     """
     items = items or []
     if not supplier_id:
@@ -482,16 +488,22 @@ def purchase_order_update(oid, supplier_id=0, items=None, warehouse_id=1, note='
             return {'ok': False, 'error': '采购单不存在'}
         o = dict(o)
         _st = o['status']
-        if _st not in ('draft', 'pending_approval', 'cancelled'):
-            return {'ok': False, 'error': '该单据已%s，不能编辑（如需改，请走退货流程）' % _st}
+        # 阶段 1（第 4 项）：提交后字段锁定 —— 离开草稿类的整单重写不再允许。
+        # 原闸门放行 (draft, pending_approval, cancelled)；现 `pending_approval` 已提交，
+        # 核心字段锁死 ⇒ 整单改被拦（备注/经手人等走 update_header）。cancelled 保留整单可改。
+        _ph = _phase('purchase_order', _st)
+        if _ph != 'full':
+            return {'ok': False, 'error': '该单据已%s，不能整单编辑（如需调整交易内容，请走退/换流程；'
+                                          '备注、经手人、期望日期可在详情页行内修改）'
+                    % status_label('purchase_order', _st)}
 
         def _line_amount(it):
             a = it.get('amount')
             return float(a) if a is not None else it['quantity'] * it['unit_price']
 
         total = sum(_line_amount(it) for it in items)
-        # 重新判定状态（仅对草稿类有效）。
-        if _st in ('draft', 'pending_approval'):
+        # 重新判定状态（仅草稿有效；cancelled 保持取消）。
+        if _st == 'draft':
             try:
                 r = db.execute("SELECT value FROM system_config WHERE key='approval_threshold'").fetchone()
                 threshold = int(r['value']) if r else DEFAULT_APPROVAL_THRESHOLD
@@ -502,14 +514,20 @@ def purchase_order_update(oid, supplier_id=0, items=None, warehouse_id=1, note='
             new_st = _st  # cancelled 保持取消
 
         # —— 表头更新（只改可编辑字段，其余原样保留）——
-        db.execute(
+        # 阶段 1（第 4 项）：乐观锁 —— 用加载时的 status 作令牌，并发下有人先把单子提交
+        #   （status 变了），本次 rowcount=0 ⇒ 整单未生效、如实报「已被他人改」。
+        _tok_sql, _tok_params = status_token_clause(expected_status if expected_status else _st)
+        _hdr_cur = db.execute(
             "UPDATE purchase_orders SET supplier_id=?, warehouse_id=?, total_amount=?, note=?, "
             "expected_date=?, order_date=?, handler=?, department_id=?, mark=?, status=? "
-            + ("WHERE id=?" if True else ""),
+            "WHERE id=?" + _tok_sql,
             (supplier_id, warehouse_id, total, note, expected_date,
              str(order_date).strip() if str(order_date or '').strip() else o.get('order_date') or '',
              str(handler or '').strip(), int(department_id or 0), str(mark or '').strip(),
-             new_st, oid))
+             new_st, oid) + tuple(_tok_params))
+        if not _hdr_cur.rowcount:
+            return {'ok': False, 'error': '该采购单刚被别人改过状态（现为%s），本次整单编辑未生效，请刷新后重试'
+                    % status_label('purchase_order', expected_status if expected_status else _st)}
         # v415（P2-7）自定义字段：随编辑写入（空 dict ⇒ 清空 extra_json）。
         _extra = {}
         if extra is not None:
@@ -1462,7 +1480,8 @@ _PO_STOCKED_STATUS = ("received", "partial", "returned")
 
 
 def purchase_order_update_header(oid, note=None, expected_date=None, handler=None,
-                                 department_id=None, warehouse_id=None, order_date=None):
+                                 department_id=None, warehouse_id=None, order_date=None,
+                                 expected_status=None):
     """v452-followup（O10）／v453（R5）：更新采购单头部的**安全字段**。
 
     可写列与各自的闸门（🔴 分三档，**逐个字段**判，不是一个开关管全部）：
@@ -1487,7 +1506,17 @@ def purchase_order_update_header(oid, note=None, expected_date=None, handler=Non
         if not cur:
             return {"error": "订单不存在"}
         cur = dict(cur)
+        # 阶段 1（第 4 项）：字段锁单一源 —— 哪些字段在当前状态可改，统一问 doc_state。
+        # 仓库是否可改由「是否已入库」决定（已入库锁仓库）；其余安全字段任何状态可改。
+        _cur_status = str(cur.get("status") or "")
+        _allow = editable_fields('purchase_order', _cur_status,
+                                include_warehouse=(_cur_status not in _PO_STOCKED_STATUS))
         sets, vals = [], []
+        # 未来若有人在此函数新增可写列，非安全字段会被这一道直接拦下（单一源兜底）。
+        for _f in ('note', 'expected_date', 'handler', 'department_id', 'order_date'):
+            if locals().get(_f) is not None and _f not in _allow:
+                return {"error": "该单据已处于「%s」，字段「%s」已锁定不可修改"
+                        % (status_label('purchase_order', _cur_status), _f)}
         if note is not None:
             sets.append("note=?")
             vals.append(str(note))
@@ -1540,8 +1569,16 @@ def purchase_order_update_header(oid, note=None, expected_date=None, handler=Non
             vals.append(_od)
         if not sets:
             return {"success": True, "updated": 0}
+        # 阶段 1（第 4 项）：乐观锁 —— 用加载时的 status 作令牌，并发下有人先改了状态，
+        #   本次 rowcount=0 ⇒ 如实报「已被他人改」，不静默覆盖。
+        _tok_sql, _tok_params = status_token_clause(expected_status if expected_status else _cur_status)
         vals.append(oid)
-        db.execute("UPDATE purchase_orders SET %s WHERE id=?" % ", ".join(sets), vals)
+        _upd = db.execute(
+            "UPDATE purchase_orders SET %s WHERE id=?%s" % (", ".join(sets), _tok_sql),
+            list(vals) + _tok_params)
+        if not _upd.rowcount:
+            return {"error": "该采购单刚被别人改过状态（现为%s），本次修改未生效，请刷新后重试"
+                    % status_label('purchase_order', expected_status if expected_status else _cur_status)}
         db.commit()
         return {"success": True, "updated": len(sets)}
 

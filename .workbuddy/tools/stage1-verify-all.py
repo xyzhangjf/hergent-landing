@@ -23,6 +23,8 @@ STEPS = [
     ('库存写入点静态护栏', 'stage1-stock-write-guard.py', []),
     ('状态写入点静态护栏', 'stage1-doc-state-guard.py', []),
     ('状态机内核验收（含坏样本）', 'stage1-doc-state-verify.py', []),
+    ('字段锁 + 乐观锁内核验收（含坏样本）', 'stage1-field-lock-verify.py', []),
+    ('字段锁 + 乐观锁 函数级 e2e（真实 purchase_order_update）', 'stage1-field-lock-e2e.py', []),
     ('统一三写演示数据验证', 'stage1-stock-movement-e2e.py', []),
     ('状态跃迁端到端（真实业务函数）', 'stage1-doc-state-e2e.py', []),
     ('链路演练 C 组（录生产日期 + 收敛版）', 'stage1-demo-e2e.py', ['--with-fix', '--prod-date']),

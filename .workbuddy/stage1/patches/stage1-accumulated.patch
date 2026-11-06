@@ -722,16 +722,102 @@
  def stock_take_start():
 --- a/db/queries/purchases.py
 +++ b/db/queries/purchases.py
-@@ -9,6 +9,8 @@
+@@ -9,6 +9,10 @@
  from db.queries.units import (
      ratio_to_base, base_qty_of, unit_options, default_tier, conversion_text, norm_ratio,
  )
 +# 阶段 1（第 3 项）：状态跃迁白名单的唯一源（见 `db/queries/doc_state.py`）。
-+from db.queries.doc_state import check_transition, guard_sql, status_label, IllegalTransition
++from db.queries.doc_state import (check_transition, guard_sql, status_label,
++                                 IllegalTransition, _phase, editable_fields,
++                                 status_token_clause)
  # v415（P2-7）：采购单「自定义字段」—— 定义层与校验层**复用**报单矩阵那套唯一实现
  #   （`db/queries/forecast_columns.py`），本文件**只负责把值落进/读出 `purchase_orders.extra_json`**。
  #   🔴 绝不在这里另写一份"字段存不存在 / 值是不是数字"的校验 —— 抄两份必然在边界上分岔。
-@@ -622,11 +624,14 @@
+@@ -452,12 +456,16 @@
+ 
+ def purchase_order_update(oid, supplier_id=0, items=None, warehouse_id=1, note='',
+                          operator_id='', expected_date='', order_date='', handler='',
+-                         department_id=0, mark='', extra=None, source=''):
+-    """P1-4 编辑一张**尚未入库**的采购单（draft / pending_approval / cancelled）。
++                         department_id=0, mark='', extra=None, source='',
++                         expected_status=None):
++    """P1-4 编辑一张**尚未入库**的采购单（draft / cancelled 可整单重写）。
+ 
+-    🔴 闸门：只有这三个状态可改。一旦 `confirmed` / `received` / `partial` / `returned`，
+-      库存 / 应付 / 批次都已落账，再改明细就是「改已发生的历史」⇒ 返回 `ok=False` 拒绝，
+-      由调用方如实报出（不能假装保存成功）。这是进销存「写已发生事实」的硬边界。
++    🔴 闸门（阶段 1 第 4 项「提交后字段锁定」）：只有 `_phase == 'full'` 的状态能整单改。
++      原闸门放行 (draft, pending_approval, cancelled)；现 `pending_approval` 已提交，核心字段
++      锁死 ⇒ 整单重写被拦（备注/经手人/期望日期等走 `purchase_order_update_header`）。
++      保留 `cancelled` 整单可改是既有怪癖（本函数会把作废单重存并维持作废）。
++      一旦 `confirmed` / `received` / `partial` / `returned`，库存/应付/批次已落账，再改明细
++      就是「改已发生的历史」⇒ 拒绝。这是进销存「写已发生事实」的硬边界。
+ 
+     实现：整单重写 —— 更新表头 + **删旧明细、按新 items 重插**。对未入库的单这是安全的
+       （明细还没变成库存，没有外键 / 批次引用需要保留）。已入库的单走「退货」而不是「编辑」。
+@@ -465,8 +473,8 @@
+     🔴 复刻 `purchase_order_create` 的明细写入纪律：批次三列 / 单位换算 / 自定义字段 / 空则不加列
+       一切照旧，保证「编辑后保存」与「新建」走**同一套**落库逻辑（唯一实现，不抄第二份）。
+ 
+-    状态：若当前是 draft / pending_approval，按金额阈值重新判定（与建单一致）；否则保持原状态
+-      （cancelled 编辑后仍 cancelled —— 取消态不该被编辑偷偷改回进行中）。
++    乐观锁：`expected_status` 是客户端加载时读到的状态，UPDATE 末尾拼 `AND status=?`；
++      并发下有人先把单子提交了（status 变了），本次 rowcount=0 ⇒ 如实报「已被他人改」。
+     """
+     items = items or []
+     if not supplier_id:
+@@ -480,16 +488,22 @@
+             return {'ok': False, 'error': '采购单不存在'}
+         o = dict(o)
+         _st = o['status']
+-        if _st not in ('draft', 'pending_approval', 'cancelled'):
+-            return {'ok': False, 'error': '该单据已%s，不能编辑（如需改，请走退货流程）' % _st}
++        # 阶段 1（第 4 项）：提交后字段锁定 —— 离开草稿类的整单重写不再允许。
++        # 原闸门放行 (draft, pending_approval, cancelled)；现 `pending_approval` 已提交，
++        # 核心字段锁死 ⇒ 整单改被拦（备注/经手人等走 update_header）。cancelled 保留整单可改。
++        _ph = _phase('purchase_order', _st)
++        if _ph != 'full':
++            return {'ok': False, 'error': '该单据已%s，不能整单编辑（如需调整交易内容，请走退/换流程；'
++                                          '备注、经手人、期望日期可在详情页行内修改）'
++                    % status_label('purchase_order', _st)}
+ 
+         def _line_amount(it):
+             a = it.get('amount')
+             return float(a) if a is not None else it['quantity'] * it['unit_price']
+ 
+         total = sum(_line_amount(it) for it in items)
+-        # 重新判定状态（仅对草稿类有效）。
+-        if _st in ('draft', 'pending_approval'):
++        # 重新判定状态（仅草稿有效；cancelled 保持取消）。
++        if _st == 'draft':
+             try:
+                 r = db.execute("SELECT value FROM system_config WHERE key='approval_threshold'").fetchone()
+                 threshold = int(r['value']) if r else DEFAULT_APPROVAL_THRESHOLD
+@@ -500,14 +514,20 @@
+             new_st = _st  # cancelled 保持取消
+ 
+         # —— 表头更新（只改可编辑字段，其余原样保留）——
+-        db.execute(
++        # 阶段 1（第 4 项）：乐观锁 —— 用加载时的 status 作令牌，并发下有人先把单子提交
++        #   （status 变了），本次 rowcount=0 ⇒ 整单未生效、如实报「已被他人改」。
++        _tok_sql, _tok_params = status_token_clause(expected_status if expected_status else _st)
++        _hdr_cur = db.execute(
+             "UPDATE purchase_orders SET supplier_id=?, warehouse_id=?, total_amount=?, note=?, "
+             "expected_date=?, order_date=?, handler=?, department_id=?, mark=?, status=? "
+-            + ("WHERE id=?" if True else ""),
++            "WHERE id=?" + _tok_sql,
+             (supplier_id, warehouse_id, total, note, expected_date,
+              str(order_date).strip() if str(order_date or '').strip() else o.get('order_date') or '',
+              str(handler or '').strip(), int(department_id or 0), str(mark or '').strip(),
+-             new_st, oid))
++             new_st, oid) + tuple(_tok_params))
++        if not _hdr_cur.rowcount:
++            return {'ok': False, 'error': '该采购单刚被别人改过状态（现为%s），本次整单编辑未生效，请刷新后重试'
++                    % status_label('purchase_order', expected_status if expected_status else _st)}
+         # v415（P2-7）自定义字段：随编辑写入（空 dict ⇒ 清空 extra_json）。
+         _extra = {}
+         if extra is not None:
+@@ -622,11 +642,14 @@
        （否则"谁把它退回待审的"永远查不出来）。
      """
      _st, _sp = _po_stamp(operator_id)
@@ -747,7 +833,7 @@
          db.commit()
          if not cur.rowcount:
              return {'order_id': oid, 'ok': False,
-@@ -646,14 +651,21 @@
+@@ -646,14 +669,21 @@
      """
      _st, _sp = _po_stamp(operator_id)
      with get_db() as db:
@@ -770,7 +856,7 @@
          return {'order_id': oid, 'ok': True, 'status': 'cancelled'}
  
  
-@@ -755,8 +767,14 @@
+@@ -755,8 +785,14 @@
          #   而这里原本只收 ('draft','approved') ⇒ **审核通过的单根本入不了库**
          #   （前端 canConfirm 与后端逐字对齐，所以按钮也不显示 —— 老板看到的「没有入库入口」）。
          #   `approved` 保留：存量/其他链路可能有这个值，去掉是破坏性变更。
@@ -787,7 +873,7 @@
          # QC gate: check if rejected QC records exist for this PO
          try:
              qc = db.execute("SELECT result FROM qc_records WHERE ref_type='purchase_order' AND ref_id=? AND result!='pending' ORDER BY id DESC LIMIT 1", (oid,)).fetchone()
-@@ -789,7 +807,10 @@
+@@ -789,7 +825,10 @@
              #    只换数量不换价，`inventory.cost_price` 会记成「40 袋 @100 元」（应为 2.5 元/袋），
              #    加权平均成本随之错几十倍，而且**零报错**（库存看着对、成本全错）。
              #    两者相乘仍等于原行金额（`qty × price`），金额口径不变。
@@ -799,7 +885,7 @@
              _n_recv += 1
              # 🔴 v404：把「整单全收」这件事**落到明细行**（`received_qty = quantity`）。
              #    此前只有 `purchase_order_partial_receive` 会写这一列，`confirm` 从不写 ⇒
-@@ -832,14 +853,20 @@
+@@ -832,14 +871,20 @@
          # ⚠️ `audit_time` 只在为空时补：已走显式审核的单不能被覆盖成入库时刻。
          #    对「金额低于阈值、免审批直接建单」的单，这一步是它**唯一**的审核时间来源 ——
          #    不补则该列对它永久为空，用户会以为系统坏了。取值 = 「这张单最后一次被人工确认的时刻」。
@@ -822,7 +908,7 @@
          # v408（P0-6）：**入库时间**（`received_at`）—— 与上面的 `audit_time` 是**两个不同事实**，
          # 所以是**另一条语句、另一个口径**，不要顺手并进上面那条 UPDATE：
          #   · `audit_time`  = 审核时刻；已审核的单**不能被覆盖**（CASE WHEN 空则补）。
-@@ -893,8 +920,14 @@
+@@ -893,8 +938,14 @@
      _st, _sp = _po_stamp(operator_id)
      with get_db() as db:
          # v697c：同上，补 `confirmed`。
@@ -839,7 +925,7 @@
          received_count = 0; total_count = 0
          for item_input in items:
              it = db.execute("SELECT * FROM purchase_order_items WHERE order_id=? AND product_id=?",(oid, item_input['product_id'])).fetchone()
-@@ -974,16 +1007,21 @@
+@@ -974,16 +1025,21 @@
                      "  status=CASE WHEN amount<=? THEN 'paid' ELSE 'partial' END WHERE id=?",
                      (_pre_m, _pre_m, _ap_id))
          # Set status
@@ -863,6 +949,52 @@
          if _moved > 0:
              db.execute("UPDATE purchase_orders SET received_at=datetime('now','localtime') WHERE id=?", (oid,))
          db.commit()
+@@ -1424,7 +1480,8 @@
+ 
+ 
+ def purchase_order_update_header(oid, note=None, expected_date=None, handler=None,
+-                                 department_id=None, warehouse_id=None, order_date=None):
++                                 department_id=None, warehouse_id=None, order_date=None,
++                                 expected_status=None):
+     """v452-followup（O10）／v453（R5）：更新采购单头部的**安全字段**。
+ 
+     可写列与各自的闸门（🔴 分三档，**逐个字段**判，不是一个开关管全部）：
+@@ -1449,7 +1506,17 @@
+         if not cur:
+             return {"error": "订单不存在"}
+         cur = dict(cur)
++        # 阶段 1（第 4 项）：字段锁单一源 —— 哪些字段在当前状态可改，统一问 doc_state。
++        # 仓库是否可改由「是否已入库」决定（已入库锁仓库）；其余安全字段任何状态可改。
++        _cur_status = str(cur.get("status") or "")
++        _allow = editable_fields('purchase_order', _cur_status,
++                                include_warehouse=(_cur_status not in _PO_STOCKED_STATUS))
+         sets, vals = [], []
++        # 未来若有人在此函数新增可写列，非安全字段会被这一道直接拦下（单一源兜底）。
++        for _f in ('note', 'expected_date', 'handler', 'department_id', 'order_date'):
++            if locals().get(_f) is not None and _f not in _allow:
++                return {"error": "该单据已处于「%s」，字段「%s」已锁定不可修改"
++                        % (status_label('purchase_order', _cur_status), _f)}
+         if note is not None:
+             sets.append("note=?")
+             vals.append(str(note))
+@@ -1502,8 +1569,16 @@
+             vals.append(_od)
+         if not sets:
+             return {"success": True, "updated": 0}
++        # 阶段 1（第 4 项）：乐观锁 —— 用加载时的 status 作令牌，并发下有人先改了状态，
++        #   本次 rowcount=0 ⇒ 如实报「已被他人改」，不静默覆盖。
++        _tok_sql, _tok_params = status_token_clause(expected_status if expected_status else _cur_status)
+         vals.append(oid)
+-        db.execute("UPDATE purchase_orders SET %s WHERE id=?" % ", ".join(sets), vals)
++        _upd = db.execute(
++            "UPDATE purchase_orders SET %s WHERE id=?%s" % (", ".join(sets), _tok_sql),
++            list(vals) + _tok_params)
++        if not _upd.rowcount:
++            return {"error": "该采购单刚被别人改过状态（现为%s），本次修改未生效，请刷新后重试"
++                    % status_label('purchase_order', expected_status if expected_status else _cur_status)}
+         db.commit()
+         return {"success": True, "updated": len(sets)}
+ 
 --- a/db/queries/sales.py
 +++ b/db/queries/sales.py
 @@ -3,6 +3,9 @@
@@ -1374,7 +1506,7 @@
 +    return n
 --- /dev/null
 +++ b/db/queries/doc_state.py
-@@ -0,0 +1,392 @@
+@@ -0,0 +1,489 @@
 +# -*- coding: utf-8 -*-
 +"""单据状态机 —— 状态词表、跃迁白名单、统一写入口（阶段 1 · 第 3 项）
 +
@@ -1429,6 +1561,7 @@
 +    'IllegalTransition', 'DOC_SPECS', 'STATUS_LABEL',
 +    'spec', 'status_label', 'docstatus_of', 'allowed_targets', 'allowed_sources',
 +    'check_transition', 'explain', 'guard_sql', 'set_doc_status',
++    'editable_fields', 'assert_no_locked_fields', 'status_token_clause',
 +]
 +
 +
@@ -1576,6 +1709,102 @@
 +_CANCELLED_STATES = {'cancelled', 'voided'}
 +# 未提交（可编辑）状态：docstatus = 0
 +_DRAFT_STATES = {'draft', 'pending_approval', 'rejected'}
++
++# ═══════════════════════════════════════════════════════════════════════════
++# 字段锁（FIELD LOCK）—— 阶段 1 · 第 4 项「提交后字段锁定 + 乐观锁」
++# ─────────────────────────────────────────────────────────────────────────────
++# 🔴 与状态白名单同源：规则只在这里定义一次，所有编辑入口统一来查，不抄第二份。
++#
++# 背景：收口前「状态」无守卫，导致「提交/审批/入库后还能整单改」—— 改的是已发生的
++#   历史（库存/应付/批次已落账），却零报错。第 3 项只管「状态怎么跳」，本段管
++#   「在某个状态下，哪些字段还能改」。
++#
++# 设计（不新增物理列，复用 `status` 作并发令牌）：
++#   · `_phase(doc_type, status)` 把状态归到三档：
++#       'full'      —— 草稿类，可整单编辑（核心字段 + 安全字段都能改）；
++#       'submitted' —— 已提交/审批/确认/拣货/调拨完成，核心交易字段锁死，
++#                       只留「安全字段」（备注/经手人/部门/期望日期/单据日期）；
++#       'terminal'  —— 已入/已发/已签/已退/已处置/已退款/作废，仓库也锁，只留安全字段。
++#   · `editable_fields(doc_type, status)` 返回当前状态下**允许客户端修改**的字段集合。
++#   · `assert_no_locked_fields(doc_type, status, attempted)` 校验一批想改的字段，
++#       有锁死的就返回中文错误（含当前状态中文名），否则返回 None。
++#   · 乐观锁：编辑写入统一 `WHERE id=? AND status=?`（status = 客户端加载时的值），
++#       并发下别人先把单子提交了（status 变了），本次 rowcount=0 ⇒ 抛「已被他人改」。
++#
++# ⚠️ `_phase` 对采购单保留一个既有怪癖：`cancelled` 仍归 'full'（purchase_order_update
++#   会把作废单重新整单保存并维持作废）。其余单据的 `cancelled` 一律 'terminal'。
++# ═══════════════════════════════════════════════════════════════════════════
++
++# 每个单据类型的「核心交易字段」—— 提交后必须锁死、绝不允许直接改的字段。
++_CORE_FIELDS = {
++    'purchase_order': {'supplier_id', 'warehouse_id', 'items', 'product_id',
++                       'quantity', 'unit', 'unit_price', 'amount', 'total_amount'},
++    'sale_order': {'customer_id', 'warehouse_id', 'items', 'product_id',
++                   'quantity', 'unit', 'unit_price', 'amount', 'total_amount',
++                   'discount', 'tax_rate', 'tax_amount', 'driver_id', 'vehicle_id',
++                   'delivery_date', 'delivery_address'},
++    'transfer_order': {'warehouse_id', 'from_warehouse_id', 'to_warehouse_id',
++                       'items', 'product_id', 'quantity', 'unit'},
++    'purchase_return': {'supplier_id', 'warehouse_id', 'items', 'product_id',
++                        'quantity', 'unit', 'unit_price', 'amount'},
++    'return_order': {'customer_id', 'warehouse_id', 'items', 'product_id',
++                     'quantity', 'unit', 'unit_price', 'amount'},
++}
++
++# 安全字段：任何状态下都可改（不触账本/库存/应付，只改描述/归属/日期）。
++_SAFE_FIELDS = {'note', 'handler', 'department_id', 'expected_date', 'order_date'}
++
++# 已提交但未入/未发的状态：核心锁，安全字段 + 仓库（同仓）可改。
++_SUBMITTED_STATES = {'pending_approval', 'approved', 'confirmed', 'picking', 'completed'}
++
++
++def _phase(doc_type, status):
++    """字段锁相位：'full'（可整单改）| 'submitted'（核心锁，安全字段+同仓）| 'terminal'（仅安全字段）。"""
++    if status == 'draft':
++        return 'full'
++    if doc_type == 'purchase_order' and status == 'cancelled':
++        return 'full'  # 既有怪癖：作废采购单可重新整单保存并维持作废
++    if status in _SUBMITTED_STATES:
++        return 'submitted'
++    return 'terminal'
++
++
++def editable_fields(doc_type, status, include_warehouse=True):
++    """当前状态下**允许客户端修改**的字段集合。
++
++    - full：核心字段 + 安全字段（整单可改）
++    - submitted：安全字段（+ 仓库，当 `include_warehouse` 为真且未入库时）
++    - terminal：仅安全字段（仓库锁）
++    """
++    if _phase(doc_type, status) == 'full':
++        return set(_CORE_FIELDS.get(doc_type, set())) | set(_SAFE_FIELDS)
++    fields = set(_SAFE_FIELDS)
++    if include_warehouse and _phase(doc_type, status) == 'submitted':
++        fields.add('warehouse_id')
++    return fields
++
++
++def assert_no_locked_fields(doc_type, status, attempted_fields):
++    """`attempted_fields` 是客户端想改的字段集合。若有当前状态锁死的字段，
++    返回中文错误（含当前状态中文名 + 首个被锁字段）；否则返回 None。
++
++    用途：编辑入口在落库前调用，把「提交后还去改核心字段」的请求挡在写入之前。
++    """
++    attempted = set(attempted_fields or ())
++    allowed = editable_fields(doc_type, status)
++    locked = attempted - allowed
++    if not locked:
++        return None
++    f = sorted(locked)[0]
++    return ('该单据已处于「%s」，字段「%s」已锁定不可修改；如需调整交易内容，'
++            '请走对应的退/换流程，不要直接改单'
++            % (status_label(doc_type, status), f))
++
++
++def status_token_clause(expected_status):
++    """乐观锁片段：返回 `(' AND status=?', [expected_status])`。
++    编辑入口把它拼到 UPDATE 末尾，rowcount=0 即代表「状态已被别人改」。"""
++    return (' AND status=?', [str(expected_status)])
 +
 +# 反查表：status 值 → 中文名。同名状态在不同单据下含义相同，取首个即可。
 +STATUS_LABEL = {}

@@ -52,6 +52,7 @@ __all__ = [
     'IllegalTransition', 'DOC_SPECS', 'STATUS_LABEL',
     'spec', 'status_label', 'docstatus_of', 'allowed_targets', 'allowed_sources',
     'check_transition', 'explain', 'guard_sql', 'set_doc_status',
+    'editable_fields', 'assert_no_locked_fields', 'status_token_clause',
 ]
 
 
@@ -199,6 +200,102 @@ DOC_SPECS = {
 _CANCELLED_STATES = {'cancelled', 'voided'}
 # 未提交（可编辑）状态：docstatus = 0
 _DRAFT_STATES = {'draft', 'pending_approval', 'rejected'}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 字段锁（FIELD LOCK）—— 阶段 1 · 第 4 项「提交后字段锁定 + 乐观锁」
+# ─────────────────────────────────────────────────────────────────────────────
+# 🔴 与状态白名单同源：规则只在这里定义一次，所有编辑入口统一来查，不抄第二份。
+#
+# 背景：收口前「状态」无守卫，导致「提交/审批/入库后还能整单改」—— 改的是已发生的
+#   历史（库存/应付/批次已落账），却零报错。第 3 项只管「状态怎么跳」，本段管
+#   「在某个状态下，哪些字段还能改」。
+#
+# 设计（不新增物理列，复用 `status` 作并发令牌）：
+#   · `_phase(doc_type, status)` 把状态归到三档：
+#       'full'      —— 草稿类，可整单编辑（核心字段 + 安全字段都能改）；
+#       'submitted' —— 已提交/审批/确认/拣货/调拨完成，核心交易字段锁死，
+#                       只留「安全字段」（备注/经手人/部门/期望日期/单据日期）；
+#       'terminal'  —— 已入/已发/已签/已退/已处置/已退款/作废，仓库也锁，只留安全字段。
+#   · `editable_fields(doc_type, status)` 返回当前状态下**允许客户端修改**的字段集合。
+#   · `assert_no_locked_fields(doc_type, status, attempted)` 校验一批想改的字段，
+#       有锁死的就返回中文错误（含当前状态中文名），否则返回 None。
+#   · 乐观锁：编辑写入统一 `WHERE id=? AND status=?`（status = 客户端加载时的值），
+#       并发下别人先把单子提交了（status 变了），本次 rowcount=0 ⇒ 抛「已被他人改」。
+#
+# ⚠️ `_phase` 对采购单保留一个既有怪癖：`cancelled` 仍归 'full'（purchase_order_update
+#   会把作废单重新整单保存并维持作废）。其余单据的 `cancelled` 一律 'terminal'。
+# ═══════════════════════════════════════════════════════════════════════════
+
+# 每个单据类型的「核心交易字段」—— 提交后必须锁死、绝不允许直接改的字段。
+_CORE_FIELDS = {
+    'purchase_order': {'supplier_id', 'warehouse_id', 'items', 'product_id',
+                       'quantity', 'unit', 'unit_price', 'amount', 'total_amount'},
+    'sale_order': {'customer_id', 'warehouse_id', 'items', 'product_id',
+                   'quantity', 'unit', 'unit_price', 'amount', 'total_amount',
+                   'discount', 'tax_rate', 'tax_amount', 'driver_id', 'vehicle_id',
+                   'delivery_date', 'delivery_address'},
+    'transfer_order': {'warehouse_id', 'from_warehouse_id', 'to_warehouse_id',
+                       'items', 'product_id', 'quantity', 'unit'},
+    'purchase_return': {'supplier_id', 'warehouse_id', 'items', 'product_id',
+                        'quantity', 'unit', 'unit_price', 'amount'},
+    'return_order': {'customer_id', 'warehouse_id', 'items', 'product_id',
+                     'quantity', 'unit', 'unit_price', 'amount'},
+}
+
+# 安全字段：任何状态下都可改（不触账本/库存/应付，只改描述/归属/日期）。
+_SAFE_FIELDS = {'note', 'handler', 'department_id', 'expected_date', 'order_date'}
+
+# 已提交但未入/未发的状态：核心锁，安全字段 + 仓库（同仓）可改。
+_SUBMITTED_STATES = {'pending_approval', 'approved', 'confirmed', 'picking', 'completed'}
+
+
+def _phase(doc_type, status):
+    """字段锁相位：'full'（可整单改）| 'submitted'（核心锁，安全字段+同仓）| 'terminal'（仅安全字段）。"""
+    if status == 'draft':
+        return 'full'
+    if doc_type == 'purchase_order' and status == 'cancelled':
+        return 'full'  # 既有怪癖：作废采购单可重新整单保存并维持作废
+    if status in _SUBMITTED_STATES:
+        return 'submitted'
+    return 'terminal'
+
+
+def editable_fields(doc_type, status, include_warehouse=True):
+    """当前状态下**允许客户端修改**的字段集合。
+
+    - full：核心字段 + 安全字段（整单可改）
+    - submitted：安全字段（+ 仓库，当 `include_warehouse` 为真且未入库时）
+    - terminal：仅安全字段（仓库锁）
+    """
+    if _phase(doc_type, status) == 'full':
+        return set(_CORE_FIELDS.get(doc_type, set())) | set(_SAFE_FIELDS)
+    fields = set(_SAFE_FIELDS)
+    if include_warehouse and _phase(doc_type, status) == 'submitted':
+        fields.add('warehouse_id')
+    return fields
+
+
+def assert_no_locked_fields(doc_type, status, attempted_fields):
+    """`attempted_fields` 是客户端想改的字段集合。若有当前状态锁死的字段，
+    返回中文错误（含当前状态中文名 + 首个被锁字段）；否则返回 None。
+
+    用途：编辑入口在落库前调用，把「提交后还去改核心字段」的请求挡在写入之前。
+    """
+    attempted = set(attempted_fields or ())
+    allowed = editable_fields(doc_type, status)
+    locked = attempted - allowed
+    if not locked:
+        return None
+    f = sorted(locked)[0]
+    return ('该单据已处于「%s」，字段「%s」已锁定不可修改；如需调整交易内容，'
+            '请走对应的退/换流程，不要直接改单'
+            % (status_label(doc_type, status), f))
+
+
+def status_token_clause(expected_status):
+    """乐观锁片段：返回 `(' AND status=?', [expected_status])`。
+    编辑入口把它拼到 UPDATE 末尾，rowcount=0 即代表「状态已被别人改」。"""
+    return (' AND status=?', [str(expected_status)])
 
 # 反查表：status 值 → 中文名。同名状态在不同单据下含义相同，取首个即可。
 STATUS_LABEL = {}
