@@ -346,7 +346,7 @@
                    有到期日显示「到期 xxxx-xx-xx」），一眼能看出这行有没有填批次，不用点开才知道。 -->
               <td v-if="isVisible('batch')" class="ipn-c-batch" :class="{ 'has-val': batchText(row), 'batch-open': batchOpen === row.uid }">
                 <button type="button" class="ipn-batch-btn" :disabled="!row.product_id"
-                        :title="batchText(row) || '点开填写批次号 / 到期日 / 生产日期（选填）'"
+                        :title="batchText(row) || '点开填写批次号 / 到期日（选填）'"
                         @click.stop="toggleBatch(row)">
                   <span class="ipn-batch-txt">{{ batchText(row) || (row.product_id ? '填写' : '') }}</span>
                   <span class="ipn-batch-caret"><Icon name="chevron-down" :size="14" /></span>
@@ -360,11 +360,19 @@
                     <span class="ipn-bp-lb">到期日</span>
                     <input type="date" v-model="row.expiry_date" class="input ipn-in" />
                   </label>
-                  <label class="ipn-bp-row">
+                  <!-- v789：每个客户习惯不同 ⇒ 「是否录生产日期」交给用户自己选，租户级记忆。
+                       默认关：连输入框都不显示，不录的人完全不必看见它；开了也只是**选填**，绝不强制必录。 -->
+                  <label class="ipn-bp-row ipn-unitsw">
+                    <input type="checkbox"
+                           :checked="isExtra('recordProdDate', false)"
+                           @change="setExtra('recordProdDate', $event.target.checked)" />
+                    <span>录生产日期</span>
+                  </label>
+                  <label v-if="isExtra('recordProdDate', false)" class="ipn-bp-row">
                     <span class="ipn-bp-lb">生产日期</span>
                     <input type="date" v-model="row.production_date" class="input ipn-in" />
                   </label>
-                  <p class="ipn-bp-tip">空着也能保存：系统会给这批自动编号，无到期日的批次在出库时排最后。</p>
+                  <p class="ipn-bp-tip">批次号、到期日、生产日期都是选填。空着也能保存：系统会自动编号，无到期日的批次出库时排最后。</p>
                   <button type="button" class="ipn-bp-done" @click.stop="batchOpen = ''">完成</button>
                 </div>
               </td>
@@ -581,7 +589,9 @@ const DETAIL_COLS = [
   { key: 'note',  label: '行备注',   core: false },
   { key: 'op',    label: '操作',     core: true },
 ]
-const { isVisible, toggleCol, resetCols } = useColSettings('purchase-new', DETAIL_COLS)
+/* v789：isExtra/setExtra 是「页面级布尔偏好」，与列显隐同一份云端配置但分开存。
+   首个用例 = 「录生产日期」开关：每个客户习惯不一样，默认不录，且始终选填不强制。 */
+const { isVisible, toggleCol, resetCols, isExtra, setExtra } = useColSettings('purchase-new', DETAIL_COLS)
 const panel = ref(null)
 function openColMenu (e) { if (panel.value) panel.value.open(e) }
 
@@ -1378,7 +1388,8 @@ async function submit (mode) {
         unit: r.unit || '',
         batch_no: String(r.batch_no).trim(),
         expiry_date: r.expiry_date,
-        production_date: r.production_date || '',
+        // v789：开关关着时不带生产日期（避免编辑旧单把残留值误提交）；开着仍选填
+        production_date: isExtra('recordProdDate', false) ? (r.production_date || '') : '',
         // v408（P1-2）行备注：选填，空串 ⇒ 后端「空则不加列」
         note: String(r.note || '').trim(),
       })),
@@ -2104,6 +2115,9 @@ table.ipn-tbl tr:hover .ipn-v.is-locked { box-shadow: none }
   border-radius: var(--radius-md); box-shadow: var(--shadow-sm);
 }
 .ipn-bp-row { display: flex; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-h6) }
+/* v789：录生产日期开关复用同页 `.ipn-unitsw` 的原生 checkbox 长相（同页不造第二套开关），
+   这里只补它在批次小面板里的行间距。 */
+.ipn-bp-row.ipn-unitsw { gap: var(--sp-h6); color: var(--t2) }
 .ipn-bp-lb { flex: none; width: 52px; font-size:var(--fs-sm); color: var(--t3) }
 .ipn-bp-tip { margin: 0 0 var(--sp-h6); font-size:var(--fs-xs); line-height: var(--lh-tight); color: var(--t3) }
 .ipn-bp-done {

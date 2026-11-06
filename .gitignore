@@ -81,3 +81,8 @@ desktop-app/*.tar.gz
 
 # 视觉回归：临时抓图与 diff 产物不入库（基线 .workbuddy/visual-baseline/ 要入库）
 /.workbuddy/visual-run/
+
+# 阶段 1 演示数据沙箱：运行时副本（96MB 源码副本 + 库副本），每次演练重建，不入库
+/.workbuddy/stage1/demo-sandbox/
+# 只读基线含库存金额汇总（敏感），不入库
+/.workbuddy/stage1/ledger-baseline.json

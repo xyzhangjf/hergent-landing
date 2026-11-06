@@ -885,6 +885,21 @@ if (has('skip-sfc')) {
   results.push({ name: '前端构建号构建时注入', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊿·c 采购单「是否录生产日期」由用户自由选择（v789）──────────────
+/* 老张 2026-11-06 拍板：每个客户习惯不一样，不能写死「必须录生产日期」。
+   阶段 1 演示数据演练还实测出：录了生产日期、明细行也存了，但 confirm → batch_in
+   不接收该字段 ⇒ 台账里永远空（后端补丁在 .workbuddy/stage1/patches/）。
+   护栏：三态（旧无条件提交消失 / 新租户级开关出现 / 既有校验不丢）
+   ＋抽真实函数体注入 vm 实跑＋7 组坏样本自证。36 判据。
+   🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs。 */
+{
+  console.log('\n── ㊿·c 采购单生产日期可选（v789）──')
+  const r = run('purchase-prod-date-optional.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '采购单生产日期可选', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))

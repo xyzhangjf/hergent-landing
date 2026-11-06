@@ -59,6 +59,22 @@ export function useColSettings (page, colList) {
     persistCols()
   }
 
+  /* v789：除「列显隐」之外的**页面级布尔偏好**（首个用例：采购单「是否录生产日期」）。
+     与 colVis 分开存，理由有三：① 它不是表格列，混进列清单会让列设置面板出现一个
+     不存在的「列」；② resetCols() 重置列时不该顺手重置它；③ 后端 col_pref_save
+     把 cfg 当整体 JSON 存（只校验 dict 与大小），加 extra 键零后端改动。
+     🔴 没设过 extra 的页面，写出去的 cfg 与改动前**逐字一致**（不带 extra 键），
+        全站 27 个宿主页行为不变。 */
+  const extra = ref({})
+  function isExtra (key, def = false) {
+    const v = extra.value[key]
+    return typeof v === 'boolean' ? v : def
+  }
+  function setExtra (key, value) {
+    extra.value = { ...extra.value, [key]: !!value }
+    persistCols()
+  }
+
   // 可见性落云端：进站先同步一次；本地改动 debounce 推上去。
   const prefs = useColPrefs(page, {
     apply: (cfg) => {
@@ -67,12 +83,20 @@ export function useColSettings (page, colList) {
         Object.keys(v).forEach(k => { if (typeof cfg.vis[k] === 'boolean') v[k] = cfg.vis[k] })
         colVis.value = v
       }
+      if (cfg && cfg.extra && typeof cfg.extra === 'object') {
+        extra.value = { ...cfg.extra }
+      }
     },
-    snapshot: () => ({ vis: colVis.value }),
+    snapshot: () => _snapshot(),
   })
-  function persistCols () { prefs.push({ vis: colVis.value }) }
+  function _snapshot () {
+    return Object.keys(extra.value).length
+      ? { vis: colVis.value, extra: extra.value }
+      : { vis: colVis.value }
+  }
+  function persistCols () { prefs.push(_snapshot()) }
 
   onMounted(() => { prefs.syncFromCloud() })
 
-  return { colVis, isVisible, toggleCol, resetCols, persistCols }
+  return { colVis, isVisible, toggleCol, resetCols, persistCols, isExtra, setExtra }
 }

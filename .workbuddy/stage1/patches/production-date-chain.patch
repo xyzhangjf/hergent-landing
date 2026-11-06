@@ -1,0 +1,47 @@
+--- a/server/db/queries/inventory.py
++++ b/server/db/queries/inventory.py
+@@ -306,8 +306,12 @@
+         remaining -= take
+     return {"success": True, "used": used}
+ 
+-def batch_in(product_id, warehouse_id, quantity, cost_price=0, batch_no='', expiry_date='', db_conn=None):
+-    """入库时记录批次和效期。已有同批次则累加，否则新建。"""
++def batch_in(product_id, warehouse_id, quantity, cost_price=0, batch_no='', expiry_date='', db_conn=None, production_date=''):
++    """入库时记录批次和效期。已有同批次则累加，否则新建。
++
++    v789：新增 `production_date`（末尾关键字参数，既有按位置调用零影响）。
++    是否录由上游按用户偏好决定 —— 空串合法，**绝不强制必录**。
++    """
+     if db_conn is not None:
+         db = db_conn; own = False
+     else:
+@@ -324,9 +328,13 @@
+                 if own: db.commit()
+                 return {'batch': batch_no, 'quantity': new_qty, 'action': 'updated'}
+         # New batch record
++        # v789：production_date 如实落库 —— 此前 confirm 只传 batch_no/expiry_date，
++        #   前端录了生产日期、purchase_order_items 也存了，但 inventory 永远是空，
++        #   「录生产日期」等于白录。空串照写（不强制），不传时与改动前逐字一致。
+         db.execute(
+-                "INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,stock_value) VALUES (?,?,?,?,?,?,?)",
+-                (product_id, warehouse_id, quantity, cost_price, batch_no, expiry_date, quantity*(float(cost_price) or 0)))
++                "INSERT INTO inventory (product_id,warehouse_id,quantity,cost_price,batch_no,expiry_date,stock_value,production_date) VALUES (?,?,?,?,?,?,?,?)",
++                (product_id, warehouse_id, quantity, cost_price, batch_no, expiry_date,
++                 quantity*(float(cost_price) or 0), production_date or ''))
+         db.execute("INSERT INTO inventory_logs (product_id,warehouse_id,change_type,change_qty,before_qty,after_qty,cost_price,ref_type,ref_id,stock_value_before,stock_value_after,stock_value_difference) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (product_id,warehouse_id,'batch_in',quantity,0,quantity,cost_price,'batch_in',0, 0, quantity*(float(cost_price) or 0), quantity*(float(cost_price) or 0)))
+         if own: db.commit()
+--- a/server/db/queries/purchases.py
++++ b/server/db/queries/purchases.py
+@@ -789,7 +789,10 @@
+             #    只换数量不换价，`inventory.cost_price` 会记成「40 袋 @100 元」（应为 2.5 元/袋），
+             #    加权平均成本随之错几十倍，而且**零报错**（库存看着对、成本全错）。
+             #    两者相乘仍等于原行金额（`qty × price`），金额口径不变。
+-            batch_in(itd['product_id'], o['warehouse_id'], _in_qty, _poi_base_price(itd), batch_no, expiry, db_conn=db)
++            # v789：把明细行的生产日期透传给 batch_in —— 录不录由用户偏好决定，
++            #   空串合法（不强制）；此前只传 batch_no/expiry_date ⇒ 录了也不落台账。
++            batch_in(itd['product_id'], o['warehouse_id'], _in_qty, _poi_base_price(itd), batch_no, expiry,
++                     db_conn=db, production_date=itd.get('production_date', '') or '')
+             _n_recv += 1
+             # 🔴 v404：把「整单全收」这件事**落到明细行**（`received_qty = quantity`）。
+             #    此前只有 `purchase_order_partial_receive` 会写这一列，`confirm` 从不写 ⇒
