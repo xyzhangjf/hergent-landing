@@ -250,6 +250,10 @@ console.log('\n③ 双向登记（画环的必须登记 / 登记的必须还在�
   const stale = list.filter((w) => !painterMap.has(w))
   ok(stale.length === 0, '名单里没有过期条目（登记了但已经不再画环）',
     stale.length ? '过期：' + stale.join(' | ') : `${list.length} 条全部有效`)
+  /* v788：删掉 InvPurchaseNew.vue / InvSaleNew.vue 后，这两个旧容器类不再画环。
+     钉住它们不许回名单 —— 一旦有人把死页面挂回来，双向登记会先在这里判红。 */
+  ok(!list.some((w) => /ipn-hd-box|isn-hd-box/.test(w)),
+    'v788：v449 废弃的旧容器类不再登记（死页面已删，挂回来即判红）')
   ok(painterMap.size >= 5 && list.length >= 5,
     '解析自检：画环容器数 ≥ 5（正则失效抽成空集时上面两条会全票通过）',
     `画环=${painterMap.size} / 名单=${list.length}`)

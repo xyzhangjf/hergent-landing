@@ -184,8 +184,9 @@ const InvPurchaseList = () => import('../pages/inventory/InvPurchaseList.vue')
 /* 🔴 v449：`InvPurchaseNew.vue` / `InvSaleNew.vue` 两条懒加载常量**已删除** ——
    拆分后没有任何路由指向它们（对照实验：产物 `dist-v449/assets/` 里已无
    `InvPurchaseNew-*.js` / `InvSaleNew-*.js`，证明它们本来就是死引用）。
-   两个文件仍在磁盘上（是 7 个新页面「逐段搬移」的溯源基准），**待归档**；
-   但**不要**再把它们挂回路由 —— 那会让同一个业务出现两套建单页，差异会立刻漂移。 */
+   v788：两个源文件也已从磁盘删除（无路由、无 import），溯源改由 git 历史承担；
+   但**不要**再把它们挂回路由 —— 那会让同一个业务出现两套建单页，差异会立刻漂移。
+   `tests/product-pick.contract.mjs` 的 A2 段会判红「死页面重新出现」。 */
 const InvPurchaseDetail = () => import('../pages/inventory/InvPurchaseDetail.vue')
 const InvSaleList = () => import('../pages/inventory/InvSaleList.vue')
 /* v449+：调拨单**列表页**（真双仓 `transfer_orders`）。此前「调拨单」侧栏入口指向

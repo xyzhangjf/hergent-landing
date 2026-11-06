@@ -64,10 +64,14 @@ for (const f of PAGES) {
     `${f}：从 productPick.js 引入 REF_LIMIT`)
 }
 
-/* 历史遗留的死页面（`InvPurchaseNew.vue` / `InvSaleNew.vue` 无路由）不在判据里 ——
-   它们还写着 limit=500，但线上永远走不到。这条只做记录，不判红。 */
-const deadPath = path.join(ROOT, 'src/pages/inventory/InvPurchaseNew.vue')
-if (fs.existsSync(deadPath)) console.log('  ℹ️  死页面 InvPurchaseNew.vue 仍在仓里（无路由，不作判据）')
+/* v788：两个历史死页面已删除。原先这里只「记录不判红」，现在反过来钉住
+   「不许再出现」—— 一旦有人把它们挂回路由，同一个业务就有两套建单页，
+   差异会立刻漂移（router/index.js v449 注释原话）。溯源改由 git 历史承担。 */
+console.log('\nA2. 历史死页面已清理（防止挂回路由造成两套建单页）')
+for (const f of ['InvPurchaseNew.vue', 'InvSaleNew.vue']) {
+  ok(!fs.existsSync(path.join(ROOT, 'src/pages/inventory', f)),
+    `${f} 已删除（无路由、无 import，v449 起由 new/ 下 7 个页面取代）`)
+}
 
 /* ── B. 候选过滤唯一实现 ───────────────────────────────────────────────── */
 console.log('\nB. 商品候选过滤只走 pickMatches（不许页面各自抄一份 filter）')

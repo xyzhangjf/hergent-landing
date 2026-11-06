@@ -817,8 +817,14 @@ input,select,textarea{font-family:inherit;font-size:var(--fs-md);color:var(--t1)
    🔴 新增任何"用 :focus-within 画焦点环"的容器，**必须同时登记到下面 `:is()` 里**，
       否则又会冒出一大一小两层环。护栏 `tests/focus-ring-takeover.contract.mjs`
       双向查：画环的必须登记 / 登记了的必须还在画环。
+
+   v788：移除 `.ipn-hd-box .ipn-f` / `.isn-hd-box .isn-f` 两条过期登记 ——
+      这两个**旧容器类**只存在于 v449 废弃的 InvPurchaseNew.vue / InvSaleNew.vue，
+      v462 起已统一为 `.hd-box`；删掉死页面后双向登记护栏如实把它们判成过期条目。
+      ⚠️ `.ipn-f` / `.isn-f` 是**字段类**，仍在 new/ 下 4 个建单内核里广泛使用，
+         不要跟着一起删（`.hd-box .ipn-f` / `.hd-box .isn-f` 两条必须保留）。
    ============================================================ */
-:is(.hd-box .ipn-f,.hd-box .isn-f,.ipn-hd-box .ipn-f,.isn-hd-box .isn-f,
+:is(.hd-box .ipn-f,.hd-box .isn-f,
     .tb-search,.cp-search-bar,.cp-composer):focus-within
   :where(input,select,textarea):focus-visible{
   outline:none;

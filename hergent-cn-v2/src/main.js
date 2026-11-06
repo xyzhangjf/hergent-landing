@@ -63,13 +63,16 @@ app.directive('focus', {
   }
 })
 
-/* v591：前端构建号（**唯一定义处**）。用途只有一个 ——
-   部署后「页面没变化」时能一眼分清是「代码没生效」还是「浏览器还在跑老包」：
+/* v788：前端构建号改为**由 vite.config.js 在构建时注入**，此处只读、不再手改。
+   用途不变 —— 部署后「页面没变化」时一眼分清是「代码没生效」还是「浏览器还在跑老包」：
    长期开着的标签页不会重新拉 index.html，看的永远是旧 chunk（v590 就这样被误判成"没修好"）。
-   显示在「预报订单管理 → 修改日志」面板标题旁；也可在控制台 `document.documentElement.dataset.build` 查。
-   ⚠️ 每次发版必须手动改这一行（没有 CI 注入），漏改会让版本核对失效。 */
-window.__HG_BUILD__ = 'v756'
-if (typeof document !== 'undefined') document.documentElement.setAttribute('data-build', window.__HG_BUILD__)
-console.info('[HG] 前端构建', window.__HG_BUILD__)
+   显示在「预报订单管理 → 修改日志」面板标题旁；控制台可查 `window.__HG_BUILD_FULL__`
+   或 `document.documentElement.dataset.build`，格式 `vNNN@提交短哈希@构建时间`，
+   能直接定位线上这份包对应哪次提交（阶段 0「线上跑什么可回答」的硬缺口之一）。
+   🔴 不要再在这里手写版本号：v591～v787 那行漏改 31 版，已在阶段 0 核实中确认为真实事故。 */
+window.__HG_BUILD__ = __HG_BUILD_VERSION__
+window.__HG_BUILD_FULL__ = __HG_BUILD_FULL__
+if (typeof document !== 'undefined') document.documentElement.setAttribute('data-build', window.__HG_BUILD_FULL__)
+console.info('[HG] 前端构建', window.__HG_BUILD_FULL__)
 
 app.use(pinia).use(router).mount('#app')

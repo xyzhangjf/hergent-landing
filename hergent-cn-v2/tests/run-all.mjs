@@ -871,6 +871,20 @@ if (has('skip-sfc')) {
   results.push({ name: '我的提交明细行', ok: r.code === 0, code: r.code })
 }
 
+// ── ㊿·b 前端构建号构建时注入（v788）────────────────────────────
+/* 阶段 0 实测：main.js 手工构建号漏改 31 版（线上 v787 / 源码 v756），
+   排查「改了没变」时 data-build 反而误导。现由 vite.config.js 构建时注入
+   vNNN@提交短哈希@构建时间。护栏：三态（旧硬编码消失 / 新注入出现 / 消费点不丢）
+   ＋动态 import 真实 config 校验格式与 HEAD 哈希一致＋4 组坏样本自证。
+   🔴 必须显式注册：run-all 不自动扫描 *.contract.mjs。 */
+{
+  console.log('\n── ㊿·b 前端构建号构建时注入（v788）──')
+  const r = run('frontend-build-id.contract.mjs', [], { timeout: 60000 })
+  const tail = r.out.split('\n').filter(Boolean).slice(-3).join('\n   ')
+  console.log(r.code === 0 ? '  ✅ PASS' : '  ❌ FAIL', '\n   ' + tail)
+  results.push({ name: '前端构建号构建时注入', ok: r.code === 0, code: r.code })
+}
+
 // ── 汇总 ────────────────────────────────────────────────────
 const failed = results.filter((r) => !r.ok)
 console.log('\n' + '='.repeat(66))
