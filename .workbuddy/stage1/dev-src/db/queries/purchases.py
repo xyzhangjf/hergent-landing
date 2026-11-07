@@ -12,7 +12,7 @@ from db.queries.units import (
 # 阶段 1（第 3 项）：状态跃迁白名单的唯一源（见 `db/queries/doc_state.py`）。
 from db.queries.doc_state import (check_transition, guard_sql, status_label,
                                  IllegalTransition, _phase, editable_fields,
-                                 status_token_clause)
+                                 status_token_clause, record_doc_version)
 # v415（P2-7）：采购单「自定义字段」—— 定义层与校验层**复用**报单矩阵那套唯一实现
 #   （`db/queries/forecast_columns.py`），本文件**只负责把值落进/读出 `purchase_orders.extra_json`**。
 #   🔴 绝不在这里另写一份"字段存不存在 / 值是不是数字"的校验 —— 抄两份必然在边界上分岔。
@@ -449,6 +449,8 @@ def purchase_order_create(supplier_id, items, warehouse_id=1, note='', operator_
                 _ivals.append(_vn)
             db.execute("INSERT INTO purchase_order_items (%s) VALUES (%s)" % (
                            ",".join(_icols), ",".join("?" * len(_icols))), _ivals)
+        # 阶段 1（第 5 项 · C）：建单留痕（时间线第一条 = create）。
+        record_doc_version(db, 'purchase_order', oid, 'create', status_to=st, actor=operator_id)
         if db_conn is None:
             db.commit()
     return {'order_id':oid,'order_no':no,'total_amount':total}
@@ -528,6 +530,12 @@ def purchase_order_update(oid, supplier_id=0, items=None, warehouse_id=1, note='
         if not _hdr_cur.rowcount:
             return {'ok': False, 'error': '该采购单刚被别人改过状态（现为%s），本次整单编辑未生效，请刷新后重试'
                     % status_label('purchase_order', expected_status if expected_status else _st)}
+        # 阶段 1（第 5 项 · C）：整单重写留痕（草稿/作废单的编辑也进时间线）。
+        record_doc_version(db, 'purchase_order', oid, 'field_edit',
+                           status_from=_st, status_to=new_st, actor=operator_id,
+                           fields_changed=['supplier_id', 'warehouse_id', 'total_amount',
+                                           'note', 'expected_date', 'order_date', 'handler',
+                                           'department_id', 'mark', 'items'])
         # v415（P2-7）自定义字段：随编辑写入（空 dict ⇒ 清空 extra_json）。
         _extra = {}
         if extra is not None:
@@ -1481,7 +1489,7 @@ _PO_STOCKED_STATUS = ("received", "partial", "returned")
 
 def purchase_order_update_header(oid, note=None, expected_date=None, handler=None,
                                  department_id=None, warehouse_id=None, order_date=None,
-                                 expected_status=None):
+                                 expected_status=None, operator_id=''):
     """v452-followup（O10）／v453（R5）：更新采购单头部的**安全字段**。
 
     可写列与各自的闸门（🔴 分三档，**逐个字段**判，不是一个开关管全部）：
@@ -1579,6 +1587,11 @@ def purchase_order_update_header(oid, note=None, expected_date=None, handler=Non
         if not _upd.rowcount:
             return {"error": "该采购单刚被别人改过状态（现为%s），本次修改未生效，请刷新后重试"
                     % status_label('purchase_order', expected_status if expected_status else _cur_status)}
+        # 阶段 1（第 5 项 · C）：安全字段编辑留痕（哪些列实际被改，逐列记录）。
+        _changed = [s.split('=?')[0] for s in sets]
+        record_doc_version(db, 'purchase_order', oid, 'field_edit',
+                           status_from=_cur_status, status_to=_cur_status, actor=operator_id,
+                           fields_changed=_changed)
         db.commit()
         return {"success": True, "updated": len(sets)}
 

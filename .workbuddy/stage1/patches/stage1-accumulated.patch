@@ -21,7 +21,21 @@
     · erp_db.py                     打包发货 / RMA 驳回·处置·退款 / AI 回滚 / 撤销建议 补守卫；
                                     影子状态机报错改中文
 
-不新增 `docstatus` 物理列：本轮用 `docstatus_of()` 派生（理由见 doc_state.py 文件头）。
+  第 4 项 · 提交后字段锁定 + 乐观锁
+    · db/queries/doc_state.py       新增：字段锁单一源 _phase / editable_fields /
+                                    assert_no_locked_fields / status_token_clause
+    · db/queries/purchases.py       两处编辑入口接字段锁 + 复用 status 令牌乐观锁
+
+  第 5 项 · C · doc_versions 单据版本时间线
+    · db/queries/doc_state.py       新增：doc_versions 表（惰性 CREATE TABLE IF NOT EXISTS，
+                                    不单独发迁移）+ record_doc_version / doc_version_timeline；
+                                    set_doc_status 状态跃迁统一留痕（对全部单据类型生效）
+    · db/queries/purchases.py       purchase_order_create 写 create、purchase_order_update
+                                    写 field_edit（整单重写）、purchase_order_update_header
+                                    写 field_edit（安全字段逐列）
+
+不新增 `docstatus` / `version` 物理列：本轮用 `docstatus_of()` 派生、version 用 MAX+1 自增
+（理由见 doc_state.py 文件头）。
 
 用法
 ----
@@ -729,11 +743,20 @@
 +# 阶段 1（第 3 项）：状态跃迁白名单的唯一源（见 `db/queries/doc_state.py`）。
 +from db.queries.doc_state import (check_transition, guard_sql, status_label,
 +                                 IllegalTransition, _phase, editable_fields,
-+                                 status_token_clause)
++                                 status_token_clause, record_doc_version)
  # v415（P2-7）：采购单「自定义字段」—— 定义层与校验层**复用**报单矩阵那套唯一实现
  #   （`db/queries/forecast_columns.py`），本文件**只负责把值落进/读出 `purchase_orders.extra_json`**。
  #   🔴 绝不在这里另写一份"字段存不存在 / 值是不是数字"的校验 —— 抄两份必然在边界上分岔。
-@@ -452,12 +456,16 @@
+@@ -445,6 +449,8 @@
+                 _ivals.append(_vn)
+             db.execute("INSERT INTO purchase_order_items (%s) VALUES (%s)" % (
+                            ",".join(_icols), ",".join("?" * len(_icols))), _ivals)
++        # 阶段 1（第 5 项 · C）：建单留痕（时间线第一条 = create）。
++        record_doc_version(db, 'purchase_order', oid, 'create', status_to=st, actor=operator_id)
+         if db_conn is None:
+             db.commit()
+     return {'order_id':oid,'order_no':no,'total_amount':total}
+@@ -452,12 +458,16 @@
  
  def purchase_order_update(oid, supplier_id=0, items=None, warehouse_id=1, note='',
                           operator_id='', expected_date='', order_date='', handler='',
@@ -755,7 +778,7 @@
  
      实现：整单重写 —— 更新表头 + **删旧明细、按新 items 重插**。对未入库的单这是安全的
        （明细还没变成库存，没有外键 / 批次引用需要保留）。已入库的单走「退货」而不是「编辑」。
-@@ -465,8 +473,8 @@
+@@ -465,8 +475,8 @@
      🔴 复刻 `purchase_order_create` 的明细写入纪律：批次三列 / 单位换算 / 自定义字段 / 空则不加列
        一切照旧，保证「编辑后保存」与「新建」走**同一套**落库逻辑（唯一实现，不抄第二份）。
  
@@ -766,7 +789,7 @@
      """
      items = items or []
      if not supplier_id:
-@@ -480,16 +488,22 @@
+@@ -480,16 +490,22 @@
              return {'ok': False, 'error': '采购单不存在'}
          o = dict(o)
          _st = o['status']
@@ -793,7 +816,7 @@
              try:
                  r = db.execute("SELECT value FROM system_config WHERE key='approval_threshold'").fetchone()
                  threshold = int(r['value']) if r else DEFAULT_APPROVAL_THRESHOLD
-@@ -500,14 +514,20 @@
+@@ -500,14 +516,26 @@
              new_st = _st  # cancelled 保持取消
  
          # —— 表头更新（只改可编辑字段，其余原样保留）——
@@ -814,10 +837,16 @@
 +        if not _hdr_cur.rowcount:
 +            return {'ok': False, 'error': '该采购单刚被别人改过状态（现为%s），本次整单编辑未生效，请刷新后重试'
 +                    % status_label('purchase_order', expected_status if expected_status else _st)}
++        # 阶段 1（第 5 项 · C）：整单重写留痕（草稿/作废单的编辑也进时间线）。
++        record_doc_version(db, 'purchase_order', oid, 'field_edit',
++                           status_from=_st, status_to=new_st, actor=operator_id,
++                           fields_changed=['supplier_id', 'warehouse_id', 'total_amount',
++                                           'note', 'expected_date', 'order_date', 'handler',
++                                           'department_id', 'mark', 'items'])
          # v415（P2-7）自定义字段：随编辑写入（空 dict ⇒ 清空 extra_json）。
          _extra = {}
          if extra is not None:
-@@ -622,11 +642,14 @@
+@@ -622,11 +650,14 @@
        （否则"谁把它退回待审的"永远查不出来）。
      """
      _st, _sp = _po_stamp(operator_id)
@@ -833,7 +862,7 @@
          db.commit()
          if not cur.rowcount:
              return {'order_id': oid, 'ok': False,
-@@ -646,14 +669,21 @@
+@@ -646,14 +677,21 @@
      """
      _st, _sp = _po_stamp(operator_id)
      with get_db() as db:
@@ -856,7 +885,7 @@
          return {'order_id': oid, 'ok': True, 'status': 'cancelled'}
  
  
-@@ -755,8 +785,14 @@
+@@ -755,8 +793,14 @@
          #   而这里原本只收 ('draft','approved') ⇒ **审核通过的单根本入不了库**
          #   （前端 canConfirm 与后端逐字对齐，所以按钮也不显示 —— 老板看到的「没有入库入口」）。
          #   `approved` 保留：存量/其他链路可能有这个值，去掉是破坏性变更。
@@ -873,7 +902,7 @@
          # QC gate: check if rejected QC records exist for this PO
          try:
              qc = db.execute("SELECT result FROM qc_records WHERE ref_type='purchase_order' AND ref_id=? AND result!='pending' ORDER BY id DESC LIMIT 1", (oid,)).fetchone()
-@@ -789,7 +825,10 @@
+@@ -789,7 +833,10 @@
              #    只换数量不换价，`inventory.cost_price` 会记成「40 袋 @100 元」（应为 2.5 元/袋），
              #    加权平均成本随之错几十倍，而且**零报错**（库存看着对、成本全错）。
              #    两者相乘仍等于原行金额（`qty × price`），金额口径不变。
@@ -885,7 +914,7 @@
              _n_recv += 1
              # 🔴 v404：把「整单全收」这件事**落到明细行**（`received_qty = quantity`）。
              #    此前只有 `purchase_order_partial_receive` 会写这一列，`confirm` 从不写 ⇒
-@@ -832,14 +871,20 @@
+@@ -832,14 +879,20 @@
          # ⚠️ `audit_time` 只在为空时补：已走显式审核的单不能被覆盖成入库时刻。
          #    对「金额低于阈值、免审批直接建单」的单，这一步是它**唯一**的审核时间来源 ——
          #    不补则该列对它永久为空，用户会以为系统坏了。取值 = 「这张单最后一次被人工确认的时刻」。
@@ -908,7 +937,7 @@
          # v408（P0-6）：**入库时间**（`received_at`）—— 与上面的 `audit_time` 是**两个不同事实**，
          # 所以是**另一条语句、另一个口径**，不要顺手并进上面那条 UPDATE：
          #   · `audit_time`  = 审核时刻；已审核的单**不能被覆盖**（CASE WHEN 空则补）。
-@@ -893,8 +938,14 @@
+@@ -893,8 +946,14 @@
      _st, _sp = _po_stamp(operator_id)
      with get_db() as db:
          # v697c：同上，补 `confirmed`。
@@ -925,7 +954,7 @@
          received_count = 0; total_count = 0
          for item_input in items:
              it = db.execute("SELECT * FROM purchase_order_items WHERE order_id=? AND product_id=?",(oid, item_input['product_id'])).fetchone()
-@@ -974,16 +1025,21 @@
+@@ -974,16 +1033,21 @@
                      "  status=CASE WHEN amount<=? THEN 'paid' ELSE 'partial' END WHERE id=?",
                      (_pre_m, _pre_m, _ap_id))
          # Set status
@@ -949,17 +978,17 @@
          if _moved > 0:
              db.execute("UPDATE purchase_orders SET received_at=datetime('now','localtime') WHERE id=?", (oid,))
          db.commit()
-@@ -1424,7 +1480,8 @@
+@@ -1424,7 +1488,8 @@
  
  
  def purchase_order_update_header(oid, note=None, expected_date=None, handler=None,
 -                                 department_id=None, warehouse_id=None, order_date=None):
 +                                 department_id=None, warehouse_id=None, order_date=None,
-+                                 expected_status=None):
++                                 expected_status=None, operator_id=''):
      """v452-followup（O10）／v453（R5）：更新采购单头部的**安全字段**。
  
      可写列与各自的闸门（🔴 分三档，**逐个字段**判，不是一个开关管全部）：
-@@ -1449,7 +1506,17 @@
+@@ -1449,7 +1514,17 @@
          if not cur:
              return {"error": "订单不存在"}
          cur = dict(cur)
@@ -977,7 +1006,7 @@
          if note is not None:
              sets.append("note=?")
              vals.append(str(note))
-@@ -1502,8 +1569,16 @@
+@@ -1502,8 +1577,21 @@
              vals.append(_od)
          if not sets:
              return {"success": True, "updated": 0}
@@ -992,6 +1021,11 @@
 +        if not _upd.rowcount:
 +            return {"error": "该采购单刚被别人改过状态（现为%s），本次修改未生效，请刷新后重试"
 +                    % status_label('purchase_order', expected_status if expected_status else _cur_status)}
++        # 阶段 1（第 5 项 · C）：安全字段编辑留痕（哪些列实际被改，逐列记录）。
++        _changed = [s.split('=?')[0] for s in sets]
++        record_doc_version(db, 'purchase_order', oid, 'field_edit',
++                           status_from=_cur_status, status_to=_cur_status, actor=operator_id,
++                           fields_changed=_changed)
          db.commit()
          return {"success": True, "updated": len(sets)}
  
@@ -1506,7 +1540,7 @@
 +    return n
 --- /dev/null
 +++ b/db/queries/doc_state.py
-@@ -0,0 +1,489 @@
+@@ -0,0 +1,587 @@
 +# -*- coding: utf-8 -*-
 +"""单据状态机 —— 状态词表、跃迁白名单、统一写入口（阶段 1 · 第 3 项）
 +
@@ -1555,6 +1589,7 @@
 +"""
 +from __future__ import annotations
 +
++import json
 +from datetime import datetime
 +
 +__all__ = [
@@ -1562,6 +1597,7 @@
 +    'spec', 'status_label', 'docstatus_of', 'allowed_targets', 'allowed_sources',
 +    'check_transition', 'explain', 'guard_sql', 'set_doc_status',
 +    'editable_fields', 'assert_no_locked_fields', 'status_token_clause',
++    'record_doc_version', 'doc_version_timeline',
 +]
 +
 +
@@ -1991,8 +2027,104 @@
 +            '%s #%s 刚被其他人改成别的状态，本次「%s」未生效，请刷新后重试'
 +            % (sp['label'], doc_id, status_label(doc_type, to_status))
 +        )
++    # 阶段 1（第 5 项 · C）：状态跃迁留痕 —— 任何单据的状态变化都从这里走，
++    #   所以时间线对全部单据类型统一生效（一张单「谁、何时、从什么变成什么」）。
++    record_doc_version(db, doc_type, doc_id, 'status_change',
++                       status_from=src, status_to=to_status, actor=operator_id)
 +    return {'id': doc_id, 'from': src, 'to': to_status,
 +            'from_label': status_label(doc_type, src),
 +            'to_label': status_label(doc_type, to_status),
 +            'docstatus': docstatus_of(doc_type, to_status),
 +            'operator_id': str(operator_id or '')}
++
++
++# ═══════════════════════════════════════════════════════════════════════════
++# 单据版本时间线（doc_versions）—— 阶段 1 · 第 5 项「C」
++# ─────────────────────────────────────────────────────────────────────────────
++# 目的：给每张核心单据留一条「谁、在什么时候、把单子从什么变成什么」的时间线。
++#   与状态白名单 / 字段锁同源：状态跃迁一律走本模块的 `set_doc_status`（已在此留痕），
++#   字段编辑走各单据的编辑入口（`purchase_order_update` / `purchase_order_update_header`
++#   等），两者都向本时间线写记录。
++#
++# 表结构（**随调用惰性创建**，不单独发迁移 —— 与本轮「不新增物理列、不单独迁移」的
++#   口径一致；多租户按「每租户一个 DB 文件」隔离，故不打 tenant 列）：
++#   doc_versions(id, doc_type, doc_id, version, action, status_from, status_to,
++#               actor, fields_changed, data, created_at)
++#   action ∈ {create, status_change, field_edit}
++#
++# ⚠️ `version` 按 (doc_type, doc_id) 自增（MAX+1，从 1 起），**不依赖任何新增物理列**；
++#   写入路径本就单连接串行，无需额外并发锁。
++# ═══════════════════════════════════════════════════════════════════════════
++
++def _ensure_doc_versions(db):
++    """惰性建表 + 唯一索引（幂等）。随首次写调用，无需单独迁移。"""
++    db.execute(
++        "CREATE TABLE IF NOT EXISTS doc_versions ("
++        "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
++        "  doc_type TEXT NOT NULL,"
++        "  doc_id TEXT NOT NULL,"
++        "  version INTEGER NOT NULL,"
++        "  action TEXT NOT NULL,"
++        "  status_from TEXT,"
++        "  status_to TEXT,"
++        "  actor TEXT,"
++        "  fields_changed TEXT,"
++        "  data TEXT,"
++        "  created_at TEXT NOT NULL)"
++    )
++    db.execute(
++        "CREATE UNIQUE INDEX IF NOT EXISTS uq_doc_versions_per_doc "
++        "ON doc_versions(doc_type, doc_id, version)"
++    )
++
++
++def record_doc_version(db, doc_type, doc_id, action,
++                       status_from=None, status_to=None, actor='',
++                       fields_changed=None, data=None):
++    """写一条版本记录（**不自行 commit**，事务归调用方）。
++
++    返回本次写入的 `version`。`fields_changed` 是本次实际改动字段名的列表；
++    `data` 是可选的结构化细节（如字段 old/new）。两者都以 JSON 存，空则存 NULL。
++    """
++    _ensure_doc_versions(db)
++    doc_id = str(doc_id)
++    ver = db.execute(
++        "SELECT COALESCE(MAX(version),0)+1 FROM doc_versions "
++        "WHERE doc_type=? AND doc_id=?", (doc_type, doc_id)).fetchone()[0]
++    db.execute(
++        "INSERT INTO doc_versions "
++        "(doc_type, doc_id, version, action, status_from, status_to, actor, "
++        " fields_changed, data, created_at) "
++        "VALUES (?,?,?,?,?,?,?,?,?,?)",
++        (doc_type, doc_id, ver, action,
++         None if status_from is None else str(status_from),
++         None if status_to is None else str(status_to),
++         str(actor or ''),
++         json.dumps(list(fields_changed or []), ensure_ascii=False)
++         if fields_changed is not None else None,
++         json.dumps(data, ensure_ascii=False) if data is not None else None,
++         datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
++    return ver
++
++
++def doc_version_timeline(db, doc_type, doc_id):
++    """取一张单的版本时间线（按 version 升序，JSON 字段已解析）。"""
++    _ensure_doc_versions(db)
++    rows = db.execute(
++        "SELECT version, action, status_from, status_to, actor, fields_changed, data, created_at "
++        "FROM doc_versions WHERE doc_type=? AND doc_id=? ORDER BY version ASC",
++        (doc_type, str(doc_id))).fetchall()
++    out = []
++    for r in rows:
++        d = dict(r) if hasattr(r, 'keys') else {
++            'version': r[0], 'action': r[1], 'status_from': r[2], 'status_to': r[3],
++            'actor': r[4], 'fields_changed': r[5], 'data': r[6], 'created_at': r[7]}
++        for _k in ('fields_changed', 'data'):
++            if d.get(_k):
++                try:
++                    d[_k] = json.loads(d[_k])
++                except (ValueError, TypeError):
++                    pass
++        out.append(d)
++    return out
++

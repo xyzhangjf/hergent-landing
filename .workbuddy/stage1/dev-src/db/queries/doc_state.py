@@ -46,6 +46,7 @@
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime
 
 __all__ = [
@@ -53,6 +54,7 @@ __all__ = [
     'spec', 'status_label', 'docstatus_of', 'allowed_targets', 'allowed_sources',
     'check_transition', 'explain', 'guard_sql', 'set_doc_status',
     'editable_fields', 'assert_no_locked_fields', 'status_token_clause',
+    'record_doc_version', 'doc_version_timeline',
 ]
 
 
@@ -482,8 +484,104 @@ def set_doc_status(db, doc_type, doc_id, to_status, operator_id='',
             '%s #%s 刚被其他人改成别的状态，本次「%s」未生效，请刷新后重试'
             % (sp['label'], doc_id, status_label(doc_type, to_status))
         )
+    # 阶段 1（第 5 项 · C）：状态跃迁留痕 —— 任何单据的状态变化都从这里走，
+    #   所以时间线对全部单据类型统一生效（一张单「谁、何时、从什么变成什么」）。
+    record_doc_version(db, doc_type, doc_id, 'status_change',
+                       status_from=src, status_to=to_status, actor=operator_id)
     return {'id': doc_id, 'from': src, 'to': to_status,
             'from_label': status_label(doc_type, src),
             'to_label': status_label(doc_type, to_status),
             'docstatus': docstatus_of(doc_type, to_status),
             'operator_id': str(operator_id or '')}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 单据版本时间线（doc_versions）—— 阶段 1 · 第 5 项「C」
+# ─────────────────────────────────────────────────────────────────────────────
+# 目的：给每张核心单据留一条「谁、在什么时候、把单子从什么变成什么」的时间线。
+#   与状态白名单 / 字段锁同源：状态跃迁一律走本模块的 `set_doc_status`（已在此留痕），
+#   字段编辑走各单据的编辑入口（`purchase_order_update` / `purchase_order_update_header`
+#   等），两者都向本时间线写记录。
+#
+# 表结构（**随调用惰性创建**，不单独发迁移 —— 与本轮「不新增物理列、不单独迁移」的
+#   口径一致；多租户按「每租户一个 DB 文件」隔离，故不打 tenant 列）：
+#   doc_versions(id, doc_type, doc_id, version, action, status_from, status_to,
+#               actor, fields_changed, data, created_at)
+#   action ∈ {create, status_change, field_edit}
+#
+# ⚠️ `version` 按 (doc_type, doc_id) 自增（MAX+1，从 1 起），**不依赖任何新增物理列**；
+#   写入路径本就单连接串行，无需额外并发锁。
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _ensure_doc_versions(db):
+    """惰性建表 + 唯一索引（幂等）。随首次写调用，无需单独迁移。"""
+    db.execute(
+        "CREATE TABLE IF NOT EXISTS doc_versions ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  doc_type TEXT NOT NULL,"
+        "  doc_id TEXT NOT NULL,"
+        "  version INTEGER NOT NULL,"
+        "  action TEXT NOT NULL,"
+        "  status_from TEXT,"
+        "  status_to TEXT,"
+        "  actor TEXT,"
+        "  fields_changed TEXT,"
+        "  data TEXT,"
+        "  created_at TEXT NOT NULL)"
+    )
+    db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_doc_versions_per_doc "
+        "ON doc_versions(doc_type, doc_id, version)"
+    )
+
+
+def record_doc_version(db, doc_type, doc_id, action,
+                       status_from=None, status_to=None, actor='',
+                       fields_changed=None, data=None):
+    """写一条版本记录（**不自行 commit**，事务归调用方）。
+
+    返回本次写入的 `version`。`fields_changed` 是本次实际改动字段名的列表；
+    `data` 是可选的结构化细节（如字段 old/new）。两者都以 JSON 存，空则存 NULL。
+    """
+    _ensure_doc_versions(db)
+    doc_id = str(doc_id)
+    ver = db.execute(
+        "SELECT COALESCE(MAX(version),0)+1 FROM doc_versions "
+        "WHERE doc_type=? AND doc_id=?", (doc_type, doc_id)).fetchone()[0]
+    db.execute(
+        "INSERT INTO doc_versions "
+        "(doc_type, doc_id, version, action, status_from, status_to, actor, "
+        " fields_changed, data, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (doc_type, doc_id, ver, action,
+         None if status_from is None else str(status_from),
+         None if status_to is None else str(status_to),
+         str(actor or ''),
+         json.dumps(list(fields_changed or []), ensure_ascii=False)
+         if fields_changed is not None else None,
+         json.dumps(data, ensure_ascii=False) if data is not None else None,
+         datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    return ver
+
+
+def doc_version_timeline(db, doc_type, doc_id):
+    """取一张单的版本时间线（按 version 升序，JSON 字段已解析）。"""
+    _ensure_doc_versions(db)
+    rows = db.execute(
+        "SELECT version, action, status_from, status_to, actor, fields_changed, data, created_at "
+        "FROM doc_versions WHERE doc_type=? AND doc_id=? ORDER BY version ASC",
+        (doc_type, str(doc_id))).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r) if hasattr(r, 'keys') else {
+            'version': r[0], 'action': r[1], 'status_from': r[2], 'status_to': r[3],
+            'actor': r[4], 'fields_changed': r[5], 'data': r[6], 'created_at': r[7]}
+        for _k in ('fields_changed', 'data'):
+            if d.get(_k):
+                try:
+                    d[_k] = json.loads(d[_k])
+                except (ValueError, TypeError):
+                    pass
+        out.append(d)
+    return out
+

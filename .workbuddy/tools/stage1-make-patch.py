@@ -66,7 +66,21 @@ HEADER = """阶段 1 累积补丁（账可信 + 状态可信）
     · erp_db.py                     打包发货 / RMA 驳回·处置·退款 / AI 回滚 / 撤销建议 补守卫；
                                     影子状态机报错改中文
 
-不新增 `docstatus` 物理列：本轮用 `docstatus_of()` 派生（理由见 doc_state.py 文件头）。
+  第 4 项 · 提交后字段锁定 + 乐观锁
+    · db/queries/doc_state.py       新增：字段锁单一源 _phase / editable_fields /
+                                    assert_no_locked_fields / status_token_clause
+    · db/queries/purchases.py       两处编辑入口接字段锁 + 复用 status 令牌乐观锁
+
+  第 5 项 · C · doc_versions 单据版本时间线
+    · db/queries/doc_state.py       新增：doc_versions 表（惰性 CREATE TABLE IF NOT EXISTS，
+                                    不单独发迁移）+ record_doc_version / doc_version_timeline；
+                                    set_doc_status 状态跃迁统一留痕（对全部单据类型生效）
+    · db/queries/purchases.py       purchase_order_create 写 create、purchase_order_update
+                                    写 field_edit（整单重写）、purchase_order_update_header
+                                    写 field_edit（安全字段逐列）
+
+不新增 `docstatus` / `version` 物理列：本轮用 `docstatus_of()` 派生、version 用 MAX+1 自增
+（理由见 doc_state.py 文件头）。
 
 用法
 ----
